@@ -276,3 +276,11 @@
 - [x] U21/U22：时代标题去除中文多余空格，钻石奖励改为图标色块与滚动数字；破产标题使用 display 粗体，重开按钮升级为 28u/4px 高对比 danger。
 
 门禁：`validate_data.py` 通过；`test_runner` 103/103；`visual_smoke` zh_CN 30/30、en 30/30。P1 对应视觉断言已加入 `tests/visual_smoke.gd`，后续回归不再只依赖人工目测。
+
+### 批次③ · G6 英文 30 态重点回归（2026-08-03）
+
+- [x] 使用 440×956 视口逐态复跑英文 30 屏；所有裁剪、兄弟 Label 叠印、内容压缩、按钮字色、触控尺寸与新增 P1 语义断言通过。
+- [x] 人工复核英文长文案高风险屏：`tech`、`store`、`settings`、`contract_comparison`、`rack_picker`、`era_unlock`、`game_over`。
+- [x] 30 态联系表：`docs/ui_review/09_batch3_en_30_contact.png`。
+
+结果：`visual_smoke --locale=en` 30/30 PASS；商店 tick 保持同一页面节点与滚动位置，未引入重建 jank。
