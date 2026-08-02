@@ -41,7 +41,9 @@
 ```sh
 godot --path .
 godot --headless --path . tests/test_runner.tscn
-godot --path . tests/visual_smoke.tscn
+godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=en
+godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN
+godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn
 python3 tools/validate_data.py
 python3 tools/simulate_economy.py
 ```

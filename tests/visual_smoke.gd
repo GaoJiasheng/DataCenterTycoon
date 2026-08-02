@@ -1,9 +1,15 @@
 extends Node
 
 const MAIN_SCENE := preload("res://main.tscn")
-const OUTPUT_ROOT := "/tmp/data_center_tycoon_visual_"
+const OUTPUT_ROOT_PREFIX := "/tmp/data_center_tycoon_visual_"
+
+var output_root := OUTPUT_ROOT_PREFIX
+var capture_locale := "zh_CN"
 
 func _ready() -> void:
+	capture_locale = _requested_locale()
+	TranslationServer.set_locale(capture_locale)
+	output_root = "%s%s_" % [OUTPUT_ROOT_PREFIX, capture_locale]
 	DisplayServer.window_set_size(Vector2i(402, 874))
 	Game.reset_for_tests()
 	Game.last_offline_report = {}
@@ -183,8 +189,16 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 30 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
+	print("VISUAL_SMOKE: %s 30 iPhone 17 portrait states locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
+
+func _requested_locale() -> String:
+	for argument: String in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if argument.begins_with("--locale="):
+			var requested := argument.trim_prefix("--locale=")
+			if requested in ["en", "zh_CN"]:
+				return requested
+	return "zh_CN"
 
 func _fill_market_history(point_count: int) -> void:
 	var history: Dictionary = {}
@@ -207,7 +221,7 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	var valid := not image.is_empty() and image.get_width() >= 402 and image.get_height() >= 874 and _layout_is_safe(main, name)
-	var output_path := "%s%s.png" % [OUTPUT_ROOT, name]
+	var output_path := "%s%s.png" % [output_root, name]
 	var save_error := image.save_png(output_path) if valid else ERR_CANT_CREATE
 	if not valid or save_error != OK:
 		push_error("VISUAL_SMOKE: %s failed size=%dx%d save_error=%d" % [name, image.get_width(), image.get_height(), save_error])

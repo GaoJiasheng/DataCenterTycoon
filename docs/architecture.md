@@ -14,12 +14,14 @@
 | 纯规则 | `gameplay/game_rules.gd` | 地价、供电顺序、四边冷却、收入、老化、残值、净值 |
 | 状态系统 | `core/game.gd`、`gameplay/market_system.gd` | 所有可变游戏状态、快进、建设、合约、故障、维护、时代、转生、破产 |
 | 持久化 | `core/save_manager.gd`、`core/game_clock.gd` | 临时文件原子改名、三备份、迁移、Game Over 留档、回拨防护 |
-| 表现 | `ui/main_view.gd`、`ui/theme_factory.gd`、`gameplay/map/park_map.gd` | 紧凑工业园区、正式九宫格 UI 套件、七项以内悬浮 HUD、动态主操作、安全区、地图拖拽缩放、情境抽屉、运营工作台、环境循环和对象绑定特效 |
+| 表现 | `ui/main_view.gd`、`ui/theme_factory.gd`、`ui/widgets.gd`、`ui/fx_layer.gd`、`ui/datacenter_board.gd`、`ui/tutorial_overlay.gd`、`ui/market_chart.gd`、`ui/sparkline.gd`、`gameplay/map/park_map.gd` | 紧凑工业园区、正式九宫格 UI 套件、悬浮 HUD、状态驱动局部刷新、金币/数字反馈、机房空间棋盘、聚光灯引导、行情可视化、危机与高光演出 |
 | 外部适配 | `core/asset_catalog.gd`、`core/audio_service.gd`、`core/monetization_service.gd` | 通过稳定 ID 隔离美术、音频、StoreKit 和激励视频 SDK |
 
-跨系统通知只经 `EventBus` 发送。UI 不自行计算收入、供电或冷却，避免表现值与结算值分叉。
+跨系统通知只经 `EventBus` 发送。UI 不自行实现收入、供电或冷却规则；合约预估通过复制机房字典后调用 `Rules.datacenter_income_per_month()`，自动测试要求它与签约后的权威值完全一致。
 
-根 UI 使用 804×1748 设计画布，对应 6.3 英寸 iPhone 17 的 402×874pt；桌面交互预览使用 880×1912，约等于 iPhone 17 Pro Max 逻辑尺寸的 2×，可充分利用 4K 屏幕高度。产品采用四层复杂度：持久化 `ParkMap` 世界层、七项以内的 HUD/动态主操作层、对象情境抽屉层，以及保留园区为背景的高不透明运营工作台层。园区以两列同基线的紧凑组团容纳多机房，奇数末项与下一块待购土地自动居中；所有素材先按非透明内容裁切，再吸附到统一地面锚点，避免透明画布造成视觉漂移。地图只为价格与倒计时保留短文本，其余状态收为对象角标；自动取景始终为底部引导和操作区预留空间。沿 2:1 等距轴移动的风迹、树木摆动、建筑呼吸、供电光环和实时施工倒计时只属于表现层，不改变模拟规则。草地保持无方向纹理，在具备真正的等距道路素材前不混用俯视道路贴图。机房工作台按机柜、基础设施、合约三项任务切换；科技按升级与成就分区。
+根 UI 使用 804×1748 设计画布，对应 6.3 英寸 iPhone 17 的 402×874pt；桌面交互预览使用 880×1912，约等于 iPhone 17 Pro Max 440×956pt 的 2×。产品采用四层复杂度：持久化 `ParkMap` 世界层、七项以内的 HUD/动态主操作层、对象情境抽屉层，以及保留园区为背景的高不透明运营工作台层。园区以两列同基线的紧凑组团容纳多机房，奇数末项与下一块待购土地自动居中；所有素材先按非透明内容裁切，再吸附到统一地面锚点。地图只为价格与倒计时保留短文本，其余状态收为可点击对象角标。沿 2:1 等距轴移动的风迹、树木摆动、建筑呼吸、供电光环和实时施工倒计时只属于表现层，不改变模拟规则。
+
+`state_changed("tick"|"offline_advance")` 只进入 `_refresh_hud()` 和节点上注册的 `live_update`；玩家动作才触发 `_refresh_page()`。页面重建前后由 `PageScroll` 缓存恢复滚动位置。机房抽屉直接嵌 `DatacenterBoard`，将供电、冷却与机柜合并为空间决策，独立深层只保留合约。字体固定为仓库内 Baloo 2 → Noto Sans SC fallback，按钮/面板优先使用交付九宫格，缺失资产时才回退 flat style。
 
 ## 存档模型
 
@@ -68,10 +70,13 @@ signal rewarded_completed(placement: String, earned: bool)
 ```sh
 python3 tools/validate_data.py
 godot --headless --path . --scene res://tests/test_runner.tscn
+godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=en
+godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN
+godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn
 python3 tools/simulate_economy.py
 python3 tools/check_assets.py --strict --audio
 python3 tools/check_app_store_assets.py
 python3 tools/check_release.py
 ```
 
-前三项是当前无外部依赖的回归门禁。后三项会在正式视听资源、商店截图与所有者账号值齐备前有意失败。
+核心规则、双语 30 态视觉和桌面 Metal 性能门禁无外部依赖。App Store 截图、原生 SDK、签名与所有者账号值齐备前，发行门禁会有意失败并逐项列出缺口。

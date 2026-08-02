@@ -1180,14 +1180,11 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	copy.add_theme_constant_override("separation", 5)
 	row.add_child(copy)
-	var title_row := HBoxContainer.new()
-	copy.add_child(title_row)
 	var title := _label(tr(product.get("name_key", "")), 27, ThemeMaker.COLORS.cream)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_row.add_child(title)
+	copy.add_child(title)
 	if product_id == "gems_m":
-		title_row.add_child(_metric_chip(tr("STORE_BEST_VALUE"), ThemeMaker.COLORS.yellow))
+		copy.add_child(_label("★ %s" % tr("STORE_BEST_VALUE"), 18, ThemeMaker.COLORS.yellow))
 	if product.has("description_key"):
 		var description := _label(tr(product.get("description_key", "")), 19, ThemeMaker.COLORS.cyan)
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
