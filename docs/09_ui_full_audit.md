@@ -284,3 +284,13 @@
 - [x] 30 态联系表：`docs/ui_review/09_batch3_en_30_contact.png`。
 
 结果：`visual_smoke --locale=en` 30/30 PASS；商店 tick 保持同一页面节点与滚动位置，未引入重建 jank。
+
+### 批次④ · A1 按钮素材重做与接入（2026-08-03）
+
+- [x] 按 §3 A1 模板独立生成 `primary / secondary / warning / danger / ad / disabled` 六张按钮；使用纯色色键工作流去背并以 RGBA/Lanczos 交付为 512×256。
+- [x] 六张成品 alpha 外边界均为 0，实际不透明包围盒约为 `(19, 41)–(494, 207)`；按钮中心保持纯净，顶部仅保留窄幅柔和明度变化，无旧版宽亮带。
+- [x] 正式资源写入 `art-renders/visual/final/ui/btn_*.png`，通过 `tools/import_assets.py --visual` 同步至 `assets/art/ui/`；`check_assets.py --strict` 134/134 有效。
+- [x] `ThemeFactory.art_button_box` 按新 alpha 包围盒重设裁切区域，并移除旧素材期间的 0.92 临时压暗，避免新资源二次降亮度。
+- [x] 透明度/配色联系表：`docs/ui_review/09_a1_buttons_contact.png`。
+
+门禁：`validate_data.py` 通过；`test_runner` 103/103；`visual_smoke` zh_CN 30/30、en 30/30。

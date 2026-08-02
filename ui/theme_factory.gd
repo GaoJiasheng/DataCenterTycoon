@@ -269,16 +269,13 @@ static func dialog_box() -> StyleBox:
 	return box
 
 static func art_button_box(asset_id: String, tint: Color = Color.WHITE) -> StyleBox:
-	# Pill geometry (512x256 source): opaque 10..502 x 58..198, cap curvature ~70px,
-	# bottom bevel ~17px. Side slices must clear the cap curve (80px) and text must
-	# clear rim + gloss, or labels land on the painted border.
-	# Until the matte A1 exports land, pull the legacy gloss below pure white so
-	# the top highlight can never erase the CTA copy.
-	var subdued_tint := tint * Color(0.92, 0.92, 0.92, 1.0)
-	var box := texture_box(asset_id, Vector4(80, 22, 80, 34), Vector4(56, 16, 56, 26), subdued_tint)
-	# Crop transparent export padding so a 44pt control still looks 44pt tall.
+	# A1 matte pill geometry (512x256 source): opaque 19..494 x 41..207.
+	# Side slices clear the rounded caps; content margins clear the rim and bevel.
+	var box := texture_box(asset_id, Vector4(80, 22, 80, 34), Vector4(56, 16, 56, 26), tint)
+	# Retain a small transparent gutter while removing export padding, so the
+	# painted silhouette scales to the full control without clipping its rim.
 	if box is StyleBoxTexture:
-		(box as StyleBoxTexture).region_rect = Rect2(0, 52, 512, 160)
+		(box as StyleBoxTexture).region_rect = Rect2(0, 36, 512, 180)
 	return box
 
 static func world_badge(accent: Color, compact: bool = false) -> StyleBox:
