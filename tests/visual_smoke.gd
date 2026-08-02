@@ -176,6 +176,17 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if node != null and node.is_visible_in_tree():
 			controls.append(node)
 	var valid := true
+	var font_probe := Label.new()
+	font_probe.name = "GlyphProbe"
+	font_probe.text = "稳障购罄"
+	font_probe.visible = false
+	main.add_child(font_probe)
+	var probe_font := font_probe.get_theme_font("font")
+	for character: String in ["稳", "障", "购", "罄"]:
+		if not probe_font.has_char(character.unicode_at(0)):
+			push_error("VISUAL_SMOKE: packaged font lacks glyph %s" % character)
+			valid = false
+	font_probe.queue_free()
 	for control: Control in controls:
 		var rect := control.get_global_rect()
 		var inside := rect.position.x >= viewport_rect.position.x - 1.0 and rect.position.y >= viewport_rect.position.y - 1.0 and rect.end.x <= viewport_rect.end.x + 1.0 and rect.end.y <= viewport_rect.end.y + 1.0

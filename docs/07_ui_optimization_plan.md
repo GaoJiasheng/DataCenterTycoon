@@ -405,8 +405,8 @@ ARREARS_BANNER, GAME_OVER_RESTART, TUTORIAL_TAP_HINT
 | WP0-7 「T1」时代术语 | ✅ 2026-08-02 | HUD 使用本地化 `ERA_SHORT`（时代/Era）。 |
 | WP0-8 死代码清理 | ✅ 2026-08-02 | 删除 `_build_map_page`、`_plot_card` 及失去调用方的 `_start_building`。 |
 | WP0-9 圆形按钮标签/换图标 | ✅ 2026-08-02 | 建设/运营入口增加世界文字标签；`ic_operations` 缺失时按资产纪律回退 `ic_network`。 |
-| WP1 字体打包 | ❌ **优先级提升** | `assets/fonts` 不存在；tofu 扩散：新文案「稳健」渲染为「□健」（rack_picker 态可复现） |
-| WP1 九宫格资产接入 / widgets.gd | ❌ | `art_button_box` 仍零调用方，全部按钮为纯色 flat |
+| WP1 字体打包 | ✅ 2026-08-02 | Baloo 2 + Noto Sans SC 可变字体及两份 OFL 已入库；全局 FontVariation 回退链与等宽数字字体启用；自动断言覆盖「稳/障/购/罄」。 |
+| WP1 九宫格资产接入 / widgets.gd | ✅ 2026-08-02 | `panel_main/panel_dark/btn_*/dialog_bubble/progress_*` 已接入主题；新增统一组件工厂，按钮按语义角色选皮肤；HUD 资源条补 `+` 商店入口并保留 flat 回退。 |
 | WP2 金币飞行 / 数字滚动 / 倒计时环 | ❌ | `fx_layer.gd` 不存在，现金标签跳变 |
 | WP3 机房棋盘（冷却覆盖/电力条/放置预判） | ❌ | 机柜页仍为按钮网格 + 背景图 |
 | WP4 行情图例/坐标/事件卡、科技路线图、签约收益对比 | ❌ | 行情页标题仍三重复；确认 sheet 无前后对比 |

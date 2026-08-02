@@ -1,6 +1,7 @@
 extends Control
 
 const ThemeMaker := preload("res://ui/theme_factory.gd")
+const Widgets := preload("res://ui/widgets.gd")
 const ChartScene := preload("res://ui/market_chart.gd")
 const ParkMapScene := preload("res://gameplay/map/park_map.gd")
 const Rules := preload("res://gameplay/game_rules.gd")
@@ -145,6 +146,9 @@ func _build_shell() -> void:
 	cash_chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cash_chip.size_flags_stretch_ratio = 1.4
 	cash_chip.add_theme_stylebox_override("panel", ThemeMaker.resource_panel())
+	cash_chip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	cash_chip.mouse_filter = Control.MOUSE_FILTER_STOP
+	cash_chip.gui_input.connect(_on_cash_chip_input)
 	cash_label = cash_chip.find_child("Value", true, false) as Label
 	topbar.add_child(cash_chip)
 	var gem_chip := _resource_chip("ic_diamond", ThemeMaker.COLORS.purple.lightened(0.2))
@@ -436,6 +440,10 @@ func _on_gem_chip_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
 		_navigate("store")
 
+func _on_cash_chip_input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+		_navigate("store")
+
 func _on_news_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
 		_navigate("market")
@@ -452,10 +460,7 @@ func _show_operations_hub() -> void:
 	heading.add_child(heading_copy)
 	heading_copy.add_child(_label(tr("OPERATIONS_CENTER"), 38, ThemeMaker.COLORS.cream))
 	heading_copy.add_child(_label(tr("OPERATIONS_SUBTITLE"), 22, ThemeMaker.COLORS.cyan))
-	var close_button := _button("×", _dismiss_world_sheet.bind(overlay), Color("263d59"))
-	close_button.custom_minimum_size = Vector2(88, 88)
-	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	close_button.add_theme_font_size_override("font_size", 36)
+	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	heading.add_child(close_button)
 
 	var queue_size: int = Game.state.get("construction_queue", []).size()
@@ -1088,10 +1093,7 @@ func _show_building_picker(plot_id: String) -> void:
 			plot_index = int(plot.get("index", 1))
 			break
 	heading_copy.add_child(_label(tr("PLOT_EMPTY") % plot_index, 22, ThemeMaker.COLORS.cyan))
-	var close_button := _button("×", _dismiss_world_sheet.bind(overlay), Color("263d59"))
-	close_button.custom_minimum_size = Vector2(88, 88)
-	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	close_button.add_theme_font_size_override("font_size", 36)
+	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	heading.add_child(close_button)
 
 	var scroll := ScrollContainer.new()
@@ -1297,10 +1299,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	header.add_child(copy)
 	copy.add_child(_label(tr(building.get("name_key", "")), 34, ThemeMaker.COLORS.cream))
 	copy.add_child(_label(_datacenter_status_text(dc), 23, _datacenter_status_color(dc)))
-	var close_button := _button("×", _dismiss_world_sheet.bind(overlay), Color("263d59"))
-	close_button.custom_minimum_size = Vector2(88, 88)
-	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	close_button.add_theme_font_size_override("font_size", 36)
+	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	header.add_child(close_button)
 	var metrics := HBoxContainer.new()
 	metrics.add_theme_constant_override("separation", 10)
@@ -1489,10 +1488,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	heading.add_child(title_label)
-	var close_button := _button("×", _dismiss_action_sheet.bind(overlay), Color("263d59"))
-	close_button.custom_minimum_size = Vector2(88, 88)
-	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	close_button.add_theme_font_size_override("font_size", 36)
+	var close_button := Widgets.close_button(_dismiss_action_sheet.bind(overlay))
 	heading.add_child(close_button)
 	if not body.is_empty():
 		var body_label := _label(body, 25, ThemeMaker.COLORS.cyan)
@@ -1897,7 +1893,15 @@ func _resource_chip(asset_id: String, accent: Color) -> PanelContainer:
 	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ThemeMaker.apply_numeric_text(value)
 	row.add_child(value)
+	var affordance := _label("+", ThemeMaker.TYPE_SCALE.heading, ThemeMaker.COLORS.ink)
+	affordance.name = "AddAffordance"
+	affordance.custom_minimum_size.x = 28
+	affordance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	affordance.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	affordance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(affordance)
 	return chip
 
 func _add_world_action_caption(button: Button, text: String) -> void:
@@ -1913,16 +1917,7 @@ func _add_world_action_caption(button: Button, text: String) -> void:
 	button.add_child(caption)
 
 func _metric_chip(text: String, accent: Color) -> PanelContainer:
-	var chip := PanelContainer.new()
-	chip.custom_minimum_size.y = 64
-	chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	chip.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("182d47"), Color(accent, 0.42), 1, 18))
-	var value := _label(text, 21, accent.lightened(0.18))
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	chip.add_child(value)
-	return chip
+	return Widgets.chip(text, accent.lightened(0.18))
 
 func _tab_button(page_id: String, label_key: String, asset_id: String) -> Button:
 	var button := Button.new()
@@ -2015,10 +2010,7 @@ func _system_page_header(title_text: String, subtitle: String, asset_id: String)
 		sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		sub.max_lines_visible = 1
 		copy.add_child(sub)
-	var close_button := _button("×", _navigate.bind("map"), Color("263d59"))
-	close_button.custom_minimum_size = Vector2(88, 88)
-	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	close_button.add_theme_font_size_override("font_size", 36)
+	var close_button := Widgets.close_button(_navigate.bind("map"))
 	header.add_child(close_button)
 	return header
 
@@ -2041,20 +2033,10 @@ func _segmented_control(items: Array, selected_id: String, callback: Callable) -
 	return panel
 
 func _section_title(title_text: String, subtitle: String) -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	var title := _label(title_text, 36, ThemeMaker.COLORS.cream)
-	box.add_child(title)
-	if not subtitle.is_empty():
-		var sub := _label(subtitle, 21, ThemeMaker.COLORS.cyan)
-		sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		box.add_child(sub)
-	return box
+	return Widgets.section_header(title_text, subtitle)
 
 func _card() -> PanelContainer:
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("13283c"), 0.97, 20))
-	return card
+	return Widgets.panel(true)
 
 func _empty_state(text: String) -> Control:
 	var label := _label(text, 27, ThemeMaker.COLORS.cyan)
@@ -2064,9 +2046,8 @@ func _empty_state(text: String) -> Control:
 	return label
 
 func _empty_action_state(asset_id: String, title_text: String, body_text: String, action_text: String, action: Callable, accent: Color) -> Control:
-	var card := PanelContainer.new()
+	var card := Widgets.panel(true)
 	card.custom_minimum_size.y = 560
-	card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("102236"), 0.96, 28))
 	var center := CenterContainer.new()
 	card.add_child(center)
 	var box := VBoxContainer.new()
@@ -2102,9 +2083,8 @@ func _status_card(asset_id: String, text: String, accent: Color) -> Control:
 	return card
 
 func _settings_toggle_row(setting_key: String, label_key: String) -> Control:
-	var card := PanelContainer.new()
+	var card := Widgets.panel(true)
 	card.custom_minimum_size.y = 100
-	card.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("102236"), Color(1, 1, 1, 0.07), 1, 22))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
 	card.add_child(row)
@@ -2176,17 +2156,7 @@ func _icon_view(asset_id: String, dimensions: Vector2) -> TextureRect:
 	return view
 
 func _button(text: String, action: Callable, color: Color = Color("3aa7f0")) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size.y = 88
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	button.clip_text = true
-	ThemeMaker.apply_button_color(button, color)
-	_wire_button_motion(button)
-	if action.is_valid():
-		button.pressed.connect(action)
-	return button
+	return Widgets.button(text, action, ThemeMaker.button_role_for_color(color))
 
 func _wire_button_motion(button: Button) -> void:
 	button.resized.connect(func() -> void: button.pivot_offset = button.size * 0.5)

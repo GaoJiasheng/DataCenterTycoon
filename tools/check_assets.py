@@ -10,6 +10,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ART_MANIFEST = ROOT / "assets/art/manifest.json"
 AUDIO_MANIFEST = ROOT / "assets/audio/manifest.json"
+FONT_FILES = {
+    "Baloo 2 variable": ROOT / "assets/fonts/Baloo2-Variable.ttf",
+    "Noto Sans SC variable": ROOT / "assets/fonts/NotoSansSC-Variable.ttf",
+    "Baloo 2 OFL": ROOT / "assets/fonts/OFL-Baloo2.txt",
+    "Noto Sans SC OFL": ROOT / "assets/fonts/OFL-NotoSansSC.txt",
+}
 
 
 def expanded_art_items():
@@ -93,12 +99,24 @@ def validate_audio(strict):
     return failures
 
 
+def validate_fonts():
+    failures = []
+    for label, path in FONT_FILES.items():
+        if not path.exists():
+            failures.append(f"{label}: missing {path.relative_to(ROOT)}")
+        elif path.stat().st_size == 0:
+            failures.append(f"{label}: empty file")
+    print(f"FONTS: {len(FONT_FILES) - len(failures)}/{len(FONT_FILES)} present")
+    return failures
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--strict", action="store_true", help="fail when expected files are missing")
     parser.add_argument("--audio", action="store_true", help="also require and validate audio")
     args = parser.parse_args()
     failures = validate_art(args.strict)
+    failures.extend(validate_fonts())
     if args.audio:
         failures.extend(validate_audio(args.strict))
     if failures:

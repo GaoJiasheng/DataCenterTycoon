@@ -3,6 +3,7 @@ extends Node
 const Rules := preload("res://gameplay/game_rules.gd")
 const Market := preload("res://gameplay/market_system.gd")
 const MAIN_SCENE := preload("res://main.tscn")
+const ThemeMaker := preload("res://ui/theme_factory.gd")
 
 var passed := 0
 var failed := 0
@@ -48,6 +49,11 @@ func _run_asset_integration_tests() -> void:
 	for cue_id: String in audio_items:
 		audio_loads = audio_loads and AudioService._load_stream(cue_id) != null
 	_expect(audio_loads, "all 16 production audio cues import and load")
+	var regular_font := ThemeMaker.font_regular()
+	var glyphs_present := regular_font != null
+	for character: String in ["稳", "障", "购", "罄"]:
+		glyphs_present = glyphs_present and regular_font.has_char(character.unicode_at(0))
+	_expect(glyphs_present, "packaged UI fonts contain risk glyphs 稳障购罄")
 	var park_map := ParkMap.new()
 	add_child(park_map)
 	park_map.setup([{"id": "asset_test_plot", "index": 1, "status": "empty"}])
