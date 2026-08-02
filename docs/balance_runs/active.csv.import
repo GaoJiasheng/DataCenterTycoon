@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://pp3un0enogvm"
+
+[deps]
+
+files=["res://docs/balance_runs/active.net.translation", "res://docs/balance_runs/active.cash.translation", "res://docs/balance_runs/active.datacenters.translation", "res://docs/balance_runs/active.era.translation", "res://docs/balance_runs/active.total.translation", "res://docs/balance_runs/active.arrears.translation"]
+
+source_file="res://docs/balance_runs/active.csv"
+dest_files=["res://docs/balance_runs/active.net.translation", "res://docs/balance_runs/active.cash.translation", "res://docs/balance_runs/active.datacenters.translation", "res://docs/balance_runs/active.era.translation", "res://docs/balance_runs/active.total.translation", "res://docs/balance_runs/active.arrears.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

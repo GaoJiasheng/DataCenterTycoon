@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "items": {
+    "power_t1": {
+      "kind": "power",
+      "tier": 1,
+      "name_key": "POWER_T1",
+      "cost": 600,
+      "capacity": 8,
+      "install_seconds": 300,
+      "unlock_era": 1,
+      "asset_prefix": "power_t1"
+    },
+    "power_t2": {
+      "kind": "power",
+      "tier": 2,
+      "name_key": "POWER_T2",
+      "cost": 4500,
+      "capacity": 20,
+      "install_seconds": 1800,
+      "unlock_era": 1,
+      "asset_prefix": "power_t2"
+    },
+    "power_t3": {
+      "kind": "power",
+      "tier": 3,
+      "name_key": "POWER_T3",
+      "cost": 30000,
+      "capacity": 48,
+      "install_seconds": 7200,
+      "unlock_era": 3,
+      "asset_prefix": "power_t3"
+    },
+    "cool_air_t1": {
+      "kind": "cooler",
+      "tier": 1,
+      "name_key": "COOL_AIR_T1",
+      "cost": 400,
+      "cooling": 2,
+      "install_seconds": 300,
+      "unlock_era": 1,
+      "requires_building_tier": 0,
+      "asset_prefix": "cool_air_t1"
+    },
+    "cool_air_t2": {
+      "kind": "cooler",
+      "tier": 2,
+      "name_key": "COOL_AIR_T2",
+      "cost": 2800,
+      "cooling": 4,
+      "install_seconds": 1800,
+      "unlock_era": 2,
+      "requires_building_tier": 0,
+      "asset_prefix": "cool_air_t2"
+    },
+    "cool_liquid_t1": {
+      "kind": "cooler",
+      "tier": 3,
+      "name_key": "COOL_LIQUID_T1",
+      "cost": 9000,
+      "cooling": 8,
+      "install_seconds": 3600,
+      "unlock_era": 2,
+      "requires_building_tier": 2,
+      "asset_prefix": "cool_liquid_t1"
+    },
+    "cool_liquid_t2": {
+      "kind": "cooler",
+      "tier": 4,
+      "name_key": "COOL_LIQUID_T2",
+      "cost": 45000,
+      "cooling": 14,
+      "install_seconds": 7200,
+      "unlock_era": 3,
+      "requires_building_tier": 2,
+      "asset_prefix": "cool_liquid_t2"
+    }
+  }
+}

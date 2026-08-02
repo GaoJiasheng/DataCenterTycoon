@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "items": {
+    "noads": {"type": "non_consumable", "price_usd": 5.99, "name_key": "STORE_NOADS", "description_key": "STORE_NOADS_DESC", "asset_id": "noads_badge"},
+    "offline24": {"type": "non_consumable", "price_usd": 3.99, "name_key": "STORE_OFFLINE24", "description_key": "STORE_OFFLINE24_DESC", "asset_id": "ic_clock"},
+    "gems_s": {"type": "consumable", "price_usd": 1.99, "gems": 200, "name_key": "STORE_GEMS_S", "asset_id": "ic_diamond"},
+    "gems_m": {"type": "consumable", "price_usd": 4.99, "gems": 550, "name_key": "STORE_GEMS_M", "asset_id": "ic_diamond"},
+    "gems_l": {"type": "consumable", "price_usd": 9.99, "gems": 1200, "name_key": "STORE_GEMS_L", "asset_id": "ic_diamond"},
+    "pack_starter": {"type": "limited_consumable", "price_usd": 2.99, "gems": 300, "cash": 20000, "tickets": 1, "limit": 1, "unlock_era": 2, "name_key": "STORE_PACK_STARTER", "asset_id": "pack_starter"},
+    "pack_builder": {"type": "limited_consumable", "price_usd": 7.99, "gems": 900, "cash": 500000, "tickets": 3, "limit": 1, "unlock_prestige": 1, "name_key": "STORE_PACK_BUILDER", "asset_id": "pack_builder"},
+    "pack_tycoon": {"type": "limited_consumable", "price_usd": 19.99, "gems": 2600, "cash": 5000000, "tickets": 10, "limit": 1, "unlock_era": 3, "name_key": "STORE_PACK_TYCOON", "asset_id": "pack_tycoon"}
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "starting": {
+    "cash": 40000,
+    "gems": 20,
+    "free_plot_count": 1
+  },
+  "time": {
+    "real_seconds_per_game_day": 240,
+    "real_seconds_per_game_month": 7200,
+    "real_seconds_per_game_year": 86400,
+    "income_tick_seconds": 1,
+    "market_history_game_days": 730
+  },
+  "offline": {
+    "base_income_cap_seconds": 28800,
+    "extended_income_cap_seconds": 86400,
+    "charge_expenses_beyond_cap": false,
+    "force_retirement_progress_cap": 0.999
+  },
+  "land": {
+    "base_price": 500,
+    "growth_factor": 1.55,
+    "prestige_refund_ratio": 0.5
+  },
+  "construction": {
+    "base_queue_capacity": 2,
+    "gems_per_600_seconds": 1,
+    "ad_reduction_seconds": 1800,
+    "max_ads_per_project": 2
+  },
+  "contracts": {
+    "duration_seconds": 43200,
+    "breach_fee_monthly_income_ratio": 0.1,
+    "minimum_breach_fee": 25
+  },
+  "faults": {
+    "base_rate_per_game_month": 0.15,
+    "overheat_rate_multiplier": 2.5,
+    "repair_cost_ratio": 0.05,
+    "repair_seconds_min": 600,
+    "repair_seconds_max": 1800,
+    "instant_repair_gems": 2,
+    "rewarded_repairs_per_hour": 4
+  },
+  "aging": {
+    "aging_start": 0.6,
+    "decline_start": 0.9,
+    "retirement_building_refund_ratio": 0.4,
+    "attachment_refund_ratio": 0.4,
+    "rack_refund_ratio": 0.5,
+    "demolition_cost_ratio": 0.15,
+    "overheat_income_multiplier": 0.5,
+    "aging_fault_multiplier": 3,
+    "decline_fault_multiplier": 6
+  },
+  "cooling": {
+    "ambient_per_slot": 1
+  },
+  "bankruptcy": {
+    "arrears_income_multiplier": 0.5,
+    "game_over_after_online_seconds": 21600,
+    "rescue_uses_per_real_day": 3,
+    "rescue_maintenance_ratio": 0.5
+  },
+  "prestige": {
+    "minimum_datacenters": 20,
+    "net_worth_anchor": 100000,
+    "log_coefficient": 0.15,
+    "minimum_gain": 1.05,
+    "maximum_gain": 1.6
+  },
+  "market": {
+    "noise_min": 0.95,
+    "noise_max": 1.05,
+    "event_interval_months_min": 1,
+    "event_interval_months_max": 3,
+    "preview_seconds": 7200,
+    "max_active_events": 2,
+    "allow_same_customer_event_stack": false
+  }
+}

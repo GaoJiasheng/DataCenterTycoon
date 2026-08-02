@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "items": {
+    "shopping_festival": {"name_key": "EVENT_SHOPPING", "description_key": "EVENT_SHOPPING_DESC", "customer_multipliers": {"internet": 1.5}, "duration_months": 1, "weight": 10, "minimum_era": 1},
+    "viral_social_app": {"name_key": "EVENT_VIRAL", "description_key": "EVENT_VIRAL_DESC", "customer_multipliers": {"internet": 1.8}, "duration_months": 2, "weight": 6, "minimum_era": 1},
+    "coin_boom": {"name_key": "EVENT_COIN_BOOM", "description_key": "EVENT_COIN_BOOM_DESC", "customer_multipliers": {"mining": 2.5}, "duration_months": 2, "weight": 8, "minimum_era": 1},
+    "mining_crash": {"name_key": "EVENT_MINING_CRASH", "description_key": "EVENT_MINING_CRASH_DESC", "customer_multipliers": {"mining": 0.2}, "duration_months": 6, "weight": 8, "minimum_era": 1},
+    "policy_tightening": {"name_key": "EVENT_POLICY", "description_key": "EVENT_POLICY_DESC", "customer_multipliers": {"mining": 0.5}, "duration_months": 4, "weight": 6, "minimum_era": 2},
+    "cloud_migration": {"name_key": "EVENT_CLOUD_MIGRATION", "description_key": "EVENT_CLOUD_MIGRATION_DESC", "customer_multipliers": {"cloud": 1.6}, "duration_months": 3, "weight": 8, "minimum_era": 2},
+    "hyperscaler_self_build": {"name_key": "EVENT_SELF_BUILD", "description_key": "EVENT_SELF_BUILD_DESC", "customer_multipliers": {"cloud": 0.6}, "duration_months": 4, "weight": 6, "minimum_era": 2},
+    "ai_model_boom": {"name_key": "EVENT_AI_BOOM", "description_key": "EVENT_AI_BOOM_DESC", "customer_multipliers": {"gpu_company": 3.0}, "duration_months": 3, "weight": 6, "minimum_era": 2},
+    "gpu_shortage": {"name_key": "EVENT_GPU_SHORTAGE", "description_key": "EVENT_GPU_SHORTAGE_DESC", "purchase_multipliers": {"gpu": 2.0}, "duration_months": 2, "weight": 5, "minimum_era": 2},
+    "compute_surplus": {"name_key": "EVENT_SURPLUS", "description_key": "EVENT_SURPLUS_DESC", "customer_multipliers": {"gpu_company": 0.5}, "duration_months": 3, "weight": 5, "minimum_era": 3},
+    "industry_winter": {"name_key": "EVENT_WINTER", "description_key": "EVENT_WINTER_DESC", "all_customer_multiplier": 0.75, "duration_months": 2, "weight": 4, "minimum_era": 2},
+    "digital_wave": {"name_key": "EVENT_DIGITAL_WAVE", "description_key": "EVENT_DIGITAL_WAVE_DESC", "all_customer_multiplier": 1.25, "duration_months": 2, "weight": 4, "minimum_era": 1}
+  }
+}

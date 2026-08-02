@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "source_delivery_root": "art-renders/visual/final",
+  "groups": [
+    {
+      "directory": "buildings",
+      "size": [768, 768],
+      "alpha": true,
+      "ids": [
+        "dc_t0_construction", "dc_t0_active", "dc_t0_dark", "dc_t0_aged", "dc_t0_decayed", "dc_t0_ruin",
+        "dc_t1_construction", "dc_t1_active", "dc_t1_dark", "dc_t1_aged", "dc_t1_decayed", "dc_t1_ruin"
+      ]
+    },
+    {
+      "directory": "buildings",
+      "size": [1024, 1024],
+      "alpha": true,
+      "ids": ["dc_t2_construction", "dc_t2_active", "dc_t2_dark", "dc_t2_aged", "dc_t2_decayed", "dc_t2_ruin"]
+    },
+    {
+      "directory": "buildings",
+      "size": [1280, 1280],
+      "alpha": true,
+      "ids": ["dc_t3_construction", "dc_t3_active", "dc_t3_dark", "dc_t3_aged", "dc_t3_decayed", "dc_t3_ruin"]
+    },
+    {
+      "directory": "attachments",
+      "size": [512, 512],
+      "alpha": true,
+      "ids": [
+        "power_t1_active", "power_t1_idle", "power_t2_active", "power_t2_idle", "power_t3_active", "power_t3_idle",
+        "cool_air_t1_active", "cool_air_t1_idle", "cool_air_t2_active", "cool_air_t2_idle",
+        "cool_liquid_t1_active", "cool_liquid_t1_idle", "cool_liquid_t2_active", "cool_liquid_t2_idle"
+      ]
+    },
+    {
+      "directory": "racks",
+      "size": [512, 512],
+      "alpha": true,
+      "ids": [
+        "slot_empty", "slot_locked",
+        "rack_compute_t1_active", "rack_compute_t1_dark", "rack_compute_t1_fault", "rack_compute_t1_installing",
+        "rack_storage_t1_active", "rack_storage_t1_dark", "rack_storage_t1_fault", "rack_storage_t1_installing",
+        "rack_gpu_t1_active", "rack_gpu_t1_dark", "rack_gpu_t1_fault", "rack_gpu_t1_installing",
+        "rack_compute_t2_active", "rack_compute_t2_dark", "rack_compute_t2_fault", "rack_compute_t2_installing",
+        "rack_storage_t2_active", "rack_storage_t2_dark", "rack_storage_t2_fault", "rack_storage_t2_installing",
+        "rack_gpu_t2_active", "rack_gpu_t2_dark", "rack_gpu_t2_fault", "rack_gpu_t2_installing"
+      ]
+    },
+    {"directory": "map", "size": [1024, 1024], "alpha": false, "ids": ["ground_tile"]},
+    {"directory": "map", "size": [768, 768], "alpha": true, "ids": ["plot_forsale", "plot_owned"]},
+    {"directory": "map", "size": [512, 512], "alpha": false, "ids": ["deco_road"]},
+    {"directory": "map", "size": [512, 512], "alpha": true, "ids": ["deco_pylon"]},
+    {"directory": "map", "size": [384, 384], "alpha": true, "ids": ["deco_tree"]},
+    {"directory": "map", "size": [256, 256], "alpha": true, "ids": ["deco_bush"]},
+    {"directory": "map", "size": [1536, 2048], "alpha": false, "ids": ["dc_interior_bg"]},
+    {"directory": "fx", "size": [256, 256], "alpha": true, "ids": ["fx_wind_streak", "fx_frost_patch", "fx_smoke_puff", "fx_dust_puff"]},
+    {"directory": "fx", "size": [128, 128], "alpha": true, "ids": ["fx_snowflake", "fx_spark"]},
+    {"directory": "fx", "size": [192, 192], "alpha": true, "ids": ["fx_coin"]},
+    {"directory": "fx", "size": [512, 512], "alpha": true, "ids": ["fx_glow_ring", "fx_confetti_set"]},
+    {"directory": "characters", "size": [768, 1024], "alpha": true, "ids": ["guide_normal", "guide_happy", "guide_worried", "guide_alert", "guide_thinking"]},
+    {"directory": "customers", "size": [384, 384], "alpha": true, "ids": ["client_internet", "client_mining", "client_cloud", "client_gpu"]},
+    {"directory": "ui", "size": [1024, 1024], "alpha": true, "ids": ["panel_main", "panel_dark"]},
+    {"directory": "ui", "size": [512, 256], "alpha": true, "ids": ["btn_primary", "btn_secondary", "btn_warning", "btn_danger", "btn_disabled", "btn_ad"]},
+    {"directory": "ui", "size": [512, 128], "alpha": true, "ids": ["progress_frame", "progress_fill"]},
+    {"directory": "ui", "size": [1024, 512], "alpha": true, "ids": ["dialog_bubble"]},
+    {
+      "directory": "ui",
+      "size": [256, 256],
+      "alpha": true,
+      "ids": [
+        "ic_cash", "ic_diamond", "ic_power", "ic_cooling", "ic_heat", "ic_wrench", "ic_warning", "ic_clock", "ic_contract",
+        "ic_market_up", "ic_market_down", "ic_build", "ic_tech", "ic_shop", "ic_settings", "ic_network", "ic_play_ad",
+        "ic_retire", "ic_speedup", "ic_lock", "ic_check", "ic_close", "ic_era1", "ic_era2", "ic_era3", "ic_prestige", "ic_bankrupt"
+      ]
+    },
+    {"directory": "store", "size": [1024, 1024], "alpha": false, "ids": ["app_icon"]},
+    {"directory": "store", "size": [1536, 2732], "alpha": false, "ids": ["splash_bg"]},
+    {"directory": "store", "size": [512, 512], "alpha": true, "ids": ["pack_starter", "pack_builder", "pack_tycoon", "noads_badge"]}
+  ]
+}

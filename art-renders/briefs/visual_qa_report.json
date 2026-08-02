@@ -1,0 +1,4106 @@
+[
+  {
+    "category": "buildings",
+    "name": "dc_t0_active",
+    "source": "dc_t0_active_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t0_active.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      32,
+      27,
+      735,
+      741
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 568958,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t0_construction",
+    "source": "dc_t0_construction_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t0_construction.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      77,
+      741,
+      690
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 648935,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t0_dark",
+    "source": "dc_t0_dark_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t0_dark.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      32,
+      27,
+      736,
+      741
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 559070,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t0_aged",
+    "source": "dc_t0_aged_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t0_aged.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      32,
+      27,
+      735,
+      741
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 673617,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t0_decayed",
+    "source": "dc_t0_decayed_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t0_decayed.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      53,
+      27,
+      715,
+      741
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 714260,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t0_ruin",
+    "source": "dc_t0_ruin_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t0_ruin.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      75,
+      741,
+      693
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 742488,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t1_active",
+    "source": "dc_t1_active_chroma_v2.png",
+    "output": "visual/final/buildings/dc_t1_active.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      135,
+      741,
+      634
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 573881,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t1_construction",
+    "source": "dc_t1_construction_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t1_construction.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      157,
+      741,
+      614
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 537603,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t1_dark",
+    "source": "dc_t1_dark_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t1_dark.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      135,
+      741,
+      633
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 554445,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t1_aged",
+    "source": "dc_t1_aged_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t1_aged.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      136,
+      741,
+      632
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 662039,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t1_decayed",
+    "source": "dc_t1_decayed_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t1_decayed.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      120,
+      741,
+      647
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 712801,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t1_ruin",
+    "source": "dc_t1_ruin_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t1_ruin.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      140,
+      741,
+      629
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 668814,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t2_active",
+    "source": "dc_t2_active_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t2_active.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      36,
+      120,
+      988,
+      904
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1194532,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t2_construction",
+    "source": "dc_t2_construction_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t2_construction.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      36,
+      115,
+      988,
+      909
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1306438,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t2_dark",
+    "source": "dc_t2_dark_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t2_dark.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      36,
+      120,
+      988,
+      904
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1038058,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t2_aged",
+    "source": "dc_t2_aged_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t2_aged.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      36,
+      119,
+      988,
+      904
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1355789,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t2_decayed",
+    "source": "dc_t2_decayed_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t2_decayed.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      36,
+      36,
+      987,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1032173,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t2_ruin",
+    "source": "dc_t2_ruin_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t2_ruin.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      36,
+      133,
+      988,
+      890
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1393884,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t3_active",
+    "source": "dc_t3_active_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t3_active.png",
+    "expected_size": [
+      1280,
+      1280
+    ],
+    "actual_size": [
+      1280,
+      1280
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      45,
+      144,
+      1235,
+      1135
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 728529,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t3_construction",
+    "source": "dc_t3_construction_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t3_construction.png",
+    "expected_size": [
+      1280,
+      1280
+    ],
+    "actual_size": [
+      1280,
+      1280
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      45,
+      149,
+      1235,
+      1131
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 993412,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t3_dark",
+    "source": "dc_t3_dark_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t3_dark.png",
+    "expected_size": [
+      1280,
+      1280
+    ],
+    "actual_size": [
+      1280,
+      1280
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      45,
+      144,
+      1235,
+      1135
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1407545,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t3_aged",
+    "source": "dc_t3_aged_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t3_aged.png",
+    "expected_size": [
+      1280,
+      1280
+    ],
+    "actual_size": [
+      1280,
+      1280
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      45,
+      144,
+      1235,
+      1136
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 979276,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t3_decayed",
+    "source": "dc_t3_decayed_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t3_decayed.png",
+    "expected_size": [
+      1280,
+      1280
+    ],
+    "actual_size": [
+      1280,
+      1280
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      45,
+      143,
+      1235,
+      1137
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1239109,
+    "pass": true
+  },
+  {
+    "category": "buildings",
+    "name": "dc_t3_ruin",
+    "source": "dc_t3_ruin_chroma_v1.png",
+    "output": "visual/final/buildings/dc_t3_ruin.png",
+    "expected_size": [
+      1280,
+      1280
+    ],
+    "actual_size": [
+      1280,
+      1280
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      45,
+      141,
+      1235,
+      1139
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1281087,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "power_t1_active",
+    "source": "power_t1_active_chroma_v2.png",
+    "output": "visual/final/attachments/power_t1_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      66,
+      25,
+      445,
+      486
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 237624,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "power_t1_idle",
+    "source": "power_t1_idle_chroma_v1.png",
+    "output": "visual/final/attachments/power_t1_idle.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      59,
+      25,
+      452,
+      486
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 252936,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "power_t2_active",
+    "source": "power_t2_active_chroma_v1.png",
+    "output": "visual/final/attachments/power_t2_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      41,
+      486,
+      470
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 318795,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "power_t2_idle",
+    "source": "power_t2_idle_chroma_v1.png",
+    "output": "visual/final/attachments/power_t2_idle.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      48,
+      486,
+      464
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 310698,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "power_t3_active",
+    "source": "power_t3_active_chroma_v1.png",
+    "output": "visual/final/attachments/power_t3_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      40,
+      25,
+      471,
+      486
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 336382,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "power_t3_idle",
+    "source": "power_t3_idle_chroma_v1.png",
+    "output": "visual/final/attachments/power_t3_idle.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      40,
+      25,
+      471,
+      486
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 322914,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "cool_air_t1_active",
+    "source": "cool_air_t1_active_chroma_v1.png",
+    "output": "visual/final/attachments/cool_air_t1_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      35,
+      486,
+      476
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 333476,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "cool_air_t1_idle",
+    "source": "cool_air_t1_idle_chroma_v1.png",
+    "output": "visual/final/attachments/cool_air_t1_idle.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      47,
+      25,
+      465,
+      486
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 342728,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "cool_air_t2_active",
+    "source": "cool_air_t2_active_chroma_v1.png",
+    "output": "visual/final/attachments/cool_air_t2_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      71,
+      486,
+      440
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 276863,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "cool_air_t2_idle",
+    "source": "cool_air_t2_idle_chroma_v1.png",
+    "output": "visual/final/attachments/cool_air_t2_idle.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      51,
+      486,
+      461
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 323958,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "cool_liquid_t1_active",
+    "source": "cool_liquid_t1_active_chroma_v1.png",
+    "output": "visual/final/attachments/cool_liquid_t1_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      40,
+      486,
+      471
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 356159,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "cool_liquid_t1_idle",
+    "source": "cool_liquid_t1_idle_chroma_v1.png",
+    "output": "visual/final/attachments/cool_liquid_t1_idle.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      37,
+      486,
+      474
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 352037,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "cool_liquid_t2_active",
+    "source": "cool_liquid_t2_active_chroma_v2.png",
+    "output": "visual/final/attachments/cool_liquid_t2_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      40,
+      25,
+      472,
+      486
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 373140,
+    "pass": true
+  },
+  {
+    "category": "attachments",
+    "name": "cool_liquid_t2_idle",
+    "source": "cool_liquid_t2_idle_chroma_v2.png",
+    "output": "visual/final/attachments/cool_liquid_t2_idle.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      52,
+      25,
+      460,
+      486
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 323097,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "slot_empty",
+    "source": "slot_empty_chroma_v1.png",
+    "output": "visual/final/racks/slot_empty.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      30,
+      90,
+      481,
+      422
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 157334,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "slot_locked",
+    "source": "slot_locked_chroma_v1.png",
+    "output": "visual/final/racks/slot_locked.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      30,
+      48,
+      481,
+      464
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 231590,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_compute_t1_active",
+    "source": "rack_compute_t1_active_chroma_v1.png",
+    "output": "visual/final/racks/rack_compute_t1_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      134,
+      30,
+      378,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 207659,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_compute_t1_dark",
+    "source": "rack_compute_t1_dark_chroma_v1.png",
+    "output": "visual/final/racks/rack_compute_t1_dark.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      134,
+      30,
+      377,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 183228,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_compute_t1_fault",
+    "source": "rack_compute_t1_fault_chroma_v1.png",
+    "output": "visual/final/racks/rack_compute_t1_fault.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      138,
+      30,
+      373,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 195733,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_compute_t1_installing",
+    "source": "rack_compute_t1_installing_chroma_v1.png",
+    "output": "visual/final/racks/rack_compute_t1_installing.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      113,
+      30,
+      398,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 229404,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_compute_t2_active",
+    "source": "rack_compute_t2_active_chroma_v1.png",
+    "output": "visual/final/racks/rack_compute_t2_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      134,
+      30,
+      377,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 232264,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_compute_t2_dark",
+    "source": "rack_compute_t2_dark_chroma_v1.png",
+    "output": "visual/final/racks/rack_compute_t2_dark.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      134,
+      30,
+      377,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 213830,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_compute_t2_fault",
+    "source": "rack_compute_t2_fault_chroma_v1.png",
+    "output": "visual/final/racks/rack_compute_t2_fault.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      139,
+      30,
+      372,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 216239,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_compute_t2_installing",
+    "source": "rack_compute_t2_installing_chroma_v1.png",
+    "output": "visual/final/racks/rack_compute_t2_installing.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      127,
+      30,
+      385,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 240399,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_storage_t1_active",
+    "source": "rack_storage_t1_active_chroma_v1.png",
+    "output": "visual/final/racks/rack_storage_t1_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      70,
+      30,
+      442,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 290383,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_storage_t1_dark",
+    "source": "rack_storage_t1_dark_chroma_v1.png",
+    "output": "visual/final/racks/rack_storage_t1_dark.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      70,
+      30,
+      441,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 250383,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_storage_t1_fault",
+    "source": "rack_storage_t1_fault_chroma_v1.png",
+    "output": "visual/final/racks/rack_storage_t1_fault.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      76,
+      30,
+      435,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 277257,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_storage_t1_installing",
+    "source": "rack_storage_t1_installing_chroma_v1.png",
+    "output": "visual/final/racks/rack_storage_t1_installing.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      60,
+      30,
+      451,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 311792,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_storage_t2_active",
+    "source": "rack_storage_t2_active_chroma_v1.png",
+    "output": "visual/final/racks/rack_storage_t2_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      92,
+      30,
+      419,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 274107,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_storage_t2_dark",
+    "source": "rack_storage_t2_dark_chroma_v1.png",
+    "output": "visual/final/racks/rack_storage_t2_dark.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      92,
+      30,
+      419,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 237841,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_storage_t2_fault",
+    "source": "rack_storage_t2_fault_chroma_v1.png",
+    "output": "visual/final/racks/rack_storage_t2_fault.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      97,
+      30,
+      414,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 264810,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_storage_t2_installing",
+    "source": "rack_storage_t2_installing_chroma_v1.png",
+    "output": "visual/final/racks/rack_storage_t2_installing.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      80,
+      30,
+      432,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 271938,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_gpu_t1_active",
+    "source": "rack_gpu_t1_active_chroma_v1.png",
+    "output": "visual/final/racks/rack_gpu_t1_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      87,
+      30,
+      425,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 307649,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_gpu_t1_dark",
+    "source": "rack_gpu_t1_dark_chroma_v1.png",
+    "output": "visual/final/racks/rack_gpu_t1_dark.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      87,
+      30,
+      424,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 273689,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_gpu_t1_fault",
+    "source": "rack_gpu_t1_fault_chroma_v1.png",
+    "output": "visual/final/racks/rack_gpu_t1_fault.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      101,
+      30,
+      411,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 266479,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_gpu_t1_installing",
+    "source": "rack_gpu_t1_installing_chroma_v1.png",
+    "output": "visual/final/racks/rack_gpu_t1_installing.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      77,
+      30,
+      435,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 303262,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_gpu_t2_active",
+    "source": "rack_gpu_t2_active_chroma_v1.png",
+    "output": "visual/final/racks/rack_gpu_t2_active.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      87,
+      30,
+      424,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 305574,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_gpu_t2_dark",
+    "source": "rack_gpu_t2_dark_chroma_v1.png",
+    "output": "visual/final/racks/rack_gpu_t2_dark.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      87,
+      30,
+      424,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 271131,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_gpu_t2_fault",
+    "source": "rack_gpu_t2_fault_chroma_v1.png",
+    "output": "visual/final/racks/rack_gpu_t2_fault.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      108,
+      30,
+      404,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 250248,
+    "pass": true
+  },
+  {
+    "category": "racks",
+    "name": "rack_gpu_t2_installing",
+    "source": "rack_gpu_t2_installing_chroma_v1.png",
+    "output": "visual/final/racks/rack_gpu_t2_installing.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      79,
+      30,
+      432,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 312314,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "ground_tile",
+    "source": "ground_tile_source_v1.png",
+    "output": "visual/final/map/ground_tile.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGB",
+    "png_color_type": 2,
+    "transparent_required": false,
+    "alpha_bbox": null,
+    "corner_alpha": [],
+    "bytes": 1462168,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "plot_forsale",
+    "source": "plot_forsale_source_v1.png",
+    "output": "visual/final/map/plot_forsale.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      23,
+      119,
+      745,
+      648
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 470833,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "plot_owned",
+    "source": "plot_owned_source_v1.png",
+    "output": "visual/final/map/plot_owned.png",
+    "expected_size": [
+      768,
+      768
+    ],
+    "actual_size": [
+      768,
+      768
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      23,
+      121,
+      745,
+      647
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 422867,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "deco_road",
+    "source": "deco_road_source_v1.png",
+    "output": "visual/final/map/deco_road.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGB",
+    "png_color_type": 2,
+    "transparent_required": false,
+    "alpha_bbox": null,
+    "corner_alpha": [],
+    "bytes": 343188,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "deco_tree",
+    "source": "deco_tree_chroma_v1.png",
+    "output": "visual/final/map/deco_tree.png",
+    "expected_size": [
+      384,
+      384
+    ],
+    "actual_size": [
+      384,
+      384
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      37,
+      23,
+      346,
+      361
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 168529,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "deco_bush",
+    "source": "deco_bush_source_v1.png",
+    "output": "visual/final/map/deco_bush.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      25,
+      240,
+      230
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 82023,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "deco_pylon",
+    "source": "deco_pylon_source_v1.png",
+    "output": "visual/final/map/deco_pylon.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      30,
+      127,
+      481,
+      389
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 90433,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "dc_interior_bg",
+    "source": "dc_interior_bg_source_v1.png",
+    "output": "visual/final/map/dc_interior_bg.png",
+    "expected_size": [
+      1536,
+      2048
+    ],
+    "actual_size": [
+      1536,
+      2048
+    ],
+    "mode": "RGB",
+    "png_color_type": 2,
+    "transparent_required": false,
+    "alpha_bbox": null,
+    "corner_alpha": [],
+    "bytes": 1391570,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_wind_streak",
+    "source": "fx_wind_streak_source_v1.png",
+    "output": "visual/final/fx/fx_wind_streak.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      28,
+      5,
+      227,
+      251
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 57376,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_snowflake",
+    "source": "fx_snowflake_source_v1.png",
+    "output": "visual/final/fx/fx_snowflake.png",
+    "expected_size": [
+      128,
+      128
+    ],
+    "actual_size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      12,
+      2,
+      115,
+      125
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 18690,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_frost_patch",
+    "source": "fx_frost_patch_source_v1.png",
+    "output": "visual/final/fx/fx_frost_patch.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      5,
+      42,
+      251,
+      213
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 56074,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_smoke_puff",
+    "source": "fx_smoke_puff_source_v1.png",
+    "output": "visual/final/fx/fx_smoke_puff.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      5,
+      18,
+      251,
+      237
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 59374,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_spark",
+    "source": "fx_spark_source_v1.png",
+    "output": "visual/final/fx/fx_spark.png",
+    "expected_size": [
+      128,
+      128
+    ],
+    "actual_size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      5,
+      2,
+      123,
+      125
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 18765,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_coin",
+    "source": "fx_coin_source_v1.png",
+    "output": "visual/final/fx/fx_coin.png",
+    "expected_size": [
+      192,
+      192
+    ],
+    "actual_size": [
+      192,
+      192
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      5,
+      4,
+      187,
+      188
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 54599,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_glow_ring",
+    "source": "fx_glow_ring_source_v1.png",
+    "output": "visual/final/fx/fx_glow_ring.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      29,
+      44,
+      482,
+      400
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 132590,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_confetti_set",
+    "source": "fx_confetti_set_source_v1.png",
+    "output": "visual/final/fx/fx_confetti_set.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      22,
+      502,
+      489
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 101456,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_dust_puff",
+    "source": "fx_dust_puff_source_v1.png",
+    "output": "visual/final/fx/fx_dust_puff.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      5,
+      21,
+      251,
+      234
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 67107,
+    "pass": true
+  },
+  {
+    "category": "characters",
+    "name": "guide_normal",
+    "source": "guide_normal_chroma_v1.png",
+    "output": "visual/final/characters/guide_normal.png",
+    "expected_size": [
+      768,
+      1024
+    ],
+    "actual_size": [
+      768,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      23,
+      138,
+      745,
+      886
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 507530,
+    "pass": true
+  },
+  {
+    "category": "characters",
+    "name": "guide_happy",
+    "source": "guide_happy_chroma_v1.png",
+    "output": "visual/final/characters/guide_happy.png",
+    "expected_size": [
+      768,
+      1024
+    ],
+    "actual_size": [
+      768,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      23,
+      111,
+      745,
+      913
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 599632,
+    "pass": true
+  },
+  {
+    "category": "characters",
+    "name": "guide_worried",
+    "source": "guide_worried_chroma_v1.png",
+    "output": "visual/final/characters/guide_worried.png",
+    "expected_size": [
+      768,
+      1024
+    ],
+    "actual_size": [
+      768,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      23,
+      98,
+      745,
+      925
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 615685,
+    "pass": true
+  },
+  {
+    "category": "characters",
+    "name": "guide_alert",
+    "source": "guide_alert_chroma_v1.png",
+    "output": "visual/final/characters/guide_alert.png",
+    "expected_size": [
+      768,
+      1024
+    ],
+    "actual_size": [
+      768,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      23,
+      92,
+      745,
+      931
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 597072,
+    "pass": true
+  },
+  {
+    "category": "characters",
+    "name": "guide_thinking",
+    "source": "guide_thinking_chroma_v1.png",
+    "output": "visual/final/characters/guide_thinking.png",
+    "expected_size": [
+      768,
+      1024
+    ],
+    "actual_size": [
+      768,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      23,
+      58,
+      745,
+      965
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 685122,
+    "pass": true
+  },
+  {
+    "category": "customers",
+    "name": "client_internet",
+    "source": "client_internet_source_v1.png",
+    "output": "visual/final/customers/client_internet.png",
+    "expected_size": [
+      384,
+      384
+    ],
+    "actual_size": [
+      384,
+      384
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      17,
+      15,
+      366,
+      368
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 195363,
+    "pass": true
+  },
+  {
+    "category": "customers",
+    "name": "client_mining",
+    "source": "client_mining_source_v1.png",
+    "output": "visual/final/customers/client_mining.png",
+    "expected_size": [
+      384,
+      384
+    ],
+    "actual_size": [
+      384,
+      384
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      17,
+      15,
+      366,
+      368
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 209829,
+    "pass": true
+  },
+  {
+    "category": "customers",
+    "name": "client_cloud",
+    "source": "client_cloud_chroma_v1.png",
+    "output": "visual/final/customers/client_cloud.png",
+    "expected_size": [
+      384,
+      384
+    ],
+    "actual_size": [
+      384,
+      384
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      17,
+      15,
+      366,
+      368
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 151238,
+    "pass": true
+  },
+  {
+    "category": "customers",
+    "name": "client_gpu",
+    "source": "client_gpu_source_v1.png",
+    "output": "visual/final/customers/client_gpu.png",
+    "expected_size": [
+      384,
+      384
+    ],
+    "actual_size": [
+      384,
+      384
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      17,
+      15,
+      366,
+      368
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 215411,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "panel_main",
+    "source": "panel_main_source_v1.png",
+    "output": "visual/final/ui/panel_main.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      20,
+      23,
+      1003,
+      1000
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 989697,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "panel_dark",
+    "source": "panel_dark_source_v1.png",
+    "output": "visual/final/ui/panel_dark.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      20,
+      28,
+      1003,
+      995
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 966520,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "btn_primary",
+    "source": "btn_primary_source_v1.png",
+    "output": "visual/final/ui/btn_primary.png",
+    "expected_size": [
+      512,
+      256
+    ],
+    "actual_size": [
+      512,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      58,
+      502,
+      198
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 69104,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "btn_secondary",
+    "source": "btn_secondary_source_v1.png",
+    "output": "visual/final/ui/btn_secondary.png",
+    "expected_size": [
+      512,
+      256
+    ],
+    "actual_size": [
+      512,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      59,
+      502,
+      197
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 65949,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "btn_warning",
+    "source": "btn_warning_source_v1.png",
+    "output": "visual/final/ui/btn_warning.png",
+    "expected_size": [
+      512,
+      256
+    ],
+    "actual_size": [
+      512,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      55,
+      502,
+      201
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 79266,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "btn_danger",
+    "source": "btn_danger_source_v1.png",
+    "output": "visual/final/ui/btn_danger.png",
+    "expected_size": [
+      512,
+      256
+    ],
+    "actual_size": [
+      512,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      59,
+      502,
+      196
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 66829,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "btn_disabled",
+    "source": "btn_disabled_source_v1.png",
+    "output": "visual/final/ui/btn_disabled.png",
+    "expected_size": [
+      512,
+      256
+    ],
+    "actual_size": [
+      512,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      62,
+      502,
+      194
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 63826,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "btn_ad",
+    "source": "btn_ad_source_v1.png",
+    "output": "visual/final/ui/btn_ad.png",
+    "expected_size": [
+      512,
+      256
+    ],
+    "actual_size": [
+      512,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      47,
+      502,
+      208
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 103064,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "progress_frame",
+    "source": "progress_frame_source_v1.png",
+    "output": "visual/final/ui/progress_frame.png",
+    "expected_size": [
+      512,
+      128
+    ],
+    "actual_size": [
+      512,
+      128
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      12,
+      502,
+      115
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 45875,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "progress_fill",
+    "source": "progress_fill_source_v1.png",
+    "output": "visual/final/ui/progress_fill.png",
+    "expected_size": [
+      512,
+      128
+    ],
+    "actual_size": [
+      512,
+      128
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      18,
+      502,
+      110
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 46466,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "dialog_bubble",
+    "source": "dialog_bubble_source_v1.png",
+    "output": "visual/final/ui/dialog_bubble.png",
+    "expected_size": [
+      1024,
+      512
+    ],
+    "actual_size": [
+      1024,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      20,
+      22,
+      1003,
+      489
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 330382,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_cash",
+    "source": "ic_cash_source_v1.png",
+    "output": "visual/final/ui/ic_cash.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      17,
+      15,
+      239,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 68383,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_diamond",
+    "source": "ic_diamond_source_v1.png",
+    "output": "visual/final/ui/ic_diamond.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      26,
+      240,
+      229
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 49803,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_power",
+    "source": "ic_power_source_v1.png",
+    "output": "visual/final/ui/ic_power.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      44,
+      15,
+      212,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 33490,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_cooling",
+    "source": "ic_cooling_source_v1.png",
+    "output": "visual/final/ui/ic_cooling.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      46,
+      15,
+      210,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 54174,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_heat",
+    "source": "ic_heat_source_v1.png",
+    "output": "visual/final/ui/ic_heat.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      38,
+      15,
+      217,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 48947,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_wrench",
+    "source": "ic_wrench_source_v1.png",
+    "output": "visual/final/ui/ic_wrench.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      22,
+      15,
+      234,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 65190,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_warning",
+    "source": "ic_warning_source_v1.png",
+    "output": "visual/final/ui/ic_warning.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      22,
+      240,
+      233
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 55091,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_clock",
+    "source": "ic_clock_source_v1.png",
+    "output": "visual/final/ui/ic_clock.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      29,
+      15,
+      226,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 75364,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_contract",
+    "source": "ic_contract_source_v1.png",
+    "output": "visual/final/ui/ic_contract.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      45,
+      240,
+      211
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 44603,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_market_up",
+    "source": "ic_market_up_source_v1.png",
+    "output": "visual/final/ui/ic_market_up.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      19,
+      15,
+      237,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 68835,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_market_down",
+    "source": "ic_market_down_source_v1.png",
+    "output": "visual/final/ui/ic_market_down.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      18,
+      15,
+      237,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 61652,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_build",
+    "source": "ic_build_source_v1.png",
+    "output": "visual/final/ui/ic_build.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      18,
+      15,
+      237,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 86760,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_tech",
+    "source": "ic_tech_source_v1.png",
+    "output": "visual/final/ui/ic_tech.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      22,
+      15,
+      233,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 61431,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_shop",
+    "source": "ic_shop_source_v1.png",
+    "output": "visual/final/ui/ic_shop.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      17,
+      15,
+      238,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 77829,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_settings",
+    "source": "ic_settings_source_v1.png",
+    "output": "visual/final/ui/ic_settings.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      21,
+      15,
+      235,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 57769,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_network",
+    "source": "ic_network_source_v3.png",
+    "output": "visual/final/ui/ic_network.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      21,
+      240,
+      235
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 55077,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_play_ad",
+    "source": "ic_play_ad_source_v1.png",
+    "output": "visual/final/ui/ic_play_ad.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      17,
+      240,
+      239
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 68026,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_retire",
+    "source": "ic_retire_source_v1.png",
+    "output": "visual/final/ui/ic_retire.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      21,
+      15,
+      234,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 67457,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_speedup",
+    "source": "ic_speedup_source_v1.png",
+    "output": "visual/final/ui/ic_speedup.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      26,
+      15,
+      229,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 59505,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_lock",
+    "source": "ic_lock_source_v1.png",
+    "output": "visual/final/ui/ic_lock.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      44,
+      15,
+      211,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 50776,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_check",
+    "source": "ic_check_source_v1.png",
+    "output": "visual/final/ui/ic_check.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      32,
+      240,
+      223
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 38943,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_close",
+    "source": "ic_close_source_v1.png",
+    "output": "visual/final/ui/ic_close.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      19,
+      15,
+      237,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 59503,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_era1",
+    "source": "ic_era1_source_v1.png",
+    "output": "visual/final/ui/ic_era1.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      35,
+      15,
+      220,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 59266,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_era2",
+    "source": "ic_era2_source_v1.png",
+    "output": "visual/final/ui/ic_era2.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      31,
+      240,
+      224
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 65627,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_era3",
+    "source": "ic_era3_source_v1.png",
+    "output": "visual/final/ui/ic_era3.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      17,
+      240,
+      238
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 73126,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_prestige",
+    "source": "ic_prestige_source_v1.png",
+    "output": "visual/final/ui/ic_prestige.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      15,
+      18,
+      240,
+      238
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 85907,
+    "pass": true
+  },
+  {
+    "category": "ui",
+    "name": "ic_bankrupt",
+    "source": "ic_bankrupt_source_v1.png",
+    "output": "visual/final/ui/ic_bankrupt.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      23,
+      15,
+      232,
+      240
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 66790,
+    "pass": true
+  },
+  {
+    "category": "store",
+    "name": "app_icon",
+    "source": "app_icon_source_v1.png",
+    "output": "visual/final/store/app_icon.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGB",
+    "png_color_type": 2,
+    "transparent_required": false,
+    "alpha_bbox": null,
+    "corner_alpha": [],
+    "bytes": 1409956,
+    "pass": true
+  },
+  {
+    "category": "store",
+    "name": "splash_bg",
+    "source": "splash_bg_source_v1.png",
+    "output": "visual/final/store/splash_bg.png",
+    "expected_size": [
+      1536,
+      2732
+    ],
+    "actual_size": [
+      1536,
+      2732
+    ],
+    "mode": "RGB",
+    "png_color_type": 2,
+    "transparent_required": false,
+    "alpha_bbox": null,
+    "corner_alpha": [],
+    "bytes": 1465083,
+    "pass": true
+  },
+  {
+    "category": "store",
+    "name": "pack_starter",
+    "source": "pack_starter_source_v1.png",
+    "output": "visual/final/store/pack_starter.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      20,
+      29,
+      491,
+      482
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 330196,
+    "pass": true
+  },
+  {
+    "category": "store",
+    "name": "pack_builder",
+    "source": "pack_builder_source_v1.png",
+    "output": "visual/final/store/pack_builder.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      36,
+      20,
+      475,
+      491
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 356460,
+    "pass": true
+  },
+  {
+    "category": "store",
+    "name": "pack_tycoon",
+    "source": "pack_tycoon_source_v1.png",
+    "output": "visual/final/store/pack_tycoon.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      20,
+      48,
+      491,
+      463
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 351880,
+    "pass": true
+  },
+  {
+    "category": "store",
+    "name": "noads_badge",
+    "source": "noads_badge_source_v1.png",
+    "output": "visual/final/store/noads_badge.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      20,
+      485,
+      491
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 311798,
+    "pass": true
+  }
+]

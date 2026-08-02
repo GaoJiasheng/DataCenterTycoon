@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://84csbgkw2ohy"
+
+[deps]
+
+files=["res://docs/balance_runs/aggressive.net.translation", "res://docs/balance_runs/aggressive.cash.translation", "res://docs/balance_runs/aggressive.datacenters.translation", "res://docs/balance_runs/aggressive.era.translation", "res://docs/balance_runs/aggressive.total.translation", "res://docs/balance_runs/aggressive.arrears.translation"]
+
+source_file="res://docs/balance_runs/aggressive.csv"
+dest_files=["res://docs/balance_runs/aggressive.net.translation", "res://docs/balance_runs/aggressive.cash.translation", "res://docs/balance_runs/aggressive.datacenters.translation", "res://docs/balance_runs/aggressive.era.translation", "res://docs/balance_runs/aggressive.total.translation", "res://docs/balance_runs/aggressive.arrears.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

@@ -1,0 +1,36 @@
+# 视听资源接入报告
+
+日期：2026-08-02
+
+## 接入结果
+
+- 美术：134/134 已从 `art-renders/visual/final/` 原样复制到 `assets/art/`。
+- 音频：16/16 已从 `art-renders/audio/final/` 原样复制到 `assets/audio/`。
+- 源文件与运行时文件 SHA-256 对比：150/150 一致。
+- Godot 4.7 导入与运行时加载：134 张 `Texture2D`、16 个 `AudioStream` 全部成功。
+- `app_icon` 和 `splash_bg` 已启用；iOS 导出仍由发布门禁要求正式签名参数。
+
+## 运行时接入
+
+- 园区：草地、地块、建筑全状态、道路、树木、灌木和电塔。
+- 机房：室内背景、九宫格机架、供电、冷却和客户徽章。
+- UI：货币与导航图标、导师姿态、商店商品图和时代图标。
+- 特效：施工扬尘、故障火花、市场天气/行情、金币、时代彩纸与破产烟雾。
+- 音频：主界面/行情/危机音乐和全部 13 个玩法音效。
+
+## 验收
+
+- `python3 tools/check_assets.py --strict --audio`：通过。
+- `godot --headless --path . tests/test_runner.tscn`：64 passed，0 failed。
+- `godot --path . tests/visual_smoke.tscn`：9 个 440×956（iPhone 17 Pro Max 比例）竖屏状态通过实际 Metal 渲染并截图。
+- `python3 tools/validate_data.py`：11 张数据表、本地化与 134 个美术 ID 通过。
+- `python3 tools/simulate_economy.py`：三种 30 天策略均存活。
+
+## 接入时修正
+
+- 将无缝道路的运行时契约修正为不透明，与权威美术规格和交付 manifest 一致。
+- 将 Godot 4.7 不支持的 Button `icon_max_width` 属性改为主题常量。
+- 修正桌面多屏坐标被误算成 iOS 安全区的问题。
+- 将地图自定义绘制背景改为稳定的 `ColorRect + TextureRect` 层。
+- 将竖版机房室内图改为九宫格实际背景，而非窄幅预览。
+- 增加音频统一停止接口，确保自动化测试退出时无 playback 泄漏。

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "items": {
+    "dc_t0": {
+      "tier": 0,
+      "name_key": "BUILDING_T0",
+      "cost": 800,
+      "build_seconds": 300,
+      "lifespan_seconds": 86400,
+      "unlocked_slots": [0, 1, 3, 4],
+      "cooler_slots": 1,
+      "maintenance_per_month": 20,
+      "unlock_era": 1,
+      "structure_multiplier": 1,
+      "tutorial_only": true,
+      "asset_prefix": "dc_t0"
+    },
+    "dc_t1": {
+      "tier": 1,
+      "name_key": "BUILDING_T1",
+      "cost": 5000,
+      "build_seconds": 3600,
+      "lifespan_seconds": 432000,
+      "unlocked_slots": [0, 1, 2, 3, 4, 5],
+      "cooler_slots": 2,
+      "maintenance_per_month": 150,
+      "unlock_era": 1,
+      "structure_multiplier": 1,
+      "tutorial_only": false,
+      "asset_prefix": "dc_t1"
+    },
+    "dc_t2": {
+      "tier": 2,
+      "name_key": "BUILDING_T2",
+      "cost": 40000,
+      "build_seconds": 14400,
+      "lifespan_seconds": 518400,
+      "unlocked_slots": [0, 1, 2, 3, 4, 5, 6, 7, 8],
+      "cooler_slots": 3,
+      "maintenance_per_month": 900,
+      "unlock_era": 2,
+      "structure_multiplier": 1,
+      "tutorial_only": false,
+      "asset_prefix": "dc_t2"
+    },
+    "dc_t3": {
+      "tier": 3,
+      "name_key": "BUILDING_T3",
+      "cost": 300000,
+      "build_seconds": 43200,
+      "lifespan_seconds": 691200,
+      "unlocked_slots": [0, 1, 2, 3, 4, 5, 6, 7, 8],
+      "cooler_slots": 4,
+      "maintenance_per_month": 5000,
+      "unlock_era": 3,
+      "structure_multiplier": 2,
+      "tutorial_only": false,
+      "asset_prefix": "dc_t3"
+    }
+  }
+}

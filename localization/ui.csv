@@ -1,0 +1,176 @@
+keys,en,zh_CN
+DATE_FORMAT,Year %d · Month %d · Day %d,第 %d 年 · 第 %d 月 · 第 %d 天
+APP_TITLE,Data Center Tycoon,机房大亨
+NAV_MAP,Park,园区
+NAV_BUILD,Build,建设
+NAV_MARKET,Market,行情
+NAV_TECH,Tech,科技
+NAV_STORE,Store,商店
+NAV_SETTINGS,Settings,设置
+CASH_FORMAT,$%s,$%s
+GEMS_FORMAT,%s Gems,%s 钻石
+INCOME_RATE,$%s / month,$%s / 月
+BUY,Buy,购买
+BUILD,Build,建造
+INSTALL,Install,安装
+UPGRADE,Upgrade,升级
+REPAIR,Repair,维修
+RETIRE,Retire,退役
+DEMOLISH,Clear ruins,清拆废墟
+SIGN_CONTRACT,Sign contract,签订合约
+SWITCH_CONTRACT,Switch contract,更换合约
+CONTRACT_BREACH_FEE,Switching fee: $%s,换约违约金：$%s
+CANCEL,Cancel,取消
+CONFIRM,Confirm,确认
+CLOSE,Close,关闭
+CLAIM,Claim,领取
+WATCH_AD,Watch rewarded video,观看激励视频
+FREE_NOADS,Included with No Ads,去广告权益免费领取
+RESTORE_PURCHASES,Restore purchases,恢复购买
+NOT_ENOUGH_CASH,Not enough cash,现金不足
+NOT_ENOUGH_GEMS,Not enough gems,钻石不足
+LOCKED,Locked,未解锁
+EMPTY_SLOT,Empty slot,空机位
+INSTALLING,Installing,安装中
+FAULTED,Faulted,故障
+OVERHEATED,Overheated,过热
+UNPOWERED,Unpowered,未通电
+POWERED,Powered,供电正常
+CONSTRUCTION_QUEUE,Construction queue,建设队列
+QUEUE_EMPTY,Nothing is being built,当前没有建设项目
+COMPLETE_IN,Complete in %s,%s 后完成
+SPEED_UP,Speed up,加速
+INSTANT_TICKET,Instant build ticket,立即完工券
+BUY_NEXT_PLOT,Buy next plot,购买下一块地
+PLOT_FOR_SALE,Plot #%d · $%s,第 %d 块地 · $%s
+PLOT_EMPTY,Empty plot #%d,第 %d 块空地
+DC_DETAIL,Data center details,机房详情
+LIFESPAN,Lifespan,寿命
+MAINTENANCE,Maintenance $%s / month,维护费 $%s / 月
+CONTRACT_NONE,No active contract,尚未签约
+CONTRACT_CURRENT,Client: %s,客户：%s
+MARKET_ACTIVE,Active events,正在发生
+MARKET_PREVIEW,Coming next,新闻预告
+MARKET_CALM,Markets are calm,当前行情平稳
+NETWORK,Network access,网络接入
+ERA_PROGRESS,Era progress,时代进度
+PRESTIGE,IPO Restructure,上市重组
+PRESTIGE_LOCKED,Build %d data centers to unlock,累计建造 %d 座机房后解锁
+ACHIEVEMENTS,Achievements,成就
+HIGHEST_NET_WORTH,Highest net worth,历史最高净值
+STAT_SURVIVAL,Company age,公司存续时间
+TOTAL_REVENUE,Total revenue,累计收入
+BANKRUPTCY_WARNING,Cash-flow emergency,现金流告急
+BANKRUPTCY_BODY,Pay the outstanding maintenance within %s or the company will fail.,请在 %s 内付清维护欠款，否则公司将破产。
+GAME_OVER,Company Bankrupt,公司破产
+NEW_COMPANY,Start a new company,重新创业
+ARREARS_RESCUE,Claim emergency funds,领取救急金
+OFFLINE_TITLE,Welcome back,欢迎回来
+OFFLINE_EARNED,Your data centers earned $%s while you were away.,离线期间机房赚取了 $%s。
+OFFLINE_DOUBLE,Double reward,收益翻倍
+SETTINGS_LANGUAGE,Language,语言
+SETTINGS_MUSIC,Music,音乐
+SETTINGS_SFX,Sound effects,音效
+SETTINGS_HAPTICS,Haptics,触感反馈
+SETTINGS_RESET,Start new company,重开公司
+SETTINGS_RESET_WARNING,This resets the current run. Purchases premium currency achievements and permanent prestige bonuses are kept.,这会重置本局；购买记录、付费货币、成就与永久转生加成会保留。
+LANGUAGE_ENGLISH,English,English
+LANGUAGE_CHINESE,简体中文,简体中文
+BUILDING_T0,Container Data Center,集装箱机房
+BUILDING_T1,Standard Data Center,标准机房
+BUILDING_T2,Large Data Center,大型机房
+BUILDING_T3,Hyperscale Data Center,超大规模机房
+RACK_COMPUTE_T1,Compute Rack T1,计算机柜 T1
+RACK_STORAGE_T1,Storage Rack T1,存储机柜 T1
+RACK_GPU_T1,GPU Rack T1,GPU 机柜 T1
+RACK_COMPUTE_T2,Compute Rack T2,计算机柜 T2
+RACK_STORAGE_T2,Storage Rack T2,存储机柜 T2
+RACK_GPU_T2,High-density GPU Rack,高密 GPU 机柜
+POWER_T1,Transformer T1,变压器 T1
+POWER_T2,Substation T2,变电站 T2
+POWER_T3,High-voltage Station T3,高压站 T3
+COOL_AIR_T1,Air Cooling T1,风冷 T1
+COOL_AIR_T2,Air Cooling T2,风冷 T2
+COOL_LIQUID_T1,Liquid Cooling T1,液冷 T1
+COOL_LIQUID_T2,Liquid Cooling T2,液冷 T2
+CUSTOMER_INTERNET,Internet Company,互联网厂商
+CUSTOMER_MINING,Crypto Mining,挖矿客户
+CUSTOMER_CLOUD,Cloud Provider,云厂商
+CUSTOMER_GPU,AI Company,AI 公司
+ERA_1,Colocation Era,托管时代
+ERA_2,Cloud Era,云计算时代
+ERA_3,AI Era,AI 时代
+NETWORK_L1,10G Access,10G 接入
+NETWORK_L2,100G Access,100G 接入
+NETWORK_L3,Dedicated Line,专线接入
+NETWORK_L4,Backbone Node,骨干节点
+TECH_REPAIR_TEAM,Repair Crew,维修队
+TECH_REPAIR_TEAM_DESC,Shortens dispatch repair time.,缩短派修等待时间。
+EVENT_SHOPPING,E-commerce Festival,电商大促
+EVENT_SHOPPING_DESC,Internet demand surges.,互联网需求激增。
+EVENT_VIRAL,Viral Social App,社交应用爆红
+EVENT_VIRAL_DESC,A new app needs massive capacity.,爆款应用急需大量算力。
+EVENT_COIN_BOOM,Crypto Price Boom,币价暴涨
+EVENT_COIN_BOOM_DESC,Mining demand spikes.,挖矿需求激增。
+EVENT_MINING_CRASH,Mining Crash,矿难
+EVENT_MINING_CRASH_DESC,Mining demand collapses.,挖矿需求暴跌。
+EVENT_POLICY,Policy Tightening,政策收紧
+EVENT_POLICY_DESC,Mining customers pull back.,挖矿客户缩减投入。
+EVENT_CLOUD_MIGRATION,Cloud Migration Wave,企业上云潮
+EVENT_CLOUD_MIGRATION_DESC,Companies rush to the cloud.,企业集中迁移上云。
+EVENT_SELF_BUILD,Hyperscalers Build In-house,大厂自建机房
+EVENT_SELF_BUILD_DESC,Cloud providers reduce leasing.,云厂商减少外部租赁。
+EVENT_AI_BOOM,Foundation Model Boom,AI 大模型热潮
+EVENT_AI_BOOM_DESC,AI labs compete for GPU capacity.,AI 公司争抢 GPU 算力。
+EVENT_GPU_SHORTAGE,GPU Supply Shock,显卡断供
+EVENT_GPU_SHORTAGE_DESC,GPU rack prices double.,GPU 机柜购置价翻倍。
+EVENT_SURPLUS,Compute Surplus,算力过剩
+EVENT_SURPLUS_DESC,AI capacity prices fall.,AI 算力价格下跌。
+EVENT_WINTER,Industry Winter,行业寒冬
+EVENT_WINTER_DESC,All customers cut spending.,所有客户缩减支出。
+EVENT_DIGITAL_WAVE,Digitalization Wave,数字化浪潮
+EVENT_DIGITAL_WAVE_DESC,Demand rises across the industry.,全行业需求上升。
+STORE_NOADS,No Ads,永久去广告
+STORE_NOADS_DESC,Claim every rewarded benefit instantly forever.,永久直接领取所有激励广告奖励。
+STORE_OFFLINE24,24-hour Offline Earnings,24 小时离线收益
+STORE_OFFLINE24_DESC,Extend the offline earnings cap from 8 to 24 hours.,离线收益上限从 8 小时延长至 24 小时。
+STORE_GEMS_S,200 Gems,200 钻石
+STORE_GEMS_M,550 Gems,550 钻石
+STORE_GEMS_L,1200 Gems,1200 钻石
+STORE_PACK_STARTER,Cloud Starter Pack,云时代启程礼包
+STORE_PACK_BUILDER,Builder Pack,建设者礼包
+STORE_PACK_TYCOON,Tycoon Pack,大亨礼包
+ACH_FIRST_CONTRACT,First Client,首位客户
+ACH_FIVE_DC,Growing Park,初具规模
+ACH_TWENTY_DC,Industry Player,行业新贵
+ACH_REPAIR_TEN,Always On,永不宕机
+ACH_RETIRE_FIVE,Planned Renewal,更新换代
+ACH_ERA_TWO,Into the Cloud,迈入云端
+ACH_ERA_THREE,AI Infrastructure,AI 基建
+ACH_PRESTIGE,Public Company,成功上市
+ACH_ARREARS,Cash-flow Survivor,绝处逢生
+TUTORIAL_WELCOME,Welcome! Build your first container data center on the empty plot.,欢迎！先在空地上建造第一座集装箱机房。
+TUTORIAL_POWER,Install a transformer and watch the building light up.,安装变压器，让机房亮起来。
+TUTORIAL_FIRST_RACK,Install a compute rack in the first slot.,在第一个机位安装计算机柜。
+TUTORIAL_CONTRACT,Sign an internet-company contract to start earning.,签下互联网厂商合约，开始赚钱。
+TUTORIAL_COOLING,Install air cooling before adding more heat.,继续上架前，先安装风冷设备。
+TUTORIAL_BUY_LAND,Expansion starts with land. Buy the next plot.,扩张从土地开始，购买下一块地。
+TUTORIAL_RETIRE,This building has aged. Retire it before it becomes a ruin.,机房已经老化，在报废前主动退役。
+TUTORIAL_STANDARD,Build a standard data center to complete the basics.,建造标准机房，完成基础教学。
+TOAST_CONSTRUCTION_STARTED,Construction started,建设已开始
+TOAST_CONSTRUCTION_COMPLETE,Construction complete,建设完成
+TOAST_PURCHASE_COMPLETE,Purchase complete,购买成功
+TOAST_PURCHASE_FAILED,Purchase could not be completed,购买未完成
+TOAST_REPAIR_STARTED,Repair crew dispatched,维修队已出发
+TOAST_REPAIR_COMPLETE,Repair complete,维修完成
+TOAST_CONTRACT_SIGNED,Contract signed,合约已签订
+TOAST_ERA_UNLOCKED,A new era has begun!,新时代已经来临！
+TOAST_ACHIEVEMENT,Achievement unlocked: %s,成就达成：%s
+TOAST_TIME_ROLLBACK,Device time moved backward. Simulation is paused until time catches up.,检测到设备时间回拨，游戏时钟将冻结至追平。
+REASON_QUEUE_FULL,Construction queue is full,建设队列已满
+REASON_IN_PROGRESS,Finish ongoing work first,请先完成正在进行的工程
+REASON_NOT_UPGRADE,Choose a higher-level unit,请选择更高等级的设备
+REASON_REWARD_LIMIT,Reward limit reached,已达到奖励次数上限
+REASON_TICKET,No instant build tickets,没有立即完工券
+REASON_ALREADY_OWNED,Already purchased,已购买
+REASON_PURCHASE_PENDING,Purchase is already in progress,购买正在处理中

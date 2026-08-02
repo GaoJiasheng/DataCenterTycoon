@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "items": {
+    "first_contract": {"name_key": "ACH_FIRST_CONTRACT", "metric": "contracts_signed", "target": 1, "reward_gems": 5},
+    "five_datacenters": {"name_key": "ACH_FIVE_DC", "metric": "total_datacenters_built", "target": 5, "reward_gems": 5},
+    "twenty_datacenters": {"name_key": "ACH_TWENTY_DC", "metric": "total_datacenters_built", "target": 20, "reward_gems": 10},
+    "repair_ten": {"name_key": "ACH_REPAIR_TEN", "metric": "faults_repaired", "target": 10, "reward_gems": 5},
+    "retire_five": {"name_key": "ACH_RETIRE_FIVE", "metric": "datacenters_retired", "target": 5, "reward_gems": 10},
+    "era_two": {"name_key": "ACH_ERA_TWO", "metric": "era", "target": 2, "reward_gems": 5},
+    "era_three": {"name_key": "ACH_ERA_THREE", "metric": "era", "target": 3, "reward_gems": 10},
+    "first_prestige": {"name_key": "ACH_PRESTIGE", "metric": "prestige_count", "target": 1, "reward_gems": 20},
+    "arrears_survivor": {"name_key": "ACH_ARREARS", "metric": "arrears_recovered", "target": 1, "reward_gems": 10}
+  }
+}

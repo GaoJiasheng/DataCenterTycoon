@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "items": {
+    "1": {"name_key": "ERA_1", "revenue_required": 0, "reward_gems": 0, "income_multiplier": 1.0, "asset_id": "ic_era1"},
+    "2": {"name_key": "ERA_2", "revenue_required": 50000, "reward_gems": 100, "income_multiplier": 1.0, "asset_id": "ic_era2"},
+    "3": {"name_key": "ERA_3", "revenue_required": 600000, "reward_gems": 100, "income_multiplier": 1.0, "asset_id": "ic_era3"}
+  }
+}

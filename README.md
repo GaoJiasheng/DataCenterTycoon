@@ -3,6 +3,8 @@
 一款以「数据中心建设与运营」为题材的竖屏放置经营手游。
 玩家像种菜一样：买地 → 建机房 → 上架机器 → 接客户合约赚钱 → 机房老化退役 → 用赚到的钱建更多更好的机房。
 
+竖屏界面以 iPhone 17 Pro Max 的 440×956 pt 为标准尺寸，在 Godot 中使用 880×1912 设计画布；交互控件遵循至少 44pt 的触控热区，并为 Dynamic Island 与 Home Indicator 预留安全区。
+
 - 引擎：Godot 4（沿用 zombie-fire 的 Godot + iOS 发行经验）
 - 平台：iOS App Store（竖屏，多尺寸兼容）
 - 市场：中英双语，面向中国大陆以外的所有区域
@@ -22,14 +24,41 @@
 
 ## 当前状态
 
-- [x] 设计方案完成（本次提交）
-- [ ] M0：Godot 工程搭建 + 存档/时间引擎
-- [ ] M1：单机房核心循环可玩
-- [ ] 后续里程碑见 [docs/04_tech_plan.md](docs/04_tech_plan.md)
+- [x] M0–M4：工程底座、完整经营循环、地图扩张、长线系统、转生、引导与成就
+- [x] 双语竖屏 UI、存档/三备份/迁移、90 天离线快进、行情、破产、商业化玩法逻辑
+- [x] 正式美术 134 项、音频 16 项完整接入；地图、机房、导航、商店、事件特效和三套音乐均走运行时接口
+- [x] StoreKit provider、交易幂等、限购、恢复购买和激励视频原生桥接口
+- [x] 64 项 Godot 回归测试、9 状态竖屏视觉烟雾测试、30 天三策略模拟、iOS 导出与 App Store 自动门禁
+- [ ] 外部交付：P01 正式名称、P04 广告 SDK、Apple 账号/证书、商店截图和 TestFlight
+
+运行时已经使用正式视听资源；资源接口仍保留缺失回退，因此单张素材损坏或暂时移除不会阻止玩法逻辑启动。
+
+## 开发与验收
+
+使用 Godot 4.7 stable 打开仓库根目录，或直接运行：
+
+```sh
+godot --path .
+godot --headless --path . tests/test_runner.tscn
+godot --path . tests/visual_smoke.tscn
+python3 tools/validate_data.py
+python3 tools/simulate_economy.py
+```
+
+资源重做或更新后执行：
+
+```sh
+python3 tools/import_assets.py --visual --audio
+python3 tools/check_assets.py --strict --audio
+python3 tools/check_app_store_assets.py
+python3 tools/check_release.py
+```
+
+实现说明见 [docs/architecture.md](docs/architecture.md)，数值结果见 [docs/balance_report.md](docs/balance_report.md)，外部交付项见 [docs/release_checklist.md](docs/release_checklist.md)。
 
 ## 给下一个 session / 模型的说明
 
 1. 一切设计争议以 `docs/00_decisions.md` 为准；它记录了与项目所有者（GaoJiasheng）逐条确认过的决策。
-2. 数值表（`docs/02_economy.md`）是首版估值，实现后必须用文档中描述的模拟器脚本调平，不要凭感觉改。
+2. 数值表（`docs/02_economy.md`）与 `data/*.json` 是首版基线；修改后必须重跑模拟器，不要凭感觉改。
 3. 美术 prompt 刻意用英文书写（生成模型对英文理解更好），文档其余部分用中文。
 4. 不要扩充已被明确砍掉的系统（见 00_decisions「明确不做」一节）。

@@ -1,0 +1,18 @@
+extends Node
+
+signal state_changed(reason: String)
+signal toast_requested(message_key: String, values: Dictionary)
+signal navigation_requested(page: String, context: Dictionary)
+signal offline_settled(report: Dictionary)
+signal construction_completed(item: Dictionary)
+signal rack_fault_occurred(datacenter_id: String, slot: int)
+signal market_event_previewed(event_id: String)
+signal market_event_started(event_id: String)
+signal market_event_ended(event_id: String)
+signal datacenter_entered_aging(datacenter_id: String)
+signal era_unlocked(era: int)
+signal bankruptcy_state_changed(state: String)
+signal reward_granted(placement: String, payload: Dictionary)
+signal entitlement_changed(product_id: String, active: bool)
+signal purchase_completed(product_id: String, success: bool, message: String)
+signal locale_changed(locale: String)
