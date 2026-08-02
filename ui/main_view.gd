@@ -7,6 +7,7 @@ const ParkMapScene := preload("res://gameplay/map/park_map.gd")
 const Rules := preload("res://gameplay/game_rules.gd")
 const FxLayerScene := preload("res://ui/fx_layer.gd")
 const DatacenterBoardScene := preload("res://ui/datacenter_board.gd")
+const TutorialOverlayScene := preload("res://ui/tutorial_overlay.gd")
 
 const HAPTIC_LIGHT := 8
 const HAPTIC_MEDIUM := 16
@@ -17,9 +18,7 @@ var cash_label: Label
 var gems_label: Label
 var date_label: Label
 var news_label: Label
-var tutorial_panel: PanelContainer
-var tutorial_label: Label
-var tutorial_icon: TextureRect
+var tutorial_overlay: TutorialOverlay
 var world_host: Control
 var park_map: ParkMap
 var shell_header: PanelContainer
@@ -61,6 +60,7 @@ var _gems_tween: Tween
 var _last_observed_cash := NAN
 var _last_income_fly_at := -INF
 var _primary_pulse_tween: Tween
+var _last_tutorial_step := -1
 
 func _ready() -> void:
 	theme = ThemeMaker.create()
@@ -208,30 +208,6 @@ func _build_shell() -> void:
 	news_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	news_panel.add_child(news_label)
 
-	tutorial_panel = PanelContainer.new()
-	tutorial_panel.name = "MissionCoach"
-	tutorial_panel.position = Vector2(110, 390)
-	tutorial_panel.custom_minimum_size = Vector2(540, 112)
-	tutorial_panel.size = Vector2(540, 112)
-	tutorial_panel.add_theme_stylebox_override("panel", ThemeMaker.dialog_box())
-	var tutorial_row := HBoxContainer.new()
-	tutorial_row.add_theme_constant_override("separation", 12)
-	tutorial_panel.add_child(tutorial_row)
-	tutorial_icon = TextureRect.new()
-	tutorial_icon.custom_minimum_size = Vector2(68, 68)
-	tutorial_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tutorial_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tutorial_row.add_child(tutorial_icon)
-	tutorial_label = _label("", 22, ThemeMaker.COLORS.ink)
-	tutorial_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tutorial_label.custom_minimum_size.x = 386
-	tutorial_label.max_lines_visible = 2
-	tutorial_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	tutorial_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tutorial_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	tutorial_row.add_child(tutorial_label)
-	stage.add_child(tutorial_panel)
-
 	navigation_panel = PanelContainer.new()
 	navigation_panel.name = "WorldActions"
 	navigation_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -300,6 +276,9 @@ func _build_shell() -> void:
 	fx_layer = FxLayerScene.new()
 	fx_layer.name = "FxLayer"
 	add_child(fx_layer)
+	tutorial_overlay = TutorialOverlayScene.new()
+	tutorial_overlay.target_activated.connect(_on_tutorial_target_activated)
+	add_child(tutorial_overlay)
 
 	toast_label = _label("", 25, Color.WHITE)
 	toast_label.visible = false
@@ -828,6 +807,7 @@ func _build_contract_management(dc: Dictionary) -> Control:
 		elif not current_customer.is_empty() and customer_id != current_customer:
 			contract_text += " · " + (tr("CONTRACT_FREE_SWITCH") if fee <= 0.0 else "$%s" % Game.format_number(fee))
 		var contract_button := _button(contract_text, _sign_contract.bind(str(dc.get("id", "")), customer_id), ThemeMaker.COLORS.green)
+		contract_button.name = "Contract_%s" % customer_id
 		contract_button.disabled = not available
 		_set_button_asset(contract_button, str(customer.get("asset_id", "")), 54)
 		contracts.add_child(contract_button)
@@ -1058,23 +1038,81 @@ func _refresh_tutorial() -> void:
 	var tutorial: Dictionary = Game.state.get("tutorial", {})
 	var steps: Array = DataRepository.get_table("tutorial").get("steps", [])
 	var index := int(tutorial.get("step", 0))
-	var modal_open := find_child("ActionSheetOverlay", true, false) != null or find_child("BuildingPicker", true, false) != null or find_child("DatacenterContext", true, false) != null
-	tutorial_panel.visible = active_page == "map" and not modal_open and not bool(tutorial.get("completed", false)) and index < steps.size()
-	if tutorial_panel.visible:
-		tutorial_label.text = tr(steps[index].get("message_key", ""))
-		var guide_assets := ["guide_normal", "guide_thinking", "guide_happy", "guide_alert", "guide_worried", "guide_thinking", "guide_worried", "guide_happy"]
-		tutorial_icon.texture = AssetCatalog.texture(guide_assets[mini(index, guide_assets.size() - 1)])
-		call_deferred("_position_tutorial_callout")
-
-func _position_tutorial_callout() -> void:
-	if not tutorial_panel.visible or active_page != "map":
+	if _last_tutorial_step >= 0 and index > _last_tutorial_step:
+		_play_fx("fx_confetti_set", 300)
+		AudioService.play_sfx("sfx_tap")
+		_haptic(HAPTIC_SUCCESS)
+		if index in [1, 4, 7]:
+			_fly_cash_reward(Vector2.ZERO, 3)
+	_last_tutorial_step = index
+	var completed := bool(tutorial.get("completed", false)) or index >= steps.size()
+	if completed:
+		tutorial_overlay.dismiss()
+		_set_tutorial_chrome_visibility(true, "")
 		return
-	var stage := tutorial_panel.get_parent() as Control
-	# Mission copy belongs to the HUD rather than the world projection. A stable
-	# bottom safe zone keeps it from covering the building it is explaining.
-	tutorial_panel.position = Vector2(
-		(stage.size.x - tutorial_panel.size.x) * 0.5,
-		stage.size.y - 286.0
+	var step: Dictionary = steps[index]
+	var focus := str(step.get("focus", ""))
+	var target := _resolve_tutorial_target(focus)
+	var rect: Rect2 = target.get("rect", Rect2())
+	var action: Callable = target.get("action", Callable())
+	var guide_assets := ["guide_normal", "guide_thinking", "guide_happy", "guide_alert", "guide_worried", "guide_thinking", "guide_worried", "guide_happy"]
+	tutorial_overlay.present(rect, tr(step.get("message_key", "")), guide_assets[mini(index, guide_assets.size() - 1)], action)
+	_set_tutorial_chrome_visibility(false, focus)
+
+func _set_tutorial_chrome_visibility(restored: bool, focus: String) -> void:
+	if task_button != null:
+		task_button.visible = restored
+	if operations_button != null:
+		operations_button.visible = restored
+	if news_panel != null and not restored:
+		news_panel.visible = false
+	if primary_action_button != null:
+		primary_action_button.visible = restored or focus in ["build_dc_t0", "buy_plot", "build_dc_t1"]
+
+func _resolve_tutorial_target(focus: String) -> Dictionary:
+	var control: Control = null
+	match focus:
+		"build_dc_t0":
+			control = _visible_control_named("Building_dc_t0")
+			if control == null: control = primary_action_button
+		"build_dc_t1":
+			control = _visible_control_named("Building_dc_t1")
+			if control == null: control = primary_action_button
+		"install_power": control = _visible_control_named("PowerSlot")
+		"rack_slot_0":
+			control = _visible_control_named("RackSlot0")
+			if control != null:
+				var board := _visible_datacenter_board(selected_datacenter_id)
+				if board != null:
+					return {"rect": control.get_global_rect(), "action": _on_board_rack_slot_selected.bind(board.datacenter_id, 0)}
+		"contract_internet":
+			control = _visible_control_named("Contract_internet")
+			if control == null: control = _visible_control_named("ContractCTA")
+		"install_cooler":
+			for edge: String in ["north", "east", "south", "west"]:
+				control = _visible_control_named("Cooler_%s" % edge)
+				if control != null: break
+		"buy_plot":
+			control = park_map.target_control_of("sale") if park_map != null else null
+		"retire_dc": control = _visible_control_named("RetireButton")
+	if control == null or not control.is_visible_in_tree():
+		return {"rect": Rect2(), "action": Callable()}
+	var action := func() -> void:
+		if is_instance_valid(control) and control is Button:
+			(control as Button).pressed.emit()
+	return {"rect": control.get_global_rect(), "action": action}
+
+func _visible_control_named(node_name: String) -> Control:
+	for node: Node in find_children(node_name, "", true, false):
+		var control := node as Control
+		if control != null and control.is_visible_in_tree():
+			return control
+	return null
+
+func _on_tutorial_target_activated() -> void:
+	get_tree().create_timer(0.18).timeout.connect(func() -> void:
+		if is_instance_valid(tutorial_overlay):
+			_refresh_tutorial()
 	)
 
 func _news_text() -> String:
@@ -1229,6 +1267,7 @@ func _show_building_picker(plot_id: String) -> void:
 		if bool(building.get("tutorial_only", false)) and bool(Game.state.get("flags", {}).get("standard_built", false)):
 			continue
 		var card := Button.new()
+		card.name = "Building_%s" % building_id
 		card.custom_minimum_size = Vector2(322, 418)
 		card.focus_mode = Control.FOCUS_NONE
 		ThemeMaker.apply_button_color(card, Color("1c3850"))
@@ -1259,7 +1298,6 @@ func _show_building_picker(plot_id: String) -> void:
 		card_content.add_child(duration)
 
 func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
-	tutorial_panel.visible = false
 	var overlay := ColorRect.new()
 	overlay.name = node_name
 	overlay.color = Color(0.015, 0.03, 0.05, 0.32)
@@ -1268,6 +1306,7 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	overlay.z_index = 90
 	overlay.tree_exiting.connect(_request_hud_refresh)
 	add_child(overlay)
+	call_deferred("_refresh_tutorial")
 	var sheet := PanelContainer.new()
 	sheet.name = "ContextSheet"
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -1430,34 +1469,19 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 			_dismiss_world_sheet(overlay, _demolish.bind(datacenter_id))
 		, ThemeMaker.COLORS.red))
 		return
-	var tutorial_state: Dictionary = Game.state.get("tutorial", {})
-	var tutorial_index := int(tutorial_state.get("step", 0))
-	var tutorial_steps: Array = DataRepository.get_table("tutorial").get("steps", [])
-	if not bool(tutorial_state.get("completed", false)) and tutorial_index in [1, 2, 3, 4] and tutorial_index < tutorial_steps.size():
-		var coach := PanelContainer.new()
-		coach.custom_minimum_size.y = 68
-		coach.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("1a3045"), Color(ThemeMaker.COLORS.yellow, 0.55), 1, 18))
-		var coach_row := HBoxContainer.new()
-		coach_row.add_theme_constant_override("separation", 10)
-		coach.add_child(coach_row)
-		coach_row.add_child(_icon_view("guide_thinking", Vector2(48, 48)))
-		var coach_text := _label(tr(tutorial_steps[tutorial_index].get("message_key", "")), 20, ThemeMaker.COLORS.cream)
-		coach_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		coach_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		coach_text.max_lines_visible = 2
-		coach_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		coach_row.add_child(coach_text)
-		sheet_box.add_child(coach)
 	var board := _create_datacenter_board(datacenter_id)
 	sheet_box.add_child(board)
 	var contract_button := _button(tr("SIGN_CONTRACT"), func() -> void:
 		_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, "contracts"))
 	, ThemeMaker.COLORS.sky)
+	contract_button.name = "ContractCTA"
 	_set_button_asset(contract_button, "ic_contract", 42)
 	sheet_box.add_child(contract_button)
 	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
 		var refund := Rules.retirement_value(dc, Game.simulation_time(), Game.data)
-		sheet_box.add_child(_button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(datacenter_id), ThemeMaker.COLORS.orange))
+		var retire_button := _button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(datacenter_id), ThemeMaker.COLORS.orange)
+		retire_button.name = "RetireButton"
+		sheet_box.add_child(retire_button)
 
 func _datacenter_context_asset(dc: Dictionary, building: Dictionary) -> String:
 	if str(dc.get("status", "")) == "ruined":
@@ -1551,8 +1575,6 @@ func _show_choice(title_text: String, choices: Array[Dictionary], callback: Call
 	_present_action_sheet(title_text, "", choices, callback)
 
 func _present_action_sheet(title_text: String, body: String, choices: Array[Dictionary], callback: Callable, show_cancel: bool = true) -> void:
-	if active_page == "map":
-		tutorial_panel.visible = false
 	var overlay := ColorRect.new()
 	overlay.name = "ActionSheetOverlay"
 	overlay.color = Color(0.015, 0.03, 0.06, 0.76)
@@ -1561,6 +1583,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	overlay.z_index = 90
 	overlay.tree_exiting.connect(_request_hud_refresh)
 	add_child(overlay)
+	call_deferred("_refresh_tutorial")
 
 	var body_height := 0
 	if not body.is_empty():
@@ -1918,7 +1941,7 @@ func _on_purchase_completed(_product_id: String, success: bool, _message: String
 
 func _show_toast(message: String) -> void:
 	toast_label.text = message
-	toast_label.position.y = -352.0 if tutorial_panel.visible else -230.0
+	toast_label.position.y = -352.0 if tutorial_overlay != null and tutorial_overlay.visible else -230.0
 	toast_label.modulate = Color.WHITE
 	toast_label.visible = true
 	var tween := create_tween()

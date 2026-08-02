@@ -84,6 +84,17 @@ func _run_ui_refresh_test() -> void:
 	var main := MAIN_SCENE.instantiate()
 	add_child(main)
 	await get_tree().process_frame
+	main.call("_refresh")
+	await get_tree().process_frame
+	var spotlight := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
+	var primary := main.find_child("PrimaryWorldAction", true, false) as Control
+	var spotlight_rect: Rect2 = spotlight.get("target_rect") if spotlight != null else Rect2()
+	_expect(spotlight != null and spotlight.visible and bool(spotlight.call("is_actionable")) and primary != null and spotlight_rect.intersects(primary.get_global_rect()), "FTUE spotlight resolves and gates input to the primary build action")
+	Game.state["tutorial"]["step"] = 1
+	main.call("_refresh_hud")
+	_expect(spotlight.visible and not bool(spotlight.call("is_actionable")) and spotlight.mouse_filter == Control.MOUSE_FILTER_IGNORE, "FTUE degrades to a non-blocking coach bubble when its target is absent")
+	Game.state["tutorial"]["step"] = 0
+	main.call("_refresh_hud")
 	main.call("_navigate", "store")
 	main.call("_refresh")
 	await get_tree().process_frame

@@ -11,6 +11,9 @@ func _ready() -> void:
 	add_child(main)
 	var valid := true
 	valid = (await _capture(main, "map")) and valid
+	valid = (await _capture(main, "ftue_spotlight")) and valid
+	Game.state["tutorial"]["completed"] = true
+	main.call("_refresh_hud")
 	main.call("_show_plot_purchase")
 	valid = (await _capture(main, "action_sheet")) and valid
 	var action_sheet := main.find_child("ActionSheetOverlay", true, false)
@@ -147,7 +150,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 24 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
+	print("VISUAL_SMOKE: %s 25 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
 	get_tree().quit(0 if valid else 1)
 
 func _capture(main: Node, name: String, refresh: bool = true) -> bool:
@@ -232,6 +235,14 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				persistent_count += 1
 		if persistent_count > 7 or main.find_child("BottomNav", true, false) != null:
 			push_error("VISUAL_SMOKE: map has %d persistent controls or a legacy tab bar" % persistent_count)
+			valid = false
+	if state_name == "ftue_spotlight":
+		var spotlight := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
+		var primary := main.find_child("PrimaryWorldAction", true, false) as Control
+		var pointer := main.find_child("TutorialPointer", true, false) as Control
+		var hole: Rect2 = spotlight.get("target_rect") if spotlight != null else Rect2()
+		if spotlight == null or not spotlight.visible or not bool(spotlight.call("is_actionable")) or primary == null or pointer == null or not pointer.visible or not hole.intersects(primary.get_global_rect()):
+			push_error("VISUAL_SMOKE: FTUE spotlight does not resolve the primary action hole and pointer")
 			valid = false
 	if state_name in ["dc_contracts", "market"]:
 		for node: Node in main.find_children("*", "Button", true, false):

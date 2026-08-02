@@ -163,6 +163,9 @@ func target_global_position(target_id: String) -> Vector2:
 func world_position_of(target_id: String) -> Vector2:
 	return target_global_position(target_id)
 
+func target_control_of(target_id: String) -> Control:
+	return target_buttons.get(target_id) as Control
+
 func celebrate_target(target_id: String) -> void:
 	var target := target_buttons.get(target_id) as Control
 	if target == null:
