@@ -353,6 +353,20 @@ static func apply_icon_button(button: Button) -> void:
 	button.add_theme_stylebox_override("pressed", pressed)
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 
+static func apply_prominent_danger(button: Button) -> void:
+	button.set_meta("glossy_button", false)
+	button.add_theme_stylebox_override("normal", button_box(Color("b7444f"), RADIUS.button))
+	button.add_theme_stylebox_override("hover", button_box(Color("c9505a"), RADIUS.button))
+	button.add_theme_stylebox_override("pressed", button_box(Color("923640"), RADIUS.button, true))
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	button.add_theme_font_override("font", font_bold())
+	button.add_theme_font_size_override("font_size", 28)
+	button.add_theme_color_override("font_color", Color.WHITE)
+	button.add_theme_color_override("font_outline_color", COLORS.ink)
+	button.add_theme_constant_override("outline_size", 4)
+	button.add_theme_color_override("font_shadow_color", COLORS.ink)
+	button.add_theme_constant_override("shadow_offset_y", 2)
+
 static func apply_round_button(button: Button, color: Color) -> void:
 	button.add_theme_stylebox_override("normal", round_button_box(color))
 	button.add_theme_stylebox_override("hover", round_button_box(color.lightened(0.08)))

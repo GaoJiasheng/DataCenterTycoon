@@ -361,11 +361,28 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			var badge := node as PanelContainer
 			if badge != null and badge.has_meta("alert_type"):
 				alert_count += 1
+				var badge_style := badge.get_theme_stylebox("panel") as StyleBoxFlat
+				if not bool(badge.get_meta("breathing", false)) or badge_style == null or not badge_style.border_color.is_equal_approx(Color.WHITE) or badge_style.get_border_width(SIDE_TOP) < 2:
+					push_error("VISUAL_SMOKE: world alert lacks its white rim or breathing affordance")
+					valid = false
 				if not viewport_rect.intersects(badge.get_global_rect()):
 					push_error("VISUAL_SMOKE: world alert is outside the viewport: %s" % badge.get_meta("alert_type"))
 					valid = false
 		if alert_count != 3:
 			push_error("VISUAL_SMOKE: expected three actionable world alerts, got %d" % alert_count)
+			valid = false
+	if state_name in ["map_built", "campus_dense", "world_alerts"]:
+		var building_count := main.find_children("BuildingGroundShadow", "Polygon2D", true, false).size()
+		var foundation_count := main.find_children("PlotFoundation", "TextureRect", true, false).size()
+		var expected_min := 6 if state_name == "campus_dense" else (3 if state_name == "world_alerts" else 1)
+		if building_count < expected_min or foundation_count < expected_min:
+			push_error("VISUAL_SMOKE: %s lacks unified plot foundations or ground shadows %d/%d" % [state_name, foundation_count, building_count])
+			valid = false
+	if state_name == "dc_context":
+		var contract_hint := main.find_child("ContractPowerHint", true, false) as Label
+		var contract_cta := main.find_child("ContractCTA", true, false) as Button
+		if contract_hint == null or contract_cta == null or bool(contract_cta.get_meta("glossy_button", false)):
+			push_error("VISUAL_SMOKE: unpowered context does not explain why contracts are unavailable")
 			valid = false
 	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing"]:
 		var board := main.find_child("DatacenterBoard", true, false)
@@ -437,6 +454,12 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if state_name == "market_active" and (main.find_child("MarketEventActive", true, false) == null or main.find_child("EventTimer", true, false) == null):
 			push_error("VISUAL_SMOKE: active market lacks an event card and timer")
 			valid = false
+		if state_name == "market_active":
+			var event_card := main.find_child("MarketEventActive", true, false) as Control
+			var first_customer := main.find_child("MarketCustomer_internet", true, false) as Control
+			if event_card == null or first_customer == null or event_card.global_position.y >= first_customer.global_position.y:
+				push_error("VISUAL_SMOKE: active market event is not above customer trends")
+				valid = false
 		if state_name == "market_rich":
 			for spark: Node in main.find_children("Sparkline_*", "Sparkline", true, false):
 				if (spark as Sparkline).values.size() != 24:
@@ -453,18 +476,48 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if affordability_count < 2:
 			push_error("VISUAL_SMOKE: tech upgrades do not share the affordability contract")
 			valid = false
+		for era_node: Node in main.find_children("EraNode_*", "PanelContainer", true, false):
+			if (era_node as Control).custom_minimum_size.x < 170.0:
+				push_error("VISUAL_SMOKE: tech era node is too narrow for localized names")
+				valid = false
+	if state_name == "achievements" and main.find_children("AchievementProgress_*", "ProgressBar", true, false).size() != DataRepository.get_table("achievements").get("items", {}).size():
+		push_error("VISUAL_SMOKE: achievement cards do not expose per-goal progress")
+		valid = false
+	if state_name == "rack_picker":
+		var rack_choice_count := 0
+		for choice_node: Node in main.find_children("Choice_rack_*", "Button", true, false):
+			rack_choice_count += 1
+			if (choice_node as Button).icon == null:
+				push_error("VISUAL_SMOKE: rack picker option lacks a 64u rack thumbnail")
+				valid = false
+		if rack_choice_count < 2:
+			push_error("VISUAL_SMOKE: rack picker did not render its purchasable choices")
+			valid = false
+	if state_name in ["rack_install_actions", "rack_pause_actions"]:
+		var status_label := main.find_child("ActionSheetStatus", true, false) as Label
+		if status_label == null or (state_name == "rack_install_actions" and not status_label.get_theme_color("font_color").is_equal_approx(ThemeFactory.COLORS.orange)):
+			push_error("VISUAL_SMOKE: rack action state lacks semantic status color")
+			valid = false
+		if state_name == "rack_pause_actions":
+			var resume := main.find_child("Choice_power", true, false) as Button
+			if resume == null or not bool(resume.get_meta("glossy_button", false)):
+				push_error("VISUAL_SMOKE: resume action is not the primary rack action")
+				valid = false
 	if state_name == "contract_comparison":
 		var sheet := main.find_child("ActionSheetOverlay", true, false)
 		if sheet == null:
 			push_error("VISUAL_SMOKE: contract comparison sheet did not open")
 			valid = false
 	if state_name == "store":
-		var glossy_store_buttons := 0
+		var eligible_store_buttons := 0
 		for buy_node: Node in main.find_children("StoreBuy_*", "Button", true, false):
-			if bool(buy_node.get_meta("glossy_button", false)):
-				glossy_store_buttons += 1
-		if glossy_store_buttons != 1:
-			push_error("VISUAL_SMOKE: store expected one glossy purchase focus, got %d" % glossy_store_buttons)
+			if not (buy_node as Button).disabled:
+				eligible_store_buttons += 1
+				if not bool(buy_node.get_meta("glossy_button", false)):
+					push_error("VISUAL_SMOKE: store price action is not consistently primary: %s" % buy_node.name)
+					valid = false
+		if eligible_store_buttons == 0 or main.find_child("BestValueRibbon", true, false) == null:
+			push_error("VISUAL_SMOKE: store lacks eligible primary prices or its best-value ribbon")
 			valid = false
 		for section_id: String in ["deals", "gems", "perks"]:
 			if main.find_child("StoreSection_%s" % section_id, true, false) == null:
@@ -476,6 +529,9 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 	if state_name == "settings":
 		if main.find_child("SettingsCompliance", true, false) == null or main.find_child("SettingsVersion", true, false) == null:
 			push_error("VISUAL_SMOKE: settings lacks legal/support/version rows")
+			valid = false
+		if main.find_children("SettingsChevron", "Label", true, false).size() != 3:
+			push_error("VISUAL_SMOKE: settings legal rows lack three chevrons")
 			valid = false
 	if state_name == "offline_reward":
 		if main.find_child("OfflineRewardCard", true, false) == null or main.find_child("OfflineCoinPile", true, false) == null or main.find_child("OfflineDoubleButton", true, false) == null:
@@ -510,13 +566,21 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			valid = false
 		var reward_label := main.find_child("EraRewardValue", true, false) as Label
 		var era_two := DataRepository.get_entry("eras", "2")
-		if reward_label != null and reward_label.text != tr("GEMS_FORMAT") % int(era_two.get("reward_gems", 0)):
+		if reward_label != null and reward_label.text != str(int(era_two.get("reward_gems", 0))):
 			push_error("VISUAL_SMOKE: era reward did not settle on its final value: %s" % reward_label.text)
+			valid = false
+		if main.find_child("EraRewardChip", true, false) == null:
+			push_error("VISUAL_SMOKE: era reward is not presented as an icon chip")
 			valid = false
 	if state_name == "game_over":
 		var stat_count := main.find_children("GameOverStat_*", "", true, false).size()
 		if main.find_child("GameOverStatsCard", true, false) == null or stat_count != 4 or main.find_child("GameOverRestart", true, false) == null:
 			push_error("VISUAL_SMOKE: game over lacks the four-stat blackout presentation stats=%d card=%s restart=%s" % [stat_count, str(main.find_child("GameOverStatsCard", true, false)), str(main.find_child("GameOverRestart", true, false))])
+			valid = false
+		var game_over_title := main.find_child("GameOverTitle", true, false) as Label
+		var game_over_restart := main.find_child("GameOverRestart", true, false) as Button
+		if game_over_title == null or game_over_title.get_theme_font_size("font_size") < 44 or game_over_restart == null or game_over_restart.get_theme_font_size("font_size") != 28 or game_over_restart.get_theme_constant("outline_size") < 4:
+			push_error("VISUAL_SMOKE: game over title/restart hierarchy is below the P1 contract")
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	valid = _text_is_within_clipping_ancestors(main, state_name) and valid

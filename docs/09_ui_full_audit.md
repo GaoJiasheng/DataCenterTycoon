@@ -265,3 +265,14 @@
 - `docs/ui_review/09_batch1_compare_{en,zh_CN}_map.png`
 - `docs/ui_review/09_batch1_compare_{en,zh_CN}_dc_board_placing.png`
 - `docs/ui_review/09_batch1_compare_{en,zh_CN}_store.png`
+
+### 批次② · U 系列 P1 全量（2026-08-03）
+
+- [x] U1/U2/U3：建筑统一增加地块基座与 0.18 椭圆投影，园区列距 +24u、行距 +32u；世界告警增加 1↔1.08 呼吸和 2u 白描边。
+- [x] U4/U5/U6：保留 G5 高质量程序化指针回退；未通电合约入口增加原因提示与 toast；机柜格底提亮至 `#18293c`。
+- [x] U9/U13：机柜选项增加 64u 实物缩略图；安装/停机/故障副标使用语义色，恢复运行与派修成为首选主操作。
+- [x] U14/U15/U16：活动卡移至图表正下方；时代节点以 170u + 18u 双行完整显示；九张成就卡全部增加当前值/目标值与进度条。
+- [x] U17/U18：商店价格按钮统一 primary，最划算改为独立丝带；法律三行统一 88u、1px 分隔与右侧 chevron。
+- [x] U21/U22：时代标题去除中文多余空格，钻石奖励改为图标色块与滚动数字；破产标题使用 display 粗体，重开按钮升级为 28u/4px 高对比 danger。
+
+门禁：`validate_data.py` 通过；`test_runner` 103/103；`visual_smoke` zh_CN 30/30、en 30/30。P1 对应视觉断言已加入 `tests/visual_smoke.gd`，后续回归不再只依赖人工目测。

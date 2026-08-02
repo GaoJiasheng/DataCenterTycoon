@@ -183,7 +183,7 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var open := slot in unlocked
 		var installed: Variant = racks[slot] if slot < racks.size() else null
-		var fill := Color("142a40", 0.72)
+		var fill := Color("18293c", 0.82)
 		var border := Color("8db8d5", 0.54)
 		if not open:
 			fill = Color("14202d", 0.84)
@@ -198,7 +198,7 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 				fill = Color(ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange), 0.35)
 				border = ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)
 		elif open:
-			fill = Color("142a40", 0.72)
+			fill = Color("18293c", 0.82)
 			border = Color("8db8d5", 0.54)
 		if not preview_rack_id.is_empty():
 			var placement := placement_state_for_slot(slot)

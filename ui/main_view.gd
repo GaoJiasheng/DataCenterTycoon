@@ -964,17 +964,6 @@ func _build_market_page() -> Control:
 	for customer_id: String in DataRepository.get_table("customers").get("items", {}):
 		legend.add_child(_market_legend_button(chart, customer_id, DataRepository.get_entry("customers", customer_id)))
 	box.add_child(chart_card)
-	box.add_child(_section_title(tr("MARKET_CUSTOMERS"), tr("MARKET_CUSTOMERS_HINT")))
-	var customers := GridContainer.new()
-	# Contract names are product concepts, not abbreviations. One column preserves
-	# full names in both locales and lets the signal cards breathe on a phone.
-	customers.columns = 1
-	customers.add_theme_constant_override("h_separation", 12)
-	customers.add_theme_constant_override("v_separation", 12)
-	box.add_child(customers)
-	for customer_id: String in DataRepository.get_table("customers").get("items", {}):
-		var customer := DataRepository.get_entry("customers", customer_id)
-		customers.add_child(_customer_market_card(customer_id, customer))
 	var any_event := false
 	for active: Dictionary in Game.state.get("market", {}).get("active", []):
 		if not any_event:
@@ -986,6 +975,17 @@ func _build_market_page() -> Control:
 			box.add_child(_section_title(tr("MARKET_PREVIEW"), ""))
 		any_event = true
 		box.add_child(_event_card(preview, true))
+	box.add_child(_section_title(tr("MARKET_CUSTOMERS"), tr("MARKET_CUSTOMERS_HINT")))
+	var customers := GridContainer.new()
+	# Contract names are product concepts, not abbreviations. One column preserves
+	# full names in both locales and lets the signal cards breathe on a phone.
+	customers.columns = 1
+	customers.add_theme_constant_override("h_separation", 12)
+	customers.add_theme_constant_override("v_separation", 12)
+	box.add_child(customers)
+	for customer_id: String in DataRepository.get_table("customers").get("items", {}):
+		var customer := DataRepository.get_entry("customers", customer_id)
+		customers.add_child(_customer_market_card(customer_id, customer))
 	return _wrap_scroll(box)
 
 func _market_legend_button(chart: MarketChart, customer_id: String, customer: Dictionary) -> Button:
@@ -1085,7 +1085,7 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 			route.add_child(connector)
 		var node := PanelContainer.new()
 		node.name = "EraNode_%d" % node_era
-		node.custom_minimum_size = Vector2(168, 172)
+		node.custom_minimum_size = Vector2(170, 178)
 		node.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("17314b") if node_era == era_id else Color("102236"), ThemeMaker.COLORS.yellow if node_era == era_id else Color(1, 1, 1, 0.12), 3 if node_era == era_id else 1, 20))
 		route.add_child(node)
 		var node_box := VBoxContainer.new()
@@ -1093,9 +1093,10 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 		node.add_child(node_box)
 		node_box.add_child(_icon_view("ic_era%d" % node_era, Vector2(86, 86)))
 		var node_data := DataRepository.get_entry("eras", str(node_era))
-		var node_label := _label(tr(node_data.get("name_key", "")), 19, ThemeMaker.COLORS.yellow if node_era == era_id else ThemeMaker.COLORS.cream)
+		var node_label := _label(tr(node_data.get("name_key", "")), 18, ThemeMaker.COLORS.yellow if node_era == era_id else ThemeMaker.COLORS.cream)
 		node_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		node_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		node_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		node_label.max_lines_visible = 2
 		node_box.add_child(node_label)
 		var state_label := _label("✓" if node_era < era_id else (tr("ERA_CURRENT") if node_era == era_id else "🔒"), 18, ThemeMaker.COLORS.green if node_era <= era_id else Color("8a97a8"))
 		state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1212,18 +1213,41 @@ func _build_achievements_section() -> Control:
 	for achievement_id: String in DataRepository.get_table("achievements").get("items", {}):
 		var achievement := DataRepository.get_entry("achievements", achievement_id)
 		var done := bool(Game.state.get("achievements", {}).get(achievement_id, false))
+		var metric := str(achievement.get("metric", ""))
+		var current := float(Game.state.get("player", {}).get(metric, Game.state.get("stats", {}).get(metric, 0.0)))
+		var target := maxf(1.0, float(achievement.get("target", 1.0)))
+		current = target if done else minf(current, target)
 		var achievement_card := PanelContainer.new()
-		achievement_card.custom_minimum_size.y = 104
+		achievement_card.custom_minimum_size.y = 168
 		achievement_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		achievement_card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("102033"), 0.97, 20, ThemeMaker.COLORS.green if done else Color("6b7e91")))
+		var card_box := VBoxContainer.new()
+		card_box.add_theme_constant_override("separation", 8)
+		achievement_card.add_child(card_box)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
-		achievement_card.add_child(row)
+		card_box.add_child(row)
 		row.add_child(_icon_view("ic_check" if done else "ic_lock", Vector2(42, 42)))
-		var achievement_label := _label("%s\n%d %s" % [tr(achievement.get("name_key", "")), int(achievement.get("reward_gems", 0)), tr("GEMS_REWARD_SHORT")], 20, ThemeMaker.COLORS.green if done else ThemeMaker.COLORS.cream)
+		var achievement_label := _label(tr(achievement.get("name_key", "")), 20, ThemeMaker.COLORS.green if done else ThemeMaker.COLORS.cream)
 		achievement_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		achievement_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		achievement_label.max_lines_visible = 1
+		achievement_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		row.add_child(achievement_label)
+		var progress := ProgressBar.new()
+		progress.name = "AchievementProgress_%s" % achievement_id
+		progress.show_percentage = false
+		progress.custom_minimum_size.y = 20
+		progress.max_value = target
+		progress.value = current
+		card_box.add_child(progress)
+		var progress_row := HBoxContainer.new()
+		card_box.add_child(progress_row)
+		var progress_label := _label("%d / %d" % [int(current), int(target)], 18, ThemeMaker.COLORS.cyan)
+		progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		progress_row.add_child(progress_label)
+		progress_row.add_child(_icon_view("ic_diamond", Vector2(24, 24)))
+		progress_row.add_child(_label(str(int(achievement.get("reward_gems", 0))), 18, ThemeMaker.COLORS.purple.lightened(0.18)))
 		achievements.add_child(achievement_card)
 	return section
 
@@ -1299,11 +1323,25 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	copy.add_child(title_row)
-	var title_prefix := "★ " if product_id == "gems_m" else ""
-	var title := _label("%s%s" % [title_prefix, tr(product.get("name_key", ""))], ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
+	var title := _label(tr(product.get("name_key", "")), ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_row.add_child(title)
+	if product_id == "gems_m":
+		var ribbon := PanelContainer.new()
+		ribbon.name = "BestValueRibbon"
+		var ribbon_style := ThemeMaker.panel(Color("b87917"), Color.WHITE, 1, 13)
+		ribbon_style.content_margin_left = 12
+		ribbon_style.content_margin_right = 12
+		ribbon_style.content_margin_top = 6
+		ribbon_style.content_margin_bottom = 6
+		ribbon.add_theme_stylebox_override("panel", ribbon_style)
+		var ribbon_label := _label(tr("STORE_BEST_VALUE"), 18, Color.WHITE)
+		ribbon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ribbon_label.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+		ribbon_label.add_theme_constant_override("outline_size", 3)
+		ribbon.add_child(ribbon_label)
+		title_row.add_child(ribbon)
 	var bonus := _store_bonus_percent(product_id)
 	if bonus > 0:
 		var bonus_label := _label(tr("STORE_BONUS_PCT") % bonus, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.yellow)
@@ -1325,8 +1363,7 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 		var value_text := "$%.4f / 💎" % price_per_gem
 		copy.add_child(_label(value_text, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.green))
 	var fallback_price := "US$ %.2f" % float(product.get("price_usd", 0.0))
-	var buy_role := "primary" if product_id == "gems_m" else "secondary"
-	var buy_button := Widgets.button(Monetization.localized_price(product_id, fallback_price), _purchase.bind(product_id), buy_role)
+	var buy_button := Widgets.button(Monetization.localized_price(product_id, fallback_price), _purchase.bind(product_id), "primary")
 	buy_button.name = "StoreBuy_%s" % product_id
 	buy_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var purchase_state := Game.can_purchase_product(product_id)
@@ -1417,16 +1454,30 @@ func _settings_divider() -> ColorRect:
 
 func _settings_row_button(text: String, action: Callable) -> Button:
 	var button := Widgets.button(text, action, "secondary")
-	button.custom_minimum_size.y = 96
+	button.custom_minimum_size.y = 88
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	var normal := ThemeMaker.panel(Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
 	normal.content_margin_left = ThemeMaker.GROUP_PADDING
-	normal.content_margin_right = ThemeMaker.GROUP_PADDING
+	normal.content_margin_right = 64
 	var hover := normal.duplicate() as StyleBoxFlat
 	hover.bg_color = Color(1, 1, 1, 0.05)
 	button.add_theme_stylebox_override("normal", normal)
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", hover)
+	var chevron := Label.new()
+	chevron.name = "SettingsChevron"
+	chevron.text = "›"
+	chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chevron.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	chevron.offset_left = -48
+	chevron.offset_top = -24
+	chevron.offset_right = -16
+	chevron.offset_bottom = 24
+	chevron.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	chevron.add_theme_font_size_override("font_size", 20)
+	chevron.add_theme_color_override("font_color", ThemeMaker.COLORS.cyan)
+	button.add_child(chevron)
 	return button
 
 func _open_public_document(document_id: String) -> void:
@@ -1642,6 +1693,7 @@ func _show_rack_picker(datacenter_id: String, slot: int) -> void:
 				"id": rack_id,
 				"height": 132,
 				"cost": rack_cost,
+				"asset": str(rack.get("asset_prefix", "")) + "_active",
 				"text": "%s · $%s\n⚡ %s   ♨ %s   $ %s/%s\n%s" % [
 					tr(rack.get("name_key", "")), Game.format_number(rack_cost),
 					Game.format_number(float(rack.get("power", 0.0))), Game.format_number(float(rack.get("heat", 0.0))),
@@ -1932,12 +1984,23 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		return
 	var board := _create_datacenter_board(datacenter_id)
 	sheet_box.add_child(board)
-	var contract_button := _button(tr("SIGN_CONTRACT"), func() -> void:
-		_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, "contracts"))
-	, ThemeMaker.COLORS.sky)
+	var powered := not str(dc.get("power_unit", "")).is_empty()
+	var contract_action := func() -> void:
+		if powered:
+			_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, "contracts"))
+		else:
+			_show_toast(tr("BOARD_NEED_POWER"))
+	var contract_button := _button(tr("SIGN_CONTRACT"), contract_action, ThemeMaker.COLORS.sky if powered else Color("6f7b88"))
 	contract_button.name = "ContractCTA"
 	_set_button_asset(contract_button, "ic_contract", 42)
 	sheet_box.add_child(contract_button)
+	if not powered:
+		var power_hint := _label(tr("BOARD_NEED_POWER"), 20, Color("b8c2cc"))
+		power_hint.name = "ContractPowerHint"
+		power_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		power_hint.max_lines_visible = 1
+		power_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		sheet_box.add_child(power_hint)
 	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
 		var refund := Rules.retirement_value(dc, Game.simulation_time(), Game.data)
 		var retire_button := _button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(datacenter_id), ThemeMaker.COLORS.orange)
@@ -2005,20 +2068,26 @@ func _show_rack_actions(datacenter_id: String, slot: int) -> void:
 	var rack := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
 	var choices: Array[Dictionary] = []
 	var body := ""
+	var status_color := ThemeMaker.COLORS.cyan
 	if installed.get("status", "") == "installing":
 		var remaining := maxf(0.0, float(installed.get("install_complete_at", 0.0)) - Game.simulation_time())
-		body = tr("COMPLETE_IN") % Game.format_duration(remaining)
+		body = "%s · %s" % [tr("INSTALLING"), tr("COMPLETE_IN") % Game.format_duration(remaining)]
+		status_color = ThemeMaker.COLORS.orange
 		var gem_cost := maxi(1, int(ceil(remaining / 600.0)) * int(DataRepository.get_table("economy").get("construction", {}).get("gems_per_600_seconds", 1)))
 		var ad_reduction := minf(remaining, float(DataRepository.get_table("economy").get("construction", {}).get("ad_reduction_seconds", 1800.0)))
 		choices.append({"id": "install_ad", "text": "%s · −%s" % [tr("WATCH_AD"), Game.format_duration(ad_reduction)]})
 		choices.append({"id": "install_gems", "text": "%s · %d %s" % [tr("SPEED_UP"), gem_cost, tr("GEMS_REWARD_SHORT")]})
 	elif installed.get("status", "") == "faulted":
-		choices.append({"id": "repair", "text": tr("REPAIR")})
+		body = tr("FAULTED")
+		status_color = ThemeMaker.COLORS.red
+		choices.append({"id": "repair", "text": tr("REPAIR"), "color": ThemeMaker.COLORS.green})
 		choices.append({"id": "ad", "text": tr("WATCH_AD")})
 		choices.append({"id": "gems", "text": "%s · 2 %s" % [tr("REPAIR"), tr("GEMS_REWARD_SHORT")]})
 	else:
-		body = tr("RACK_DISABLED") if not bool(installed.get("enabled", true)) else tr("POWERED")
-		choices.append({"id": "power", "text": tr("RACK_TURN_ON") if not bool(installed.get("enabled", true)) else tr("RACK_TURN_OFF")})
+		var enabled := bool(installed.get("enabled", true))
+		body = tr("RACK_DISABLED") if not enabled else tr("POWERED")
+		status_color = Color("aeb8c4") if not enabled else ThemeMaker.COLORS.green
+		choices.append({"id": "power", "text": tr("RACK_TURN_ON") if not enabled else tr("RACK_TURN_OFF"), "color": ThemeMaker.COLORS.green if not enabled else ThemeMaker.COLORS.sky})
 	if installed.get("status", "") != "installing":
 		choices.append({"id": "uninstall", "text": tr("RETIRE")})
 	_present_action_sheet(tr(rack.get("name_key", "RACKS")), body, choices, func(action: String) -> void:
@@ -2030,12 +2099,12 @@ func _show_rack_actions(datacenter_id: String, slot: int) -> void:
 			"gems": _handle_result(Game.instant_repair_with_gems(datacenter_id, slot))
 			"power": _handle_result(Game.set_rack_enabled(datacenter_id, slot, not bool(installed.get("enabled", true))))
 			"uninstall": _handle_result(Game.uninstall_rack(datacenter_id, slot))
-	)
+	, true, status_color)
 
 func _show_choice(title_text: String, choices: Array[Dictionary], callback: Callable) -> void:
 	_present_action_sheet(title_text, "", choices, callback)
 
-func _present_action_sheet(title_text: String, body: String, choices: Array[Dictionary], callback: Callable, show_cancel: bool = true) -> void:
+func _present_action_sheet(title_text: String, body: String, choices: Array[Dictionary], callback: Callable, show_cancel: bool = true, body_color: Color = ThemeMaker.COLORS.cyan) -> void:
 	var overlay := ColorRect.new()
 	overlay.name = "ActionSheetOverlay"
 	overlay.color = Color(0.015, 0.03, 0.06, 0.76)
@@ -2080,7 +2149,8 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	var close_button := Widgets.close_button(_dismiss_action_sheet.bind(overlay))
 	heading.add_child(close_button)
 	if not body.is_empty():
-		var body_label := _label(body, 25, ThemeMaker.COLORS.cyan)
+		var body_label := _label(body, 25, body_color)
+		body_label.name = "ActionSheetStatus"
 		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		sheet_box.add_child(body_label)
 
@@ -2099,6 +2169,9 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 		var choice_button := _button(str(choice.get("text", choice_id)), Callable() if hold_seconds > 0.0 else func() -> void:
 			_dismiss_action_sheet(overlay, callback.bind(choice_id))
 		, choice_color)
+		choice_button.name = "Choice_%s" % choice_id
+		if choice.has("asset"):
+			_set_button_asset(choice_button, str(choice.get("asset", "")), 64)
 		if hold_seconds > 0.0:
 			choice_button.name = "HoldConfirmButton"
 			var hold_state := {"tween": null, "completed": false}
@@ -2347,6 +2420,9 @@ func _retire(datacenter_id: String) -> void:
 func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 	var dc := Game.find_datacenter(datacenter_id)
 	if dc.is_empty():
+		return
+	if str(dc.get("power_unit", "")).is_empty():
+		_show_toast(tr("BOARD_NEED_POWER"))
 		return
 	var fee := Game.contract_switch_fee(datacenter_id, customer_id)
 	var current := Game.datacenter_monthly_income(dc)
@@ -2705,6 +2781,8 @@ func _show_game_over_overlay() -> void:
 	margin.add_child(box)
 	box.add_child(_icon_view("ic_bankrupt", Vector2(180, 180)))
 	var title := _label(tr("GAME_OVER"), 48, ThemeMaker.COLORS.red.lightened(0.16))
+	title.name = "GameOverTitle"
+	title.add_theme_font_override("font", ThemeMaker.font_bold())
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var survival := float(GameClock.wall_time() - int(Game.state.get("clock", {}).get("created_at", GameClock.wall_time())))
@@ -2729,6 +2807,7 @@ func _show_game_over_overlay() -> void:
 		_navigate("map")
 	, "danger")
 	restart.name = "GameOverRestart"
+	ThemeMaker.apply_prominent_danger(restart)
 	box.add_child(restart)
 	card.modulate.a = 0.0
 	card.scale = Vector2.ONE * 0.84
@@ -2871,11 +2950,26 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 		unlock_box.add_child(row)
 		row.add_child(_icon_view(str(item.get("asset_id", "")), Vector2(44, 44)))
 		row.add_child(_label("✓  %s" % tr(item.get("name_key", "")), 21, ThemeMaker.COLORS.ink))
-	var reward := _label(tr("GEMS_FORMAT") % 0, 34, ThemeMaker.COLORS.ink)
+	var reward_chip := PanelContainer.new()
+	reward_chip.name = "EraRewardChip"
+	var reward_style := ThemeMaker.panel(Color("6f4bb8"), Color("bda6ee"), 2, 22)
+	reward_style.content_margin_left = 20
+	reward_style.content_margin_right = 20
+	reward_style.content_margin_top = 10
+	reward_style.content_margin_bottom = 10
+	reward_chip.add_theme_stylebox_override("panel", reward_style)
+	box.add_child(reward_chip)
+	var reward_row := HBoxContainer.new()
+	reward_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	reward_row.add_theme_constant_override("separation", 10)
+	reward_chip.add_child(reward_row)
+	reward_row.add_child(_icon_view("ic_diamond", Vector2(40, 40)))
+	var reward := _label("0", 34, Color.WHITE)
 	reward.name = "EraRewardValue"
 	reward.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ThemeMaker.apply_numeric_text(reward)
-	box.add_child(reward)
+	ThemeMaker.world_text(reward)
+	reward_row.add_child(reward)
 	var confirm := Widgets.button(tr("ERA_ENTER"), _complete_era_overlay.bind(overlay, era_id), "primary")
 	confirm.name = "EraConfirmButton"
 	confirm.visible = false
@@ -2894,10 +2988,10 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	tween.tween_property(card, "scale", Vector2.ONE, 0.50).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(card, "rotation", 0.0, 0.50).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	var reward_target := int(era.get("reward_gems", 0))
-	var reward_tween := Widgets.animate_number(reward, 0.0, float(reward_target), func(value: float) -> String: return tr("GEMS_FORMAT") % int(round(value)), 1.2)
+	var reward_tween := Widgets.animate_number(reward, 0.0, float(reward_target), func(value: float) -> String: return str(int(round(value))), 1.2)
 	reward_tween.finished.connect(func() -> void:
 		if is_instance_valid(reward):
-			reward.text = tr("GEMS_FORMAT") % reward_target
+			reward.text = str(reward_target)
 	)
 	var confirm_ref: WeakRef = weakref(confirm)
 	get_tree().create_timer(2.5).timeout.connect(func() -> void:

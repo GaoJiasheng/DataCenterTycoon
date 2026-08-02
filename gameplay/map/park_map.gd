@@ -13,8 +13,8 @@ const MIN_ZOOM := 0.7
 const MAX_ZOOM := 1.45
 const PLOT_SIZE := Vector2(344, 260)
 const CAMPUS_LEFT := 42.0
-const COLUMN_STEP := 376.0
-const ROW_STEP := 252.0
+const COLUMN_STEP := 400.0
+const ROW_STEP := 284.0
 const CAMPUS_SAFE_TOP := 360.0
 const CAMPUS_SAFE_BOTTOM := 420.0
 const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
@@ -345,6 +345,13 @@ func _wire_alert_badge(button: Button, datacenter_id: String, alert_type: String
 	badge.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	badge.set_meta("alert_type", alert_type)
 	badge.set_meta("datacenter_id", datacenter_id)
+	badge.set_meta("breathing", true)
+	var badge_style := badge.get_theme_stylebox("panel") as StyleBoxFlat
+	if badge_style != null:
+		badge_style = badge_style.duplicate() as StyleBoxFlat
+		badge_style.border_color = Color.WHITE
+		badge_style.set_border_width_all(2)
+		badge.add_theme_stylebox_override("panel", badge_style)
 	badge.gui_input.connect(func(event: InputEvent) -> void:
 		if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
 			badge.accept_event()
@@ -352,7 +359,15 @@ func _wire_alert_badge(button: Button, datacenter_id: String, alert_type: String
 	)
 	badge.scale = Vector2.ZERO
 	badge.pivot_offset = badge.size * 0.5
-	badge.create_tween().tween_property(badge, "scale", Vector2.ONE, 0.30).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var entrance := badge.create_tween()
+	entrance.tween_property(badge, "scale", Vector2.ONE, 0.30).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	entrance.finished.connect(func() -> void:
+		if not is_instance_valid(badge):
+			return
+		var breath := badge.create_tween().set_loops()
+		breath.tween_property(badge, "scale", Vector2.ONE * 1.08, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		breath.tween_property(badge, "scale", Vector2.ONE, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	)
 
 func _configure_construction_timer(button: Button, label: Label, construction: Dictionary) -> void:
 	var badge := button.find_child("StatusBadge", true, false) as PanelContainer
@@ -415,6 +430,9 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", pressed)
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	if asset_id.begins_with("dc_"):
+		_add_building_shadow(button)
+		_add_owned_plot_base(button)
 	var view := TextureRect.new()
 	view.name = "WorldArt"
 	var texture := AssetCatalog.texture(asset_id)
@@ -495,6 +513,32 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	button.button_down.connect(_animate_button.bind(button, 0.96))
 	button.button_up.connect(_animate_button.bind(button, 1.0))
 	return button
+
+func _add_owned_plot_base(button: Button) -> void:
+	var base := TextureRect.new()
+	base.name = "PlotFoundation"
+	base.texture = AssetCatalog.texture("plot_owned")
+	base.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	base.stretch_mode = TextureRect.STRETCH_SCALE
+	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	base.position = Vector2(7, 28)
+	base.size = Vector2(PLOT_SIZE.x - 14, 226)
+	base.modulate = Color(1, 1, 1, 0.86)
+	button.add_child(base)
+
+func _add_building_shadow(button: Button) -> void:
+	var shadow := Polygon2D.new()
+	shadow.name = "BuildingGroundShadow"
+	var points := PackedVector2Array()
+	var center := Vector2(PLOT_SIZE.x * 0.5, 202)
+	var radii := Vector2((PLOT_SIZE.x - 24.0) * 0.36, 27)
+	for index: int in range(32):
+		var angle := TAU * float(index) / 32.0
+		points.append(center + Vector2(cos(angle) * radii.x, sin(angle) * radii.y))
+	shadow.polygon = points
+	shadow.color = Color(0, 0, 0, 0.18)
+	shadow.antialiased = true
+	button.add_child(shadow)
 
 func _visible_world_texture(texture: Texture2D) -> Texture2D:
 	if texture == null:
