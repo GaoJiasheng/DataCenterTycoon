@@ -34,7 +34,9 @@ var _primary_action_kind := ""
 var _primary_action_target := ""
 var _last_primary_action_kind := ""
 var _needs_refresh := true
+var _needs_page_refresh := true
 var _refresh_cooldown := 0.0
+var _page_scroll_cache: Dictionary = {}
 var _era_overlay_queue: Array[int] = []
 var _era_overlay_open := false
 var _last_map_signature := ""
@@ -51,10 +53,14 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_refresh_cooldown -= delta
-	if _needs_refresh and _refresh_cooldown <= 0.0:
+	if (_needs_refresh or _needs_page_refresh) and _refresh_cooldown <= 0.0:
 		_refresh_cooldown = 0.25
+		var refresh_page := _needs_page_refresh
 		_needs_refresh = false
-		_refresh()
+		_needs_page_refresh = false
+		_refresh_hud()
+		if refresh_page:
+			_refresh_page()
 
 func _build_shell() -> void:
 	var background := ColorRect.new()
@@ -222,7 +228,8 @@ func _build_shell() -> void:
 	task_button.pressed.connect(_navigate.bind("build"))
 	ThemeMaker.apply_round_button(task_button, ThemeMaker.COLORS.orange)
 	_wire_button_motion(task_button)
-	_set_button_asset(task_button, "ic_build", 48)
+	_set_button_asset(task_button, "ic_build", 42)
+	_add_world_action_caption(task_button, tr("NAV_BUILD"))
 	action_layer.add_child(task_button)
 	queue_badge_label = _label("", 19, Color.WHITE)
 	queue_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -255,8 +262,10 @@ func _build_shell() -> void:
 	ThemeMaker.apply_round_button(operations_button, ThemeMaker.COLORS.sky)
 	_wire_button_motion(operations_button)
 	operations_button.text = ""
-	_set_button_asset(operations_button, "ic_network", 48)
+	var operations_asset := "ic_operations" if AssetCatalog.texture("ic_operations") != null else "ic_network"
+	_set_button_asset(operations_button, operations_asset, 42)
 	operations_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_add_world_action_caption(operations_button, tr("OPERATIONS_SHORT"))
 	action_layer.add_child(operations_button)
 
 	toast_label = _label("", 25, Color.WHITE)
@@ -277,7 +286,7 @@ func _connect_events() -> void:
 	EventBus.bankruptcy_state_changed.connect(_on_bankruptcy_state_changed)
 	EventBus.purchase_completed.connect(_on_purchase_completed)
 	EventBus.locale_changed.connect(_on_locale_changed)
-	Monetization.product_info_changed.connect(func() -> void: _needs_refresh = true)
+	Monetization.product_info_changed.connect(_request_full_refresh)
 	EventBus.construction_completed.connect(_on_construction_completed)
 	EventBus.rack_fault_occurred.connect(_on_rack_fault_occurred)
 	EventBus.contract_renewal_opened.connect(_on_contract_renewal_opened)
@@ -289,11 +298,16 @@ func _refresh() -> void:
 	# consume the pending flag too; otherwise the process loop can rebuild the
 	# same page during its next layout frame and produce a visibly incomplete UI.
 	_needs_refresh = false
+	_needs_page_refresh = false
+	_refresh_hud()
+	_refresh_page()
+
+func _refresh_hud() -> void:
 	var player: Dictionary = Game.state.get("player", {})
 	cash_label.text = tr("CASH_FORMAT") % Game.format_number(float(player.get("cash", 0.0)))
 	gems_label.text = Game.format_number(float(player.get("gems", 0)))
 	var era: Dictionary = DataRepository.get_entry("eras", str(player.get("era", 1)))
-	company_label.text = "T%d" % int(player.get("era", 1))
+	company_label.text = tr("ERA_SHORT") % int(player.get("era", 1))
 	var company_button := find_child("CompanyButton", true, false) as Button
 	if company_button != null:
 		company_button.tooltip_text = "%s · %s" % [tr(era.get("name_key", "ERA_1")), GameClock.format_game_date(Game.simulation_time())]
@@ -313,12 +327,18 @@ func _refresh() -> void:
 	world_host.visible = true
 	navigation_panel.visible = on_map
 	page_host.visible = not on_map
+	_refresh_live_page()
+
+func _refresh_page() -> void:
+	var on_map := active_page == "map"
 	if on_map:
 		_refresh_park_world()
+		_cache_page_scroll(_rendered_page)
 		_clear_page_host()
 		_rendered_page = "map"
 		return
 	var page_changed := _rendered_page != active_page
+	_cache_page_scroll(_rendered_page)
 	for child: Node in page_host.get_children():
 		page_host.remove_child(child)
 		child.queue_free()
@@ -333,9 +353,43 @@ func _refresh() -> void:
 		_: next_page = _build_construction_page()
 	page_host.add_child(next_page)
 	next_page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	call_deferred("_restore_page_scroll", active_page, next_page)
 	if page_changed:
 		_animate_page_in(next_page)
 	_rendered_page = active_page
+
+func _request_hud_refresh() -> void:
+	_needs_refresh = true
+
+func _request_full_refresh() -> void:
+	_needs_refresh = true
+	_needs_page_refresh = true
+
+func _refresh_live_page() -> void:
+	if page_host == null or page_host.get_child_count() == 0:
+		return
+	var page := page_host.get_child(0)
+	var live_nodes: Array[Node] = [page]
+	live_nodes.append_array(page.find_children("*", "", true, false))
+	for node: Node in live_nodes:
+		if node.has_meta("live_update"):
+			var update: Callable = node.get_meta("live_update")
+			if update.is_valid():
+				update.call()
+
+func _cache_page_scroll(page_id: String) -> void:
+	if page_id.is_empty() or page_id == "map" or page_host == null:
+		return
+	var scroll := page_host.find_child("PageScroll", true, false) as ScrollContainer
+	if scroll != null:
+		_page_scroll_cache[page_id] = scroll.scroll_vertical
+
+func _restore_page_scroll(page_id: String, page: Control) -> void:
+	if not is_instance_valid(page):
+		return
+	var scroll := page.find_child("PageScroll", true, false) as ScrollContainer
+	if scroll != null:
+		scroll.scroll_vertical = int(_page_scroll_cache.get(page_id, 0))
 
 func _refresh_primary_action() -> void:
 	var previous_kind := _primary_action_kind
@@ -399,9 +453,6 @@ func _show_operations_hub() -> void:
 	heading_copy.add_child(_label(tr("OPERATIONS_CENTER"), 38, ThemeMaker.COLORS.cream))
 	heading_copy.add_child(_label(tr("OPERATIONS_SUBTITLE"), 22, ThemeMaker.COLORS.cyan))
 	var close_button := _button("×", _dismiss_world_sheet.bind(overlay), Color("263d59"))
-	close_button.text = ""
-	_set_button_asset(close_button, "ic_close", 36)
-	close_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	close_button.custom_minimum_size = Vector2(88, 88)
 	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close_button.add_theme_font_size_override("font_size", 36)
@@ -424,8 +475,7 @@ func _show_operations_hub() -> void:
 	for module: Dictionary in modules:
 		var module_id := str(module["id"])
 		var card := _operation_module_card(module, func() -> void:
-			overlay.queue_free()
-			_navigate(module_id)
+			_dismiss_world_sheet(overlay, _navigate.bind(module_id))
 		)
 		grid.add_child(card)
 
@@ -457,6 +507,8 @@ func _operation_module_card(module: Dictionary, action: Callable) -> Button:
 	top.add_child(spacer)
 	var status_dot := PanelContainer.new()
 	status_dot.custom_minimum_size = Vector2(18, 18)
+	status_dot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	status_dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var dot_style := ThemeMaker.panel(accent, Color(1, 1, 1, 0.36), 1, 9)
 	dot_style.content_margin_left = 0
 	dot_style.content_margin_right = 0
@@ -490,81 +542,6 @@ func _animate_page_in(page: Control) -> void:
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(page, "modulate:a", 1.0, 0.18)
 	tween.tween_property(page, "position:y", target_y, 0.26).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
-
-func _build_map_page() -> Control:
-	var box := _page_box()
-	box.add_child(_section_title(tr("NAV_MAP"), ""))
-	var metrics := HBoxContainer.new()
-	metrics.add_theme_constant_override("separation", 10)
-	metrics.add_child(_metric_chip(tr("INCOME_RATE") % Game.format_number(Game.monthly_income()), ThemeMaker.COLORS.green))
-	metrics.add_child(_metric_chip(tr("MAINTENANCE") % Game.format_number(Game.monthly_maintenance()), ThemeMaker.COLORS.orange))
-	box.add_child(metrics)
-	var park_map := ParkMapScene.new()
-	park_map.datacenter_selected.connect(_open_datacenter)
-	park_map.empty_plot_selected.connect(_show_building_picker)
-	park_map.buy_plot_requested.connect(func() -> void: _handle_result(Game.buy_next_plot()))
-	box.add_child(park_map)
-	park_map.setup(Game.state.get("plots", []))
-	var action_card := _card()
-	var action_row := HBoxContainer.new()
-	action_row.add_theme_constant_override("separation", 16)
-	action_card.add_child(action_row)
-	var action_copy := VBoxContainer.new()
-	action_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	action_row.add_child(action_copy)
-	action_copy.add_child(_label(tr("PLOT_FOR_SALE") % [Game.state.get("plots", []).size() + 1, Game.format_number(Game.next_plot_price())], 25, ThemeMaker.COLORS.cream))
-	action_copy.add_child(_label("%d %s · %d %s" % [Game.state.get("plots", []).size(), tr("NAV_MAP"), Game.state.get("construction_queue", []).size(), tr("NAV_BUILD")], 21, ThemeMaker.COLORS.cyan))
-	var buy_button := _button(tr("BUY_NEXT_PLOT"), _run_action.bind(Callable(Game, "buy_next_plot")), ThemeMaker.COLORS.green)
-	buy_button.custom_minimum_size.x = 250
-	action_row.add_child(buy_button)
-	box.add_child(action_card)
-	return _wrap_scroll(box)
-
-func _plot_card(plot: Dictionary) -> Control:
-	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(0, 330)
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var status := str(plot.get("status", "empty"))
-	var border := ThemeMaker.COLORS.orange if status == "building" else ThemeMaker.COLORS.sky
-	if status == "ruined":
-		border = ThemeMaker.COLORS.red
-	card.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("2b4564"), border, 3, 20))
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
-	card.add_child(box)
-	box.add_child(_label("#%d" % int(plot.get("index", 0)), 22, ThemeMaker.COLORS.cyan))
-	if status == "empty":
-		box.add_child(_label(tr("PLOT_EMPTY") % int(plot.get("index", 0)), 27))
-		for building_id: String in DataRepository.get_table("buildings").get("items", {}):
-			var building: Dictionary = DataRepository.get_entry("buildings", building_id)
-			if not Game.is_unlocked(building):
-				continue
-			if bool(building.get("tutorial_only", false)) and bool(Game.state.get("flags", {}).get("standard_built", false)):
-				continue
-			var text := "%s · $%s" % [tr(building.get("name_key", "")), Game.format_number(float(building.get("cost", 0.0)))]
-			box.add_child(_button(text, _start_building.bind(str(plot.get("id", "")), building_id), ThemeMaker.COLORS.green))
-	elif status == "building":
-		var item := Game.find_construction(str(plot.get("construction_id", "")))
-		var building := DataRepository.get_entry("buildings", str(item.get("building_id", "")))
-		box.add_child(_asset_preview(str(building.get("asset_prefix", "")) + "_construction", tr(building.get("name_key", "BUILDING_T0")), ThemeMaker.COLORS.orange, 150))
-		box.add_child(_progress_for_job(item))
-	else:
-		var dc: Dictionary = plot.get("datacenter", {})
-		var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
-		var progress := Rules.age_progress(dc, Game.simulation_time(), DataRepository.get_table("buildings"))
-		var stage := Rules.aging_stage(progress)
-		var suffix := "_ruin" if status == "ruined" else ("_dark" if str(dc.get("power_unit", "")).is_empty() else "_active")
-		if status != "ruined" and not str(dc.get("power_unit", "")).is_empty():
-			if stage == "aging": suffix = "_aged"
-			if stage == "decline": suffix = "_decayed"
-		box.add_child(_asset_preview(str(building.get("asset_prefix", "")) + suffix, tr(building.get("name_key", "")), border, 155))
-		box.add_child(_label("%s · %d%%" % [tr("LIFESPAN"), int(progress * 100.0)], 22, ThemeMaker.COLORS.cream))
-		if status == "ruined":
-			box.add_child(_button("%s · $%s" % [tr("DEMOLISH"), Game.format_number(Rules.demolition_cost(dc, Game.data))], _demolish.bind(str(dc.get("id", ""))), ThemeMaker.COLORS.red))
-		else:
-			box.add_child(_label(tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(dc)), 22, ThemeMaker.COLORS.yellow))
-			box.add_child(_button(tr("DC_DETAIL"), _open_datacenter.bind(str(dc.get("id", ""))), ThemeMaker.COLORS.sky))
-	return card
 
 func _build_construction_page() -> Control:
 	var box := _page_box()
@@ -638,7 +615,7 @@ func _set_detail_focus(focus: String) -> void:
 	if _detail_focus == focus:
 		return
 	_detail_focus = focus
-	_needs_refresh = true
+	_request_full_refresh()
 
 func _build_rack_management(dc: Dictionary, building: Dictionary) -> Control:
 	var section := VBoxContainer.new()
@@ -888,7 +865,7 @@ func _set_tech_section(section: String) -> void:
 	if _tech_section == section:
 		return
 	_tech_section = section
-	_needs_refresh = true
+	_request_full_refresh()
 
 func _build_achievements_section() -> Control:
 	var section := VBoxContainer.new()
@@ -1031,7 +1008,11 @@ func _news_text() -> String:
 	return tr("MARKET_CALM")
 
 func _customer_market_card(customer_id: String, customer: Dictionary) -> Control:
-	var accent: Color = ChartScene.CUSTOMER_COLORS.get(customer_id, ThemeMaker.COLORS.sky)
+	var player: Dictionary = Game.state.get("player", {})
+	var unlock_era := int(customer.get("unlock_era", 1))
+	var network_required := int(customer.get("minimum_network_level", 1))
+	var available := unlock_era <= int(player.get("era", 1)) and network_required <= int(player.get("network_level", 1))
+	var accent: Color = ChartScene.CUSTOMER_COLORS.get(customer_id, ThemeMaker.COLORS.sky) if available else Color("8a97a8")
 	var card := PanelContainer.new()
 	card.custom_minimum_size.y = 128
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1047,7 +1028,14 @@ func _customer_market_card(customer_id: String, customer: Dictionary) -> Control
 	customer_name.max_lines_visible = 1
 	customer_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	copy.add_child(customer_name)
-	copy.add_child(_label("× %.2f" % Game.market_multiplier(customer_id), 27, accent.lightened(0.12)))
+	var market_text := "× %.2f" % Game.market_multiplier(customer_id)
+	if not available:
+		if unlock_era > int(player.get("era", 1)):
+			market_text = tr("UNLOCK_AT_ERA") % unlock_era
+		else:
+			var network: Dictionary = DataRepository.get_table("technology").get("network", {}).get(str(network_required), {})
+			market_text = tr("UNLOCK_AT_NETWORK") % tr(network.get("name_key", "NETWORK"))
+	copy.add_child(_label(market_text, 22 if not available else 27, accent.lightened(0.12)))
 	return card
 
 func _feature_heading(asset_id: String, title_text: String, subtitle: String, accent: Color) -> Control:
@@ -1101,9 +1089,6 @@ func _show_building_picker(plot_id: String) -> void:
 			break
 	heading_copy.add_child(_label(tr("PLOT_EMPTY") % plot_index, 22, ThemeMaker.COLORS.cyan))
 	var close_button := _button("×", _dismiss_world_sheet.bind(overlay), Color("263d59"))
-	close_button.text = ""
-	_set_button_asset(close_button, "ic_close", 36)
-	close_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	close_button.custom_minimum_size = Vector2(88, 88)
 	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close_button.add_theme_font_size_override("font_size", 36)
@@ -1129,8 +1114,7 @@ func _show_building_picker(plot_id: String) -> void:
 		ThemeMaker.apply_button_color(card, Color("1c3850"))
 		_wire_button_motion(card)
 		card.pressed.connect(func() -> void:
-			overlay.queue_free()
-			_handle_result(Game.start_datacenter_construction(plot_id, building_id))
+			_dismiss_world_sheet(overlay, func() -> void: _handle_result(Game.start_datacenter_construction(plot_id, building_id)))
 		)
 		cards.add_child(card)
 		var card_content := VBoxContainer.new()
@@ -1162,7 +1146,7 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.z_index = 90
-	overlay.tree_exiting.connect(func() -> void: _needs_refresh = true)
+	overlay.tree_exiting.connect(_request_hud_refresh)
 	add_child(overlay)
 	var sheet := PanelContainer.new()
 	sheet.name = "ContextSheet"
@@ -1177,7 +1161,9 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	box.add_theme_constant_override("separation", 14)
 	sheet.add_child(box)
 	var handle_center := CenterContainer.new()
-	handle_center.custom_minimum_size.y = 16
+	handle_center.name = "SheetDragHandle"
+	handle_center.custom_minimum_size.y = 88
+	handle_center.mouse_filter = Control.MOUSE_FILTER_STOP
 	box.add_child(handle_center)
 	var handle := PanelContainer.new()
 	handle.custom_minimum_size = Vector2(88, 8)
@@ -1194,12 +1180,103 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(sheet, "modulate:a", 1.0, 0.18)
 	tween.tween_property(sheet, "position:y", sheet.position.y - 54, 0.28).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	_wire_sheet_interactions(overlay, sheet, handle_center, true)
 	return {"overlay": overlay, "sheet": sheet, "box": box}
 
-func _dismiss_world_sheet(overlay: CanvasItem) -> void:
-	if is_instance_valid(overlay):
+func _dismiss_world_sheet(overlay: CanvasItem, after: Callable = Callable()) -> void:
+	_animate_sheet_dismiss(overlay, after, true)
+
+func _dismiss_action_sheet(overlay: CanvasItem, after: Callable = Callable()) -> void:
+	_animate_sheet_dismiss(overlay, after, false)
+
+func _animate_sheet_dismiss(overlay: CanvasItem, after: Callable, reset_world: bool) -> void:
+	if not is_instance_valid(overlay) or bool(overlay.get_meta("dismissing", false)):
+		return
+	overlay.set_meta("dismissing", true)
+	var sheet := overlay.find_child("ContextSheet", true, false) as Control
+	if sheet == null:
 		overlay.queue_free()
-	park_map.reset_camera()
+		if reset_world and park_map != null:
+			park_map.reset_camera()
+		if after.is_valid():
+			after.call()
+		return
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(sheet, "position:y", sheet.position.y + 80.0, 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(sheet, "modulate:a", 0.0, 0.16)
+	tween.tween_property(overlay, "modulate:a", 0.0, 0.20)
+	tween.chain().tween_callback(func() -> void:
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+		if reset_world and park_map != null:
+			park_map.reset_camera()
+		if after.is_valid():
+			after.call()
+	)
+
+func _wire_sheet_interactions(overlay: ColorRect, sheet: Control, handle_area: Control, reset_world: bool) -> void:
+	overlay.gui_input.connect(func(event: InputEvent) -> void:
+		var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or (event is InputEventScreenTouch and event.pressed)
+		if pressed and not sheet.get_global_rect().has_point(_pointer_position(event)):
+			_animate_sheet_dismiss(overlay, Callable(), reset_world)
+			overlay.accept_event()
+	)
+	var drag := {"active": false, "start_y": 0.0, "base_y": 0.0, "last_y": 0.0, "last_ms": 0}
+	handle_area.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_begin_sheet_drag(drag, sheet, _pointer_position(event).y)
+			else:
+				_end_sheet_drag(drag, overlay, sheet, reset_world, _pointer_position(event).y)
+			handle_area.accept_event()
+		elif event is InputEventMouseMotion and bool(drag["active"]):
+			_update_sheet_drag(drag, sheet, _pointer_position(event).y)
+			handle_area.accept_event()
+		elif event is InputEventScreenTouch:
+			if event.pressed:
+				_begin_sheet_drag(drag, sheet, event.position.y)
+			else:
+				_end_sheet_drag(drag, overlay, sheet, reset_world, event.position.y)
+			handle_area.accept_event()
+		elif event is InputEventScreenDrag and bool(drag["active"]):
+			_update_sheet_drag(drag, sheet, event.position.y)
+			handle_area.accept_event()
+	)
+
+func _pointer_position(event: InputEvent) -> Vector2:
+	if event is InputEventMouse:
+		return event.global_position
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		return event.position
+	return Vector2.ZERO
+
+func _begin_sheet_drag(drag: Dictionary, sheet: Control, pointer_y: float) -> void:
+	drag["active"] = true
+	drag["start_y"] = pointer_y
+	drag["base_y"] = sheet.position.y
+	drag["last_y"] = pointer_y
+	drag["last_ms"] = Time.get_ticks_msec()
+
+func _update_sheet_drag(drag: Dictionary, sheet: Control, pointer_y: float) -> void:
+	var distance := clampf(pointer_y - float(drag["start_y"]), 0.0, 160.0)
+	sheet.position.y = float(drag["base_y"]) + distance
+	sheet.modulate.a = 1.0 - distance / 480.0
+	drag["last_y"] = pointer_y
+	drag["last_ms"] = Time.get_ticks_msec()
+
+func _end_sheet_drag(drag: Dictionary, overlay: CanvasItem, sheet: Control, reset_world: bool, pointer_y: float) -> void:
+	if not bool(drag["active"]):
+		return
+	drag["active"] = false
+	var distance := maxf(0.0, pointer_y - float(drag["start_y"]))
+	var elapsed := maxf(1.0, float(Time.get_ticks_msec() - int(drag["last_ms"])))
+	var velocity := maxf(0.0, pointer_y - float(drag["last_y"])) * 1000.0 / elapsed
+	if distance >= 90.0 or velocity >= 900.0:
+		_animate_sheet_dismiss(overlay, Callable(), reset_world)
+		return
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(sheet, "position:y", float(drag["base_y"]), 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(sheet, "modulate:a", 1.0, 0.16)
 
 func _show_datacenter_context(datacenter_id: String) -> void:
 	var dc := Game.find_datacenter(datacenter_id)
@@ -1221,9 +1298,6 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	copy.add_child(_label(tr(building.get("name_key", "")), 34, ThemeMaker.COLORS.cream))
 	copy.add_child(_label(_datacenter_status_text(dc), 23, _datacenter_status_color(dc)))
 	var close_button := _button("×", _dismiss_world_sheet.bind(overlay), Color("263d59"))
-	close_button.text = ""
-	_set_button_asset(close_button, "ic_close", 36)
-	close_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	close_button.custom_minimum_size = Vector2(88, 88)
 	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close_button.add_theme_font_size_override("font_size", 36)
@@ -1236,8 +1310,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	metrics.add_child(_metric_chip("%s  %d%%" % [tr("LIFESPAN"), int(progress * 100.0)], ThemeMaker.COLORS.yellow))
 	if str(dc.get("status", "")) == "ruined":
 		sheet_box.add_child(_button(tr("DEMOLISH"), func() -> void:
-			overlay.queue_free()
-			_demolish(datacenter_id)
+			_dismiss_world_sheet(overlay, _demolish.bind(datacenter_id))
 		, ThemeMaker.COLORS.red))
 		return
 	var tutorial_state: Dictionary = Game.state.get("tutorial", {})
@@ -1270,15 +1343,13 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	for definition: Array in action_defs:
 		var focus := str(definition[0])
 		var action := _button(tr(str(definition[1])), func() -> void:
-			overlay.queue_free()
-			_open_datacenter_detail(datacenter_id, focus)
+			_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, focus))
 		, definition[3])
 		action.custom_minimum_size.y = 98
 		_set_button_asset(action, str(definition[2]), 42)
 		actions.add_child(action)
 	var details := _button(tr("DC_DETAIL"), func() -> void:
-		overlay.queue_free()
-		_open_datacenter_detail(datacenter_id)
+		_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id))
 	, Color("263d59"))
 	details.custom_minimum_size.y = 88
 	sheet_box.add_child(details)
@@ -1380,7 +1451,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.z_index = 90
-	overlay.tree_exiting.connect(func() -> void: _needs_refresh = true)
+	overlay.tree_exiting.connect(_request_hud_refresh)
 	add_child(overlay)
 
 	var body_height := 0
@@ -1388,6 +1459,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 		body_height = mini(360, 64 + (body.count("\n") + 1) * 42)
 	var sheet_height := mini(1180, 300 + choices.size() * 104 + body_height)
 	var sheet := PanelContainer.new()
+	sheet.name = "ContextSheet"
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.offset_left = 32
 	sheet.offset_top = -sheet_height
@@ -1400,7 +1472,9 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	sheet_box.add_theme_constant_override("separation", 12)
 	sheet.add_child(sheet_box)
 	var handle_center := CenterContainer.new()
-	handle_center.custom_minimum_size.y = 20
+	handle_center.name = "SheetDragHandle"
+	handle_center.custom_minimum_size.y = 88
+	handle_center.mouse_filter = Control.MOUSE_FILTER_STOP
 	sheet_box.add_child(handle_center)
 	var handle := ColorRect.new()
 	handle.color = Color(1, 1, 1, 0.26)
@@ -1415,10 +1489,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	heading.add_child(title_label)
-	var close_button := _button("×", overlay.queue_free, Color("263d59"))
-	close_button.text = ""
-	_set_button_asset(close_button, "ic_close", 38)
-	close_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var close_button := _button("×", _dismiss_action_sheet.bind(overlay), Color("263d59"))
 	close_button.custom_minimum_size = Vector2(88, 88)
 	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close_button.add_theme_font_size_override("font_size", 36)
@@ -1440,13 +1511,12 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 		var choice_id := str(choice.get("id", ""))
 		var choice_color: Color = choice.get("color", ThemeMaker.COLORS.sky)
 		var choice_button := _button(str(choice.get("text", choice_id)), func() -> void:
-			overlay.queue_free()
-			callback.call(choice_id)
+			_dismiss_action_sheet(overlay, callback.bind(choice_id))
 		, choice_color)
 		choice_button.custom_minimum_size.y = 92
 		choice_box.add_child(choice_button)
 	if show_cancel:
-		var cancel_button := _button(tr("CANCEL"), overlay.queue_free, Color("263d59"))
+		var cancel_button := _button(tr("CANCEL"), _dismiss_action_sheet.bind(overlay), Color("263d59"))
 		cancel_button.custom_minimum_size.y = 92
 		sheet_box.add_child(cancel_button)
 
@@ -1455,6 +1525,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(sheet, "modulate:a", 1.0, 0.2)
 	tween.tween_property(sheet, "position:y", sheet.position.y - 64, 0.28).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	_wire_sheet_interactions(overlay, sheet, handle_center, false)
 
 func _show_pending_offline_report() -> void:
 	if _offline_report_is_material(Game.last_offline_report):
@@ -1508,7 +1579,7 @@ func _navigate(page: String) -> void:
 	_haptic(12)
 	if Game.state.get("bankruptcy", {}).get("status", "normal") == "normal":
 		AudioService.play_music("music_market" if page == "market" else "music_main")
-	_needs_refresh = true
+	_request_full_refresh()
 
 func _open_datacenter(datacenter_id: String) -> void:
 	_show_datacenter_context(datacenter_id)
@@ -1517,10 +1588,7 @@ func _open_datacenter_detail(datacenter_id: String, focus: String = "racks") -> 
 	selected_datacenter_id = datacenter_id
 	_detail_focus = focus
 	active_page = "detail"
-	_needs_refresh = true
-
-func _start_building(plot_id: String, building_id: String) -> void:
-	_handle_result(Game.start_datacenter_construction(plot_id, building_id))
+	_request_full_refresh()
 
 func _demolish(datacenter_id: String) -> void:
 	_handle_result(Game.demolish_ruin(datacenter_id))
@@ -1568,7 +1636,7 @@ func _handle_result(result: Dictionary) -> void:
 		_show_toast(tr("TOAST_CONSTRUCTION_STARTED") if result.has("construction") or result.has("rack_installation") else tr("CONFIRM"))
 	else:
 		_show_toast(_reason_text(str(result.get("reason", "unknown"))))
-	_needs_refresh = true
+	_request_hud_refresh()
 
 func _reason_text(reason: String) -> String:
 	var keys := {
@@ -1584,8 +1652,11 @@ func _reason_text(reason: String) -> String:
 	}
 	return tr(keys.get(reason, reason))
 
-func _on_state_changed(_reason: String) -> void:
-	_needs_refresh = true
+func _on_state_changed(reason: String) -> void:
+	if reason in ["tick", "offline_advance"]:
+		_request_hud_refresh()
+	else:
+		_request_full_refresh()
 
 func _on_toast_requested(key: String, values: Dictionary) -> void:
 	var text := tr(key)
@@ -1609,7 +1680,7 @@ func _on_rack_fault_occurred(datacenter_id: String, _slot: int) -> void:
 
 func _on_contract_renewal_opened(_datacenter_id: String, _customer_id: String, _window_end_at: float) -> void:
 	_show_toast(tr("TOAST_CONTRACT_RENEWAL"))
-	_needs_refresh = true
+	_request_full_refresh()
 
 func _on_market_event_started(event_id: String) -> void:
 	match event_id:
@@ -1697,13 +1768,13 @@ func _on_locale_changed(_locale: String) -> void:
 	var settings_button := find_child("SettingsButton", true, false) as Button
 	if settings_button != null:
 		settings_button.tooltip_text = tr("NAV_SETTINGS")
-	_needs_refresh = true
+	_request_full_refresh()
 
 func _on_purchase_completed(_product_id: String, success: bool, _message: String) -> void:
 	_show_toast(tr("TOAST_PURCHASE_COMPLETE") if success else tr("TOAST_PURCHASE_FAILED"))
 	if success:
 		_play_fx("fx_coin")
-	_needs_refresh = true
+	_request_full_refresh()
 
 func _show_toast(message: String) -> void:
 	toast_label.text = message
@@ -1829,6 +1900,18 @@ func _resource_chip(asset_id: String, accent: Color) -> PanelContainer:
 	row.add_child(value)
 	return chip
 
+func _add_world_action_caption(button: Button, text: String) -> void:
+	var caption := _label(text, 18, Color.WHITE)
+	caption.name = "EntryCaption"
+	caption.position = Vector2(-8, 66)
+	caption.size = Vector2(112, 28)
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+	caption.add_theme_constant_override("outline_size", 3)
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(caption)
+
 func _metric_chip(text: String, accent: Color) -> PanelContainer:
 	var chip := PanelContainer.new()
 	chip.custom_minimum_size.y = 64
@@ -1906,6 +1989,7 @@ func _wrap_scroll(content: Control) -> Control:
 	surface.clip_contents = true
 	surface.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
 	var scroll := ScrollContainer.new()
+	scroll.name = "PageScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1932,9 +2016,6 @@ func _system_page_header(title_text: String, subtitle: String, asset_id: String)
 		sub.max_lines_visible = 1
 		copy.add_child(sub)
 	var close_button := _button("×", _navigate.bind("map"), Color("263d59"))
-	close_button.text = ""
-	_set_button_asset(close_button, "ic_close", 36)
-	close_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	close_button.custom_minimum_size = Vector2(88, 88)
 	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close_button.add_theme_font_size_override("font_size", 36)
@@ -2163,7 +2244,14 @@ func _progress_for_job(item: Dictionary) -> Control:
 	progress.max_value = maxf(1.0, completed - started)
 	progress.value = clampf(Game.simulation_time() - started, 0.0, progress.max_value)
 	box.add_child(progress)
-	box.add_child(_label(tr("COMPLETE_IN") % Game.format_duration(maxf(0.0, completed - Game.simulation_time())), 20, ThemeMaker.COLORS.cyan))
+	var remaining_label := _label(tr("COMPLETE_IN") % Game.format_duration(maxf(0.0, completed - Game.simulation_time())), 20, ThemeMaker.COLORS.cyan)
+	box.add_child(remaining_label)
+	box.set_meta("live_update", func() -> void:
+		if not is_instance_valid(progress) or not is_instance_valid(remaining_label):
+			return
+		progress.value = clampf(Game.simulation_time() - started, 0.0, progress.max_value)
+		remaining_label.text = tr("COMPLETE_IN") % Game.format_duration(maxf(0.0, completed - Game.simulation_time()))
+	)
 	return box
 
 func _construction_name(item: Dictionary) -> String:

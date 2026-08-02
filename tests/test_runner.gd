@@ -2,6 +2,7 @@ extends Node
 
 const Rules := preload("res://gameplay/game_rules.gd")
 const Market := preload("res://gameplay/market_system.gd")
+const MAIN_SCENE := preload("res://main.tscn")
 
 var passed := 0
 var failed := 0
@@ -11,6 +12,7 @@ func _ready() -> void:
 	_run_data_tests()
 	await _run_asset_integration_tests()
 	AudioService.apply_settings({"music_enabled": false, "sfx_enabled": false})
+	await _run_ui_refresh_test()
 	_run_rule_tests()
 	_run_gameplay_optimization_tests()
 	_run_initial_state_test()
@@ -67,6 +69,49 @@ func _run_asset_integration_tests() -> void:
 	var campus_grid_ok := is_equal_approx(left_top.y, right_top.y) and is_equal_approx(left_bottom.y, right_bottom.y) and right_top.x - left_top.x >= ParkMap.PLOT_SIZE.x and is_equal_approx(next_sale.x, (804.0 - ParkMap.PLOT_SIZE.x) * 0.5) and next_sale.y > left_bottom.y
 	_expect(campus_grid_ok, "campus parcels share row baselines and the expansion parcel stays centered")
 	park_map.queue_free()
+	await get_tree().process_frame
+
+func _run_ui_refresh_test() -> void:
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.call("_navigate", "store")
+	main.call("_refresh")
+	await get_tree().process_frame
+	var scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+	var stable := scroll != null
+	var before_id := 0
+	var before_scroll := 0
+	if scroll != null:
+		var scroll_content := scroll.get_child(0) as Control
+		if scroll_content != null:
+			scroll_content.custom_minimum_size.y = maxf(scroll_content.get_combined_minimum_size().y, scroll.size.y + 640.0)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		scroll.scroll_vertical = 240
+		await get_tree().process_frame
+		before_id = scroll.get_instance_id()
+		before_scroll = scroll.scroll_vertical
+		Game.advance_time(2.0, false)
+		await get_tree().create_timer(0.40).timeout
+		var after_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+		stable = after_scroll != null and after_scroll.get_instance_id() == before_id and after_scroll.scroll_vertical == before_scroll and before_scroll > 0
+	_expect(stable, "tick refresh preserves the live page node and nonzero scroll position")
+	main.call("_navigate", "map")
+	main.call("_refresh")
+	main.call("_show_plot_purchase")
+	await get_tree().process_frame
+	var overlay := main.find_child("ActionSheetOverlay", true, false) as CanvasItem
+	var drag_handle := main.find_child("SheetDragHandle", true, false) as Control
+	var sheet_routes_ok: bool = overlay != null and drag_handle != null and drag_handle.size.y >= 88.0 and not overlay.gui_input.get_connections().is_empty() and not drag_handle.gui_input.get_connections().is_empty()
+	_expect(sheet_routes_ok, "action sheet exposes backdrop and 44pt drag-dismiss input routes")
+	main.call("_dismiss_action_sheet", overlay)
+	await get_tree().create_timer(0.24).timeout
+	_expect(not is_instance_valid(overlay), "action sheet dismissal waits for its exit animation before freeing")
+	main.queue_free()
+	await get_tree().process_frame
 	await get_tree().process_frame
 
 func _run_rule_tests() -> void:

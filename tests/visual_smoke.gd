@@ -98,6 +98,8 @@ func _ready() -> void:
 	for page: String in ["market", "tech", "store", "settings"]:
 		main.call("_navigate", page)
 		valid = (await _capture(main, page)) and valid
+		if page == "store":
+			valid = (await _scroll_survives_tick(main)) and valid
 		if page == "tech":
 			main.call("_set_tech_section", "achievements")
 			valid = (await _capture(main, "achievements")) and valid
@@ -137,6 +139,35 @@ func _capture(main: Node, name: String) -> bool:
 		print("VISUAL_SMOKE: captured %s" % name)
 	return valid and save_error == OK
 
+func _scroll_survives_tick(main: Node) -> bool:
+	var scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+	if scroll == null:
+		push_error("VISUAL_SMOKE: store has no named PageScroll")
+		return false
+	var scroll_content := scroll.get_child(0) as Control
+	if scroll_content != null:
+		scroll_content.custom_minimum_size.y = maxf(scroll_content.get_combined_minimum_size().y, scroll.size.y + 640.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().create_timer(0.30).timeout
+	var scrollbar := scroll.get_v_scroll_bar()
+	var target := mini(240, maxi(0, int(scrollbar.max_value - scrollbar.page)))
+	scroll.scroll_vertical = target
+	await get_tree().process_frame
+	var before_id := scroll.get_instance_id()
+	var before_scroll := scroll.scroll_vertical
+	var before_nodes := int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+	Game.advance_time(2.0, false)
+	await get_tree().create_timer(0.40).timeout
+	var after_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+	var after_nodes := int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+	var valid := target > 0 and after_scroll != null and after_scroll.get_instance_id() == before_id and after_scroll.scroll_vertical == before_scroll and absi(after_nodes - before_nodes) <= 2
+	if not valid:
+		push_error("VISUAL_SMOKE: tick rebuilt store or moved scroll before=%d/%d after=%s nodes=%d→%d" % [before_id, before_scroll, str(after_scroll), before_nodes, after_nodes])
+	else:
+		print("VISUAL_SMOKE: store tick preserved node=%d scroll=%d nodes_delta=%d" % [before_id, before_scroll, after_nodes - before_nodes])
+	return valid
+
 func _layout_is_safe(main: Node, state_name: String) -> bool:
 	var viewport_rect := get_viewport().get_visible_rect()
 	var controls: Array[Control] = []
@@ -162,12 +193,22 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if persistent_count > 7 or main.find_child("BottomNav", true, false) != null:
 			push_error("VISUAL_SMOKE: map has %d persistent controls or a legacy tab bar" % persistent_count)
 			valid = false
-	if state_name == "dc_contracts":
+	if state_name in ["dc_contracts", "market"]:
 		for node: Node in main.find_children("*", "Button", true, false):
 			var contract_button := node as Button
 			if contract_button != null and contract_button.is_visible_in_tree() and contract_button.text.contains("0.00"):
 				push_error("VISUAL_SMOKE: locked contract exposes a zero multiplier: %s" % contract_button.text)
 				valid = false
+		for node: Node in main.find_children("*", "Label", true, false):
+			var market_label := node as Label
+			if market_label != null and market_label.is_visible_in_tree() and market_label.text.contains("0.00"):
+				push_error("VISUAL_SMOKE: locked customer exposes a zero multiplier: %s" % market_label.text)
+				valid = false
+	if state_name == "action_sheet":
+		var drag_handle := main.find_child("SheetDragHandle", true, false) as Control
+		if drag_handle == null or drag_handle.size.y < 88.0:
+			push_error("VISUAL_SMOKE: action sheet drag target is below 44pt")
+			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	return valid
 

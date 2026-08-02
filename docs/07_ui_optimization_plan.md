@@ -396,15 +396,15 @@ ARREARS_BANNER, GAME_OVER_RESTART, TUTORIAL_TAP_HINT
 
 | 计划项 | 状态 | 复查证据 |
 |---|---|---|
-| WP0-1 tick 整页重建 / 滚动重置 | ❌ 未动 | `_on_state_changed` 仍仅置 `_needs_refresh`，无 reason 分流、无 `_page_scroll_cache` |
-| WP0-2 锁定客户 ×0.00 | ⚠️ 半完成 | 合约页已修；**行情页客户卡仍显示 × 0.00**（两处渲染未收敛为同一组件） |
-| WP0-3 行情图空态 | ❌ | 空数据仍渲染裸网格线 |
-| WP0-4 运营中心状态点拉伸 | ❌ | `status_dot` 无 `SIZE_SHRINK_CENTER`（仅设置页 toggle 用了） |
-| WP0-5 Sheet 退场动画 + 拖拽关闭 | ❌ | `_dismiss_world_sheet` 仍即时 `queue_free` |
-| WP0-6 关闭按钮中性化 | ❌ | 全部页面仍为红 ✕ |
-| WP0-7 「T1」时代术语 | ❌ | 公司 chip 原样 |
-| WP0-8 死代码清理 | ❌ | `_build_map_page` / `_plot_card` 仍在 |
-| WP0-9 圆形按钮标签/换图标 | ❌ | 底部两圆钮原样 |
+| WP0-1 tick 整页重建 / 滚动重置 | ✅ 2026-08-02 | tick/offline 仅刷新 HUD/实时控件；玩家动作才重建页面；`PageScroll` 缓存恢复。自动测试以非零 240u 滚动跨 tick 验证节点 ID、位置与节点数均不变。 |
+| WP0-2 锁定客户 ×0.00 | ✅ 2026-08-02 | 合约与行情页均改为时代/网络解锁条件；visual_smoke 同时扫描 Button 与 Label，禁止 `0.00`。 |
+| WP0-3 行情图空态 | ✅ 2026-08-02 | 少于 2 个数据点时显示市场图标与本地化空态，不再绘制裸网格。 |
+| WP0-4 运营中心状态点拉伸 | ✅ 2026-08-02 | 横纵 size flags 均锁为 `SIZE_SHRINK_CENTER`，Metal 截图确认为圆点。 |
+| WP0-5 Sheet 退场动画 + 拖拽关闭 | ✅ 2026-08-02 | 世界/操作 Sheet 统一 0.2s 退场后释放；支持暗幕、关闭键、≥88u 把手下拽三路退出，回归测试覆盖输入路由与延迟释放。 |
+| WP0-6 关闭按钮中性化 | ✅ 2026-08-02 | 移除红色 `ic_close`，统一深色按钮 + 白色 ×；危险色只留给破坏性操作。 |
+| WP0-7 「T1」时代术语 | ✅ 2026-08-02 | HUD 使用本地化 `ERA_SHORT`（时代/Era）。 |
+| WP0-8 死代码清理 | ✅ 2026-08-02 | 删除 `_build_map_page`、`_plot_card` 及失去调用方的 `_start_building`。 |
+| WP0-9 圆形按钮标签/换图标 | ✅ 2026-08-02 | 建设/运营入口增加世界文字标签；`ic_operations` 缺失时按资产纪律回退 `ic_network`。 |
 | WP1 字体打包 | ❌ **优先级提升** | `assets/fonts` 不存在；tofu 扩散：新文案「稳健」渲染为「□健」（rack_picker 态可复现） |
 | WP1 九宫格资产接入 / widgets.gd | ❌ | `art_button_box` 仍零调用方，全部按钮为纯色 flat |
 | WP2 金币飞行 / 数字滚动 / 倒计时环 | ❌ | `fx_layer.gd` 不存在，现金标签跳变 |
