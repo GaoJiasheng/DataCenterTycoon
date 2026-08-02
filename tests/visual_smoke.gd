@@ -217,6 +217,8 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 		main.call("_refresh")
 	for _frame: int in range(3):
 		await get_tree().process_frame
+	if name == "era_unlock":
+		await get_tree().create_timer(1.25).timeout
 	await get_tree().create_timer(0.24).timeout
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
@@ -394,6 +396,15 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if chart == null or legend == null or legend.get_child_count() != 4:
 			push_error("VISUAL_SMOKE: %s lacks the chart or four-series legend" % state_name)
 			valid = false
+		if chart != null and not bool(chart.get_meta("one_x_baseline", false)):
+			push_error("VISUAL_SMOKE: %s lacks the ×1.0 dashed baseline" % state_name)
+			valid = false
+		if legend != null:
+			for legend_node: Node in legend.get_children():
+				var legend_button := legend_node as Button
+				if legend_button == null or bool(legend_button.get_meta("glossy_button", false)) or not legend_button.get_theme_color("font_color").is_equal_approx(Color.WHITE):
+					push_error("VISUAL_SMOKE: %s legend is not a flat series-color button" % state_name)
+					valid = false
 		if state_name == "market_empty" and chart != null and not chart.series.is_empty():
 			push_error("VISUAL_SMOKE: market_empty unexpectedly has history")
 			valid = false
@@ -415,6 +426,13 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: contract comparison sheet did not open")
 			valid = false
 	if state_name == "store":
+		var glossy_store_buttons := 0
+		for buy_node: Node in main.find_children("StoreBuy_*", "Button", true, false):
+			if bool(buy_node.get_meta("glossy_button", false)):
+				glossy_store_buttons += 1
+		if glossy_store_buttons != 1:
+			push_error("VISUAL_SMOKE: store expected one glossy purchase focus, got %d" % glossy_store_buttons)
+			valid = false
 		for section_id: String in ["deals", "gems", "perks"]:
 			if main.find_child("StoreSection_%s" % section_id, true, false) == null:
 				push_error("VISUAL_SMOKE: store lacks %s merchandising section" % section_id)
@@ -435,10 +453,28 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if crisis_nodes.any(func(node: Variant) -> bool: return node == null):
 			push_error("VISUAL_SMOKE: arrears state lacks its persistent crisis HUD nodes=%s" % str(crisis_nodes))
 			valid = false
+		else:
+			var arrears_banner := crisis_nodes[0] as PanelContainer
+			var arrears_progress := crisis_nodes[2] as ProgressBar
+			var arrears_button := crisis_nodes[3] as Button
+			var shell_header := main.find_child("ShellHeader", true, false) as Control
+			var banner_rect := arrears_banner.get_global_rect().grow(1.0)
+			var content_fits := banner_rect.encloses(arrears_progress.get_global_rect()) and banner_rect.encloses(arrears_button.get_global_rect())
+			var clears_hud := shell_header == null or not arrears_banner.get_global_rect().intersects(shell_header.get_global_rect())
+			var crisis_style := arrears_banner.get_theme_stylebox("panel") as StyleBoxFlat
+			var crisis_is_opaque := crisis_style != null and crisis_style.bg_color.a >= 0.95
+			if arrears_banner.size.y + 1.0 < arrears_banner.get_combined_minimum_size().y or arrears_progress.size.y < 40.0 or arrears_button.text != tr("ARREARS_RESCUE") or not content_fits or not clears_hud or not crisis_is_opaque:
+				push_error("VISUAL_SMOKE: arrears HUD is compressed or truncates its rescue action")
+				valid = false
 	if state_name == "era_unlock":
 		var unlock_summary := main.find_child("EraUnlockSummary", true, false)
 		if main.find_child("EraNewspaper", true, false) == null or unlock_summary == null or unlock_summary.get_child_count() < 3 or main.find_child("EraRewardValue", true, false) == null:
 			push_error("VISUAL_SMOKE: era celebration lacks the newspaper unlock summary or reward counter")
+			valid = false
+		var reward_label := main.find_child("EraRewardValue", true, false) as Label
+		var era_two := DataRepository.get_entry("eras", "2")
+		if reward_label != null and reward_label.text != tr("GEMS_FORMAT") % int(era_two.get("reward_gems", 0)):
+			push_error("VISUAL_SMOKE: era reward did not settle on its final value: %s" % reward_label.text)
 			valid = false
 	if state_name == "game_over":
 		var stat_count := main.find_children("GameOverStat_*", "", true, false).size()

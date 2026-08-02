@@ -15,6 +15,7 @@ var events: Array = []
 func _ready() -> void:
 	custom_minimum_size = Vector2(0, 330)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_meta("one_x_baseline", true)
 
 func set_series(value: Dictionary) -> void:
 	series = value
@@ -54,6 +55,11 @@ func _draw() -> void:
 	for index: int in range(5):
 		var y := rect.position.y + rect.size.y * float(index) / 4.0
 		draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), Color(1, 1, 1, 0.09), 2)
+	var baseline_y := rect.end.y - rect.size.y / 3.2
+	var dash_x := rect.position.x
+	while dash_x < rect.end.x:
+		draw_line(Vector2(dash_x, baseline_y), Vector2(minf(dash_x + 12.0, rect.end.x), baseline_y), Color(1, 1, 1, 0.36), 2)
+		dash_x += 20.0
 	var font := get_theme_default_font()
 	for reference: float in [0.5, 1.0, 2.0, 3.0]:
 		var y := rect.end.y - rect.size.y * reference / 3.2

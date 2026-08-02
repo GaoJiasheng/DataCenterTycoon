@@ -950,7 +950,9 @@ func _build_market_page() -> Control:
 	box.add_child(chart_card)
 	box.add_child(_section_title(tr("MARKET_CUSTOMERS"), tr("MARKET_CUSTOMERS_HINT")))
 	var customers := GridContainer.new()
-	customers.columns = 2
+	# Contract names are product concepts, not abbreviations. One column preserves
+	# full names in both locales and lets the signal cards breathe on a phone.
+	customers.columns = 1
 	customers.add_theme_constant_override("h_separation", 12)
 	customers.add_theme_constant_override("v_separation", 12)
 	box.add_child(customers)
@@ -972,9 +974,16 @@ func _build_market_page() -> Control:
 
 func _market_legend_button(chart: MarketChart, customer_id: String, customer: Dictionary) -> Button:
 	var color: Color = ChartScene.CUSTOMER_COLORS.get(customer_id, ThemeMaker.COLORS.sky)
-	var control := _button("●  %s" % tr(customer.get("name_key", "")), Callable(), color.darkened(0.34))
+	var control := Widgets.button(tr(customer.get("name_key", "")), Callable(), "secondary")
 	control.name = "Legend_%s" % customer_id
 	control.custom_minimum_size.y = 88
+	control.set_meta("legend_color", color)
+	var normal := ThemeMaker.panel(color.darkened(0.35), Color(color, 0.56), 1, 18)
+	var hover := ThemeMaker.panel(color.darkened(0.25), Color(color, 0.72), 1, 18)
+	var pressed := ThemeMaker.panel(color.darkened(0.45), Color(color, 0.56), 1, 18)
+	control.add_theme_stylebox_override("normal", normal)
+	control.add_theme_stylebox_override("hover", hover)
+	control.add_theme_stylebox_override("pressed", pressed)
 	control.pressed.connect(func() -> void:
 		chart.toggle_series(customer_id)
 		var visible := bool(chart.visible_series.get(customer_id, true))
@@ -1195,7 +1204,8 @@ func _build_achievements_section() -> Control:
 func _build_store_page() -> Control:
 	var box := _page_box()
 	box.add_child(_system_page_header(tr("NAV_STORE"), tr("GEMS_FORMAT") % Game.format_number(float(Game.state["player"].get("gems", 0))), "ic_shop"))
-	var wallet := _card()
+	var wallet := PanelContainer.new()
+	wallet.add_theme_stylebox_override("panel", ThemeMaker.panel(Color(0, 0, 0, 0.12), Color.TRANSPARENT, 0, ThemeMaker.RADIUS.card))
 	var wallet_row := HBoxContainer.new()
 	wallet_row.add_theme_constant_override("separation", 18)
 	wallet.add_child(wallet_row)
@@ -1220,7 +1230,7 @@ func _build_store_page() -> Control:
 	for section_id: String in ["deals", "gems", "perks"]:
 		var title_key: String = {"deals": "STORE_SECTION_DEALS", "gems": "STORE_SECTION_GEMS", "perks": "STORE_SECTION_PERKS"}[section_id]
 		var section_space := Control.new()
-		section_space.custom_minimum_size.y = 24
+		section_space.custom_minimum_size.y = 8
 		section_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(section_space)
 		var section_header := _section_title(tr(title_key), tr("STORE_SECTION_%s_HINT" % section_id.to_upper()))
@@ -1246,39 +1256,53 @@ func _build_store_page() -> Control:
 func _store_product_card(product_id: String, product: Dictionary) -> Control:
 	var card := _card()
 	card.name = "StoreProduct_%s" % product_id
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	card.add_child(row)
-	var product_art := _asset_preview(str(product.get("asset_id", "")), tr(product.get("name_key", "")), ThemeMaker.COLORS.purple, 142)
-	product_art.custom_minimum_size.x = 176
+	var card_box := VBoxContainer.new()
+	card_box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	card.add_child(card_box)
+	var product_row := HBoxContainer.new()
+	product_row.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	card_box.add_child(product_row)
+	var product_art := _asset_preview(str(product.get("asset_id", "")), tr(product.get("name_key", "")), ThemeMaker.COLORS.purple, 80)
+	product_art.custom_minimum_size = Vector2(80, 80)
 	product_art.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	row.add_child(product_art)
+	product_row.add_child(product_art)
 	var copy := VBoxContainer.new()
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	copy.add_theme_constant_override("separation", 5)
-	row.add_child(copy)
-	var title := _label(tr(product.get("name_key", "")), 27, ThemeMaker.COLORS.cream)
+	copy.add_theme_constant_override("separation", 6)
+	product_row.add_child(copy)
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	copy.add_child(title_row)
+	var title_prefix := "★ " if product_id == "gems_m" else ""
+	var title := _label("%s%s" % [title_prefix, tr(product.get("name_key", ""))], ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	copy.add_child(title)
-	if product_id == "gems_m":
-		copy.add_child(_label("★ %s" % tr("STORE_BEST_VALUE"), 18, ThemeMaker.COLORS.yellow))
+	title_row.add_child(title)
+	var bonus := _store_bonus_percent(product_id)
+	if bonus > 0:
+		var bonus_label := _label(tr("STORE_BONUS_PCT") % bonus, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.yellow)
+		bonus_label.max_lines_visible = 1
+		title_row.add_child(bonus_label)
 	if product.has("description_key"):
-		var description := _label(tr(product.get("description_key", "")), 19, ThemeMaker.COLORS.cyan)
-		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var description := _label(tr(product.get("description_key", "")), ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+		description.max_lines_visible = 1
+		description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		copy.add_child(description)
 	if str(product.get("type", "")) == "limited_consumable":
-		copy.add_child(_label(tr("STORE_PACK_CONTENTS") % [int(product.get("gems", 0)), Game.format_number(float(product.get("cash", 0.0))), int(product.get("tickets", 0))], 18, ThemeMaker.COLORS.yellow))
+		var contents := _label(tr("STORE_PACK_CONTENTS") % [int(product.get("gems", 0)), Game.format_number(float(product.get("cash", 0.0))), int(product.get("tickets", 0))], ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.yellow)
+		contents.max_lines_visible = 1
+		contents.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		copy.add_child(contents)
 	var gems := int(product.get("gems", 0))
 	if gems > 0:
-		var bonus := _store_bonus_percent(product_id)
 		var price_per_gem := float(product.get("price_usd", 0.0)) / float(gems)
 		var value_text := "$%.4f / 💎" % price_per_gem
-		if bonus > 0:
-			value_text = "%s   %s" % [tr("STORE_BONUS_PCT") % bonus, value_text]
-		copy.add_child(_label(value_text, 18, ThemeMaker.COLORS.green))
+		copy.add_child(_label(value_text, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.green))
 	var fallback_price := "US$ %.2f" % float(product.get("price_usd", 0.0))
-	var buy_button := _button(Monetization.localized_price(product_id, fallback_price), _purchase.bind(product_id), ThemeMaker.COLORS.green)
-	buy_button.custom_minimum_size.x = 186
+	var buy_role := "primary" if product_id == "gems_m" else "secondary"
+	var buy_button := Widgets.button(Monetization.localized_price(product_id, fallback_price), _purchase.bind(product_id), buy_role)
+	buy_button.name = "StoreBuy_%s" % product_id
+	buy_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var purchase_state := Game.can_purchase_product(product_id)
 	var owned := not bool(purchase_state.get("ok", false)) and str(purchase_state.get("reason", "")) in ["already_owned", "purchase_limit"]
 	if owned:
@@ -1289,7 +1313,7 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 	elif OS.get_name() == "iOS" and not Monetization.is_product_available(product_id):
 		buy_button.text = "…"
 		buy_button.disabled = true
-	row.add_child(buy_button)
+	card_box.add_child(buy_button)
 	return card
 
 func _store_bonus_percent(product_id: String) -> int:
@@ -1483,13 +1507,11 @@ func _customer_market_card(customer_id: String, customer: Dictionary) -> Control
 	var network_required := int(customer.get("minimum_network_level", 1))
 	var available := unlock_era <= int(player.get("era", 1)) and network_required <= int(player.get("network_level", 1))
 	var accent: Color = ChartScene.CUSTOMER_COLORS.get(customer_id, ThemeMaker.COLORS.sky) if available else Color("8a97a8")
-	var card := PanelContainer.new()
+	var card := Widgets.flat_card(accent)
 	card.name = "MarketCustomer_%s" % customer_id
-	card.custom_minimum_size.y = 212
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("14283c"), 0.97, 22, accent))
 	var card_box := VBoxContainer.new()
-	card_box.add_theme_constant_override("separation", 6)
+	card_box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	card.add_child(card_box)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -1498,7 +1520,7 @@ func _customer_market_card(customer_id: String, customer: Dictionary) -> Control
 	var copy := VBoxContainer.new()
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(copy)
-	var customer_name := _label(tr(customer.get("name_key", "")), 22, ThemeMaker.COLORS.cream)
+	var customer_name := _label(tr(customer.get("name_key", "")), ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
 	customer_name.max_lines_visible = 1
 	customer_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	copy.add_child(customer_name)
@@ -1511,16 +1533,13 @@ func _customer_market_card(customer_id: String, customer: Dictionary) -> Control
 		else:
 			var network: Dictionary = DataRepository.get_table("technology").get("network", {}).get(str(network_required), {})
 			market_text = tr("UNLOCK_AT_NETWORK") % tr(network.get("name_key", "NETWORK"))
-	copy.add_child(_label(market_text, 20 if not available else 24, accent.lightened(0.12) if not available else trend_color))
+	copy.add_child(_label(market_text, ThemeMaker.TYPE_SCALE.body, accent.lightened(0.12) if not available else trend_color))
 	if available:
 		var history: Array = Game.state.get("market", {}).get("history", {}).get(customer_id, [])
 		var sparkline := SparklineScene.new()
 		sparkline.name = "Sparkline_%s" % customer_id
 		sparkline.setup(history, accent)
 		card_box.add_child(sparkline)
-		var seven_day := _label(tr("MARKET_7D_TREND"), 17, Color(0.72, 0.84, 0.91, 0.76))
-		seven_day.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		card_box.add_child(seven_day)
 	return card
 
 func _feature_heading(asset_id: String, title_text: String, subtitle: String, accent: Color) -> Control:
@@ -2531,22 +2550,25 @@ func _show_arrears_hud() -> void:
 	var banner := PanelContainer.new()
 	banner.name = "ArrearsBanner"
 	banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	banner.offset_left = 28
-	banner.offset_top = 106
-	banner.offset_right = -28
-	banner.offset_bottom = 318
+	banner.offset_left = 32
+	# This is a global emergency layer, so its top must include the desktop/mobile
+	# safe area and the persistent resource rail. It may cover page content, but
+	# never the HUD that explains the player's remaining resources.
+	var banner_top := _safe_area_margins().y + 108.0
+	banner.offset_top = banner_top
+	banner.offset_right = -32
+	banner.offset_bottom = banner_top
 	banner.z_index = 86
-	banner.add_theme_stylebox_override("panel", ThemeMaker.art_button_box("danger"))
+	var crisis_style := ThemeMaker.panel(Color("171c27", 0.98), Color(ThemeMaker.COLORS.red, 0.72), 2, ThemeMaker.RADIUS.card)
+	crisis_style.content_margin_left = ThemeMaker.GROUP_PADDING
+	crisis_style.content_margin_top = ThemeMaker.GROUP_PADDING
+	crisis_style.content_margin_right = ThemeMaker.GROUP_PADDING
+	crisis_style.content_margin_bottom = ThemeMaker.GROUP_PADDING
+	banner.add_theme_stylebox_override("panel", crisis_style)
 	add_child(banner)
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_top", 18)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_bottom", 18)
-	banner.add_child(margin)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 7)
-	margin.add_child(box)
+	box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	banner.add_child(box)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)
 	box.add_child(top)
@@ -2557,23 +2579,40 @@ func _show_arrears_hud() -> void:
 	var debt := _label("", 24, Color.WHITE)
 	debt.name = "DebtValue"
 	copy.add_child(debt)
-	var time_left := _label("", 18, Color("ffe7bf"))
+	var time_left := _label("", ThemeMaker.TYPE_SCALE.caption, Color("ffe7bf"))
 	time_left.name = "ArrearsTime"
 	copy.add_child(time_left)
-	var rescue := Widgets.button(tr("ARREARS_RESCUE"), func() -> void: _handle_result(Game.request_reward("arrears_rescue")), "ad")
-	rescue.name = "ArrearsRescueButton"
-	rescue.custom_minimum_size.x = 230
-	_set_button_asset(rescue, "ic_play_ad", 36)
-	top.add_child(rescue)
 	var progress := ProgressBar.new()
 	progress.name = "ArrearsProgress"
 	progress.show_percentage = false
-	progress.custom_minimum_size.y = 30
+	progress.custom_minimum_size.y = 40
+	var progress_background := ThemeMaker.panel(Color("1a202a"), Color(1, 1, 1, 0.12), 1, 20)
+	progress_background.content_margin_left = 0
+	progress_background.content_margin_right = 0
+	progress_background.content_margin_top = 0
+	progress_background.content_margin_bottom = 0
+	var progress_fill := ThemeMaker.panel(ThemeMaker.COLORS.red, Color(1, 1, 1, 0.20), 1, 20)
+	progress_fill.content_margin_left = 0
+	progress_fill.content_margin_right = 0
+	progress_fill.content_margin_top = 0
+	progress_fill.content_margin_bottom = 0
+	progress.add_theme_stylebox_override("background", progress_background)
+	progress.add_theme_stylebox_override("fill", progress_fill)
 	box.add_child(progress)
+	var rescue := Widgets.button(tr("ARREARS_RESCUE"), func() -> void: _handle_result(Game.request_reward("arrears_rescue")), "primary")
+	rescue.name = "ArrearsRescueButton"
+	_set_button_asset(rescue, "ic_play_ad", 36)
+	box.add_child(rescue)
+	call_deferred("_fit_arrears_banner", banner)
 	_refresh_arrears_hud()
 	var final_y := banner.position.y
 	banner.position.y = final_y - 240.0
 	banner.create_tween().tween_property(banner, "position:y", final_y, 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _fit_arrears_banner(banner: PanelContainer) -> void:
+	if not is_instance_valid(banner):
+		return
+	banner.offset_bottom = banner.offset_top + banner.get_combined_minimum_size().y
 
 func _clear_crisis_hud() -> void:
 	for node_name: String in ["ArrearsBanner", "ArrearsVignette"]:
@@ -2760,7 +2799,7 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	var rule := HSeparator.new()
 	rule.add_theme_constant_override("separation", 8)
 	box.add_child(rule)
-	var headline := _label(tr("ERA_ARRIVAL") % tr(era.get("name_key", "")), 46, ThemeMaker.COLORS.ink)
+	var headline := _label((tr("ERA_ARRIVAL") % tr(era.get("name_key", ""))).strip_edges(), 46, ThemeMaker.COLORS.ink)
 	headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(headline)
@@ -2771,7 +2810,7 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	var unlocks := _era_unlock_items(era_id)
 	var unlock_box := VBoxContainer.new()
 	unlock_box.name = "EraUnlockSummary"
-	unlock_box.add_theme_constant_override("separation", 8)
+	unlock_box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	box.add_child(unlock_box)
 	for index: int in range(mini(3, unlocks.size())):
 		var item: Dictionary = unlocks[index]
@@ -2781,7 +2820,7 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 		unlock_box.add_child(row)
 		row.add_child(_icon_view(str(item.get("asset_id", "")), Vector2(44, 44)))
 		row.add_child(_label("✓  %s" % tr(item.get("name_key", "")), 21, ThemeMaker.COLORS.ink))
-	var reward := _label(tr("GEMS_FORMAT") % 0, 34, ThemeMaker.COLORS.purple.darkened(0.12))
+	var reward := _label(tr("GEMS_FORMAT") % 0, 34, ThemeMaker.COLORS.ink)
 	reward.name = "EraRewardValue"
 	reward.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ThemeMaker.apply_numeric_text(reward)
@@ -2803,10 +2842,17 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	tween.tween_property(card, "modulate:a", 1.0, 0.16)
 	tween.tween_property(card, "scale", Vector2.ONE, 0.50).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(card, "rotation", 0.0, 0.50).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	Widgets.animate_number(reward, 0.0, float(era.get("reward_gems", 0)), func(value: float) -> String: return tr("GEMS_FORMAT") % int(round(value)), 1.2)
+	var reward_target := int(era.get("reward_gems", 0))
+	var reward_tween := Widgets.animate_number(reward, 0.0, float(reward_target), func(value: float) -> String: return tr("GEMS_FORMAT") % int(round(value)), 1.2)
+	reward_tween.finished.connect(func() -> void:
+		if is_instance_valid(reward):
+			reward.text = tr("GEMS_FORMAT") % reward_target
+	)
+	var confirm_ref: WeakRef = weakref(confirm)
 	get_tree().create_timer(2.5).timeout.connect(func() -> void:
-		if is_instance_valid(confirm):
-			confirm.visible = true
+		var live_confirm: Button = confirm_ref.get_ref() as Button
+		if live_confirm != null:
+			live_confirm.visible = true
 	)
 
 func _add_era_confetti(overlay: Control) -> void:
@@ -2971,13 +3017,17 @@ func _wrap_scroll(content: Control) -> Control:
 	scroll.add_child(content)
 	var margin := MarginContainer.new()
 	margin.name = "SystemSurfaceMargin"
-	# The illustrated page frame already owns its 38u content inset. A second
-	# horizontal margin was shrinking the usable width and forcing wide cards
-	# beyond PageHost's clipping edge.
-	margin.add_theme_constant_override("margin_left", 0)
+	# The nine-slice's nominal inset includes transparent export padding. Keep a
+	# real 24u breathing gutter so text never sits beneath the illustrated flange.
+	# Narrow content such as store products must adapt vertically instead of
+	# borrowing this protected space.
+	margin.add_theme_constant_override("margin_left", ThemeMaker.GROUP_PADDING)
 	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_right", 0)
-	margin.add_theme_constant_override("margin_bottom", 22)
+	margin.add_theme_constant_override("margin_right", ThemeMaker.GROUP_PADDING)
+	# Keep scrollable rows above the page frame's illustrated bottom hardware.
+	# A partially visible row is acceptable only when the scroll viewport clips it,
+	# never when decorative pixels paint over its text.
+	margin.add_theme_constant_override("margin_bottom", 88)
 	margin.add_child(scroll)
 	surface.add_child(margin)
 	return surface
