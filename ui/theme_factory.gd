@@ -27,10 +27,15 @@ const SEMANTIC := {
 	"success": Color("7bc94c"),
 	"locked": Color("8a97a8"),
 }
-const TYPE_SCALE := {"display": 44, "title": 36, "heading": 28, "body": 24, "caption": 20, "micro": 18}
+const TYPE_SCALE := {"display": 44, "title": 28, "heading": 28, "body": 24, "caption": 20, "micro": 20}
 const SPACE := [4, 8, 12, 16, 24, 32]
 const RADIUS := {"chip": 14, "button": 18, "card": 22, "sheet": 28}
 const TOUCH_MIN := 88.0
+const PAGE_PADDING := 32
+const GROUP_PADDING := 24
+const GROUP_GAP := 24
+const ITEM_GAP := 12
+const TEXT_LINE_SPACING := 6
 const FONT_LATIN_PATH := "res://assets/fonts/Baloo2-Variable.ttf"
 const FONT_CJK_PATH := "res://assets/fonts/NotoSansSC-Variable.ttf"
 
@@ -45,13 +50,12 @@ static func create() -> Theme:
 	result.set_color("font_shadow_color", "Label", Color.TRANSPARENT)
 	result.set_constant("shadow_offset_x", "Label", 0)
 	result.set_constant("shadow_offset_y", "Label", 0)
-	# Nested containers remain quiet by default. Deliberate work surfaces and
-	# cards opt into the illustrated nine-slice through Widgets.panel().
+	# Only a page/sheet opts into an illustrated frame. Nested groups remain flat.
 	result.set_stylebox("panel", "PanelContainer", glass_panel(Color("102236"), 0.96, 22))
-	result.set_stylebox("normal", "Button", art_button_box("btn_secondary"))
-	result.set_stylebox("hover", "Button", art_button_box("btn_secondary", Color("fff4d6")))
-	result.set_stylebox("pressed", "Button", art_button_box("btn_secondary", Color("c9d7df")))
-	result.set_stylebox("disabled", "Button", art_button_box("btn_disabled"))
+	result.set_stylebox("normal", "Button", flat_button_box("secondary"))
+	result.set_stylebox("hover", "Button", flat_button_box("secondary", true))
+	result.set_stylebox("pressed", "Button", flat_button_box("secondary", false, true))
+	result.set_stylebox("disabled", "Button", flat_button_box("disabled"))
 	result.set_color("font_color", "Button", Color.WHITE)
 	result.set_color("font_disabled_color", "Button", Color("9aa9ba"))
 	result.set_font_size("font_size", "Button", 24)
@@ -107,7 +111,7 @@ static func apply_numeric_text(label: Label) -> void:
 
 static func world_text(label: Label) -> void:
 	label.add_theme_color_override("font_outline_color", COLORS.ink)
-	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_constant_override("outline_size", 4)
 
 static func panel(fill: Color, border: Color = Color.TRANSPARENT, border_width: int = 0, radius: int = 18) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
@@ -129,6 +133,39 @@ static func button_box(color: Color, radius: int = 18, pressed: bool = false) ->
 	box.content_margin_bottom = 12
 	box.shadow_color = Color(0, 0, 0, 0.12 if not pressed else 0.05)
 	box.shadow_size = 2 if not pressed else 1
+	box.shadow_offset = Vector2(0, 1)
+	return box
+
+static func flat_group_box(accent: Color = Color.TRANSPARENT, padding: int = GROUP_PADDING) -> StyleBoxFlat:
+	var border := Color(accent, 0.34) if accent.a > 0.0 else Color(1, 1, 1, 0.06)
+	var box := panel(Color(0, 0, 0, 0.22), border, 1, RADIUS.card)
+	box.content_margin_left = padding
+	box.content_margin_right = padding
+	box.content_margin_top = padding
+	box.content_margin_bottom = padding
+	box.shadow_color = Color.TRANSPARENT
+	box.shadow_size = 0
+	return box
+
+static func flat_button_box(role: String = "secondary", hovered: bool = false, pressed: bool = false) -> StyleBoxFlat:
+	var fill := {
+		"warning": Color("5b4937"),
+		"danger": Color("603a43"),
+		"premium": Color("4a3f60"),
+		"ad": Color("4a3f60"),
+		"disabled": Color("344354"),
+	}.get(role, Color("243b55")) as Color
+	if hovered:
+		fill = fill.lightened(0.08)
+	elif pressed:
+		fill = fill.darkened(0.10)
+	var box := panel(fill, Color(1, 1, 1, 0.10), 1, RADIUS.button)
+	box.content_margin_left = GROUP_PADDING
+	box.content_margin_right = GROUP_PADDING
+	box.content_margin_top = ITEM_GAP
+	box.content_margin_bottom = ITEM_GAP
+	box.shadow_color = Color(0, 0, 0, 0.10)
+	box.shadow_size = 1 if pressed else 2
 	box.shadow_offset = Vector2(0, 1)
 	return box
 
@@ -214,19 +251,17 @@ static func apply_button_color(button: Button, color: Color) -> void:
 	apply_button_role(button, button_role_for_color(color))
 
 static func apply_button_role(button: Button, role: String) -> void:
-	var asset_id := {
-		"primary": "btn_primary",
-		"secondary": "btn_secondary",
-		"warning": "btn_warning",
-		"danger": "btn_danger",
-		"premium": "btn_ad",
-		"ad": "btn_ad",
-		"disabled": "btn_disabled",
-	}.get(role, "btn_secondary") as String
-	button.add_theme_stylebox_override("normal", art_button_box(asset_id))
-	button.add_theme_stylebox_override("hover", art_button_box(asset_id, Color("fff4dc")))
-	button.add_theme_stylebox_override("pressed", art_button_box(asset_id, Color("c8d4dc")))
-	button.add_theme_stylebox_override("disabled", art_button_box("btn_disabled"))
+	var glossy := role == "primary" and not button.text.contains("\n")
+	button.set_meta("glossy_button", glossy)
+	if glossy:
+		button.add_theme_stylebox_override("normal", art_button_box("btn_primary"))
+		button.add_theme_stylebox_override("hover", art_button_box("btn_primary", Color("fff4dc")))
+		button.add_theme_stylebox_override("pressed", art_button_box("btn_primary", Color("c8d4dc")))
+	else:
+		button.add_theme_stylebox_override("normal", flat_button_box(role))
+		button.add_theme_stylebox_override("hover", flat_button_box(role, true))
+		button.add_theme_stylebox_override("pressed", flat_button_box(role, false, true))
+	button.add_theme_stylebox_override("disabled", flat_button_box("disabled"))
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	button.add_theme_color_override("font_color", Color.WHITE)
 	button.add_theme_color_override("font_disabled_color", Color("9aa9ba"))

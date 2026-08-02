@@ -508,6 +508,9 @@ func _button_text_contrast_is_safe(main: Node, state_name: String) -> bool:
 		if not is_legal_color or outline_size < 4 or not outline_color.is_equal_approx(ThemeFactory.COLORS.ink):
 			push_error("VISUAL_SMOKE: %s illegal button text contrast %s color=%s outline=%d/%s" % [state_name, button.name, font_color, outline_size, outline_color])
 			valid = false
+		if bool(button.get_meta("glossy_button", false)) and (button.text.contains("\n") or button.text.contains("\r")):
+			push_error("VISUAL_SMOKE: %s glossy button contains multiline content %s text=%s" % [state_name, button.name, button.text])
+			valid = false
 	return valid
 
 func _typography_and_touch_are_safe(main: Node, state_name: String) -> bool:

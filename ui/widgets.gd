@@ -28,7 +28,12 @@ static func close_button(action: Callable) -> Button:
 
 static func panel(dark: bool = true) -> PanelContainer:
 	var control := PanelContainer.new()
-	control.add_theme_stylebox_override("panel", ThemeMaker.art_panel(dark, true))
+	control.add_theme_stylebox_override("panel", ThemeMaker.flat_group_box() if dark else ThemeMaker.art_panel(false))
+	return control
+
+static func flat_card(accent: Color = Color.TRANSPARENT, padding: int = ThemeMaker.GROUP_PADDING) -> PanelContainer:
+	var control := PanelContainer.new()
+	control.add_theme_stylebox_override("panel", ThemeMaker.flat_group_box(accent, padding))
 	return control
 
 static func chip(text: String, accent: Color = Color.WHITE) -> PanelContainer:
@@ -107,12 +112,12 @@ static func round_entry(icon: Texture2D, text: String, action: Callable) -> Butt
 
 static func section_header(title_text: String, subtitle_text: String = "") -> VBoxContainer:
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", ThemeMaker.SPACE[0])
+	box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	var title := Label.new()
 	title.name = "Title"
 	title.text = title_text
 	title.add_theme_font_override("font", ThemeMaker.font_bold())
-	title.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.title)
+	title.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.heading)
 	title.add_theme_color_override("font_color", ThemeMaker.COLORS.cream)
 	box.add_child(title)
 	if not subtitle_text.is_empty():
@@ -120,6 +125,7 @@ static func section_header(title_text: String, subtitle_text: String = "") -> VB
 		subtitle.name = "Subtitle"
 		subtitle.text = subtitle_text
 		subtitle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		subtitle.max_lines_visible = 1
 		subtitle.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
 		subtitle.add_theme_color_override("font_color", ThemeMaker.COLORS.cyan)
 		box.add_child(subtitle)
@@ -139,6 +145,7 @@ static func empty_state(title_text: String, body_text: String) -> VBoxContainer:
 	body.text = body_text
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_constant_override("line_spacing", ThemeMaker.TEXT_LINE_SPACING)
 	body.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.body)
 	box.add_child(body)
 	return box
