@@ -37,6 +37,11 @@ CONTRACT_BREACH_FEE,Switching fee: $%s,换约违约金：$%s
 CONTRACT_RENEWAL_WINDOW,Renewal window · free switching for %s,续约窗口 · %s 内免费换约
 CONTRACT_REMAINING,Term remaining: %s,合约剩余：%s
 CONTRACT_FREE_SWITCH,Free switch,免费换约
+CONTRACT_PROJECTED,Projected $%s / month,预计 $%s / 月
+CONTRACT_IN_SERVICE,In service,服务中
+CONTRACT_CONFIRM_DELTA,Current $%s / month → $%s / month (%+.1f%%),当前 $%s / 月 → $%s / 月（%+.1f%%）
+CONTRACT_TERM_INFO,The new term lasts 6 game months,新合约持续 6 个游戏月
+CONTRACT_NO_DC,Build a data center before assigning clients,请先建成机房再调配客户
 TOAST_CONTRACT_RENEWAL,Contract renewal window is open,合约续约窗口已开启
 CANCEL,Cancel,取消
 CONFIRM,Confirm,确认
@@ -78,10 +83,31 @@ MARKET_ACTIVE,Active events,正在发生
 MARKET_PREVIEW,Coming next,新闻预告
 MARKET_CALM,Markets are calm,当前行情平稳
 MARKET_NO_HISTORY,Market history will appear as time passes,行情记录将在运营后逐步生成
+MARKET_NOW,Now,现在
+MARKET_CUSTOMERS,Customer signals,客户走势
+MARKET_CUSTOMERS_HINT,Tap the legend to compare demand curves,点击图例对比需求曲线
+MARKET_7D_TREND,Recent 7-day signal,近 7 日走势
+EVENT_STARTS_IN,Starts in %s,%s 后开始
+EVENT_CHECK_MY_DC,Review my contracts,查看我的合约
+MARKET_EVENT_STARTED,%s is live · Tap to rebalance,%s 已开始 · 点击调整合约
+MARKET_EVENT_ENDED,%s has ended · Tap to review,%s 已结束 · 点击复盘
 NETWORK,Network access,网络接入
 ERA_PROGRESS,Era progress,时代进度
+ERA_CURRENT,Current,当前
+ERA_ROUTE_COMPLETE,All eras unlocked,全部时代已解锁
+ERA_NEXT_UNLOCKS,%s unlocks,%s 解锁内容
+ERA_MORE_ITEMS,and %d more,另有 %d 项
 PRESTIGE,IPO Restructure,上市重组
 PRESTIGE_LOCKED,Build %d data centers to unlock,累计建造 %d 座机房后解锁
+PRESTIGE_PROGRESS,Data centers built %d / %d,累计建成 %d / %d 座机房
+PRESTIGE_EST_GAIN,Estimated brand multiplier ×%.2f,预计品牌倍率 ×%.2f
+PRESTIGE_GAIN_DETAIL,Brand multiplier ×%.2f → ×%.2f,品牌倍率 ×%.2f → ×%.2f
+PRESTIGE_KEEP_LIST,Keep: era · network · purchases · achievements,保留：时代 · 网络 · 购买权益 · 成就
+PRESTIGE_LIQUIDATE,Liquidate assets into $%s starting cash,清算资产并以 $%s 现金重新起步
+PRESTIGE_CONTINUE,Review restructuring,查看重组确认
+PRESTIGE_FINAL_TITLE,Final board approval,董事会最终确认
+PRESTIGE_FINAL_WARNING,This liquidates the current park and cannot be undone.,这会清算当前园区且无法撤销。
+PRESTIGE_HOLD_CONFIRM,Hold 1.2s to restructure,长按 1.2 秒确认重组
 ACHIEVEMENTS,Achievements,成就
 ACHIEVEMENTS_SUBTITLE,Long-term milestones and permanent rewards,长期里程碑与永久奖励
 HIGHEST_NET_WORTH,Highest net worth,历史最高净值

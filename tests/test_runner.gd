@@ -19,6 +19,7 @@ func _ready() -> void:
 	_run_initial_state_test()
 	_run_core_loop_test()
 	await _run_datacenter_board_tests()
+	await _run_wp4_decision_ui_tests()
 	_run_construction_controls_test()
 	_run_commerce_test()
 	_run_offline_test()
@@ -251,6 +252,36 @@ func _test_datacenter(id: String, building_id: String) -> Dictionary:
 	racks.resize(9)
 	racks.fill(null)
 	return {"id": id, "building_id": building_id, "status": "operational", "built_at": Game.simulation_time(), "power_unit": "", "coolers": {}, "racks": racks, "customer_id": "", "contract_end_at": 0.0, "aging_notices": []}
+
+func _run_wp4_decision_ui_tests() -> void:
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	var dc := _test_datacenter("dc_wp4_contract", "dc_t1")
+	dc["power_unit"] = "power_t2"
+	dc["coolers"] = {"north": "cool_air_t2"}
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	dc["racks"][1] = {"rack_id": "rack_storage_t1", "status": "active", "enabled": true}
+	dc["customer_id"] = "internet"
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	var projected := float(main.call("_projected_datacenter_income", dc, "mining"))
+	var simulated := dc.duplicate(true)
+	simulated["customer_id"] = "mining"
+	var authoritative := Rules.datacenter_income_per_month(simulated, Game.state, Game.data, func(customer_id: String) -> float: return Game.market_multiplier(customer_id))
+	_expect(is_equal_approx(projected, authoritative), "contract card projection matches the authoritative post-signing income rule")
+	var route_unlocks: Array = main.call("_era_unlock_items", 2)
+	_expect(route_unlocks.size() >= 4, "era route exposes at least four concrete next-era unlocks")
+	var projection: Dictionary = main.call("_prestige_projection")
+	_expect(float(projection.get("projected", 0.0)) > float(projection.get("current", 0.0)), "prestige card projects a positive permanent brand gain")
+	main.call("_on_market_event_started", "shopping_festival")
+	await get_tree().process_frame
+	var banner := main.find_child("MarketEventBanner", true, false) as Button
+	_expect(banner != null and not banner.pressed.get_connections().is_empty(), "market transitions push an actionable top banner into the live HUD")
+	main.queue_free()
+	await get_tree().process_frame
 
 func _run_initial_state_test() -> void:
 	Game.reset_for_tests()

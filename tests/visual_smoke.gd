@@ -100,6 +100,12 @@ func _ready() -> void:
 	valid = (await _capture(main, "dc_board_placing", false)) and valid
 	main.call("_open_datacenter_detail", str(dc.get("id", "")), "contracts")
 	valid = (await _capture(main, "dc_contracts")) and valid
+	main.call("_sign_contract", str(dc.get("id", "")), "mining")
+	valid = (await _capture(main, "contract_comparison")) and valid
+	var contract_sheet := main.find_child("ActionSheetOverlay", true, false)
+	if contract_sheet != null:
+		contract_sheet.queue_free()
+		await get_tree().process_frame
 	main.call("_show_rack_actions", str(dc.get("id", "")), 1)
 	valid = (await _capture(main, "rack_install_actions")) and valid
 	var rack_install_sheet := main.find_child("ActionSheetOverlay", true, false)
@@ -126,7 +132,19 @@ func _ready() -> void:
 	if operations != null:
 		operations.queue_free()
 		await get_tree().process_frame
-	for page: String in ["market", "tech", "store", "settings"]:
+	main.call("_navigate", "market")
+	Game.state["market"]["history"] = {}
+	Game.state["market"]["active"] = []
+	Game.state["market"]["previews"] = []
+	valid = (await _capture(main, "market_empty")) and valid
+	_fill_market_history(2)
+	var now := Game.simulation_time()
+	Game.state["market"]["active"] = [{"event_id": "shopping_festival", "started_at": now - 1800.0, "end_at": now + 5400.0}]
+	Game.state["market"]["previews"] = [{"event_id": "coin_boom", "previewed_at": now, "start_at": now + 3600.0}]
+	valid = (await _capture(main, "market_active")) and valid
+	_fill_market_history(730)
+	valid = (await _capture(main, "market_rich")) and valid
+	for page: String in ["tech", "store", "settings"]:
 		main.call("_navigate", page)
 		valid = (await _capture(main, page)) and valid
 		if page == "store":
@@ -150,8 +168,19 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 25 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
+	print("VISUAL_SMOKE: %s 28 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
 	get_tree().quit(0 if valid else 1)
+
+func _fill_market_history(point_count: int) -> void:
+	var history: Dictionary = {}
+	var now := Game.simulation_time()
+	for customer_id: String in DataRepository.get_table("customers").get("items", {}):
+		var values: Array = []
+		for index: int in range(point_count):
+			var wave := sin(float(index) * 0.17 + float(customer_id.length())) * 0.12
+			values.append({"at": now - float(point_count - 1 - index) * 240.0, "value": 1.0 + wave + float(index % 9) * 0.006})
+		history[customer_id] = values
+	Game.state["market"]["history"] = history
 
 func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	print("VISUAL_SMOKE: rendering %s" % name)
@@ -244,7 +273,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if spotlight == null or not spotlight.visible or not bool(spotlight.call("is_actionable")) or primary == null or pointer == null or not pointer.visible or not hole.intersects(primary.get_global_rect()):
 			push_error("VISUAL_SMOKE: FTUE spotlight does not resolve the primary action hole and pointer")
 			valid = false
-	if state_name in ["dc_contracts", "market"]:
+	if state_name in ["dc_contracts", "contract_comparison", "market_empty", "market_active", "market_rich"]:
 		for node: Node in main.find_children("*", "Button", true, false):
 			var contract_button := node as Button
 			if contract_button != null and contract_button.is_visible_in_tree() and contract_button.text.contains("0.00"):
@@ -284,6 +313,32 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			valid = false
 		if state_name == "dc_board_placing" and main.find_children("PlacementState", "", true, false).size() != 9:
 			push_error("VISUAL_SMOKE: placement preview does not classify all nine slots")
+			valid = false
+	if state_name.begins_with("market_"):
+		var chart := main.find_child("MarketChart", true, false) as MarketChart
+		var legend := main.find_child("MarketLegend", true, false) as GridContainer
+		if chart == null or legend == null or legend.get_child_count() != 4:
+			push_error("VISUAL_SMOKE: %s lacks the chart or four-series legend" % state_name)
+			valid = false
+		if state_name == "market_empty" and chart != null and not chart.series.is_empty():
+			push_error("VISUAL_SMOKE: market_empty unexpectedly has history")
+			valid = false
+		if state_name == "market_active" and (main.find_child("MarketEventActive", true, false) == null or main.find_child("EventTimer", true, false) == null):
+			push_error("VISUAL_SMOKE: active market lacks an event card and timer")
+			valid = false
+		if state_name == "market_rich":
+			for spark: Node in main.find_children("Sparkline_*", "Sparkline", true, false):
+				if (spark as Sparkline).values.size() != 24:
+					push_error("VISUAL_SMOKE: rich market sparkline is not reduced to 24 points")
+					valid = false
+	if state_name == "tech":
+		if main.find_children("EraNode_*", "PanelContainer", true, false).size() != 3 or main.find_child("EraUnlockPreview", true, false) == null or main.find_child("PrestigeProgressBar", true, false) == null:
+			push_error("VISUAL_SMOKE: tech page lacks the three-era route or prestige progress")
+			valid = false
+	if state_name == "contract_comparison":
+		var sheet := main.find_child("ActionSheetOverlay", true, false)
+		if sheet == null:
+			push_error("VISUAL_SMOKE: contract comparison sheet did not open")
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	return valid
