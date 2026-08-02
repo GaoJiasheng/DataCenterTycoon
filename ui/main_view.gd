@@ -6,6 +6,7 @@ const ChartScene := preload("res://ui/market_chart.gd")
 const ParkMapScene := preload("res://gameplay/map/park_map.gd")
 const Rules := preload("res://gameplay/game_rules.gd")
 const FxLayerScene := preload("res://ui/fx_layer.gd")
+const DatacenterBoardScene := preload("res://ui/datacenter_board.gd")
 
 const HAPTIC_LIGHT := 8
 const HAPTIC_MEDIUM := 16
@@ -730,15 +731,13 @@ func _build_datacenter_page() -> Control:
 		box.add_child(_asset_preview(str(building.get("asset_prefix", "")) + "_ruin", tr("DEMOLISH"), ThemeMaker.COLORS.red, 300))
 		box.add_child(_button("%s · $%s" % [tr("DEMOLISH"), Game.format_number(Rules.demolition_cost(dc, Game.data))], _demolish.bind(str(dc.get("id", ""))), ThemeMaker.COLORS.red))
 		return _wrap_scroll(box)
+	if _detail_focus == "infrastructure":
+		_detail_focus = "board"
 	box.add_child(_segmented_control([
-		{"id": "racks", "label": tr("RACKS"), "asset": "slot_empty"},
-		{"id": "infrastructure", "label": tr("INFRASTRUCTURE"), "asset": "ic_power"},
+		{"id": "board", "label": tr("RACKS"), "asset": "slot_empty"},
 		{"id": "contracts", "label": tr("SIGN_CONTRACT"), "asset": "ic_contract"},
 	], _detail_focus, _set_detail_focus))
-	match _detail_focus:
-		"infrastructure": box.add_child(_build_infrastructure_management(dc, progress))
-		"contracts": box.add_child(_build_contract_management(dc))
-		_: box.add_child(_build_rack_management(dc, building))
+	box.add_child(_build_contract_management(dc) if _detail_focus == "contracts" else _build_rack_management(dc, building))
 	return _wrap_scroll(box)
 
 func _set_detail_focus(focus: String) -> void:
@@ -751,73 +750,24 @@ func _build_rack_management(dc: Dictionary, building: Dictionary) -> Control:
 	var section := VBoxContainer.new()
 	section.add_theme_constant_override("separation", 14)
 	section.add_child(_section_title(tr("RACKS"), tr("RACKS_SUBTITLE")))
-	var interior := Control.new()
-	interior.custom_minimum_size.y = 560
-	interior.clip_contents = true
-	var interior_fill := ColorRect.new()
-	interior_fill.color = Color("111b2b")
-	interior_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interior_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	interior.add_child(interior_fill)
-	var interior_texture := AssetCatalog.texture("dc_interior_bg")
-	if interior_texture != null:
-		var interior_view := TextureRect.new()
-		interior_view.texture = interior_texture
-		interior_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		interior_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		interior_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		interior_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		interior.add_child(interior_view)
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	grid.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	grid.offset_left = 18
-	grid.offset_top = 18
-	grid.offset_right = -18
-	grid.offset_bottom = -18
-	interior.add_child(grid)
-	section.add_child(interior)
-	var unlocked: Array = building.get("unlocked_slots", [])
-	for slot: int in range(9):
-		var slot_open := false
-		for raw_slot: Variant in unlocked:
-			if int(raw_slot) == slot: slot_open = true
-		var rack_button := Button.new()
-		rack_button.custom_minimum_size = Vector2(0, 150)
-		rack_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		if not slot_open:
-			rack_button.text = tr("LOCKED")
-			rack_button.disabled = true
-			ThemeMaker.apply_button_color(rack_button, Color("566578"))
-			_set_button_asset(rack_button, "slot_locked", 86)
-		elif dc["racks"][slot] == null:
-			rack_button.text = tr("EMPTY_SLOT")
-			rack_button.pressed.connect(_show_rack_picker.bind(str(dc.get("id", "")), slot))
-			ThemeMaker.apply_button_color(rack_button, ThemeMaker.COLORS.green)
-			_set_button_asset(rack_button, "slot_empty", 86)
-		else:
-			var installed: Dictionary = dc["racks"][slot]
-			var rack := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
-			var runtime := Rules.rack_runtime_status(dc, slot, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
-			var status_text := _rack_status_text(installed, runtime)
-			rack_button.text = "%s\n%s" % [tr(rack.get("name_key", "")), status_text]
-			rack_button.pressed.connect(_show_rack_actions.bind(str(dc.get("id", "")), slot))
-			var color := ThemeMaker.COLORS.red if bool(runtime.get("faulted", false)) else (ThemeMaker.COLORS.orange if bool(runtime.get("overheated", false)) else ThemeMaker.COLORS.sky)
-			if not bool(installed.get("enabled", true)): color = Color("566578")
-			if not bool(runtime.get("powered", false)): color = Color("566578")
-			ThemeMaker.apply_button_color(rack_button, color)
-			var suffix := "_active"
-			if installed.get("status", "") == "installing":
-				suffix = "_installing"
-			elif installed.get("status", "") in ["faulted", "repairing"]:
-				suffix = "_fault"
-			elif not bool(runtime.get("powered", false)):
-				suffix = "_dark"
-			_set_button_asset(rack_button, str(rack.get("asset_prefix", "")) + suffix, 86)
-		grid.add_child(rack_button)
+	section.add_child(_create_datacenter_board(str(dc.get("id", ""))))
 	return section
+
+func _create_datacenter_board(datacenter_id: String) -> DatacenterBoard:
+	var board := DatacenterBoardScene.new()
+	board.setup(datacenter_id)
+	board.rack_slot_selected.connect(_on_board_rack_slot_selected)
+	board.cooler_slot_selected.connect(func(dc_id: String, edge: String) -> void: _show_attachment_picker(dc_id, "cooler", edge))
+	board.power_slot_selected.connect(func(dc_id: String) -> void: _show_attachment_picker(dc_id, "power", ""))
+	return board
+
+func _on_board_rack_slot_selected(datacenter_id: String, slot: int) -> void:
+	var dc := Game.find_datacenter(datacenter_id)
+	var racks: Array = dc.get("racks", [])
+	if slot < racks.size() and racks[slot] is Dictionary and not racks[slot].is_empty():
+		_show_rack_actions(datacenter_id, slot)
+	else:
+		_show_rack_picker(datacenter_id, slot)
 
 func _build_infrastructure_management(dc: Dictionary, progress: float) -> Control:
 	var section := VBoxContainer.new()
@@ -1197,8 +1147,51 @@ func _show_rack_picker(datacenter_id: String, slot: int) -> void:
 	for rack_id: String in DataRepository.get_table("racks").get("items", {}):
 		var rack := DataRepository.get_entry("racks", rack_id)
 		if Game.is_unlocked(rack):
-			choices.append({"id": rack_id, "text": "%s · $%s\n%s" % [tr(rack.get("name_key", "")), Game.format_number(Game.rack_purchase_cost(rack_id)), _rack_market_label(float(rack.get("market_sensitivity", 1.0)))]})
-	_show_choice(tr("INSTALL"), choices, func(rack_id: String) -> void: _handle_result(Game.install_rack(datacenter_id, slot, rack_id)))
+			choices.append({
+				"id": rack_id,
+				"height": 132,
+				"text": "%s · $%s\n⚡ %s   ♨ %s   $ %s/%s\n%s" % [
+					tr(rack.get("name_key", "")), Game.format_number(Game.rack_purchase_cost(rack_id)),
+					Game.format_number(float(rack.get("power", 0.0))), Game.format_number(float(rack.get("heat", 0.0))),
+					Game.format_number(float(rack.get("income_per_month", 0.0))), tr("MONTH_SHORT"),
+					_rack_trait_label(float(rack.get("market_sensitivity", 1.0))),
+				],
+			})
+	_show_choice(tr("INSTALL"), choices, func(rack_id: String) -> void: _preview_rack_install(datacenter_id, slot, rack_id))
+
+func _preview_rack_install(datacenter_id: String, slot: int, rack_id: String) -> void:
+	var board := _visible_datacenter_board(datacenter_id)
+	if board != null:
+		board.set_placement_preview(slot, rack_id)
+	var rack := DataRepository.get_entry("racks", rack_id)
+	var state := board.placement_state_for_slot(slot, rack_id) if board != null else {}
+	var hint := str(state.get("hint", ""))
+	var body := "%s\n%s\n%s: %s   %s: %s   %s: $%s/%s" % [
+		tr(rack.get("name_key", "")), hint,
+		tr("RACK_STAT_POWER"), Game.format_number(float(rack.get("power", 0.0))),
+		tr("RACK_STAT_HEAT"), Game.format_number(float(rack.get("heat", 0.0))),
+		tr("RACK_STAT_OUTPUT"), Game.format_number(float(rack.get("income_per_month", 0.0))), tr("MONTH_SHORT"),
+	]
+	_present_action_sheet(tr("INSTALL"), body, [{"id": "confirm", "text": "%s · $%s" % [tr("CONFIRM"), Game.format_number(Game.rack_purchase_cost(rack_id))], "color": ThemeMaker.COLORS.green}], func(choice: String) -> void:
+		if choice == "confirm":
+			_handle_result(Game.install_rack(datacenter_id, slot, rack_id))
+	)
+	var overlay := find_child("ActionSheetOverlay", true, false)
+	if overlay != null and board != null:
+		overlay.tree_exiting.connect(board.clear_placement_preview)
+
+func _visible_datacenter_board(datacenter_id: String) -> DatacenterBoard:
+	for node: Node in find_children("*", "", true, false):
+		if node is DatacenterBoard and str(node.get("datacenter_id")) == datacenter_id and node.is_visible_in_tree():
+			return node as DatacenterBoard
+	return null
+
+func _rack_trait_label(sensitivity: float) -> String:
+	if sensitivity < 0.7:
+		return tr("RACK_TRAIT_STABLE")
+	if sensitivity > 1.1:
+		return tr("RACK_TRAIT_VOLATILE")
+	return tr("RACK_TRAIT_BALANCED")
 
 func _show_building_picker(plot_id: String) -> void:
 	park_map.focus_target(plot_id)
@@ -1411,7 +1404,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		return
 	selected_datacenter_id = datacenter_id
 	park_map.focus_target(datacenter_id)
-	var parts := _create_world_sheet("DatacenterContext", 582)
+	var parts := _create_world_sheet("DatacenterContext", 1380)
 	var overlay := parts["overlay"] as ColorRect
 	var sheet_box := parts["box"] as VBoxContainer
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
@@ -1455,28 +1448,16 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		coach_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		coach_row.add_child(coach_text)
 		sheet_box.add_child(coach)
-	var actions := GridContainer.new()
-	actions.columns = 3
-	actions.add_theme_constant_override("h_separation", 10)
-	sheet_box.add_child(actions)
-	var action_defs := [
-		["racks", "RACKS", "slot_empty", Color("29445d")],
-		["infrastructure", "INFRASTRUCTURE", "ic_power", ThemeMaker.COLORS.orange if str(dc.get("power_unit", "")).is_empty() else Color("29445d")],
-		["contracts", "SIGN_CONTRACT", "ic_contract", Color("29445d")],
-	]
-	for definition: Array in action_defs:
-		var focus := str(definition[0])
-		var action := _button(tr(str(definition[1])), func() -> void:
-			_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, focus))
-		, definition[3])
-		action.custom_minimum_size.y = 98
-		_set_button_asset(action, str(definition[2]), 42)
-		actions.add_child(action)
-	var details := _button(tr("DC_DETAIL"), func() -> void:
-		_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id))
-	, Color("263d59"))
-	details.custom_minimum_size.y = 88
-	sheet_box.add_child(details)
+	var board := _create_datacenter_board(datacenter_id)
+	sheet_box.add_child(board)
+	var contract_button := _button(tr("SIGN_CONTRACT"), func() -> void:
+		_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, "contracts"))
+	, ThemeMaker.COLORS.sky)
+	_set_button_asset(contract_button, "ic_contract", 42)
+	sheet_box.add_child(contract_button)
+	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
+		var refund := Rules.retirement_value(dc, Game.simulation_time(), Game.data)
+		sheet_box.add_child(_button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(datacenter_id), ThemeMaker.COLORS.orange))
 
 func _datacenter_context_asset(dc: Dictionary, building: Dictionary) -> String:
 	if str(dc.get("status", "")) == "ruined":
@@ -1525,10 +1506,13 @@ func _show_attachment_picker(datacenter_id: String, kind: String, edge: String) 
 	for attachment_id: String in DataRepository.get_table("attachments").get("items", {}):
 		var item := DataRepository.get_entry("attachments", attachment_id)
 		if item.get("kind", "") == kind and Game.is_unlocked(item):
-			choices.append({"id": attachment_id, "text": "%s · $%s" % [tr(item.get("name_key", "")), Game.format_number(float(item.get("cost", 0.0)))]})
+			var stat := "⚡ %s" % Game.format_number(float(item.get("capacity", 0.0))) if kind == "power" else "❄ %s · ▦ 3" % Game.format_number(float(item.get("cooling", 0.0)))
+			choices.append({"id": attachment_id, "height": 108, "text": "%s · $%s\n%s" % [tr(item.get("name_key", "")), Game.format_number(float(item.get("cost", 0.0))), stat]})
 	_show_choice(tr("INSTALL"), choices, func(attachment_id: String) -> void:
 		var result: Dictionary = Game.install_power(datacenter_id, attachment_id) if kind == "power" else Game.install_cooler(datacenter_id, edge, attachment_id)
 		_handle_result(result)
+		if bool(result.get("ok", false)) and kind == "cooler":
+			_play_fx_at_world("fx_snowflake", datacenter_id, 170)
 	)
 
 func _show_rack_actions(datacenter_id: String, slot: int) -> void:
@@ -1634,7 +1618,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 		var choice_button := _button(str(choice.get("text", choice_id)), func() -> void:
 			_dismiss_action_sheet(overlay, callback.bind(choice_id))
 		, choice_color)
-		choice_button.custom_minimum_size.y = 92
+		choice_button.custom_minimum_size.y = float(choice.get("height", 92.0))
 		choice_box.add_child(choice_button)
 	if show_cancel:
 		var cancel_button := _button(tr("CANCEL"), _dismiss_action_sheet.bind(overlay), Color("263d59"))
@@ -1707,7 +1691,7 @@ func _open_datacenter(datacenter_id: String) -> void:
 
 func _open_datacenter_detail(datacenter_id: String, focus: String = "racks") -> void:
 	selected_datacenter_id = datacenter_id
-	_detail_focus = focus
+	_detail_focus = "board" if focus in ["racks", "infrastructure"] else focus
 	active_page = "detail"
 	_request_full_refresh()
 

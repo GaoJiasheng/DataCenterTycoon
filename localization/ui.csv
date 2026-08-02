@@ -210,3 +210,14 @@ REASON_REWARD_LIMIT,Reward limit reached,已达到奖励次数上限
 REASON_TICKET,No instant build tickets,没有立即完工券
 REASON_ALREADY_OWNED,Already purchased,已购买
 REASON_PURCHASE_PENDING,Purchase is already in progress,购买正在处理中
+BOARD_POWER_USAGE,Power %s / %s,供电 %s / %s
+BOARD_OVERHEAT_HINT,This slot will overheat,此位置会过热
+BOARD_NEED_POWER,Upgrade the transformer first,需要先升级变压器
+BOARD_PLACE_OK,Cooling and power are sufficient,制冷与供电充足
+RACK_TRAIT_STABLE,Stable returns,收益稳定
+RACK_TRAIT_BALANCED,Balanced exposure,均衡收益
+RACK_TRAIT_VOLATILE,Moves with the market,随行情波动
+RACK_STAT_POWER,Power,耗电
+RACK_STAT_HEAT,Heat,发热
+RACK_STAT_OUTPUT,Base output,基础产出
+MONTH_SHORT,mo,月

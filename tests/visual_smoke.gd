@@ -81,12 +81,22 @@ func _ready() -> void:
 	dc["power_unit"] = "power_t1"
 	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": false, "fault_at": -1.0}
 	dc["racks"][1] = {"rack_id": "rack_storage_t1", "status": "installing", "enabled": true, "started_at": Game.simulation_time(), "install_complete_at": Game.simulation_time() + 90.0, "ad_uses": 0}
+	dc["coolers"]["north"] = "cool_air_t1"
 	dc["customer_id"] = "internet"
 	dc["contract_end_at"] = Game.simulation_time()
 	dc["renewal_window_end_at"] = Game.simulation_time() + 7200.0
-	for focus: String in ["racks", "infrastructure", "contracts"]:
-		main.call("_open_datacenter_detail", str(dc.get("id", "")), focus)
-		valid = (await _capture(main, "dc_%s" % focus)) and valid
+	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
+	valid = (await _capture(main, "dc_board")) and valid
+	dc["power_unit"] = "power_t2"
+	dc["racks"][4] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true, "fault_at": -1.0}
+	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
+	valid = (await _capture(main, "dc_board_overheat")) and valid
+	var board := main.find_child("DatacenterBoard", true, false)
+	if board != null:
+		board.call("set_placement_preview", 3, "rack_gpu_t1")
+	valid = (await _capture(main, "dc_board_placing", false)) and valid
+	main.call("_open_datacenter_detail", str(dc.get("id", "")), "contracts")
+	valid = (await _capture(main, "dc_contracts")) and valid
 	main.call("_show_rack_actions", str(dc.get("id", "")), 1)
 	valid = (await _capture(main, "rack_install_actions")) and valid
 	var rack_install_sheet := main.find_child("ActionSheetOverlay", true, false)
@@ -137,12 +147,13 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 23 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
+	print("VISUAL_SMOKE: %s 24 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
 	get_tree().quit(0 if valid else 1)
 
-func _capture(main: Node, name: String) -> bool:
+func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	print("VISUAL_SMOKE: rendering %s" % name)
-	main.call("_refresh")
+	if refresh:
+		main.call("_refresh")
 	for _frame: int in range(3):
 		await get_tree().process_frame
 	await get_tree().create_timer(0.24).timeout
@@ -249,6 +260,19 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 					valid = false
 		if alert_count != 3:
 			push_error("VISUAL_SMOKE: expected three actionable world alerts, got %d" % alert_count)
+			valid = false
+	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing"]:
+		var board := main.find_child("DatacenterBoard", true, false)
+		var power_meter := main.find_child("BoardPowerMeter", true, false)
+		if board == null or power_meter == null:
+			push_error("VISUAL_SMOKE: %s lacks the board or power meter" % state_name)
+			valid = false
+		var coverage_count := main.find_children("CoolingCoverage_*", "", true, false).size()
+		if coverage_count != 3:
+			push_error("VISUAL_SMOKE: %s expected three north-cooler coverage tiles, got %d" % [state_name, coverage_count])
+			valid = false
+		if state_name == "dc_board_placing" and main.find_children("PlacementState", "", true, false).size() != 9:
+			push_error("VISUAL_SMOKE: placement preview does not classify all nine slots")
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	return valid

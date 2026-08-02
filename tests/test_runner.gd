@@ -18,6 +18,7 @@ func _ready() -> void:
 	_run_gameplay_optimization_tests()
 	_run_initial_state_test()
 	_run_core_loop_test()
+	await _run_datacenter_board_tests()
 	_run_construction_controls_test()
 	_run_commerce_test()
 	_run_offline_test()
@@ -271,6 +272,37 @@ func _run_core_loop_test() -> void:
 	Game.advance_time(7200.0, false)
 	_expect(float(Game.state["player"]["total_revenue"]) > 200.0, "one month accrues contract revenue")
 	_expect(float(Game.state["player"]["cash"]) < cash_before + 216.1, "maintenance is deducted at month boundary")
+
+func _run_datacenter_board_tests() -> void:
+	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	dc["building_id"] = "dc_t2"
+	dc["power_unit"] = "power_t2"
+	dc["coolers"] = {"north": "cool_air_t2", "west": "cool_air_t2"}
+	var empty_racks: Array = []
+	empty_racks.resize(9)
+	empty_racks.fill(null)
+	dc["racks"] = empty_racks
+	Game.state["player"]["era"] = 2
+	var board := DatacenterBoard.new()
+	board.setup(str(dc.get("id", "")))
+	add_child(board)
+	await get_tree().process_frame
+	var corner := board.placement_state_for_slot(0, "rack_gpu_t1")
+	var center := board.placement_state_for_slot(4, "rack_gpu_t1")
+	_expect(str(corner.get("state", "")) == "ok" and str(center.get("state", "")) == "heat", "board preview makes double-cooled corner placement visibly safer than center placement")
+	_expect(board.find_children("CoolingCoverage_*", "", true, false).size() == 6 and board.find_child("BoardPowerMeter", true, false) != null, "board renders three coverage tiles per cooler and a power meter")
+	board.set_placement_preview(4, "rack_gpu_t1")
+	await get_tree().process_frame
+	_expect(board.find_children("PlacementState", "", true, false).size() == 9, "board placement preview classifies all nine slots")
+	_expect(_node_tree_size(board) <= 60, "board stays within its sixty-node mobile budget")
+	board.queue_free()
+	await get_tree().process_frame
+
+func _node_tree_size(root: Node) -> int:
+	var result := 1
+	for child: Node in root.get_children():
+		result += _node_tree_size(child)
+	return result
 
 func _run_construction_controls_test() -> void:
 	Game.reset_for_tests()
