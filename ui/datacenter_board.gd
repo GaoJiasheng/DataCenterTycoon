@@ -56,10 +56,10 @@ func placement_state_for_slot(slot: int, rack_id: String = "") -> Dictionary:
 		return {}
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
 	if slot not in _unlocked_slots(building):
-		return {"state": "locked", "symbol": "—", "hint": tr("LOCKED"), "color": ThemeMaker.SEMANTIC.get("locked", Color("8a97a8"))}
+		return {"state": "locked", "symbol": "⚠", "hint": tr("LOCKED"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
 	var racks: Array = dc.get("racks", [])
 	if slot < racks.size() and racks[slot] is Dictionary and not racks[slot].is_empty():
-		return {"state": "occupied", "symbol": "×", "hint": tr("REASON_IN_PROGRESS"), "color": ThemeMaker.SEMANTIC.get("locked", Color("8a97a8"))}
+		return {"state": "occupied", "symbol": "⚠", "hint": tr("REASON_IN_PROGRESS"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
 	var simulated := dc.duplicate(true)
 	var simulated_racks: Array = simulated.get("racks", []).duplicate(true)
 	while simulated_racks.size() < 9:
@@ -175,8 +175,13 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 				fill = Color(ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange), 0.30)
 				border = ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)
 		elif open:
-			fill = Color(ThemeMaker.SEMANTIC.get("success", ThemeMaker.COLORS.green), 0.12)
-			border = Color(ThemeMaker.SEMANTIC.get("success", ThemeMaker.COLORS.green), 0.72)
+			fill = Color("142a40", 0.72)
+			border = Color("8db8d5", 0.54)
+		if not preview_rack_id.is_empty():
+			var placement := placement_state_for_slot(slot)
+			if not placement.is_empty():
+				border = Color(placement.get("color", ThemeMaker.COLORS.sky), 0.90)
+				fill = Color(placement.get("color", ThemeMaker.COLORS.sky), 0.16)
 		if not preview_rack_id.is_empty() and slot == preview_slot:
 			border = Color.WHITE
 		var normal := ThemeMaker.panel(fill, border, 3 if slot == preview_slot else 2, 18)
@@ -247,27 +252,43 @@ func _add_preview_badge(button: Button, state: Dictionary) -> void:
 	button.add_child(label)
 
 func _add_coolers(stage: Control, dc: Dictionary) -> void:
-	for edge: String in ["north", "east", "south", "west"]:
+	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
+	var cooler_slots := int(building.get("cooler_slots", 0))
+	var edges := ["north", "east", "south", "west"]
+	for edge_index: int in range(edges.size()):
+		var edge := str(edges[edge_index])
 		var rect: Rect2 = EDGE_LAYOUT[edge]
 		var button := Button.new()
 		button.name = "Cooler_%s" % edge
 		button.position = rect.position
 		button.size = rect.size
 		button.focus_mode = Control.FOCUS_NONE
-		button.tooltip_text = tr("INSTALL")
-		ThemeMaker.apply_compact_button(button, ThemeMaker.COLORS.sky)
+		var slot_available := edge_index < cooler_slots
 		var cooler_id := str(dc.get("coolers", {}).get(edge, ""))
-		button.icon = AssetCatalog.texture("ic_cooling" if cooler_id.is_empty() else cooler_id + "_active")
+		var installed := slot_available and not cooler_id.is_empty()
+		button.set_meta("cooler_state", "installed" if installed else ("available" if slot_available else "locked"))
+		button.tooltip_text = tr("LOCKED") if not slot_available else (tr("INSTALL") if not installed else tr(DataRepository.get_entry("attachments", cooler_id).get("name_key", "INSTALL")))
+		ThemeMaker.apply_icon_button(button)
+		var accent := ThemeMaker.COLORS.cyan if installed else Color.TRANSPARENT
+		button.add_theme_stylebox_override("normal", ThemeMaker.flat_group_box(accent, 8))
+		button.add_theme_stylebox_override("hover", ThemeMaker.flat_group_box(ThemeMaker.COLORS.sky if slot_available else Color.TRANSPARENT, 8))
+		button.add_theme_stylebox_override("pressed", ThemeMaker.flat_group_box(ThemeMaker.COLORS.sky if slot_available else Color.TRANSPARENT, 8))
+		button.icon = AssetCatalog.texture("ic_lock" if not slot_available else ("ic_cooling" if cooler_id.is_empty() else cooler_id + "_active"))
 		button.expand_icon = true
 		button.add_theme_constant_override("icon_max_width", 58)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.pressed.connect(func() -> void: cooler_slot_selected.emit(datacenter_id, edge))
+		button.modulate = Color(1, 1, 1, 0.38) if not slot_available else (Color.WHITE if installed else Color(1, 1, 1, 0.78))
+		button.pressed.connect(func() -> void:
+			if slot_available:
+				cooler_slot_selected.emit(datacenter_id, edge)
+			else:
+				EventBus.toast_requested.emit("LOCKED", {})
+		)
 		stage.add_child(button)
 
 func _add_power_meter(dc: Dictionary) -> void:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size.y = 108
-	panel.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("102236"), 0.96, 20, ThemeMaker.COLORS.yellow))
+	panel.add_theme_stylebox_override("panel", ThemeMaker.flat_group_box(ThemeMaker.COLORS.yellow))
 	add_child(panel)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", ThemeMaker.SPACE[2])
@@ -298,7 +319,19 @@ func _add_power_meter(dc: Dictionary) -> void:
 	var progress := ProgressBar.new()
 	progress.name = "BoardPowerMeter"
 	progress.show_percentage = false
-	progress.custom_minimum_size.y = 34
+	progress.custom_minimum_size.y = 40
+	var meter_background := ThemeMaker.panel(Color("0a1725"), Color(1, 1, 1, 0.12), 1, 20)
+	meter_background.content_margin_left = 0
+	meter_background.content_margin_right = 0
+	meter_background.content_margin_top = 0
+	meter_background.content_margin_bottom = 0
+	var meter_fill := ThemeMaker.panel(ThemeMaker.COLORS.yellow, Color(1, 1, 1, 0.22), 1, 20)
+	meter_fill.content_margin_left = 0
+	meter_fill.content_margin_right = 0
+	meter_fill.content_margin_top = 0
+	meter_fill.content_margin_bottom = 0
+	progress.add_theme_stylebox_override("background", meter_background)
+	progress.add_theme_stylebox_override("fill", meter_fill)
 	progress.max_value = maxf(1.0, maxf(capacity, used))
 	progress.value = used
 	if used > capacity:
@@ -346,14 +379,16 @@ func _show_rack_tooltip(slot: int, anchor: Control) -> void:
 	_tooltip = PanelContainer.new()
 	_tooltip.name = "RackTooltip"
 	_tooltip.position = anchor.position + Vector2(-12, -116)
-	_tooltip.size = Vector2(320, 104)
+	_tooltip.custom_minimum_size.x = 320
 	_tooltip.z_index = 20
-	_tooltip.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("091827"), 0.98, 18, ThemeMaker.COLORS.cyan))
+	_tooltip.add_theme_stylebox_override("panel", ThemeMaker.flat_group_box(ThemeMaker.COLORS.cyan))
 	var label := Label.new()
 	label.text = "%s\n⚡%s  ♨%s  ❄%s  $%s" % [tr(rack.get("name_key", "")), Game.format_number(float(rack.get("power", 0.0))), Game.format_number(float(rack.get("heat", 0.0))), Game.format_number(float(runtime.get("cooling", 0.0))), Game.format_number(float(rack.get("income_per_month", 0.0)))]
 	label.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
+	label.add_theme_constant_override("line_spacing", ThemeMaker.TEXT_LINE_SPACING)
 	_tooltip.add_child(label)
 	anchor.get_parent().add_child(_tooltip)
+	_tooltip.size = _tooltip.get_combined_minimum_size()
 	get_tree().create_timer(2.2).timeout.connect(func() -> void:
 		if is_instance_valid(_tooltip):
 			_tooltip.queue_free()

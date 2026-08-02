@@ -9,7 +9,7 @@ var target_rect := Rect2()
 var target_action := Callable()
 var mask_panes: Array[ColorRect] = []
 var hole_border: PanelContainer
-var pointer: TextureRect
+var pointer: Control
 var bubble: PanelContainer
 var guide: TextureRect
 var message: Label
@@ -32,6 +32,7 @@ func present(rect: Rect2, copy: String, guide_asset: String, action: Callable) -
 	target_action = action
 	message.text = copy
 	guide.texture = AssetCatalog.texture(guide_asset)
+	_resize_callout()
 	var actionable := target_rect.size.x > 1.0 and target_rect.size.y > 1.0 and target_action.is_valid()
 	mouse_filter = Control.MOUSE_FILTER_STOP if actionable else Control.MOUSE_FILTER_IGNORE
 	pointer.visible = actionable
@@ -61,7 +62,7 @@ func _build_mask() -> void:
 	hole_border = PanelContainer.new()
 	hole_border.name = "TutorialHoleBorder"
 	hole_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var border_style := ThemeMaker.panel(Color.TRANSPARENT, Color(1, 1, 1, 0.72), 4, int(ThemeMaker.RADIUS.get("button", 18)))
+	var border_style := ThemeMaker.panel(Color.TRANSPARENT, Color(ThemeMaker.COLORS.yellow, 0.90), 6, int(ThemeMaker.RADIUS.get("button", 18)))
 	border_style.content_margin_left = 0
 	border_style.content_margin_right = 0
 	border_style.content_margin_top = 0
@@ -70,28 +71,27 @@ func _build_mask() -> void:
 	add_child(hole_border)
 
 func _build_callout() -> void:
-	pointer = TextureRect.new()
+	pointer = Control.new()
 	pointer.name = "TutorialPointer"
 	var pointer_texture := AssetCatalog.texture("ic_pointer_hand")
-	if pointer_texture == null:
-		var guide_texture := AssetCatalog.texture("guide_normal")
-		if guide_texture != null:
-			var hand_crop := AtlasTexture.new()
-			hand_crop.atlas = guide_texture
-			hand_crop.region = Rect2(500, 420, 268, 360)
-			pointer_texture = hand_crop
-	pointer.texture = pointer_texture
-	pointer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pointer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pointer.size = Vector2(82, 82)
 	pointer.pivot_offset = pointer.size * 0.5
 	add_child(pointer)
+	if pointer_texture != null:
+		var pointer_view := TextureRect.new()
+		pointer_view.texture = pointer_texture
+		pointer_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pointer_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pointer_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pointer_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pointer.add_child(pointer_view)
+	else:
+		_add_programmatic_pointer()
 
 	bubble = PanelContainer.new()
 	bubble.name = "TutorialCallout"
-	bubble.custom_minimum_size = Vector2(620, 156)
-	bubble.size = Vector2(620, 156)
+	bubble.custom_minimum_size.x = 620
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble.add_theme_stylebox_override("panel", ThemeMaker.dialog_box())
 	add_child(bubble)
@@ -110,12 +110,33 @@ func _build_callout() -> void:
 	message.name = "TutorialMessage"
 	message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	message.custom_minimum_size.x = 440
+	message.max_lines_visible = 2
 	message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	message.add_theme_font_override("font", ThemeMaker.font_regular())
 	message.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.body)
 	message.add_theme_color_override("font_color", ThemeMaker.COLORS.ink)
+	message.add_theme_constant_override("line_spacing", ThemeMaker.TEXT_LINE_SPACING)
 	message.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(message)
+	_resize_callout()
+
+func _add_programmatic_pointer() -> void:
+	var shaft := Polygon2D.new()
+	shaft.name = "PointerShaft"
+	shaft.polygon = PackedVector2Array([Vector2(31, 6), Vector2(51, 6), Vector2(58, 13), Vector2(58, 49), Vector2(24, 49), Vector2(24, 13)])
+	shaft.color = ThemeMaker.COLORS.ivory
+	pointer.add_child(shaft)
+	var head := Polygon2D.new()
+	head.name = "PointerHead"
+	head.polygon = PackedVector2Array([Vector2(12, 45), Vector2(70, 45), Vector2(41, 78)])
+	head.color = ThemeMaker.COLORS.yellow
+	pointer.add_child(head)
+
+func _resize_callout() -> void:
+	if bubble == null or message == null:
+		return
+	bubble.size = Vector2(620, maxf(ThemeMaker.TOUCH_MIN, bubble.get_combined_minimum_size().y + ThemeMaker.GROUP_PADDING))
 
 func _layout_mask(actionable: bool) -> void:
 	for pane: ColorRect in mask_panes:
@@ -145,7 +166,7 @@ func _start_motion(actionable: bool) -> void:
 	_pointer_tween.tween_property(pointer, "position:y", _pointer_base.y + 12.0, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_pointer_tween.tween_property(pointer, "position:y", _pointer_base.y - 12.0, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_border_tween = hole_border.create_tween().set_loops()
-	_border_tween.tween_property(hole_border, "modulate:a", 0.45, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_border_tween.tween_property(hole_border, "modulate:a", 0.60, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_border_tween.tween_property(hole_border, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 func _gui_input(event: InputEvent) -> void:
@@ -186,5 +207,5 @@ func _position_callout() -> void:
 	var below_y := target_rect.end.y + 42.0
 	var y := above_y if above_y >= 120.0 else minf(viewport.y - bubble_size.y - 80.0, below_y)
 	bubble.position = Vector2(clampf(target_rect.get_center().x - bubble_size.x * 0.5, 28.0, viewport.x - bubble_size.x - 28.0), y)
-	_pointer_base = Vector2(target_rect.get_center().x - pointer.size.x * 0.5, target_rect.position.y - pointer.size.y + 20.0)
+	_pointer_base = Vector2(target_rect.get_center().x - pointer.size.x * 0.5, target_rect.position.y - pointer.size.y - 24.0)
 	pointer.position = _pointer_base

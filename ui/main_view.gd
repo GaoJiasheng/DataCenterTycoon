@@ -737,8 +737,7 @@ func _set_detail_focus(focus: String) -> void:
 
 func _build_rack_management(dc: Dictionary, building: Dictionary) -> Control:
 	var section := VBoxContainer.new()
-	section.add_theme_constant_override("separation", 14)
-	section.add_child(_section_title(tr("RACKS"), tr("RACKS_SUBTITLE")))
+	section.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	section.add_child(_create_datacenter_board(str(dc.get("id", ""))))
 	return section
 
@@ -3019,6 +3018,14 @@ func _segmented_control(items: Array, selected_id: String, callback: Callable) -
 		button.add_theme_font_size_override("font_size", 20)
 		if item.has("asset"):
 			_set_button_asset(button, str(item.get("asset", "")), 36)
+		if selected:
+			var indicator := ColorRect.new()
+			indicator.name = "SelectedTabIndicator"
+			indicator.color = ThemeMaker.COLORS.sky
+			indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			indicator.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+			indicator.offset_top = -4
+			button.add_child(indicator)
 		row.add_child(button)
 	return panel
 

@@ -302,9 +302,27 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		var spotlight := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
 		var primary := main.find_child("PrimaryWorldAction", true, false) as Control
 		var pointer := main.find_child("TutorialPointer", true, false) as Control
+		var callout := main.find_child("TutorialCallout", true, false) as Control
+		var tutorial_message := main.find_child("TutorialMessage", true, false) as Label
+		var hole_border := main.find_child("TutorialHoleBorder", true, false) as PanelContainer
 		var hole: Rect2 = spotlight.get("target_rect") if spotlight != null else Rect2()
 		if spotlight == null or not spotlight.visible or not bool(spotlight.call("is_actionable")) or primary == null or pointer == null or not pointer.visible or not hole.intersects(primary.get_global_rect()):
 			push_error("VISUAL_SMOKE: FTUE spotlight does not resolve the primary action hole and pointer")
+			valid = false
+		if pointer != null and AssetCatalog.texture("ic_pointer_hand") == null and pointer.find_children("Pointer*", "Polygon2D", true, false).size() != 2:
+			push_error("VISUAL_SMOKE: FTUE pointer fallback is not the two-polygon arrow")
+			valid = false
+		if pointer != null and pointer.get_global_rect().end.y > hole.position.y - 12.0:
+			push_error("VISUAL_SMOKE: FTUE pointer overlaps the spotlight target")
+			valid = false
+		if callout == null or tutorial_message == null or not callout.get_global_rect().grow(1.0).encloses(tutorial_message.get_global_rect()):
+			push_error("VISUAL_SMOKE: FTUE message is outside its adaptive callout")
+			valid = false
+		var hole_style: StyleBoxFlat = null
+		if hole_border != null:
+			hole_style = hole_border.get_theme_stylebox("panel") as StyleBoxFlat
+		if hole_style == null or hole_style.get_border_width(SIDE_TOP) < 6:
+			push_error("VISUAL_SMOKE: FTUE spotlight border is below 6u")
 			valid = false
 	if state_name in ["dc_contracts", "contract_comparison", "market_empty", "market_active", "market_rich"]:
 		for node: Node in main.find_children("*", "Button", true, false):
@@ -347,6 +365,29 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if state_name == "dc_board_placing" and main.find_children("PlacementState", "", true, false).size() != 9:
 			push_error("VISUAL_SMOKE: placement preview does not classify all nine slots")
 			valid = false
+		var placement_badges := main.find_children("PlacementState", "Label", true, false)
+		for placement_node: Node in placement_badges:
+			if (placement_node as Label).text not in ["✓", "⚠", "⚡"]:
+				push_error("VISUAL_SMOKE: placement preview uses an illegal badge %s" % (placement_node as Label).text)
+				valid = false
+		if state_name != "dc_board_placing" and not placement_badges.is_empty():
+			push_error("VISUAL_SMOKE: non-placement board retains placement badges")
+			valid = false
+		var locked_coolers := 0
+		for cooler_node: Node in main.find_children("Cooler_*", "Button", true, false):
+			if str(cooler_node.get_meta("cooler_state", "")) == "locked":
+				locked_coolers += 1
+		if locked_coolers != 3:
+			push_error("VISUAL_SMOKE: T0 board expected three locked cooler slots, got %d" % locked_coolers)
+			valid = false
+		if power_meter != null and (power_meter as Control).size.y < 40.0:
+			push_error("VISUAL_SMOKE: board power meter is below 40u")
+			valid = false
+		if power_meter != null:
+			var meter_parent := (power_meter as Control).get_parent() as Control
+			if meter_parent == null or not meter_parent.get_global_rect().grow(1.0).encloses((power_meter as Control).get_global_rect()):
+				push_error("VISUAL_SMOKE: board power meter is clipped by its content group")
+				valid = false
 	if state_name.begins_with("market_"):
 		var chart := main.find_child("MarketChart", true, false) as MarketChart
 		var legend := main.find_child("MarketLegend", true, false) as GridContainer

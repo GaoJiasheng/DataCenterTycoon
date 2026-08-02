@@ -234,6 +234,9 @@ static func art_button_box(asset_id: String, tint: Color = Color.WHITE) -> Style
 	# padding before nine-slicing so a 44pt control still looks 44pt tall.
 	if box is StyleBoxTexture:
 		(box as StyleBoxTexture).region_rect = Rect2(0, 46, 512, 166)
+		if asset_id == "btn_primary":
+			(box as StyleBoxTexture).content_margin_top += 6
+			(box as StyleBoxTexture).content_margin_bottom = maxf(8.0, (box as StyleBoxTexture).content_margin_bottom - 6.0)
 	return box
 
 static func world_badge(accent: Color, compact: bool = false) -> StyleBox:
