@@ -5,6 +5,12 @@ const Widgets := preload("res://ui/widgets.gd")
 const ChartScene := preload("res://ui/market_chart.gd")
 const ParkMapScene := preload("res://gameplay/map/park_map.gd")
 const Rules := preload("res://gameplay/game_rules.gd")
+const FxLayerScene := preload("res://ui/fx_layer.gd")
+
+const HAPTIC_LIGHT := 8
+const HAPTIC_MEDIUM := 16
+const HAPTIC_HEAVY := 24
+const HAPTIC_SUCCESS := 32
 
 var cash_label: Label
 var gems_label: Label
@@ -23,7 +29,10 @@ var company_label: Label
 var primary_action_button: Button
 var task_button: Button
 var operations_button: Button
+var operations_badge: PanelContainer
+var operations_badge_label: Label
 var queue_badge_label: Label
+var fx_layer: FxLayer
 var page_host: Control
 var toast_label: Label
 var nav_buttons: Dictionary = {}
@@ -42,6 +51,15 @@ var _era_overlay_queue: Array[int] = []
 var _era_overlay_open := false
 var _last_map_signature := ""
 var _rendered_page := ""
+var _display_cash := NAN
+var _display_gems := NAN
+var _cash_target := NAN
+var _gems_target := NAN
+var _cash_tween: Tween
+var _gems_tween: Tween
+var _last_observed_cash := NAN
+var _last_income_fly_at := -INF
+var _primary_pulse_tween: Tween
 
 func _ready() -> void:
 	theme = ThemeMaker.create()
@@ -81,6 +99,7 @@ func _build_shell() -> void:
 	park_map.empty_plot_selected.connect(_show_building_picker)
 	park_map.buy_plot_requested.connect(_show_plot_purchase)
 	world_host.add_child(park_map)
+	park_map.alert_selected.connect(_on_world_alert_selected)
 
 	# Keep the safe-area shell as a plain Control. A MarginContainer propagates
 	# the minimum height of long scroll pages back into the entire shell, which
@@ -271,6 +290,15 @@ func _build_shell() -> void:
 	operations_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_add_world_action_caption(operations_button, tr("OPERATIONS_SHORT"))
 	action_layer.add_child(operations_button)
+	operations_badge = Widgets.badge(0)
+	operations_badge.position = Vector2(62, -6)
+	operations_badge_label = operations_badge.find_child("BadgeValue", true, false) as Label
+	operations_badge.visible = false
+	operations_button.add_child(operations_badge)
+
+	fx_layer = FxLayerScene.new()
+	fx_layer.name = "FxLayer"
+	add_child(fx_layer)
 
 	toast_label = _label("", 25, Color.WHITE)
 	toast_label.visible = false
@@ -308,8 +336,11 @@ func _refresh() -> void:
 
 func _refresh_hud() -> void:
 	var player: Dictionary = Game.state.get("player", {})
-	cash_label.text = tr("CASH_FORMAT") % Game.format_number(float(player.get("cash", 0.0)))
-	gems_label.text = Game.format_number(float(player.get("gems", 0)))
+	var cash := float(player.get("cash", 0.0))
+	var gems := float(player.get("gems", 0))
+	_maybe_show_periodic_income(cash)
+	_animate_hud_number(cash_label, cash, true)
+	_animate_hud_number(gems_label, gems, false)
 	var era: Dictionary = DataRepository.get_entry("eras", str(player.get("era", 1)))
 	company_label.text = tr("ERA_SHORT") % int(player.get("era", 1))
 	var company_button := find_child("CompanyButton", true, false) as Button
@@ -323,6 +354,9 @@ func _refresh_hud() -> void:
 	var queue_size: int = Game.state.get("construction_queue", []).size()
 	queue_badge_label.text = str(queue_size)
 	queue_badge_label.visible = queue_size > 0
+	var operations_count := _operations_attention_count()
+	operations_badge_label.text = str(operations_count)
+	operations_badge.visible = operations_count > 0
 	_refresh_primary_action()
 	_refresh_tutorial()
 	var on_map := active_page == "map"
@@ -397,6 +431,7 @@ func _restore_page_scroll(page_id: String, page: Control) -> void:
 
 func _refresh_primary_action() -> void:
 	var previous_kind := _primary_action_kind
+	_set_primary_affordability_pulse(false)
 	_primary_action_kind = ""
 	_primary_action_target = ""
 	for plot: Dictionary in Game.state.get("plots", []):
@@ -420,7 +455,97 @@ func _refresh_primary_action() -> void:
 	primary_action_button.text = "%s  ·  $%s" % [tr("BUY_NEXT_PLOT"), Game.format_number(Game.next_plot_price())]
 	_set_button_asset(primary_action_button, "ic_cash", 40)
 	ThemeMaker.apply_button_color(primary_action_button, ThemeMaker.COLORS.green)
+	_set_primary_affordability_pulse(float(Game.state.get("player", {}).get("cash", 0.0)) >= Game.next_plot_price())
 	_animate_primary_action_change(previous_kind)
+
+func _animate_hud_number(label: Label, value: float, cash: bool) -> void:
+	var current_target := _cash_target if cash else _gems_target
+	if is_nan(current_target):
+		if cash:
+			_display_cash = value
+			_cash_target = value
+		else:
+			_display_gems = value
+			_gems_target = value
+		_set_hud_number_text(label, value, cash)
+		return
+	if is_equal_approx(current_target, value):
+		return
+	var from_value := _display_cash if cash else _display_gems
+	var old_tween := _cash_tween if cash else _gems_tween
+	if old_tween != null and old_tween.is_valid():
+		old_tween.kill()
+	var delta := absf(value - from_value)
+	var large_threshold := maxf(1.0, Game.monthly_income() * 10.0)
+	var duration := 1.2 if delta > large_threshold else 0.4
+	var tween := label.create_tween()
+	tween.tween_method(func(animated: float) -> void:
+		if cash:
+			_display_cash = animated
+		else:
+			_display_gems = animated
+		_set_hud_number_text(label, animated, cash)
+	, from_value, value, duration).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	if cash:
+		_cash_target = value
+		_cash_tween = tween
+	else:
+		_gems_target = value
+		_gems_tween = tween
+
+func _set_hud_number_text(label: Label, value: float, cash: bool) -> void:
+	label.text = tr("CASH_FORMAT") % Game.format_number(value) if cash else Game.format_number(roundf(value))
+
+func _maybe_show_periodic_income(cash: float) -> void:
+	if is_nan(_last_observed_cash):
+		_last_observed_cash = cash
+		_last_income_fly_at = Game.simulation_time()
+		return
+	var increased := cash > _last_observed_cash + 0.01
+	_last_observed_cash = cash
+	if not increased or active_page != "map" or Game.simulation_time() - _last_income_fly_at < 30.0:
+		return
+	_last_income_fly_at = Game.simulation_time()
+	var source_id := _highest_income_datacenter_id()
+	var source := park_map.world_position_of(source_id) if park_map != null else Vector2.ZERO
+	fx_layer.fly_coins(source, cash_label.get_parent().get_parent() as Control, 3)
+	AudioService.play_sfx("sfx_cash")
+
+func _highest_income_datacenter_id() -> String:
+	var best_id := ""
+	var best_income := 0.0
+	for plot: Dictionary in Game.state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if dc is Dictionary:
+			var income := Game.datacenter_monthly_income(dc)
+			if income > best_income:
+				best_income = income
+				best_id = str(dc.get("id", ""))
+	return best_id
+
+func _operations_attention_count() -> int:
+	var result: int = Game.state.get("market", {}).get("active", []).size()
+	var cash := float(Game.state.get("player", {}).get("cash", 0.0))
+	var technology: Dictionary = DataRepository.get_table("technology")
+	var network_level := int(Game.state.get("player", {}).get("network_level", 1))
+	var next_network: Dictionary = technology.get("network", {}).get(str(network_level + 1), {})
+	if not next_network.is_empty() and Game.is_unlocked(next_network) and cash >= float(next_network.get("cost", INF)):
+		result += 1
+	var repair_level := int(Game.state.get("technology", {}).get("repair_team", 1))
+	var next_repair: Dictionary = technology.get("upgrades", {}).get("repair_team", {}).get("levels", {}).get(str(repair_level + 1), {})
+	if not next_repair.is_empty() and Game.is_unlocked(next_repair) and cash >= float(next_repair.get("cost", INF)):
+		result += 1
+	return result
+
+func _set_primary_affordability_pulse(enabled: bool) -> void:
+	if enabled and (_primary_pulse_tween == null or not _primary_pulse_tween.is_valid()):
+		primary_action_button.pivot_offset = primary_action_button.size * 0.5
+		_primary_pulse_tween = primary_action_button.create_tween().set_loops()
+		_primary_pulse_tween.tween_property(primary_action_button, "scale", Vector2.ONE * 1.02, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_primary_pulse_tween.tween_property(primary_action_button, "scale", Vector2.ONE, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	elif not enabled and _primary_pulse_tween != null and _primary_pulse_tween.is_valid():
+		_primary_pulse_tween.kill()
+		primary_action_button.scale = Vector2.ONE
 
 func _animate_primary_action_change(previous_kind: String) -> void:
 	if previous_kind == _primary_action_kind or _last_primary_action_kind == _primary_action_kind:
@@ -1572,7 +1697,7 @@ func _navigate(page: String) -> void:
 	if page == "map" and park_map != null:
 		park_map.reset_camera()
 	AudioService.play_sfx("sfx_tap")
-	_haptic(12)
+	_haptic(HAPTIC_LIGHT)
 	if Game.state.get("bankruptcy", {}).get("status", "normal") == "normal":
 		AudioService.play_music("music_market" if page == "market" else "music_main")
 	_request_full_refresh()
@@ -1591,16 +1716,27 @@ func _demolish(datacenter_id: String) -> void:
 
 func _retire(datacenter_id: String) -> void:
 	_confirm(tr("RETIRE"), tr("RETIRE"), func() -> void:
-		_handle_result(Game.retire_datacenter(datacenter_id))
+		var source := park_map.world_position_of(datacenter_id) if park_map != null else Vector2.ZERO
+		var result := Game.retire_datacenter(datacenter_id)
+		_handle_result(result)
+		if bool(result.get("ok", false)):
+			_fly_cash_reward(source, 8)
 		_navigate("map")
 	)
 
 func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 	var fee := Game.contract_switch_fee(datacenter_id, customer_id)
 	if fee > 0.0:
-		_confirm(tr("SWITCH_CONTRACT"), tr("CONTRACT_BREACH_FEE") % Game.format_number(fee), func() -> void: _handle_result(Game.sign_contract(datacenter_id, customer_id)))
+		_confirm(tr("SWITCH_CONTRACT"), tr("CONTRACT_BREACH_FEE") % Game.format_number(fee), func() -> void: _complete_contract_signing(datacenter_id, customer_id))
 	else:
-		_handle_result(Game.sign_contract(datacenter_id, customer_id))
+		_complete_contract_signing(datacenter_id, customer_id)
+
+func _complete_contract_signing(datacenter_id: String, customer_id: String) -> void:
+	var result := Game.sign_contract(datacenter_id, customer_id)
+	_handle_result(result)
+	if bool(result.get("ok", false)):
+		var source := park_map.world_position_of(datacenter_id) if park_map != null else Vector2.ZERO
+		_fly_cash_reward(source, 5)
 
 func _speedup_job(construction_id: String) -> void:
 	_handle_result(Game.speed_up_construction_with_gems(construction_id))
@@ -1628,7 +1764,7 @@ func _run_action(action: Callable) -> void:
 
 func _handle_result(result: Dictionary) -> void:
 	if bool(result.get("ok", false)):
-		_haptic(24)
+		_haptic(HAPTIC_MEDIUM)
 		_show_toast(tr("TOAST_CONSTRUCTION_STARTED") if result.has("construction") or result.has("rack_installation") else tr("CONFIRM"))
 	else:
 		_show_toast(_reason_text(str(result.get("reason", "unknown"))))
@@ -1664,15 +1800,23 @@ func _on_offline_settled(report: Dictionary) -> void:
 	if is_node_ready() and _offline_report_is_material(report):
 		if float(report.get("income", 0.0)) >= 1.0:
 			AudioService.play_sfx("sfx_cash")
-			_play_fx("fx_coin")
+			_fly_cash_reward(Vector2.ZERO, 8)
 		_show_offline_dialog(report)
 
 func _on_construction_completed(item: Dictionary) -> void:
 	_show_toast(tr("TOAST_CONSTRUCTION_COMPLETE"))
 	_play_fx_at_world("fx_dust_puff", str(item.get("plot_id", "")), 190)
+	var target_id := str(item.get("plot_id", item.get("datacenter_id", "")))
+	_fly_cash_reward(park_map.world_position_of(target_id) if park_map != null else Vector2.ZERO, 8)
+	_haptic(HAPTIC_MEDIUM)
+	get_tree().create_timer(0.38).timeout.connect(func() -> void:
+		if is_instance_valid(park_map):
+			park_map.celebrate_target(target_id)
+	)
 
 func _on_rack_fault_occurred(datacenter_id: String, _slot: int) -> void:
 	_play_fx_at_world("fx_spark", datacenter_id, 170)
+	_haptic(HAPTIC_HEAVY)
 
 func _on_contract_renewal_opened(_datacenter_id: String, _customer_id: String, _window_end_at: float) -> void:
 	_show_toast(tr("TOAST_CONTRACT_RENEWAL"))
@@ -1691,7 +1835,22 @@ func _on_market_event_started(event_id: String) -> void:
 
 func _on_reward_granted(_placement: String, _payload: Dictionary) -> void:
 	AudioService.play_sfx("sfx_cash")
-	_play_fx("fx_coin", 260)
+	_fly_cash_reward(Vector2.ZERO, 8)
+	_haptic(HAPTIC_SUCCESS)
+
+func _fly_cash_reward(source: Vector2, count: int) -> void:
+	if fx_layer == null or cash_label == null:
+		return
+	var chip := cash_label.get_parent().get_parent() as Control
+	fx_layer.fly_coins(source, chip, count)
+
+func _on_world_alert_selected(datacenter_id: String, alert_type: String, slot: int) -> void:
+	match alert_type:
+		"fault": _show_rack_actions(datacenter_id, slot)
+		"unpowered": _show_attachment_picker(datacenter_id, "power", "")
+		"contract": _open_datacenter_detail(datacenter_id, "contracts")
+		"overheat": _open_datacenter_detail(datacenter_id, "racks")
+		_: _show_datacenter_context(datacenter_id)
 
 func _offline_report_is_material(report: Dictionary) -> bool:
 	if float(report.get("elapsed_seconds", 0.0)) < 60.0:
@@ -1700,6 +1859,7 @@ func _offline_report_is_material(report: Dictionary) -> bool:
 
 func _on_era_unlocked(era_id: int) -> void:
 	_play_fx("fx_confetti_set", 680)
+	_haptic(HAPTIC_SUCCESS)
 	if era_id not in _era_overlay_queue:
 		_era_overlay_queue.append(era_id)
 	_present_next_era_overlay()

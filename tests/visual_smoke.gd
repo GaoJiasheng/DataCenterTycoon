@@ -53,6 +53,24 @@ func _ready() -> void:
 		dense_plots.append({"id": "visual_plot_%d" % index, "index": index + 1, "status": "operational", "datacenter": dense_dc})
 	main.park_map.setup(dense_plots)
 	valid = (await _capture(main, "campus_dense")) and valid
+	var alert_fault := dc.duplicate(true)
+	alert_fault["id"] = "visual_alert_fault"
+	alert_fault["power_unit"] = "power_t1"
+	alert_fault["racks"][0] = {"rack_id": "rack_compute_t1", "status": "faulted", "enabled": true}
+	var alert_unpowered := dc.duplicate(true)
+	alert_unpowered["id"] = "visual_alert_unpowered"
+	alert_unpowered["power_unit"] = ""
+	var alert_contract := dc.duplicate(true)
+	alert_contract["id"] = "visual_alert_contract"
+	alert_contract["power_unit"] = "power_t1"
+	alert_contract["customer_id"] = "internet"
+	alert_contract["contract_end_at"] = Game.simulation_time()
+	main.park_map.setup([
+		{"id": "visual_alert_plot_0", "index": 1, "status": "operational", "datacenter": alert_fault},
+		{"id": "visual_alert_plot_1", "index": 2, "status": "operational", "datacenter": alert_unpowered},
+		{"id": "visual_alert_plot_2", "index": 3, "status": "operational", "datacenter": alert_contract},
+	])
+	valid = (await _capture(main, "world_alerts")) and valid
 	main.park_map.setup(Game.state.get("plots", []))
 	main.call("_open_datacenter", str(dc.get("id", "")))
 	valid = (await _capture(main, "dc_context")) and valid
@@ -119,7 +137,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 22 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
+	print("VISUAL_SMOKE: %s 23 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
 	get_tree().quit(0 if valid else 1)
 
 func _capture(main: Node, name: String) -> bool:
@@ -219,6 +237,18 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		var drag_handle := main.find_child("SheetDragHandle", true, false) as Control
 		if drag_handle == null or drag_handle.size.y < 88.0:
 			push_error("VISUAL_SMOKE: action sheet drag target is below 44pt")
+			valid = false
+	if state_name == "world_alerts":
+		var alert_count := 0
+		for node: Node in main.find_children("StatusBadge", "PanelContainer", true, false):
+			var badge := node as PanelContainer
+			if badge != null and badge.has_meta("alert_type"):
+				alert_count += 1
+				if not viewport_rect.intersects(badge.get_global_rect()):
+					push_error("VISUAL_SMOKE: world alert is outside the viewport: %s" % badge.get_meta("alert_type"))
+					valid = false
+		if alert_count != 3:
+			push_error("VISUAL_SMOKE: expected three actionable world alerts, got %d" % alert_count)
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	return valid

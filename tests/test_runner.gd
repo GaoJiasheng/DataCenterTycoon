@@ -116,6 +116,15 @@ func _run_ui_refresh_test() -> void:
 	main.call("_dismiss_action_sheet", overlay)
 	await get_tree().create_timer(0.24).timeout
 	_expect(not is_instance_valid(overlay), "action sheet dismissal waits for its exit animation before freeing")
+	main.call("_fly_cash_reward", Vector2(220, 520), 12)
+	await get_tree().process_frame
+	var fx_layer := main.find_child("FxLayer", true, false)
+	_expect(fx_layer != null and fx_layer.get_child_count() == 8, "coin feedback caps a reward burst at eight particles")
+	await get_tree().create_timer(1.1).timeout
+	_expect(fx_layer != null and fx_layer.get_child_count() == 0, "coin feedback releases all particles after wallet arrival")
+	Game.state["player"]["cash"] = float(Game.state["player"].get("cash", 0.0)) + 100.0
+	main.call("_refresh_hud")
+	_expect(is_equal_approx(float(main.get("_cash_target")), float(Game.state["player"]["cash"])), "cash HUD animates toward the authoritative balance")
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame

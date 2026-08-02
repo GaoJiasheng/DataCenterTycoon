@@ -7,6 +7,7 @@ const ThemeMaker := preload("res://ui/theme_factory.gd")
 signal datacenter_selected(datacenter_id: String)
 signal empty_plot_selected(plot_id: String)
 signal buy_plot_requested
+signal alert_selected(datacenter_id: String, alert_type: String, slot: int)
 
 const MIN_ZOOM := 0.7
 const MAX_ZOOM := 1.45
@@ -159,6 +160,19 @@ func target_global_position(target_id: String) -> Vector2:
 	var target := target_buttons.get(target_id) as Control
 	return target.get_global_rect().get_center() if target != null else Vector2.ZERO
 
+func world_position_of(target_id: String) -> Vector2:
+	return target_global_position(target_id)
+
+func celebrate_target(target_id: String) -> void:
+	var target := target_buttons.get(target_id) as Control
+	if target == null:
+		return
+	target.pivot_offset = target.size * Vector2(0.5, 0.82)
+	target.scale = Vector2(1.0, 0.18)
+	var tween := target.create_tween()
+	tween.tween_property(target, "scale", Vector2(1.04, 1.08), 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(target, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
 func _add_decorations(rows: int) -> void:
 	# The grass is deliberately direction-neutral. Until the art kit contains a
 	# true isometric road set, a rotated top-down road would introduce a second,
@@ -221,6 +235,8 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 	var caption := ""
 	var caption_asset := ""
 	var accent := ThemeMaker.COLORS.green
+	var alert_type := ""
+	var alert_slot := -1
 	match status:
 		"empty":
 			caption = tr("BUILD")
@@ -243,16 +259,16 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 		_:
 			var dc: Dictionary = plot.get("datacenter", {})
 			var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
-			caption = ""
-			for rack: Variant in dc.get("racks", []):
-				if rack is Dictionary and str(rack.get("status", "")) == "faulted":
-					caption = tr("FAULTED")
-					caption_asset = "ic_warning"
-					break
-			if caption.is_empty() and str(dc.get("power_unit", "")).is_empty():
-				caption = tr("UNPOWERED")
-				caption_asset = "ic_power"
+			var alert := _datacenter_alert(dc)
+			caption = str(alert.get("caption", ""))
+			caption_asset = str(alert.get("asset", ""))
+			alert_type = str(alert.get("type", ""))
+			alert_slot = int(alert.get("slot", -1))
 			accent = ThemeMaker.COLORS.sky if not str(dc.get("power_unit", "")).is_empty() else Color("8fa0ad")
+			if alert_type in ["fault", "overheat"]:
+				accent = ThemeMaker.COLORS.red if alert_type == "fault" else ThemeMaker.COLORS.orange
+			elif alert_type in ["contract", "retire"]:
+				accent = ThemeMaker.COLORS.yellow if alert_type == "retire" else ThemeMaker.COLORS.sky
 			asset_id = _datacenter_asset_id(dc, building)
 	var badge_mode := "hidden"
 	match status:
@@ -267,7 +283,8 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 	if status == "building":
 		var countdown := button.find_child("StatusText", true, false) as Label
 		if countdown != null:
-			_construction_labels.append({"label": countdown, "construction_id": str(plot.get("construction_id", ""))})
+			var construction := Game.find_construction(str(plot.get("construction_id", "")))
+			_configure_construction_timer(button, countdown, construction)
 	match status:
 		"empty": button.pressed.connect(func() -> void: empty_plot_selected.emit(str(plot.get("id", ""))))
 		"ruined":
@@ -277,7 +294,65 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 		_:
 			var active_dc: Dictionary = plot.get("datacenter", {})
 			button.pressed.connect(func() -> void: datacenter_selected.emit(str(active_dc.get("id", ""))))
+			if not alert_type.is_empty():
+				_wire_alert_badge(button, str(active_dc.get("id", "")), alert_type, alert_slot)
 	return button
+
+func _datacenter_alert(dc: Dictionary) -> Dictionary:
+	var racks: Array = dc.get("racks", [])
+	for slot: int in range(racks.size()):
+		var installed: Variant = racks[slot]
+		if installed is Dictionary and str(installed.get("status", "")) == "faulted":
+			return {"type": "fault", "slot": slot, "caption": tr("FAULTED"), "asset": "ic_wrench"}
+	if str(dc.get("power_unit", "")).is_empty():
+		return {"type": "unpowered", "slot": -1, "caption": tr("UNPOWERED"), "asset": "ic_power"}
+	for slot: int in range(racks.size()):
+		var runtime := Rules.rack_runtime_status(dc, slot, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
+		if bool(runtime.get("overheated", false)):
+			return {"type": "overheat", "slot": slot, "caption": tr("OVERHEATED"), "asset": "ic_heat"}
+	if not str(dc.get("customer_id", "")).is_empty() and float(dc.get("contract_end_at", INF)) <= Game.simulation_time():
+		return {"type": "contract", "slot": -1, "caption": tr("CONTRACT_RENEWAL_FREE"), "asset": "ic_contract"}
+	var progress := Rules.age_progress(dc, Game.simulation_time(), DataRepository.get_table("buildings"))
+	var aging_start := float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6))
+	if progress >= aging_start:
+		return {"type": "retire", "slot": -1, "caption": tr("RETIRE"), "asset": "ic_retire"}
+	return {}
+
+func _wire_alert_badge(button: Button, datacenter_id: String, alert_type: String, slot: int) -> void:
+	var badge := button.find_child("StatusBadge", true, false) as PanelContainer
+	if badge == null:
+		return
+	badge.mouse_filter = Control.MOUSE_FILTER_STOP
+	badge.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	badge.set_meta("alert_type", alert_type)
+	badge.set_meta("datacenter_id", datacenter_id)
+	badge.gui_input.connect(func(event: InputEvent) -> void:
+		if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+			badge.accept_event()
+			alert_selected.emit(datacenter_id, alert_type, slot)
+	)
+	badge.scale = Vector2.ZERO
+	badge.pivot_offset = badge.size * 0.5
+	badge.create_tween().tween_property(badge, "scale", Vector2.ONE, 0.30).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _configure_construction_timer(button: Button, label: Label, construction: Dictionary) -> void:
+	var badge := button.find_child("StatusBadge", true, false) as PanelContainer
+	var row := button.find_child("StatusRow", true, false) as HBoxContainer
+	if badge == null or row == null:
+		return
+	badge.size.y = 68
+	badge.position.y = PLOT_SIZE.y - 72
+	label.custom_minimum_size.x = 70
+	var progress := ProgressBar.new()
+	progress.name = "ConstructionProgress"
+	progress.show_percentage = false
+	progress.custom_minimum_size = Vector2(54, 18)
+	row.add_child(progress)
+	var started := float(construction.get("started_at", Game.simulation_time()))
+	var completed := float(construction.get("complete_at", started + 1.0))
+	progress.max_value = maxf(1.0, completed - started)
+	progress.value = clampf(Game.simulation_time() - started, 0.0, progress.max_value)
+	_construction_labels.append({"label": label, "progress": progress, "construction_id": str(construction.get("id", "")), "started_at": started, "complete_at": completed})
 
 func _plot_position(index: int, owned_count: int) -> Vector2:
 	var column := index % 2
@@ -451,9 +526,13 @@ func _refresh_construction_labels() -> void:
 		var label := entry.get("label") as Label
 		if label == null or not is_instance_valid(label):
 			continue
-		var construction := Game.find_construction(str(entry.get("construction_id", "")))
-		var remaining := maxf(0.0, float(construction.get("complete_at", 0.0)) - Game.simulation_time())
+		var completed := float(entry.get("complete_at", Game.simulation_time()))
+		var started := float(entry.get("started_at", Game.simulation_time()))
+		var remaining := maxf(0.0, completed - Game.simulation_time())
 		label.text = Game.format_duration(remaining)
+		var progress := entry.get("progress") as ProgressBar
+		if progress != null and is_instance_valid(progress):
+			progress.value = clampf(Game.simulation_time() - started, 0.0, maxf(1.0, completed - started))
 
 func _animate_button(button: Button, target_scale: float) -> void:
 	var tween := button.create_tween()
