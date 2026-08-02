@@ -39,6 +39,7 @@ CONTRACT_REMAINING,Term remaining: %s,合约剩余：%s
 CONTRACT_FREE_SWITCH,Free switch,免费换约
 CONTRACT_PROJECTED,Projected $%s / month,预计 $%s / 月
 CONTRACT_IN_SERVICE,In service,服务中
+CONTRACT_FIT_TOOLTIP,Compute %.2f · Storage %.2f · GPU %.2f,算力 %.2f · 存储 %.2f · GPU %.2f
 CONTRACT_CONFIRM_DELTA,Current $%s / month → $%s / month (%+.1f%%),当前 $%s / 月 → $%s / 月（%+.1f%%）
 CONTRACT_TERM_INFO,The new term lasts 6 game months,新合约持续 6 个游戏月
 CONTRACT_NO_DC,Build a data center before assigning clients,请先建成机房再调配客户

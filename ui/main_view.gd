@@ -143,11 +143,12 @@ func _build_shell() -> void:
 	shell_header.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	stage.add_child(shell_header)
 	var topbar := HBoxContainer.new()
-	topbar.add_theme_constant_override("separation", 8)
+	topbar.alignment = BoxContainer.ALIGNMENT_CENTER
+	topbar.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	shell_header.add_child(topbar)
 	var company_button := Button.new()
 	company_button.name = "CompanyButton"
-	company_button.custom_minimum_size = Vector2(132, 88)
+	company_button.custom_minimum_size = Vector2(96, 88)
 	company_button.tooltip_text = tr("COMPANY_OVERVIEW")
 	company_button.pressed.connect(_navigate.bind("tech"))
 	ThemeMaker.apply_button_color(company_button, ThemeMaker.COLORS.sky)
@@ -158,20 +159,21 @@ func _build_shell() -> void:
 	company_button.add_child(company_center)
 	var company_row := HBoxContainer.new()
 	company_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	company_row.add_theme_constant_override("separation", 2)
+	company_row.add_theme_constant_override("separation", 4)
 	company_center.add_child(company_row)
 	era_icon = _icon_view("ic_era1", Vector2(46, 46))
 	company_row.add_child(era_icon)
-	company_label = _label("T1", 21, ThemeMaker.COLORS.cream)
+	company_label = _label("1", 24, Color.WHITE)
+	ThemeMaker.world_text(company_label)
 	company_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	company_row.add_child(company_label)
 	topbar.add_child(company_button)
 	var cash_chip := _resource_chip("ic_cash", ThemeMaker.COLORS.yellow)
 	cash_chip.name = "CashResource"
 	cash_chip.custom_minimum_size.y = 88
+	cash_chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cash_chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cash_chip.size_flags_stretch_ratio = 1.4
-	cash_chip.add_theme_stylebox_override("panel", ThemeMaker.resource_panel())
 	cash_chip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	cash_chip.mouse_filter = Control.MOUSE_FILTER_STOP
 	cash_chip.gui_input.connect(_on_cash_chip_input)
@@ -180,8 +182,8 @@ func _build_shell() -> void:
 	var gem_chip := _resource_chip("ic_diamond", ThemeMaker.COLORS.purple.lightened(0.2))
 	gem_chip.name = "GemResource"
 	gem_chip.custom_minimum_size.y = 88
+	gem_chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	gem_chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gem_chip.add_theme_stylebox_override("panel", ThemeMaker.resource_panel())
 	gem_chip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	gem_chip.mouse_filter = Control.MOUSE_FILTER_STOP
 	gem_chip.gui_input.connect(_on_gem_chip_input)
@@ -192,7 +194,7 @@ func _build_shell() -> void:
 	settings_button.custom_minimum_size = Vector2(88, 88)
 	settings_button.tooltip_text = tr("NAV_SETTINGS")
 	settings_button.pressed.connect(_navigate.bind("settings"))
-	ThemeMaker.apply_round_button(settings_button, ThemeMaker.COLORS.sky)
+	ThemeMaker.apply_round_button(settings_button, Color("263d59"))
 	_wire_button_motion(settings_button)
 	_set_button_asset(settings_button, "ic_settings", 42)
 	settings_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -329,7 +331,7 @@ func _refresh_hud() -> void:
 	_animate_hud_number(cash_label, cash, true)
 	_animate_hud_number(gems_label, gems, false)
 	var era: Dictionary = DataRepository.get_entry("eras", str(player.get("era", 1)))
-	company_label.text = tr("ERA_SHORT") % int(player.get("era", 1))
+	company_label.text = str(int(player.get("era", 1)))
 	var company_button := find_child("CompanyButton", true, false) as Button
 	if company_button != null:
 		company_button.tooltip_text = "%s · %s" % [tr(era.get("name_key", "ERA_1")), GameClock.format_game_date(Game.simulation_time())]
@@ -790,46 +792,119 @@ func _build_infrastructure_management(dc: Dictionary, progress: float) -> Contro
 
 func _build_contract_management(dc: Dictionary) -> Control:
 	var section := VBoxContainer.new()
-	section.add_theme_constant_override("separation", 14)
+	section.add_theme_constant_override("separation", ThemeMaker.GROUP_GAP)
 	var current_customer := str(dc.get("customer_id", ""))
-	var subtitle := tr("CONTRACT_CURRENT") % tr(DataRepository.get_entry("customers", current_customer).get("name_key", "CONTRACT_NONE"))
+	var client_name := tr(DataRepository.get_entry("customers", current_customer).get("name_key", "CONTRACT_NONE"))
+	var timing_text := ""
 	if not current_customer.is_empty():
 		var renewal_end := float(dc.get("renewal_window_end_at", 0.0))
 		if renewal_end > Game.simulation_time():
-			subtitle += "\n" + tr("CONTRACT_RENEWAL_WINDOW") % Game.format_duration(renewal_end - Game.simulation_time())
+			timing_text = tr("CONTRACT_RENEWAL_WINDOW") % Game.format_duration(renewal_end - Game.simulation_time())
 		else:
-			subtitle += "\n" + tr("CONTRACT_REMAINING") % Game.format_duration(maxf(0.0, float(dc.get("contract_end_at", 0.0)) - Game.simulation_time()))
-	section.add_child(_section_title(tr("SIGN_CONTRACT"), subtitle))
-	var contracts := GridContainer.new()
-	contracts.columns = 2
-	contracts.add_theme_constant_override("h_separation", 10)
-	contracts.add_theme_constant_override("v_separation", 10)
+			timing_text = tr("CONTRACT_REMAINING") % Game.format_duration(maxf(0.0, float(dc.get("contract_end_at", 0.0)) - Game.simulation_time()))
+	var summary := Widgets.flat_card()
+	var summary_box := VBoxContainer.new()
+	summary_box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	summary.add_child(summary_box)
+	var current_label := _label(tr("CONTRACT_CURRENT") % client_name, ThemeMaker.TYPE_SCALE.body, Color.WHITE)
+	current_label.max_lines_visible = 1
+	current_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	summary_box.add_child(current_label)
+	if not timing_text.is_empty():
+		var timing_label := _label(timing_text, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+		timing_label.max_lines_visible = 1
+		timing_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		summary_box.add_child(timing_label)
+	section.add_child(summary)
+	var contracts := VBoxContainer.new()
+	contracts.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	section.add_child(contracts)
 	for customer_id: String in DataRepository.get_table("customers").get("items", {}):
 		var customer := DataRepository.get_entry("customers", customer_id)
 		var available := int(customer.get("unlock_era", 1)) <= int(Game.state["player"].get("era", 1)) and int(customer.get("minimum_network_level", 1)) <= int(Game.state["player"].get("network_level", 1))
-		var fee := Game.contract_switch_fee(str(dc.get("id", "")), customer_id)
-		var projected := _projected_datacenter_income(dc, customer_id)
-		var fit: Dictionary = customer.get("fit", {})
-		var trend := _market_trend(customer_id)
-		var service_badge := " · %s" % tr("CONTRACT_IN_SERVICE") if customer_id == current_customer else ""
-		var contract_text := "%s%s\n%s ×%.2f · %+.1f%%\nC %.2f  S %.2f  G %.2f\n%s" % [
-			tr(customer.get("name_key", "")), service_badge, str(trend.get("arrow", "→")), Game.market_multiplier(customer_id), float(trend.get("percent", 0.0)),
-			float(fit.get("compute", 0.0)), float(fit.get("storage", 0.0)), float(fit.get("gpu", 0.0)),
-			tr("CONTRACT_PROJECTED") % Game.format_number(projected),
-		]
-		if not available:
-			contract_text = "%s\n🔒 %s" % [tr(customer.get("name_key", "")), _customer_unlock_text(customer)]
-		elif not current_customer.is_empty() and customer_id != current_customer:
-			contract_text += "\n" + (tr("CONTRACT_FREE_SWITCH") if fee <= 0.0 else tr("CONTRACT_BREACH_FEE") % Game.format_number(fee))
-		var action := _sign_contract.bind(str(dc.get("id", "")), customer_id) if available else _show_toast.bind(_customer_unlock_text(customer))
-		var contract_button := _button(contract_text, action, ThemeMaker.COLORS.green if available else ThemeMaker.SEMANTIC.get("locked", Color("8a97a8")))
-		contract_button.name = "Contract_%s" % customer_id
-		contract_button.custom_minimum_size.y = 188
-		contract_button.add_theme_font_size_override("font_size", 19)
-		_set_button_asset(contract_button, str(customer.get("asset_id", "")), 54)
-		contracts.add_child(contract_button)
+		contracts.add_child(_contract_customer_card(dc, customer_id, customer, current_customer, available))
 	return section
+
+func _contract_customer_card(dc: Dictionary, customer_id: String, customer: Dictionary, current_customer: String, available: bool) -> Button:
+	var serving := customer_id == current_customer
+	var action := _sign_contract.bind(str(dc.get("id", "")), customer_id) if available else _show_toast.bind(_customer_unlock_text(customer))
+	var card := Button.new()
+	card.name = "Contract_%s" % customer_id
+	card.focus_mode = Control.FOCUS_NONE
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.pressed.connect(action)
+	card.set_meta("glossy_button", false)
+	var accent := ThemeMaker.COLORS.green if serving else Color.TRANSPARENT
+	card.add_theme_stylebox_override("normal", ThemeMaker.flat_group_box(accent))
+	card.add_theme_stylebox_override("hover", ThemeMaker.flat_group_box(Color(ThemeMaker.COLORS.sky, 0.65)))
+	card.add_theme_stylebox_override("pressed", ThemeMaker.flat_group_box(Color(ThemeMaker.COLORS.sky, 0.85)))
+	card.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	Widgets.wire_button_motion(card)
+	var content := HBoxContainer.new()
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content.offset_left = ThemeMaker.GROUP_PADDING
+	content.offset_top = ThemeMaker.GROUP_PADDING
+	content.offset_right = -ThemeMaker.GROUP_PADDING
+	content.offset_bottom = -ThemeMaker.GROUP_PADDING
+	content.add_theme_constant_override("separation", ThemeMaker.GROUP_PADDING)
+	card.add_child(content)
+	content.add_child(_icon_view(str(customer.get("asset_id", "")), Vector2(64, 64)))
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	content.add_child(copy)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	copy.add_child(top)
+	var title := _label(tr(customer.get("name_key", "")), ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.max_lines_visible = 1
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	top.add_child(title)
+	if serving:
+		var badge := Widgets.chip(tr("CONTRACT_IN_SERVICE"), Color.WHITE)
+		badge.custom_minimum_size = Vector2(128, 40)
+		badge.size_flags_horizontal = Control.SIZE_SHRINK_END
+		badge.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("31593f"), Color(ThemeMaker.COLORS.green, 0.45), 1, 12))
+		var badge_label := badge.find_child("Value", true, false) as Label
+		badge_label.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
+		top.add_child(badge)
+	if available:
+		var trend := _market_trend(customer_id)
+		var trend_percent := float(trend.get("percent", 0.0))
+		var value := _label("×%.2f  %s %+.1f%%" % [Game.market_multiplier(customer_id), str(trend.get("arrow", "→")), trend_percent], 32, ThemeMaker.COLORS.red if trend_percent > 0.05 else ThemeMaker.COLORS.green)
+		ThemeMaker.apply_numeric_text(value)
+		copy.add_child(value)
+		var projected := _label(tr("CONTRACT_PROJECTED") % Game.format_number(_projected_datacenter_income(dc, customer_id)), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.yellow)
+		projected.max_lines_visible = 1
+		projected.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		copy.add_child(projected)
+		var fit: Dictionary = customer.get("fit", {})
+		card.tooltip_text = tr("CONTRACT_FIT_TOOLTIP") % [float(fit.get("compute", 0.0)), float(fit.get("storage", 0.0)), float(fit.get("gpu", 0.0))]
+		var fee := Game.contract_switch_fee(str(dc.get("id", "")), customer_id)
+		if not current_customer.is_empty() and not serving:
+			card.tooltip_text += "\n" + (tr("CONTRACT_FREE_SWITCH") if fee <= 0.0 else tr("CONTRACT_BREACH_FEE") % Game.format_number(fee))
+	else:
+		var locked := _label("🔒 %s" % _customer_unlock_text(customer), ThemeMaker.TYPE_SCALE.body, Color("aeb8c4"))
+		locked.max_lines_visible = 1
+		locked.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		copy.add_child(locked)
+	card.custom_minimum_size.y = 216 if available else 144
+	call_deferred("_fit_contract_card_height", card, content)
+	if serving:
+		var rail := ColorRect.new()
+		rail.color = ThemeMaker.COLORS.green
+		rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rail.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+		rail.offset_right = 6
+		card.add_child(rail)
+	return card
+
+func _fit_contract_card_height(card: Button, content: Control) -> void:
+	if not is_instance_valid(card) or not is_instance_valid(content):
+		return
+	card.custom_minimum_size.y = maxf(ThemeMaker.TOUCH_MIN, content.get_combined_minimum_size().y + ThemeMaker.GROUP_PADDING * 2.0)
 
 func _projected_datacenter_income(dc: Dictionary, customer_id: String) -> float:
 	var simulated := dc.duplicate(true)
@@ -1224,41 +1299,86 @@ func _store_bonus_percent(product_id: String) -> int:
 func _build_settings_page() -> Control:
 	var box := _page_box()
 	box.add_child(_system_page_header(tr("NAV_SETTINGS"), tr("APP_TITLE"), "ic_settings"))
-	box.add_child(_label(tr("SETTINGS_LANGUAGE"), 27, ThemeMaker.COLORS.cyan))
-	var language_card := _card()
+	box.add_child(_section_title(tr("SETTINGS_LANGUAGE"), ""))
+	var language_card := Widgets.flat_card(Color.TRANSPARENT, ThemeMaker.GROUP_PADDING)
 	var languages := HBoxContainer.new()
-	languages.add_theme_constant_override("separation", 10)
+	languages.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	language_card.add_child(languages)
 	box.add_child(language_card)
 	var current_locale := TranslationServer.get_locale()
 	var english_active := current_locale.begins_with("en")
-	var english_button := _button(tr("LANGUAGE_ENGLISH"), Game.set_locale.bind("en"), ThemeMaker.COLORS.sky if english_active else Color("263d59"))
-	if english_active:
-		_set_button_asset(english_button, "ic_check", 34)
+	var english_button := _settings_segment_button(tr("LANGUAGE_ENGLISH"), english_active, Game.set_locale.bind("en"))
 	languages.add_child(english_button)
-	var chinese_button := _button(tr("LANGUAGE_CHINESE"), Game.set_locale.bind("zh_CN"), ThemeMaker.COLORS.sky if not english_active else Color("263d59"))
-	if not english_active:
-		_set_button_asset(chinese_button, "ic_check", 34)
+	var chinese_button := _settings_segment_button(tr("LANGUAGE_CHINESE"), not english_active, Game.set_locale.bind("zh_CN"))
 	languages.add_child(chinese_button)
+	var preferences_panel := Widgets.flat_card(Color.TRANSPARENT, 0)
 	var preferences := VBoxContainer.new()
-	preferences.add_theme_constant_override("separation", 10)
-	box.add_child(preferences)
-	for setting: Array in [["music_enabled", "SETTINGS_MUSIC"], ["sfx_enabled", "SETTINGS_SFX"], ["haptics_enabled", "SETTINGS_HAPTICS"]]:
+	preferences.add_theme_constant_override("separation", 0)
+	preferences_panel.add_child(preferences)
+	box.add_child(preferences_panel)
+	var preference_index := 0
+	var preference_items := [["music_enabled", "SETTINGS_MUSIC"], ["sfx_enabled", "SETTINGS_SFX"], ["haptics_enabled", "SETTINGS_HAPTICS"]]
+	for setting: Array in preference_items:
+		if preference_index > 0:
+			preferences.add_child(_settings_divider())
 		preferences.add_child(_settings_toggle_row(str(setting[0]), str(setting[1])))
+		preference_index += 1
 	var legal_title := _section_title(tr("SETTINGS_LEGAL"), tr("SETTINGS_LEGAL_HINT"))
 	legal_title.name = "SettingsCompliance"
 	box.add_child(legal_title)
-	box.add_child(_button(tr("SETTINGS_PRIVACY"), _open_public_document.bind("privacy"), Color("263d59")))
-	box.add_child(_button(tr("SETTINGS_TERMS"), _open_public_document.bind("terms"), Color("263d59")))
-	box.add_child(_button("%s · support@datacentertycoon.app" % tr("SETTINGS_SUPPORT"), _open_public_document.bind("support"), Color("263d59")))
-	var version_card := _card()
+	var legal_panel := Widgets.flat_card(Color.TRANSPARENT, 0)
+	var legal_rows := VBoxContainer.new()
+	legal_rows.add_theme_constant_override("separation", 0)
+	legal_panel.add_child(legal_rows)
+	var legal_actions: Array = [[tr("SETTINGS_PRIVACY"), "privacy"], [tr("SETTINGS_TERMS"), "terms"], ["%s · support@datacentertycoon.app" % tr("SETTINGS_SUPPORT"), "support"]]
+	for index: int in range(legal_actions.size()):
+		if index > 0:
+			legal_rows.add_child(_settings_divider())
+		legal_rows.add_child(_settings_row_button(str(legal_actions[index][0]), _open_public_document.bind(str(legal_actions[index][1]))))
+	box.add_child(legal_panel)
+	var version_card := Widgets.flat_card()
 	version_card.name = "SettingsVersion"
-	var version_label := _label(tr("SETTINGS_VERSION") % str(ProjectSettings.get_setting("application/config/version", "1.0.0")), 21, ThemeMaker.COLORS.cyan)
+	var version_label := _label(tr("SETTINGS_VERSION") % str(ProjectSettings.get_setting("application/config/version", "1.0.0")), ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
 	version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version_card.add_child(version_label)
 	box.add_child(version_card)
+	var destructive_gap := Control.new()
+	destructive_gap.custom_minimum_size.y = 24
+	box.add_child(destructive_gap)
 	box.add_child(_button(tr("SETTINGS_RESET"), _confirm_reset, ThemeMaker.COLORS.red))
 	return _wrap_scroll(box)
+
+func _settings_segment_button(text: String, selected: bool, action: Callable) -> Button:
+	var button := Widgets.button(text, action, "secondary")
+	var normal := ThemeMaker.panel(Color("244968") if selected else Color.TRANSPARENT, Color(1, 1, 1, 0.08), 1, 16)
+	var pressed := ThemeMaker.panel(Color("173650"), Color(1, 1, 1, 0.10), 1, 16)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", normal)
+	button.add_theme_stylebox_override("pressed", pressed)
+	if selected:
+		_set_button_asset(button, "ic_check", 32)
+	return button
+
+func _settings_divider() -> ColorRect:
+	var divider := ColorRect.new()
+	divider.color = Color(1, 1, 1, 0.06)
+	divider.custom_minimum_size.y = 1
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return divider
+
+func _settings_row_button(text: String, action: Callable) -> Button:
+	var button := Widgets.button(text, action, "secondary")
+	button.custom_minimum_size.y = 96
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var normal := ThemeMaker.panel(Color.TRANSPARENT, Color.TRANSPARENT, 0, 0)
+	normal.content_margin_left = ThemeMaker.GROUP_PADDING
+	normal.content_margin_right = ThemeMaker.GROUP_PADDING
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(1, 1, 1, 0.05)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", hover)
+	return button
 
 func _open_public_document(document_id: String) -> void:
 	var resource_path := str(LEGAL_DOCUMENTS.get(document_id, ""))
@@ -1953,8 +2073,15 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 		cancel_button.custom_minimum_size.y = 92
 		sheet_box.add_child(cancel_button)
 
-	# Let content determine the sheet height. The choices consume their natural
-	# height until the 88% viewport cap; only then does this inner list scroll.
+	# Autowrapped labels only know their true height after the sheet has a width.
+	# Measure and animate on the next layout frame instead of guessing from lines.
+	sheet.modulate.a = 0.0
+	call_deferred("_finalize_action_sheet_layout", sheet, sheet_box, scroll, choice_box)
+	_wire_sheet_interactions(overlay, sheet, handle_center, false)
+
+func _finalize_action_sheet_layout(sheet: PanelContainer, sheet_box: VBoxContainer, scroll: ScrollContainer, choice_box: VBoxContainer) -> void:
+	if not is_instance_valid(sheet):
+		return
 	var max_sheet_height := get_viewport_rect().size.y * 0.88
 	var natural_choices_height := choice_box.get_combined_minimum_size().y
 	var fixed_content_height := float(sheet_box.get_theme_constant("separation")) * float(maxi(0, sheet_box.get_child_count() - 1))
@@ -1967,13 +2094,10 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	scroll.custom_minimum_size.y = minf(natural_choices_height, available_choices_height)
 	var desired_sheet_height := minf(max_sheet_height, fixed_content_height + scroll.custom_minimum_size.y + frame_insets)
 	sheet.offset_top = sheet.offset_bottom - desired_sheet_height
-
-	sheet.modulate.a = 0.0
 	sheet.position.y += 64
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(sheet, "modulate:a", 1.0, 0.2)
 	tween.tween_property(sheet, "position:y", sheet.position.y - 64, 0.28).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
-	_wire_sheet_interactions(overlay, sheet, handle_center, false)
 
 func _show_pending_offline_report() -> void:
 	if _offline_report_is_material(Game.last_offline_report):
@@ -2717,31 +2841,46 @@ func _complete_era_overlay(overlay: CanvasItem, era_id: int) -> void:
 func _page_box() -> VBoxContainer:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation", 14)
+	box.add_theme_constant_override("separation", ThemeMaker.GROUP_GAP)
 	return box
 
 func _resource_chip(asset_id: String, accent: Color) -> PanelContainer:
 	var chip := PanelContainer.new()
-	chip.custom_minimum_size.y = 76
-	chip.add_theme_stylebox_override("panel", ThemeMaker.panel(Color(1, 1, 1, 0.035), Color.TRANSPARENT, 0, 18))
+	chip.custom_minimum_size.y = ThemeMaker.TOUCH_MIN
+	chip.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var visual_margin := MarginContainer.new()
+	visual_margin.add_theme_constant_override("margin_top", 8)
+	visual_margin.add_theme_constant_override("margin_bottom", 8)
+	chip.add_child(visual_margin)
+	var capsule := PanelContainer.new()
+	capsule.custom_minimum_size.y = 72
+	var chip_style := ThemeMaker.panel(Color("102236", 0.94), Color(1, 1, 1, 0.08), 1, 18)
+	chip_style.content_margin_left = 12
+	chip_style.content_margin_right = 12
+	chip_style.content_margin_top = 8
+	chip_style.content_margin_bottom = 8
+	capsule.add_theme_stylebox_override("panel", chip_style)
+	visual_margin.add_child(capsule)
 	var row := HBoxContainer.new()
 	row.name = "Row"
 	row.add_theme_constant_override("separation", 8)
-	chip.add_child(row)
-	row.add_child(_icon_view(asset_id, Vector2(44, 44)))
-	var value := _label("", 28, ThemeMaker.COLORS.ink)
+	capsule.add_child(row)
+	row.add_child(_icon_view(asset_id, Vector2(40, 40)))
+	var value := _label("", 28, Color.WHITE)
 	value.name = "Value"
 	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ThemeMaker.apply_numeric_text(value)
+	ThemeMaker.world_text(value)
 	row.add_child(value)
-	var affordance := _label("+", ThemeMaker.TYPE_SCALE.heading, ThemeMaker.COLORS.ink)
+	var affordance := _label("+", ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
 	affordance.name = "AddAffordance"
 	affordance.custom_minimum_size.x = 28
 	affordance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	affordance.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	affordance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ThemeMaker.world_text(affordance)
 	row.add_child(affordance)
 	return chip
 
@@ -2934,13 +3073,13 @@ func _status_card(asset_id: String, text: String, accent: Color) -> Control:
 	return card
 
 func _settings_toggle_row(setting_key: String, label_key: String) -> Control:
-	var card := Widgets.panel(true)
-	card.custom_minimum_size.y = 100
+	var card := MarginContainer.new()
+	card.custom_minimum_size.y = 96
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 28)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.add_theme_constant_override("margin_left", ThemeMaker.GROUP_PADDING)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_right", ThemeMaker.GROUP_PADDING)
+	margin.add_theme_constant_override("margin_bottom", 4)
 	card.add_child(margin)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
@@ -2953,7 +3092,7 @@ func _settings_toggle_row(setting_key: String, label_key: String) -> Control:
 	toggle.toggle_mode = true
 	toggle.focus_mode = Control.FOCUS_NONE
 	toggle.button_pressed = bool(Game.state.get("settings", {}).get(setting_key, true))
-	toggle.custom_minimum_size = Vector2(112, 64)
+	toggle.custom_minimum_size = Vector2(112, 88)
 	toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var knob := PanelContainer.new()
 	knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
