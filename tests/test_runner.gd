@@ -20,6 +20,7 @@ func _ready() -> void:
 	_run_core_loop_test()
 	await _run_datacenter_board_tests()
 	await _run_wp4_decision_ui_tests()
+	await _run_wp6_presentation_tests()
 	_run_construction_controls_test()
 	_run_commerce_test()
 	_run_offline_test()
@@ -280,6 +281,40 @@ func _run_wp4_decision_ui_tests() -> void:
 	await get_tree().process_frame
 	var banner := main.find_child("MarketEventBanner", true, false) as Button
 	_expect(banner != null and not banner.pressed.get_connections().is_empty(), "market transitions push an actionable top banner into the live HUD")
+	main.queue_free()
+	await get_tree().process_frame
+
+func _run_wp6_presentation_tests() -> void:
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	Game.state["tutorial"]["completed"] = true
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.call("_navigate", "store")
+	main.call("_refresh")
+	await get_tree().process_frame
+	_expect(main.find_children("StoreSection_*", "", true, false).size() == 3 and main.find_child("StoreCompliance", true, false) != null, "store presents deals gems perks and compliance as distinct merchandising regions")
+	main.call("_navigate", "settings")
+	main.call("_refresh")
+	await get_tree().process_frame
+	_expect(main.find_child("SettingsCompliance", true, false) != null and main.find_child("SettingsVersion", true, false) != null, "settings exposes legal support and build information")
+	main.call("_show_offline_dialog", {"elapsed_seconds": 7200.0, "income": 5000.0, "completed": [{}], "faults": [{}], "events": [{}], "aging": [{}], "contracts": []})
+	await get_tree().process_frame
+	_expect(main.find_child("OfflineRewardCard", true, false) != null and main.find_child("OfflineDoubleButton", true, false) != null, "offline settlement has a dedicated animated reward card and ad-styled ×2 action")
+	var offline := main.find_child("OfflineOverlay", true, false)
+	if offline != null:
+		offline.queue_free()
+	Game.state["bankruptcy"] = {"status": "arrears", "debt": 250.0, "arrears_online_seconds": 120.0, "rescue_uses": 0, "rescue_day": -1}
+	main.call("_on_bankruptcy_state_changed", "arrears")
+	await get_tree().process_frame
+	_expect(main.find_child("ArrearsBanner", true, false) != null and main.find_child("ArrearsVignette", true, false) != null and main.find_child("ArrearsProgress", true, false) != null, "arrears stays visible as a timed HUD crisis rather than a dismissible toast")
+	Game.state["bankruptcy"]["status"] = "normal"
+	main.call("_on_bankruptcy_state_changed", "normal")
+	main.call("_show_era_overlay", 2, DataRepository.get_entry("eras", "2"))
+	await get_tree().process_frame
+	var unlock_summary := main.find_child("EraUnlockSummary", true, false)
+	_expect(main.find_child("EraNewspaper", true, false) != null and unlock_summary != null and unlock_summary.get_child_count() == 3, "era unlock is staged as a newspaper milestone with three concrete unlocks")
 	main.queue_free()
 	await get_tree().process_frame
 

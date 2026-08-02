@@ -32,6 +32,7 @@ def main():
         "export_presets.cfg",
         "ios/PrivacyInfo.xcprivacy",
         "docs/public/privacy.html",
+        "docs/public/terms.html",
         "docs/public/support.html",
         "docs/store/metadata/en.md",
         "docs/store/metadata/zh_CN.md",

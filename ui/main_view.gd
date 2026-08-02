@@ -14,6 +14,11 @@ const HAPTIC_LIGHT := 8
 const HAPTIC_MEDIUM := 16
 const HAPTIC_HEAVY := 24
 const HAPTIC_SUCCESS := 32
+const LEGAL_DOCUMENTS := {
+	"privacy": "res://docs/public/privacy.html",
+	"terms": "res://docs/public/terms.html",
+	"support": "res://docs/public/support.html",
+}
 
 var cash_label: Label
 var gems_label: Label
@@ -340,6 +345,7 @@ func _refresh_hud() -> void:
 	operations_badge_label.text = str(operations_count)
 	operations_badge.visible = operations_count > 0
 	_refresh_primary_action()
+	_refresh_arrears_hud()
 	_refresh_tutorial()
 	var on_map := active_page == "map"
 	# The park is the product's persistent spatial anchor. Deep systems open as
@@ -1125,46 +1131,95 @@ func _build_store_page() -> Control:
 	wallet_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wallet_row.add_child(wallet_copy)
 	wallet_copy.add_child(_label(tr("GEMS_FORMAT") % Game.format_number(float(Game.state["player"].get("gems", 0))), 34, ThemeMaker.COLORS.purple.lightened(0.18)))
-	wallet_copy.add_child(_label(tr("NAV_STORE"), 22, ThemeMaker.COLORS.cyan))
+	wallet_copy.add_child(_label(tr("STORE_WALLET_HINT"), 22, ThemeMaker.COLORS.cyan))
 	box.add_child(wallet)
+	var sections := {
+		"deals": [],
+		"gems": [],
+		"perks": [],
+	}
 	for product_id: String in DataRepository.get_table("store").get("items", {}):
 		var product := DataRepository.get_entry("store", product_id)
-		if int(product.get("unlock_era", 1)) > int(Game.state["player"].get("era", 1)):
+		if int(product.get("unlock_era", 1)) > int(Game.state["player"].get("era", 1)) or int(product.get("unlock_prestige", 0)) > int(Game.state["stats"].get("prestige_count", 0)):
 			continue
-		if int(product.get("unlock_prestige", 0)) > int(Game.state["stats"].get("prestige_count", 0)):
-			continue
-		var card := _card()
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 18)
-		card.add_child(row)
-		var product_art := _asset_preview(str(product.get("asset_id", "")), tr(product.get("name_key", "")), ThemeMaker.COLORS.purple, 136)
-		product_art.custom_minimum_size.x = 190
-		product_art.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		row.add_child(product_art)
-		var copy := VBoxContainer.new()
-		copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(copy)
-		copy.add_child(_label(tr(product.get("name_key", "")), 29, ThemeMaker.COLORS.cream))
-		if product.has("description_key"):
-			var description := _label(tr(product.get("description_key", "")), 21, ThemeMaker.COLORS.cyan)
-			description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			copy.add_child(description)
-		var fallback_price := "US$ %.2f" % float(product.get("price_usd", 0.0))
-		var buy_button := _button(Monetization.localized_price(product_id, fallback_price), _purchase.bind(product_id), ThemeMaker.COLORS.green)
-		buy_button.custom_minimum_size.x = 210
-		var purchase_state := Game.can_purchase_product(product_id)
-		if not bool(purchase_state.get("ok", false)) and str(purchase_state.get("reason", "")) in ["already_owned", "purchase_limit"]:
-			buy_button.text = ""
-			_set_button_asset(buy_button, "ic_check", 42)
-			buy_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			buy_button.disabled = true
-		elif OS.get_name() == "iOS" and not Monetization.is_product_available(product_id):
-			buy_button.text = "…"
-			buy_button.disabled = true
-		row.add_child(buy_button)
-		box.add_child(card)
-	box.add_child(_button(tr("RESTORE_PURCHASES"), Callable(Monetization, "restore_purchases"), ThemeMaker.COLORS.navy))
+		var section_id := "deals" if str(product.get("type", "")) == "limited_consumable" else ("gems" if int(product.get("gems", 0)) > 0 else "perks")
+		sections[section_id].append(product_id)
+	for section_id: String in ["deals", "gems", "perks"]:
+		var title_key: String = {"deals": "STORE_SECTION_DEALS", "gems": "STORE_SECTION_GEMS", "perks": "STORE_SECTION_PERKS"}[section_id]
+		var section_header := _section_title(tr(title_key), tr("STORE_SECTION_%s_HINT" % section_id.to_upper()))
+		section_header.name = "StoreSection_%s" % section_id
+		box.add_child(section_header)
+		if sections[section_id].is_empty():
+			box.add_child(_status_card("ic_lock", tr("STORE_DEALS_LATER"), Color("8a97a8")))
+		else:
+			for product_id: String in sections[section_id]:
+				box.add_child(_store_product_card(product_id, DataRepository.get_entry("store", product_id)))
+	var legal := VBoxContainer.new()
+	legal.name = "StoreCompliance"
+	legal.add_theme_constant_override("separation", 8)
+	box.add_child(legal)
+	legal.add_child(_button(tr("RESTORE_PURCHASES"), Callable(Monetization, "restore_purchases"), ThemeMaker.COLORS.navy))
+	var legal_links := HBoxContainer.new()
+	legal_links.add_theme_constant_override("separation", 8)
+	legal.add_child(legal_links)
+	legal_links.add_child(_button(tr("SETTINGS_PRIVACY"), _open_public_document.bind("privacy"), Color("263d59")))
+	legal_links.add_child(_button(tr("SETTINGS_TERMS"), _open_public_document.bind("terms"), Color("263d59")))
 	return _wrap_scroll(box)
+
+func _store_product_card(product_id: String, product: Dictionary) -> Control:
+	var card := _card()
+	card.name = "StoreProduct_%s" % product_id
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	card.add_child(row)
+	var product_art := _asset_preview(str(product.get("asset_id", "")), tr(product.get("name_key", "")), ThemeMaker.COLORS.purple, 142)
+	product_art.custom_minimum_size.x = 176
+	product_art.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	row.add_child(product_art)
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.add_theme_constant_override("separation", 5)
+	row.add_child(copy)
+	var title_row := HBoxContainer.new()
+	copy.add_child(title_row)
+	var title := _label(tr(product.get("name_key", "")), 27, ThemeMaker.COLORS.cream)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title_row.add_child(title)
+	if product_id == "gems_m":
+		title_row.add_child(_metric_chip(tr("STORE_BEST_VALUE"), ThemeMaker.COLORS.yellow))
+	if product.has("description_key"):
+		var description := _label(tr(product.get("description_key", "")), 19, ThemeMaker.COLORS.cyan)
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		copy.add_child(description)
+	if str(product.get("type", "")) == "limited_consumable":
+		copy.add_child(_label(tr("STORE_PACK_CONTENTS") % [int(product.get("gems", 0)), Game.format_number(float(product.get("cash", 0.0))), int(product.get("tickets", 0))], 18, ThemeMaker.COLORS.yellow))
+	var gems := int(product.get("gems", 0))
+	if gems > 0:
+		var bonus := _store_bonus_percent(product_id)
+		var price_per_gem := float(product.get("price_usd", 0.0)) / float(gems)
+		var value_text := "$%.4f / 💎" % price_per_gem
+		if bonus > 0:
+			value_text = "%s   %s" % [tr("STORE_BONUS_PCT") % bonus, value_text]
+		copy.add_child(_label(value_text, 18, ThemeMaker.COLORS.green))
+	var fallback_price := "US$ %.2f" % float(product.get("price_usd", 0.0))
+	var buy_button := _button(Monetization.localized_price(product_id, fallback_price), _purchase.bind(product_id), ThemeMaker.COLORS.green)
+	buy_button.custom_minimum_size.x = 186
+	var purchase_state := Game.can_purchase_product(product_id)
+	var owned := not bool(purchase_state.get("ok", false)) and str(purchase_state.get("reason", "")) in ["already_owned", "purchase_limit"]
+	if owned:
+		card.modulate = Color(0.62, 0.66, 0.70, 0.90)
+		buy_button.text = tr("STORE_OWNED")
+		_set_button_asset(buy_button, "ic_check", 38)
+		buy_button.disabled = true
+	elif OS.get_name() == "iOS" and not Monetization.is_product_available(product_id):
+		buy_button.text = "…"
+		buy_button.disabled = true
+	row.add_child(buy_button)
+	return card
+
+func _store_bonus_percent(product_id: String) -> int:
+	return {"gems_s": 0, "gems_m": 10, "gems_l": 20}.get(product_id, 0)
 
 func _build_settings_page() -> Control:
 	var box := _page_box()
@@ -1190,8 +1245,27 @@ func _build_settings_page() -> Control:
 	box.add_child(preferences)
 	for setting: Array in [["music_enabled", "SETTINGS_MUSIC"], ["sfx_enabled", "SETTINGS_SFX"], ["haptics_enabled", "SETTINGS_HAPTICS"]]:
 		preferences.add_child(_settings_toggle_row(str(setting[0]), str(setting[1])))
+	var legal_title := _section_title(tr("SETTINGS_LEGAL"), tr("SETTINGS_LEGAL_HINT"))
+	legal_title.name = "SettingsCompliance"
+	box.add_child(legal_title)
+	box.add_child(_button(tr("SETTINGS_PRIVACY"), _open_public_document.bind("privacy"), Color("263d59")))
+	box.add_child(_button(tr("SETTINGS_TERMS"), _open_public_document.bind("terms"), Color("263d59")))
+	box.add_child(_button("%s · support@datacentertycoon.app" % tr("SETTINGS_SUPPORT"), _open_public_document.bind("support"), Color("263d59")))
+	var version_card := _card()
+	version_card.name = "SettingsVersion"
+	var version_label := _label(tr("SETTINGS_VERSION") % str(ProjectSettings.get_setting("application/config/version", "1.0.0")), 21, ThemeMaker.COLORS.cyan)
+	version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	version_card.add_child(version_label)
+	box.add_child(version_card)
 	box.add_child(_button(tr("SETTINGS_RESET"), _confirm_reset, ThemeMaker.COLORS.red))
 	return _wrap_scroll(box)
+
+func _open_public_document(document_id: String) -> void:
+	var resource_path := str(LEGAL_DOCUMENTS.get(document_id, ""))
+	if resource_path.is_empty():
+		return
+	var absolute_path := ProjectSettings.globalize_path(resource_path)
+	OS.shell_open("file://%s" % absolute_path.uri_encode())
 
 func _refresh_tutorial() -> void:
 	var tutorial: Dictionary = Game.state.get("tutorial", {})
@@ -1895,15 +1969,107 @@ func _show_pending_offline_report() -> void:
 		_show_offline_dialog(Game.last_offline_report)
 
 func _show_offline_dialog(report: Dictionary) -> void:
-	var body := "%s\n\n%s" % [tr("OFFLINE_EARNED") % Game.format_number(float(report.get("income", 0.0))), _offline_events_summary(report)]
-	var choices: Array[Dictionary] = [
-		{"id": "double", "text": tr("OFFLINE_DOUBLE"), "color": ThemeMaker.COLORS.purple},
-		{"id": "claim", "text": tr("CLAIM"), "color": ThemeMaker.COLORS.green},
-	]
-	_present_action_sheet(tr("OFFLINE_TITLE"), body, choices, func(choice: String) -> void:
-		if choice == "double":
-			_handle_result(Game.request_reward("offline_double"))
-	)
+	var existing := find_child("OfflineOverlay", true, false)
+	if existing != null:
+		existing.queue_free()
+	var overlay := ColorRect.new()
+	overlay.name = "OfflineOverlay"
+	overlay.color = Color(0.015, 0.03, 0.06, 0.84)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 100
+	add_child(overlay)
+	_add_era_confetti(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var card := PanelContainer.new()
+	card.name = "OfflineRewardCard"
+	card.custom_minimum_size = Vector2(710, 980)
+	card.add_theme_stylebox_override("panel", ThemeMaker.art_panel(false))
+	center.add_child(card)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 46)
+	margin.add_theme_constant_override("margin_top", 46)
+	margin.add_theme_constant_override("margin_right", 46)
+	margin.add_theme_constant_override("margin_bottom", 46)
+	card.add_child(margin)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 18)
+	margin.add_child(box)
+	var title := _label(tr("OFFLINE_TITLE"), 43, ThemeMaker.COLORS.ink)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	box.add_child(_coin_pile())
+	var income := float(report.get("income", 0.0))
+	var income_label := _label("$0", 48, Color("a96b05"))
+	income_label.name = "OfflineIncome"
+	income_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ThemeMaker.apply_numeric_text(income_label)
+	box.add_child(income_label)
+	var earned := _label(tr("OFFLINE_EARNED") % Game.format_number(income), 22, ThemeMaker.COLORS.ink)
+	earned.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	earned.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(earned)
+	var event_rows := _offline_event_rows(report)
+	if not event_rows.is_empty():
+		var events_box := VBoxContainer.new()
+		events_box.name = "OfflineMilestones"
+		events_box.add_theme_constant_override("separation", 6)
+		box.add_child(events_box)
+		for item: Dictionary in event_rows:
+			var event_row := HBoxContainer.new()
+			event_row.add_theme_constant_override("separation", 10)
+			event_row.add_child(_icon_view(str(item.get("icon", "ic_check")), Vector2(38, 38)))
+			event_row.add_child(_label("%d · %s" % [int(item.get("count", 0)), tr(item.get("key", ""))], 20, ThemeMaker.COLORS.ink))
+			events_box.add_child(event_row)
+	var double_button := Widgets.button("%s  ×2" % tr("OFFLINE_DOUBLE"), func() -> void:
+		var result := Game.request_reward("offline_double")
+		_dismiss_full_overlay(overlay)
+		_handle_result(result)
+	, "ad")
+	double_button.name = "OfflineDoubleButton"
+	_set_button_asset(double_button, "ic_play_ad", 44)
+	box.add_child(double_button)
+	var claim_button := Widgets.button(tr("CLAIM"), _dismiss_full_overlay.bind(overlay), "primary")
+	claim_button.name = "OfflineClaimButton"
+	box.add_child(claim_button)
+	card.pivot_offset = card.custom_minimum_size * 0.5
+	card.scale = Vector2.ONE * 0.88
+	card.modulate.a = 0.0
+	var entrance := create_tween().set_parallel(true)
+	entrance.tween_property(card, "scale", Vector2.ONE, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	entrance.tween_property(card, "modulate:a", 1.0, 0.20)
+	Widgets.animate_number(income_label, 0.0, income, func(value: float) -> String: return "$%s" % Game.format_number(value), 1.2)
+
+func _coin_pile() -> Control:
+	var pile := Control.new()
+	pile.name = "OfflineCoinPile"
+	pile.custom_minimum_size = Vector2(0, 150)
+	pile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for index: int in range(7):
+		var coin := _icon_view("fx_coin", Vector2(100, 100))
+		coin.position = Vector2(220 + float(index % 4) * 52.0 + (26.0 if index >= 4 else 0.0), 50.0 - float(index / 4) * 38.0)
+		coin.rotation = -0.22 + float(index) * 0.075
+		pile.add_child(coin)
+	return pile
+
+func _offline_event_rows(report: Dictionary) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if not report.get("completed", []).is_empty(): rows.append({"icon": "ic_check", "count": report["completed"].size(), "key": "TOAST_CONSTRUCTION_COMPLETE"})
+	if not report.get("faults", []).is_empty(): rows.append({"icon": "ic_warning", "count": report["faults"].size(), "key": "FAULTED"})
+	if not report.get("events", []).is_empty(): rows.append({"icon": "ic_market_up", "count": report["events"].size(), "key": "NAV_MARKET"})
+	if not report.get("aging", []).is_empty(): rows.append({"icon": "ic_retire", "count": report["aging"].size(), "key": "LIFESPAN"})
+	return rows
+
+func _dismiss_full_overlay(overlay: CanvasItem) -> void:
+	if not is_instance_valid(overlay) or bool(overlay.get_meta("dismissing", false)):
+		return
+	overlay.set_meta("dismissing", true)
+	var tween := create_tween()
+	tween.tween_property(overlay, "modulate:a", 0.0, 0.20)
+	tween.tween_callback(overlay.queue_free)
 
 func _offline_events_summary(report: Dictionary) -> String:
 	var lines: Array[String] = []
@@ -2177,31 +2343,175 @@ func _on_bankruptcy_state_changed(status: String) -> void:
 	if status == "arrears":
 		_show_toast(tr("BANKRUPTCY_WARNING"))
 		AudioService.play_music("music_crisis")
-		var debt := float(Game.state.get("bankruptcy", {}).get("debt", 0.0))
-		_present_action_sheet(
-			tr("BANKRUPTCY_WARNING"),
-			"%s\n$%s" % [tr("BANKRUPTCY_BODY") % Game.format_duration(float(DataRepository.get_table("economy").get("bankruptcy", {}).get("game_over_after_online_seconds", 21600.0))), Game.format_number(debt)],
-			[{"id": "rescue", "text": tr("ARREARS_RESCUE"), "color": ThemeMaker.COLORS.orange}],
-			func(choice: String) -> void:
-				if choice == "rescue":
-					_handle_result(Game.request_reward("arrears_rescue"))
-		)
+		_show_arrears_hud()
 	elif status == "normal":
+		_clear_crisis_hud()
 		AudioService.play_music("music_main")
 	elif status == "game_over":
-		_play_fx("fx_smoke_puff", 420)
-		var survival := float(GameClock.wall_time() - int(Game.state.get("clock", {}).get("created_at", GameClock.wall_time())))
-		var summary := "%s: $%s\n%s: %s\n%s: $%s\n%s: %d" % [tr("HIGHEST_NET_WORTH"), Game.format_number(float(Game.state["stats"].get("highest_net_worth", 0.0))), tr("STAT_SURVIVAL"), Game.format_duration(survival), tr("TOTAL_REVENUE"), Game.format_number(float(Game.state["player"].get("total_revenue", 0.0))), tr("BUILD"), int(Game.state["player"].get("total_datacenters_built", 0))]
-		_present_action_sheet(
-			tr("GAME_OVER"),
-			summary,
-			[{"id": "restart", "text": tr("NEW_COMPANY"), "color": ThemeMaker.COLORS.red}],
-			func(choice: String) -> void:
-				if choice == "restart":
-					Game.start_new_company()
-					_navigate("map"),
-			false
-		)
+		_show_game_over_overlay()
+
+func _refresh_arrears_hud() -> void:
+	var status := str(Game.state.get("bankruptcy", {}).get("status", "normal"))
+	if status != "arrears":
+		if status == "normal":
+			_clear_crisis_hud()
+		return
+	var banner := find_child("ArrearsBanner", true, false) as PanelContainer
+	if banner == null:
+		_show_arrears_hud()
+		banner = find_child("ArrearsBanner", true, false) as PanelContainer
+	if banner == null:
+		return
+	var bankruptcy: Dictionary = Game.state.get("bankruptcy", {})
+	var limit := float(DataRepository.get_table("economy").get("bankruptcy", {}).get("game_over_after_online_seconds", 21600.0))
+	var elapsed := float(bankruptcy.get("arrears_online_seconds", 0.0))
+	var debt_label := banner.find_child("DebtValue", true, false) as Label
+	var time_label := banner.find_child("ArrearsTime", true, false) as Label
+	var progress := banner.find_child("ArrearsProgress", true, false) as ProgressBar
+	if debt_label != null:
+		debt_label.text = tr("ARREARS_BANNER") % Game.format_number(float(bankruptcy.get("debt", 0.0)))
+	if time_label != null:
+		time_label.text = tr("ARREARS_TIME_LEFT") % Game.format_duration(maxf(0.0, limit - elapsed))
+	if progress != null:
+		progress.max_value = limit
+		progress.value = elapsed
+
+func _show_arrears_hud() -> void:
+	if find_child("ArrearsBanner", true, false) != null:
+		return
+	var vignette := PanelContainer.new()
+	vignette.name = "ArrearsVignette"
+	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vignette.z_index = 84
+	var vignette_style := ThemeMaker.panel(Color.TRANSPARENT, Color(ThemeMaker.COLORS.red, 0.80), 8, 0)
+	vignette_style.content_margin_left = 0
+	vignette_style.content_margin_top = 0
+	vignette_style.content_margin_right = 0
+	vignette_style.content_margin_bottom = 0
+	vignette.add_theme_stylebox_override("panel", vignette_style)
+	add_child(vignette)
+	var pulse := vignette.create_tween().set_loops()
+	pulse.tween_property(vignette, "modulate:a", 0.42, 0.9).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(vignette, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
+	var banner := PanelContainer.new()
+	banner.name = "ArrearsBanner"
+	banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	banner.offset_left = 28
+	banner.offset_top = 106
+	banner.offset_right = -28
+	banner.offset_bottom = 318
+	banner.z_index = 86
+	banner.add_theme_stylebox_override("panel", ThemeMaker.art_button_box("danger"))
+	add_child(banner)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 18)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 18)
+	banner.add_child(margin)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 7)
+	margin.add_child(box)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 10)
+	box.add_child(top)
+	top.add_child(_icon_view("ic_bankrupt", Vector2(54, 54)))
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(copy)
+	var debt := _label("", 24, Color.WHITE)
+	debt.name = "DebtValue"
+	copy.add_child(debt)
+	var time_left := _label("", 18, Color("ffe7bf"))
+	time_left.name = "ArrearsTime"
+	copy.add_child(time_left)
+	var rescue := Widgets.button(tr("ARREARS_RESCUE"), func() -> void: _handle_result(Game.request_reward("arrears_rescue")), "ad")
+	rescue.name = "ArrearsRescueButton"
+	rescue.custom_minimum_size.x = 230
+	_set_button_asset(rescue, "ic_play_ad", 36)
+	top.add_child(rescue)
+	var progress := ProgressBar.new()
+	progress.name = "ArrearsProgress"
+	progress.show_percentage = false
+	progress.custom_minimum_size.y = 30
+	box.add_child(progress)
+	_refresh_arrears_hud()
+	var final_y := banner.position.y
+	banner.position.y = final_y - 240.0
+	banner.create_tween().tween_property(banner, "position:y", final_y, 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _clear_crisis_hud() -> void:
+	for node_name: String in ["ArrearsBanner", "ArrearsVignette"]:
+		var node := find_child(node_name, true, false)
+		if node != null:
+			node.queue_free()
+
+func _show_game_over_overlay() -> void:
+	if find_child("GameOverOverlay", true, false) != null:
+		return
+	_clear_crisis_hud()
+	if park_map != null:
+		park_map.blackout_sequence()
+	_play_fx("fx_smoke_puff", 420)
+	var overlay := ColorRect.new()
+	overlay.name = "GameOverOverlay"
+	overlay.color = Color(0.005, 0.01, 0.02, 0.48)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 110
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var card := PanelContainer.new()
+	card.name = "GameOverStatsCard"
+	card.custom_minimum_size = Vector2(700, 900)
+	card.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
+	center.add_child(card)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 50)
+	margin.add_theme_constant_override("margin_top", 50)
+	margin.add_theme_constant_override("margin_right", 50)
+	margin.add_theme_constant_override("margin_bottom", 50)
+	card.add_child(margin)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 20)
+	margin.add_child(box)
+	box.add_child(_icon_view("ic_bankrupt", Vector2(180, 180)))
+	var title := _label(tr("GAME_OVER"), 48, ThemeMaker.COLORS.red.lightened(0.16))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	var survival := float(GameClock.wall_time() - int(Game.state.get("clock", {}).get("created_at", GameClock.wall_time())))
+	var stats := [
+		{"key": "STAT_SURVIVAL", "value": Game.format_duration(survival)},
+		{"key": "TOTAL_REVENUE", "value": "$%s" % Game.format_number(float(Game.state["player"].get("total_revenue", 0.0)))},
+		{"key": "GAME_OVER_BUILT", "value": str(int(Game.state["player"].get("total_datacenters_built", 0)))},
+		{"key": "HIGHEST_NET_WORTH", "value": "$%s" % Game.format_number(float(Game.state["stats"].get("highest_net_worth", 0.0)))},
+	]
+	for stat_index: int in range(stats.size()):
+		var stat: Dictionary = stats[stat_index]
+		var row := HBoxContainer.new()
+		row.name = "GameOverStat_%d" % stat_index
+		box.add_child(row)
+		var key_label := _label(tr(stat.get("key", "")), 22, ThemeMaker.COLORS.cyan)
+		key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(key_label)
+		row.add_child(_label(str(stat.get("value", "")), 25, ThemeMaker.COLORS.cream))
+	var restart := Widgets.button(tr("GAME_OVER_RESTART"), func() -> void:
+		Game.start_new_company()
+		overlay.queue_free()
+		_navigate("map")
+	, "danger")
+	restart.name = "GameOverRestart"
+	box.add_child(restart)
+	card.modulate.a = 0.0
+	card.scale = Vector2.ONE * 0.84
+	var reveal := create_tween().set_parallel(true)
+	reveal.tween_property(overlay, "color", Color(0.005, 0.01, 0.02, 0.96), 1.0)
+	reveal.tween_property(card, "modulate:a", 1.0, 0.34).set_delay(0.72)
+	reveal.tween_property(card, "scale", Vector2.ONE, 0.46).set_delay(0.72).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _on_locale_changed(_locale: String) -> void:
 	_last_map_signature = ""
@@ -2282,9 +2592,12 @@ func _play_fx_at_world(asset_id: String, target_id: String, extent: float = 190.
 	tween.finished.connect(view.queue_free)
 
 func _show_era_overlay(era_id: int, era: Dictionary) -> void:
+	var existing := find_child("EraOverlay", true, false)
+	if existing != null:
+		existing.queue_free()
 	var overlay := ColorRect.new()
 	overlay.name = "EraOverlay"
-	overlay.color = Color(0.02, 0.05, 0.11, 0.94)
+	overlay.color = Color(0.02, 0.05, 0.11, 0.90)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.z_index = 100
@@ -2293,34 +2606,102 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(center)
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(720, 660)
-	card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("102236"), 0.99, 30, Color(ThemeMaker.COLORS.yellow, 0.58)))
+	card.name = "EraNewspaper"
+	card.custom_minimum_size = Vector2(720, 1120)
+	card.add_theme_stylebox_override("panel", ThemeMaker.art_panel(false))
 	center.add_child(card)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 56)
+	margin.add_theme_constant_override("margin_top", 56)
+	margin.add_theme_constant_override("margin_right", 56)
+	margin.add_theme_constant_override("margin_bottom", 56)
+	card.add_child(margin)
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 28)
-	card.add_child(box)
-	box.add_child(_icon_view("ic_era%d" % era_id, Vector2(300, 250)))
-	var headline := _label(tr("TOAST_ERA_UNLOCKED"), 48, ThemeMaker.COLORS.yellow)
+	box.add_theme_constant_override("separation", 20)
+	margin.add_child(box)
+	var masthead := _label(tr("ERA_NEWSPAPER_MASTHEAD"), 22, Color("725a36"))
+	masthead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(masthead)
+	var rule := HSeparator.new()
+	rule.add_theme_constant_override("separation", 8)
+	box.add_child(rule)
+	var headline := _label(tr("ERA_ARRIVAL") % tr(era.get("name_key", "")), 46, ThemeMaker.COLORS.ink)
 	headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(headline)
-	var era_name := _label(tr(era.get("name_key", "")), 38, ThemeMaker.COLORS.cream)
-	era_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(era_name)
-	var reward := _label(tr("GEMS_FORMAT") % int(era.get("reward_gems", 0)), 28, ThemeMaker.COLORS.purple.lightened(0.2))
+	box.add_child(_icon_view("ic_era%d" % era_id, Vector2(250, 230)))
+	var unlock_title := _label(tr("ERA_UNLOCK_SUMMARY"), 26, Color("a96b05"))
+	unlock_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(unlock_title)
+	var unlocks := _era_unlock_items(era_id)
+	var unlock_box := VBoxContainer.new()
+	unlock_box.name = "EraUnlockSummary"
+	unlock_box.add_theme_constant_override("separation", 8)
+	box.add_child(unlock_box)
+	for index: int in range(mini(3, unlocks.size())):
+		var item: Dictionary = unlocks[index]
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 10)
+		unlock_box.add_child(row)
+		row.add_child(_icon_view(str(item.get("asset_id", "")), Vector2(44, 44)))
+		row.add_child(_label("✓  %s" % tr(item.get("name_key", "")), 21, ThemeMaker.COLORS.ink))
+	var reward := _label(tr("GEMS_FORMAT") % 0, 34, ThemeMaker.COLORS.purple.darkened(0.12))
+	reward.name = "EraRewardValue"
 	reward.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ThemeMaker.apply_numeric_text(reward)
 	box.add_child(reward)
-	box.add_child(_button(tr("CONFIRM"), func() -> void:
-		Game.mark_era_presented(era_id)
-		overlay.queue_free()
-		_era_overlay_open = false
-		call_deferred("_present_next_era_overlay")
-	, ThemeMaker.COLORS.green))
+	var confirm := Widgets.button(tr("ERA_ENTER"), _complete_era_overlay.bind(overlay, era_id), "primary")
+	confirm.name = "EraConfirmButton"
+	confirm.visible = false
+	box.add_child(confirm)
+	overlay.gui_input.connect(func(event: InputEvent) -> void:
+		var pressed: bool = (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)
+		if pressed and is_instance_valid(confirm):
+			confirm.visible = true
+	)
 	card.modulate.a = 0.0
-	card.scale = Vector2(0.9, 0.9)
+	card.scale = Vector2.ONE * 1.4
+	card.rotation = deg_to_rad(-8.0)
+	card.pivot_offset = card.custom_minimum_size * 0.5
 	var tween := create_tween().set_parallel(true)
-	tween.tween_property(card, "modulate:a", 1.0, 0.28)
-	tween.tween_property(card, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(card, "modulate:a", 1.0, 0.16)
+	tween.tween_property(card, "scale", Vector2.ONE, 0.50).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(card, "rotation", 0.0, 0.50).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	Widgets.animate_number(reward, 0.0, float(era.get("reward_gems", 0)), func(value: float) -> String: return tr("GEMS_FORMAT") % int(round(value)), 1.2)
+	get_tree().create_timer(2.5).timeout.connect(func() -> void:
+		if is_instance_valid(confirm):
+			confirm.visible = true
+	)
+
+func _add_era_confetti(overlay: Control) -> void:
+	var texture := AssetCatalog.texture("fx_confetti_set")
+	if texture == null:
+		return
+	for index: int in range(2):
+		var view := TextureRect.new()
+		view.name = "EraConfetti"
+		view.texture = texture
+		view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		view.size = Vector2(430, 430)
+		view.position = Vector2(-110 if index == 0 else 484, 230 if index == 0 else 1010)
+		view.pivot_offset = view.size * 0.5
+		view.rotation = -0.22 if index == 0 else 0.28
+		view.scale = Vector2.ONE * 0.35
+		view.modulate.a = 0.0
+		overlay.add_child(view)
+		var tween := view.create_tween().set_parallel(true)
+		tween.tween_property(view, "scale", Vector2.ONE, 0.72).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(float(index) * 0.20)
+		tween.tween_property(view, "modulate:a", 0.92, 0.18).set_delay(float(index) * 0.20)
+
+func _complete_era_overlay(overlay: CanvasItem, era_id: int) -> void:
+	Game.mark_era_presented(era_id)
+	_era_overlay_open = false
+	_dismiss_full_overlay(overlay)
+	get_tree().create_timer(0.24).timeout.connect(func() -> void: call_deferred("_present_next_era_overlay"))
 
 func _page_box() -> VBoxContainer:
 	var box := VBoxContainer.new()
@@ -2439,7 +2820,14 @@ func _wrap_scroll(content: Control) -> Control:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
-	surface.add_child(scroll)
+	var margin := MarginContainer.new()
+	margin.name = "SystemSurfaceMargin"
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 22)
+	margin.add_child(scroll)
+	surface.add_child(margin)
 	return surface
 
 func _system_page_header(title_text: String, subtitle: String, asset_id: String) -> Control:
@@ -2534,9 +2922,15 @@ func _status_card(asset_id: String, text: String, accent: Color) -> Control:
 func _settings_toggle_row(setting_key: String, label_key: String) -> Control:
 	var card := Widgets.panel(true)
 	card.custom_minimum_size.y = 100
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	card.add_child(margin)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
-	card.add_child(row)
+	margin.add_child(row)
 	var title := _label(tr(label_key), 28, ThemeMaker.COLORS.cream)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

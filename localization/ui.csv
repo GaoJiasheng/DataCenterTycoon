@@ -50,6 +50,18 @@ CLAIM,Claim,领取
 WATCH_AD,Watch rewarded video,观看激励视频
 FREE_NOADS,Included with No Ads,去广告权益免费领取
 RESTORE_PURCHASES,Restore purchases,恢复购买
+STORE_WALLET_HINT,Spend gems on time-saving boosts and special packs,钻石可用于加速与购买特别礼包
+STORE_SECTION_DEALS,Limited deals,限时特惠
+STORE_SECTION_DEALS_HINT,One-time bundles for major milestones,关键阶段的一次性组合包
+STORE_SECTION_GEMS,Gem vault,钻石商店
+STORE_SECTION_GEMS_HINT,More gems per dollar in larger packs,大档位可获得更多加送钻石
+STORE_SECTION_PERKS,Permanent perks,永久权益
+STORE_SECTION_PERKS_HINT,Account-wide upgrades that never expire,永久生效的账户级权益
+STORE_DEALS_LATER,More deals unlock at future milestones,更多特惠将在后续里程碑解锁
+STORE_BEST_VALUE,Best value,最划算
+STORE_BONUS_PCT,+%d%% bonus,+%d%% 加送
+STORE_PACK_CONTENTS,%d Gems · $%s cash · %d tickets,%d 钻石 · $%s 现金 · %d 张完工券
+STORE_OWNED,Owned,已拥有
 NOT_ENOUGH_CASH,Not enough cash,现金不足
 NOT_ENOUGH_GEMS,Not enough gems,钻石不足
 LOCKED,Locked,未解锁
@@ -115,8 +127,12 @@ STAT_SURVIVAL,Company age,公司存续时间
 TOTAL_REVENUE,Total revenue,累计收入
 BANKRUPTCY_WARNING,Cash-flow emergency,现金流告急
 BANKRUPTCY_BODY,Pay the outstanding maintenance within %s or the company will fail.,请在 %s 内付清维护欠款，否则公司将破产。
+ARREARS_BANNER,Maintenance debt $%s,维护欠款 $%s
+ARREARS_TIME_LEFT,Rescue window %s,抢救时间 %s
 GAME_OVER,Company Bankrupt,公司破产
 NEW_COMPANY,Start a new company,重新创业
+GAME_OVER_RESTART,Start over,重新创业
+GAME_OVER_BUILT,Data centers built,累计建成机房
 ARREARS_RESCUE,Claim emergency funds,领取救急金
 OFFLINE_TITLE,Welcome back,欢迎回来
 OFFLINE_EARNED,Your data centers earned $%s while you were away.,离线期间机房赚取了 $%s。
@@ -127,6 +143,12 @@ SETTINGS_SFX,Sound effects,音效
 SETTINGS_HAPTICS,Haptics,触感反馈
 SETTINGS_RESET,Start new company,重开公司
 SETTINGS_RESET_WARNING,This resets the current run. Purchases premium currency achievements and permanent prestige bonuses are kept.,这会重置本局；购买记录、付费货币、成就与永久转生加成会保留。
+SETTINGS_LEGAL,Legal and support,法律与支持
+SETTINGS_LEGAL_HINT,Policies support and build information,政策、客服与版本信息
+SETTINGS_PRIVACY,Privacy policy,隐私政策
+SETTINGS_TERMS,Terms of service,服务条款
+SETTINGS_SUPPORT,Customer support,客服邮箱
+SETTINGS_VERSION,Version %s,版本 %s
 LANGUAGE_ENGLISH,English,English
 LANGUAGE_CHINESE,简体中文,简体中文
 BUILDING_T0,Container Data Center,集装箱机房
@@ -153,6 +175,10 @@ CUSTOMER_GPU,AI Company,AI 公司
 ERA_1,Colocation Era,托管时代
 ERA_2,Cloud Era,云计算时代
 ERA_3,AI Era,AI 时代
+ERA_NEWSPAPER_MASTHEAD,DATA CENTER DAILY · SPECIAL EDITION,机房日报 · 时代特刊
+ERA_ARRIVAL,%s Has Arrived!,%s 来临！
+ERA_UNLOCK_SUMMARY,New infrastructure unlocked,全新基础设施已解锁
+ERA_ENTER,Enter the new era,进入新时代
 NETWORK_L1,10G Access,10G 接入
 NETWORK_L2,100G Access,100G 接入
 NETWORK_L3,Dedicated Line,专线接入

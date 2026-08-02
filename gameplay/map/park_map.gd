@@ -176,6 +176,16 @@ func celebrate_target(target_id: String) -> void:
 	tween.tween_property(target, "scale", Vector2(1.04, 1.08), 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(target, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
+func blackout_sequence() -> void:
+	var index := 0
+	for target: Variant in target_buttons.values():
+		if target is Control and is_instance_valid(target):
+			var control := target as Control
+			var tween := control.create_tween()
+			tween.tween_interval(float(index) * 0.15)
+			tween.tween_property(control, "modulate", Color(0.14, 0.18, 0.24, 0.42), 0.34).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			index += 1
+
 func _add_decorations(rows: int) -> void:
 	# The grass is deliberately direction-neutral. Until the art kit contains a
 	# true isometric road set, a rotated top-down road would introduce a second,

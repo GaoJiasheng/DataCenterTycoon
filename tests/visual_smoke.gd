@@ -152,6 +152,20 @@ func _ready() -> void:
 		if page == "tech":
 			main.call("_set_tech_section", "achievements")
 			valid = (await _capture(main, "achievements")) and valid
+	main.call("_show_offline_dialog", {"elapsed_seconds": 14400.0, "income": 12840.0, "completed": [{"id": "job"}], "faults": [{"id": "fault"}], "events": [{"id": "event"}], "aging": [{"id": "aged"}], "contracts": []})
+	valid = (await _capture(main, "offline_reward", false)) and valid
+	var offline_overlay := main.find_child("OfflineOverlay", true, false)
+	if offline_overlay != null:
+		offline_overlay.queue_free()
+		await get_tree().process_frame
+	Game.state["bankruptcy"] = {"status": "arrears", "debt": 4250.0, "arrears_online_seconds": 3600.0, "rescue_uses": 0, "rescue_day": -1}
+	Game.state["player"]["cash"] = 0.0
+	main.call("_on_bankruptcy_state_changed", "arrears")
+	await get_tree().create_timer(0.40).timeout
+	valid = (await _capture(main, "arrears", false)) and valid
+	Game.state["bankruptcy"] = {"status": "normal", "debt": 0.0, "arrears_online_seconds": 0.0, "rescue_uses": 0, "rescue_day": -1}
+	main.call("_on_bankruptcy_state_changed", "normal")
+	await get_tree().process_frame
 	main.call("_show_era_overlay", 2, DataRepository.get_entry("eras", "2"))
 	valid = (await _capture(main, "era_unlock")) and valid
 	var era_overlay := main.find_child("EraOverlay", true, false)
@@ -159,7 +173,8 @@ func _ready() -> void:
 		era_overlay.queue_free()
 		await get_tree().process_frame
 	main.call("_on_bankruptcy_state_changed", "game_over")
-	valid = (await _capture(main, "game_over")) and valid
+	await get_tree().create_timer(1.25).timeout
+	valid = (await _capture(main, "game_over", false)) and valid
 	var game_over_sheet := main.find_child("ActionSheetOverlay", true, false)
 	if game_over_sheet != null:
 		game_over_sheet.queue_free()
@@ -168,7 +183,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 28 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
+	print("VISUAL_SMOKE: %s 30 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
 	get_tree().quit(0 if valid else 1)
 
 func _fill_market_history(point_count: int) -> void:
@@ -339,6 +354,37 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		var sheet := main.find_child("ActionSheetOverlay", true, false)
 		if sheet == null:
 			push_error("VISUAL_SMOKE: contract comparison sheet did not open")
+			valid = false
+	if state_name == "store":
+		for section_id: String in ["deals", "gems", "perks"]:
+			if main.find_child("StoreSection_%s" % section_id, true, false) == null:
+				push_error("VISUAL_SMOKE: store lacks %s merchandising section" % section_id)
+				valid = false
+		if main.find_child("StoreCompliance", true, false) == null:
+			push_error("VISUAL_SMOKE: store lacks purchase/legal footer")
+			valid = false
+	if state_name == "settings":
+		if main.find_child("SettingsCompliance", true, false) == null or main.find_child("SettingsVersion", true, false) == null:
+			push_error("VISUAL_SMOKE: settings lacks legal/support/version rows")
+			valid = false
+	if state_name == "offline_reward":
+		if main.find_child("OfflineRewardCard", true, false) == null or main.find_child("OfflineCoinPile", true, false) == null or main.find_child("OfflineDoubleButton", true, false) == null:
+			push_error("VISUAL_SMOKE: offline reward lacks animated earnings art or primary ×2 placement")
+			valid = false
+	if state_name == "arrears":
+		var crisis_nodes := [main.find_child("ArrearsBanner", true, false), main.find_child("ArrearsVignette", true, false), main.find_child("ArrearsProgress", true, false), main.find_child("ArrearsRescueButton", true, false)]
+		if crisis_nodes.any(func(node: Variant) -> bool: return node == null):
+			push_error("VISUAL_SMOKE: arrears state lacks its persistent crisis HUD nodes=%s" % str(crisis_nodes))
+			valid = false
+	if state_name == "era_unlock":
+		var unlock_summary := main.find_child("EraUnlockSummary", true, false)
+		if main.find_child("EraNewspaper", true, false) == null or unlock_summary == null or unlock_summary.get_child_count() < 3 or main.find_child("EraRewardValue", true, false) == null:
+			push_error("VISUAL_SMOKE: era celebration lacks the newspaper unlock summary or reward counter")
+			valid = false
+	if state_name == "game_over":
+		var stat_count := main.find_children("GameOverStat_*", "", true, false).size()
+		if main.find_child("GameOverStatsCard", true, false) == null or stat_count != 4 or main.find_child("GameOverRestart", true, false) == null:
+			push_error("VISUAL_SMOKE: game over lacks the four-stat blackout presentation stats=%d card=%s restart=%s" % [stat_count, str(main.find_child("GameOverStatsCard", true, false)), str(main.find_child("GameOverRestart", true, false))])
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	return valid
