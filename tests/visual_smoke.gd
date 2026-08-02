@@ -10,7 +10,7 @@ func _ready() -> void:
 	capture_locale = _requested_locale()
 	TranslationServer.set_locale(capture_locale)
 	output_root = "%s%s_" % [OUTPUT_ROOT_PREFIX, capture_locale]
-	DisplayServer.window_set_size(Vector2i(402, 874))
+	DisplayServer.window_set_size(Vector2i(440, 956))
 	Game.reset_for_tests()
 	Game.last_offline_report = {}
 	var main := MAIN_SCENE.instantiate()
@@ -220,9 +220,13 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	await get_tree().create_timer(0.24).timeout
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
-	var valid := not image.is_empty() and image.get_width() >= 402 and image.get_height() >= 874 and _layout_is_safe(main, name)
+	# macOS may report the drawable one physical pixel narrower than the requested
+	# client area. Keep a 2px platform tolerance, but always execute layout gates.
+	var image_valid := not image.is_empty() and image.get_width() >= 438 and image.get_height() >= 954
+	var layout_valid := _layout_is_safe(main, name)
+	var valid := image_valid and layout_valid
 	var output_path := "%s%s.png" % [output_root, name]
-	var save_error := image.save_png(output_path) if valid else ERR_CANT_CREATE
+	var save_error := image.save_png(output_path) if not image.is_empty() else ERR_CANT_CREATE
 	if not valid or save_error != OK:
 		push_error("VISUAL_SMOKE: %s failed size=%dx%d save_error=%d" % [name, image.get_width(), image.get_height(), save_error])
 	else:
@@ -401,6 +405,109 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: game over lacks the four-stat blackout presentation stats=%d card=%s restart=%s" % [stat_count, str(main.find_child("GameOverStatsCard", true, false)), str(main.find_child("GameOverRestart", true, false))])
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
+	valid = _text_is_within_clipping_ancestors(main, state_name) and valid
+	valid = _sibling_labels_do_not_overlap(main, state_name) and valid
+	valid = _panel_content_is_not_compressed(main, state_name) and valid
+	valid = _button_text_contrast_is_safe(main, state_name) and valid
+	return valid
+
+func _text_is_within_clipping_ancestors(main: Node, state_name: String) -> bool:
+	var valid := true
+	var viewport_rect := get_viewport().get_visible_rect()
+	var text_controls: Array[Control] = []
+	for node: Node in main.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label != null and label.is_visible_in_tree() and not label.text.is_empty():
+			text_controls.append(label)
+	for node: Node in main.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.is_visible_in_tree() and not button.text.is_empty():
+			text_controls.append(button)
+	for control: Control in text_controls:
+		var rect := control.get_global_rect()
+		if not viewport_rect.intersects(rect):
+			continue
+		var scroll_ancestor := control.get_parent()
+		var page_scroll_rect := Rect2()
+		while scroll_ancestor is Control:
+			if scroll_ancestor is ScrollContainer and scroll_ancestor.name == "PageScroll":
+				page_scroll_rect = (scroll_ancestor as Control).get_global_rect()
+				break
+			scroll_ancestor = scroll_ancestor.get_parent()
+		var horizontally_inside_page_scroll: bool = page_scroll_rect.has_area() and rect.position.x >= page_scroll_rect.position.x - 1.0 and rect.end.x <= page_scroll_rect.end.x + 1.0
+		var intentionally_scrolled_vertically: bool = horizontally_inside_page_scroll and (rect.position.y < page_scroll_rect.position.y or rect.end.y > page_scroll_rect.end.y)
+		if intentionally_scrolled_vertically:
+			continue
+		var ancestor := control.get_parent()
+		while ancestor is Control:
+			var clipping_control := ancestor as Control
+			if clipping_control.clip_contents:
+				var clip_rect := clipping_control.get_global_rect()
+				# A scroll view may legitimately keep whole rows outside its window.
+				# A row whose centre is visible, however, must never lose text at an edge.
+				if clip_rect.has_point(rect.get_center()) and not clip_rect.grow(1.0).encloses(rect):
+					push_error("VISUAL_SMOKE: %s clipped text %s in %s rect=%s clip=%s" % [state_name, control.name, clipping_control.name, rect, clip_rect])
+					valid = false
+			ancestor = ancestor.get_parent()
+	return valid
+
+func _sibling_labels_do_not_overlap(main: Node, state_name: String) -> bool:
+	var valid := true
+	var labels_by_parent: Dictionary = {}
+	var viewport_rect := get_viewport().get_visible_rect()
+	for node: Node in main.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label == null or not label.is_visible_in_tree() or label.text.is_empty():
+			continue
+		var rect := label.get_global_rect()
+		if not viewport_rect.intersects(rect):
+			continue
+		var parent_id := label.get_parent().get_instance_id()
+		if not labels_by_parent.has(parent_id):
+			labels_by_parent[parent_id] = []
+		(labels_by_parent[parent_id] as Array).append(label)
+	for siblings: Array in labels_by_parent.values():
+		for left_index: int in range(siblings.size()):
+			var left := siblings[left_index] as Label
+			var left_rect := left.get_global_rect().grow(-2.0)
+			for right_index: int in range(left_index + 1, siblings.size()):
+				var right := siblings[right_index] as Label
+				var right_rect := right.get_global_rect().grow(-2.0)
+				if left_rect.has_area() and right_rect.has_area() and left_rect.intersects(right_rect):
+					push_error("VISUAL_SMOKE: %s sibling labels overlap %s/%s rects=%s/%s" % [state_name, left.name, right.name, left_rect, right_rect])
+					valid = false
+	return valid
+
+func _panel_content_is_not_compressed(main: Node, state_name: String) -> bool:
+	var valid := true
+	var viewport_rect := get_viewport().get_visible_rect()
+	for node: Node in main.find_children("*", "PanelContainer", true, false):
+		var panel := node as PanelContainer
+		if panel == null or not panel.is_visible_in_tree() or not viewport_rect.intersects(panel.get_global_rect()):
+			continue
+		for child: Node in panel.get_children():
+			var content := child as Control
+			if content == null or not content.visible:
+				continue
+			var minimum := content.get_combined_minimum_size()
+			if minimum.x > panel.size.x + 1.0 or minimum.y > panel.size.y + 1.0:
+				push_error("VISUAL_SMOKE: %s compressed panel content %s/%s panel=%s minimum=%s" % [state_name, panel.name, content.name, panel.size, minimum])
+				valid = false
+	return valid
+
+func _button_text_contrast_is_safe(main: Node, state_name: String) -> bool:
+	var valid := true
+	for node: Node in main.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button == null or not button.is_visible_in_tree() or button.text.is_empty():
+			continue
+		var font_color := button.get_theme_color("font_color")
+		var is_legal_color := font_color.is_equal_approx(Color.WHITE) or font_color.is_equal_approx(ThemeFactory.COLORS.cream)
+		var outline_size := button.get_theme_constant("outline_size")
+		var outline_color := button.get_theme_color("font_outline_color")
+		if not is_legal_color or outline_size < 4 or not outline_color.is_equal_approx(ThemeFactory.COLORS.ink):
+			push_error("VISUAL_SMOKE: %s illegal button text contrast %s color=%s outline=%d/%s" % [state_name, button.name, font_color, outline_size, outline_color])
+			valid = false
 	return valid
 
 func _typography_and_touch_are_safe(main: Node, state_name: String) -> bool:

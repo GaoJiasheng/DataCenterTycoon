@@ -901,7 +901,6 @@ func _market_legend_button(chart: MarketChart, customer_id: String, customer: Di
 	var control := _button("●  %s" % tr(customer.get("name_key", "")), Callable(), color.darkened(0.34))
 	control.name = "Legend_%s" % customer_id
 	control.custom_minimum_size.y = 88
-	control.add_theme_color_override("font_color", color.lightened(0.22))
 	control.pressed.connect(func() -> void:
 		chart.toggle_series(customer_id)
 		var visible := bool(chart.visible_series.get(customer_id, true))
@@ -977,7 +976,7 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 			route.add_child(connector)
 		var node := PanelContainer.new()
 		node.name = "EraNode_%d" % node_era
-		node.custom_minimum_size = Vector2(196, 172)
+		node.custom_minimum_size = Vector2(168, 172)
 		node.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("17314b") if node_era == era_id else Color("102236"), ThemeMaker.COLORS.yellow if node_era == era_id else Color(1, 1, 1, 0.12), 3 if node_era == era_id else 1, 20))
 		route.add_child(node)
 		var node_box := VBoxContainer.new()
@@ -1013,7 +1012,7 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 	for index: int in range(mini(4, unlocks.size())):
 		var item: Dictionary = unlocks[index]
 		var chip := PanelContainer.new()
-		chip.custom_minimum_size = Vector2(150, 108)
+		chip.custom_minimum_size = Vector2(138, 108)
 		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		chip.add_theme_stylebox_override("panel", ThemeMaker.panel(Color(0, 0, 0, 0.22), Color.TRANSPARENT, 0, 16))
 		var chip_box := VBoxContainer.new()
@@ -1146,6 +1145,10 @@ func _build_store_page() -> Control:
 		sections[section_id].append(product_id)
 	for section_id: String in ["deals", "gems", "perks"]:
 		var title_key: String = {"deals": "STORE_SECTION_DEALS", "gems": "STORE_SECTION_GEMS", "perks": "STORE_SECTION_PERKS"}[section_id]
+		var section_space := Control.new()
+		section_space.custom_minimum_size.y = 24
+		section_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(section_space)
 		var section_header := _section_title(tr(title_key), tr("STORE_SECTION_%s_HINT" % section_id.to_upper()))
 		section_header.name = "StoreSection_%s" % section_id
 		box.add_child(section_header)
@@ -1870,15 +1873,11 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	add_child(overlay)
 	call_deferred("_refresh_tutorial")
 
-	var body_height := 0
-	if not body.is_empty():
-		body_height = mini(360, 64 + (body.count("\n") + 1) * 42)
-	var sheet_height := mini(1180, 300 + choices.size() * 104 + body_height)
 	var sheet := PanelContainer.new()
 	sheet.name = "ContextSheet"
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.offset_left = 32
-	sheet.offset_top = -sheet_height
+	sheet.offset_top = -get_viewport_rect().size.y * 0.88 - 24.0
 	sheet.offset_right = -32
 	sheet.offset_bottom = -24
 	sheet.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
@@ -1953,6 +1952,21 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 		var cancel_button := _button(tr("CANCEL"), _dismiss_action_sheet.bind(overlay), Color("263d59"))
 		cancel_button.custom_minimum_size.y = 92
 		sheet_box.add_child(cancel_button)
+
+	# Let content determine the sheet height. The choices consume their natural
+	# height until the 88% viewport cap; only then does this inner list scroll.
+	var max_sheet_height := get_viewport_rect().size.y * 0.88
+	var natural_choices_height := choice_box.get_combined_minimum_size().y
+	var fixed_content_height := float(sheet_box.get_theme_constant("separation")) * float(maxi(0, sheet_box.get_child_count() - 1))
+	for child: Node in sheet_box.get_children():
+		if child is Control and child != scroll:
+			fixed_content_height += (child as Control).get_combined_minimum_size().y
+	var sheet_style := sheet.get_theme_stylebox("panel")
+	var frame_insets := sheet_style.get_content_margin(SIDE_TOP) + sheet_style.get_content_margin(SIDE_BOTTOM)
+	var available_choices_height := maxf(ThemeMaker.TOUCH_MIN, max_sheet_height - fixed_content_height - frame_insets)
+	scroll.custom_minimum_size.y = minf(natural_choices_height, available_choices_height)
+	var desired_sheet_height := minf(max_sheet_height, fixed_content_height + scroll.custom_minimum_size.y + frame_insets)
+	sheet.offset_top = sheet.offset_bottom - desired_sheet_height
 
 	sheet.modulate.a = 0.0
 	sheet.position.y += 64
@@ -2819,9 +2833,12 @@ func _wrap_scroll(content: Control) -> Control:
 	scroll.add_child(content)
 	var margin := MarginContainer.new()
 	margin.name = "SystemSurfaceMargin"
-	margin.add_theme_constant_override("margin_left", 24)
+	# The illustrated page frame already owns its 38u content inset. A second
+	# horizontal margin was shrinking the usable width and forcing wide cards
+	# beyond PageHost's clipping edge.
+	margin.add_theme_constant_override("margin_left", 0)
 	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_right", 0)
 	margin.add_theme_constant_override("margin_bottom", 22)
 	margin.add_child(scroll)
 	surface.add_child(margin)

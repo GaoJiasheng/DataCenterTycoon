@@ -55,7 +55,7 @@ static func create() -> Theme:
 	result.set_color("font_color", "Button", Color.WHITE)
 	result.set_color("font_disabled_color", "Button", Color("9aa9ba"))
 	result.set_font_size("font_size", "Button", 24)
-	result.set_constant("outline_size", "Button", 2)
+	result.set_constant("outline_size", "Button", 4)
 	result.set_color("font_outline_color", "Button", COLORS.ink)
 	result.set_stylebox("normal", "LineEdit", panel(Color("fff6e8"), COLORS.sky, 2, 14))
 	result.set_color("font_color", "LineEdit", COLORS.navy)
@@ -231,7 +231,7 @@ static func apply_button_role(button: Button, role: String) -> void:
 	button.add_theme_color_override("font_color", Color.WHITE)
 	button.add_theme_color_override("font_disabled_color", Color("9aa9ba"))
 	button.add_theme_color_override("font_outline_color", COLORS.ink)
-	button.add_theme_constant_override("outline_size", 2)
+	button.add_theme_constant_override("outline_size", 4)
 
 static func button_role_for_color(color: Color) -> String:
 	if color.r > 0.78 and color.g < 0.45:
