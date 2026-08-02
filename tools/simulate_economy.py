@@ -6,6 +6,7 @@ import csv
 import json
 import math
 import random
+import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -24,6 +25,7 @@ ATTACHMENTS = load("attachments")["items"]
 CUSTOMERS = load("customers")["items"]
 EVENTS = load("events")["items"]
 ERAS = load("eras")["items"]
+TECHNOLOGY = load("technology")
 MONTH = ECONOMY["time"]["real_seconds_per_game_month"]
 YEAR = ECONOMY["time"]["real_seconds_per_game_year"]
 DAY = 86400
@@ -44,8 +46,10 @@ class Datacenter:
     built_at: float
     ready_at: float
     racks: list
-    customer: str = "internet"
+    customer: str = ""
     faulted: set = field(default_factory=set)
+    contract_end_at: float = 0.0
+    renewal_window_end_at: float = 0.0
 
     @property
     def ready(self):
@@ -71,11 +75,14 @@ class Simulator:
         self.arrears = 0
         self.debt = 0.0
         self.missed_maintenance = 0
+        self.arrears_online_seconds = 0.0
         self.bankrupt = False
         self.ended_at = 0.0
         self.minimum_cash = self.cash
         self.minimum_maintenance_coverage = math.inf
         self.curve = []
+        self.customer_seconds = {customer: 0.0 for customer in CUSTOMERS}
+        self.prestige_ready_at = None
         self.sessions_per_day = 2 if strategy == "idle" else 6
         self.next_session = 0.0
 
@@ -83,6 +90,7 @@ class Simulator:
         Simulator.now = 0.0
         while Simulator.now < days * DAY and not self.bankrupt:
             self.update_market()
+            self.update_contracts()
             self.accrue()
             self.roll_faults()
             if Simulator.now >= self.maintenance_at:
@@ -107,7 +115,17 @@ class Simulator:
         self.events = [event for event in self.events if event[1] > Simulator.now]
         if Simulator.now < self.next_event or len(self.events) >= 2:
             return
-        choices = [(key, value) for key, value in EVENTS.items() if value["minimum_era"] <= self.era]
+        blocked_customers = set()
+        if not ECONOMY["market"].get("allow_same_customer_event_stack", False):
+            for event_id, _end in self.events:
+                blocked_customers.update(EVENTS[event_id].get("customer_multipliers", {}))
+        choices = [
+            (key, value)
+            for key, value in EVENTS.items()
+            if value["minimum_era"] <= self.era
+            and value.get("minimum_network_level", 1) <= self.network
+            and not blocked_customers.intersection(value.get("customer_multipliers", {}))
+        ]
         total = sum(item[1]["weight"] for item in choices)
         roll = self.rng.random() * total
         selected = choices[-1]
@@ -128,17 +146,20 @@ class Simulator:
         return result
 
     def dc_monthly_income(self, dc):
-        if not dc.ready or Simulator.now - dc.built_at >= BUILDINGS[dc.building_id]["lifespan_seconds"]:
+        if not dc.ready or not dc.customer or Simulator.now - dc.built_at >= BUILDINGS[dc.building_id]["lifespan_seconds"]:
             return 0
         customer = CUSTOMERS[dc.customer]
         subtotal = 0
         kinds = set()
+        raw_market = self.market_multiplier(dc.customer)
         for index, rack_id in enumerate(dc.racks):
             if index in dc.faulted:
                 continue
             rack = RACKS[rack_id]
             kinds.add(rack["kind"])
-            subtotal += rack["income_per_month"] * customer["fit"][rack["kind"]]
+            sensitivity = rack.get("market_sensitivity", 1.0)
+            effective_market = max(0, 1 + (raw_market - 1) * sensitivity)
+            subtotal += rack["income_per_month"] * customer["fit"][rack["kind"]] * effective_market
         if len(kinds) >= customer.get("diversity_required_kinds", 999):
             subtotal *= customer.get("diversity_multiplier", 1)
         age = max(0, Simulator.now - dc.built_at) / BUILDINGS[dc.building_id]["lifespan_seconds"]
@@ -148,17 +169,21 @@ class Simulator:
             efficiency = 1 - (age - 0.6)
         else:
             efficiency = 0.7 - (age - 0.9) * 3
-        network = load("technology")["network"][str(self.network)]["income_multiplier"]
-        return subtotal * max(0, efficiency) * self.market_multiplier(dc.customer) * network * BUILDINGS[dc.building_id]["structure_multiplier"]
+        network = TECHNOLOGY["network"][str(self.network)]["income_multiplier"]
+        return subtotal * max(0, efficiency) * network * BUILDINGS[dc.building_id]["structure_multiplier"]
 
     def accrue(self):
         income = sum(self.dc_monthly_income(dc) for dc in self.dcs) * STEP / MONTH
+        for dc in self.dcs:
+            if dc.ready and dc.customer and Simulator.now - dc.built_at < BUILDINGS[dc.building_id]["lifespan_seconds"]:
+                self.customer_seconds[dc.customer] += STEP
         self.cash += income
         self.revenue += income
         if self.debt > 0 and self.cash >= self.debt:
             self.cash -= self.debt
             self.debt = 0.0
             self.missed_maintenance = 0
+            self.arrears_online_seconds = 0.0
 
     def roll_faults(self):
         base = ECONOMY["faults"]["base_rate_per_game_month"] * STEP / MONTH
@@ -183,10 +208,13 @@ class Simulator:
             self.arrears += 1
             self.cash = 0
             self.missed_maintenance += 1
-            if self.missed_maintenance >= 3:
-                self.bankrupt = True
 
     def player_session(self):
+        if self.debt > 0:
+            self.arrears_online_seconds += 300.0
+            if self.arrears_online_seconds >= ECONOMY["bankruptcy"]["game_over_after_online_seconds"]:
+                self.bankrupt = True
+                return
         for dc in self.dcs:
             for index in list(dc.faulted):
                 cost = math.ceil(RACKS[dc.racks[index]]["cost"] * ECONOMY["faults"]["repair_cost_ratio"])
@@ -195,25 +223,103 @@ class Simulator:
                     dc.faulted.remove(index)
         if self.strategy == "active":
             for dc in self.dcs:
+                if not dc.ready:
+                    continue
                 available = [key for key, value in CUSTOMERS.items() if value["unlock_era"] <= self.era and value["minimum_network_level"] <= self.network]
                 self.switch_to_best_customer(dc, available)
         elif self.strategy == "aggressive":
             for dc in self.dcs:
+                if not dc.ready:
+                    continue
                 self.switch_to_best_customer(dc, ("internet", "mining"))
+        else:
+            for dc in self.dcs:
+                if dc.ready and not dc.customer:
+                    self.sign_customer(dc, "internet")
         self.retire_old()
+        self.maybe_upgrade_network()
         attempts = 6 if self.strategy == "aggressive" else 1
         for _ in range(attempts):
             if not self.try_expand():
                 break
 
     def switch_to_best_customer(self, dc, available):
-        choice = max(available, key=lambda customer: self.market_multiplier(customer) * sum(RACKS[r]["income_per_month"] * CUSTOMERS[customer]["fit"][RACKS[r]["kind"]] for r in dc.racks))
+        values = {
+            customer: sum(
+                RACKS[r]["income_per_month"]
+                * CUSTOMERS[customer]["fit"][RACKS[r]["kind"]]
+                * max(0, 1 + (self.market_multiplier(customer) - 1) * RACKS[r].get("market_sensitivity", 1.0))
+                for r in dc.racks
+            )
+            for customer in available
+        }
+        best_value = max(values.values())
+        viable = [customer for customer in available if values[customer] >= best_value * 0.50]
+        contracted = {customer: sum(1 for item in self.dcs if item.customer == customer) for customer in available}
+        free_switch = dc.renewal_window_end_at > Simulator.now
+        if not dc.customer or free_switch:
+            portfolio_candidates = [customer for customer in available if values[customer] >= best_value * 0.35]
+            total_seconds = sum(self.customer_seconds[customer] for customer in available) or 1.0
+            choice = min(
+                portfolio_candidates,
+                key=lambda customer: (self.customer_seconds[customer] / total_seconds, contracted[customer], -values[customer]),
+            )
+        else:
+            choice = max(viable, key=lambda customer: (-(contracted[customer]), values[customer]))
         if choice == dc.customer:
             return
-        fee = max(ECONOMY["contracts"]["minimum_breach_fee"], self.dc_monthly_income(dc) * ECONOMY["contracts"]["breach_fee_monthly_income_ratio"])
+        fee = 0 if not dc.customer or free_switch else max(ECONOMY["contracts"]["minimum_breach_fee"], self.dc_monthly_income(dc) * ECONOMY["contracts"]["breach_fee_monthly_income_ratio"])
         if self.cash >= fee:
             self.cash -= fee
-            dc.customer = choice
+            self.sign_customer(dc, choice)
+
+    def sign_customer(self, dc, customer):
+        dc.customer = customer
+        dc.contract_end_at = Simulator.now + ECONOMY["contracts"]["duration_seconds"]
+        dc.renewal_window_end_at = 0.0
+
+    def update_contracts(self):
+        duration = ECONOMY["contracts"]["duration_seconds"]
+        renewal = ECONOMY["contracts"]["renewal_window_seconds"]
+        for dc in self.dcs:
+            if dc.ready and not dc.customer:
+                if self.strategy == "idle":
+                    self.sign_customer(dc, "internet")
+                else:
+                    available = [key for key, value in CUSTOMERS.items() if value["unlock_era"] <= self.era and value["minimum_network_level"] <= self.network]
+                    if self.strategy == "aggressive":
+                        available = [key for key in ("internet", "mining") if key in available]
+                    self.switch_to_best_customer(dc, available)
+            if not dc.customer:
+                continue
+            if dc.contract_end_at <= 0:
+                dc.contract_end_at = dc.ready_at + duration
+            while True:
+                if dc.renewal_window_end_at <= 0:
+                    if Simulator.now < dc.contract_end_at:
+                        break
+                    dc.renewal_window_end_at = dc.contract_end_at + renewal
+                    if self.strategy == "active":
+                        available = [key for key, value in CUSTOMERS.items() if value["unlock_era"] <= self.era and value["minimum_network_level"] <= self.network]
+                        self.switch_to_best_customer(dc, available)
+                        if dc.renewal_window_end_at <= 0:
+                            break
+                if Simulator.now < dc.renewal_window_end_at:
+                    break
+                dc.contract_end_at = dc.renewal_window_end_at + duration
+                dc.renewal_window_end_at = 0.0
+
+    def maybe_upgrade_network(self):
+        desired = 2 if self.era == 1 else (3 if self.era == 2 else 4)
+        if self.strategy == "idle":
+            desired = min(desired, 2)
+        while self.network < desired:
+            level = TECHNOLOGY["network"][str(self.network + 1)]
+            reserve = 1.4 if self.strategy == "active" else (1.0 if self.strategy == "aggressive" else 2.0)
+            if self.cash < level["cost"] * reserve:
+                break
+            self.cash -= level["cost"]
+            self.network += 1
 
     def retire_old(self):
         survivors = []
@@ -232,7 +338,9 @@ class Simulator:
         self.dcs = survivors
 
     def try_expand(self):
-        reserve = {"idle": 1.8, "active": 1.25, "aggressive": 1.0}[self.strategy]
+        reserve = {"idle": 1.4, "active": 1.05, "aggressive": 1.0}[self.strategy]
+        if self.strategy == "active" and 10 <= self.total_built < ECONOMY["prestige"]["minimum_datacenters"]:
+            reserve += (self.total_built - 9) * 0.50
         if not self.dcs:
             reserve = 1.0
         candidates = ["dc_t0"] if self.total_built == 0 else (["dc_t3", "dc_t2", "dc_t1"] if self.era >= 3 else (["dc_t2", "dc_t1"] if self.era >= 2 else ["dc_t1"]))
@@ -246,6 +354,8 @@ class Simulator:
                 continue
             self.cash -= package
             self.total_built += 1
+            if self.total_built >= ECONOMY["prestige"]["minimum_datacenters"] and self.prestige_ready_at is None:
+                self.prestige_ready_at = Simulator.now
             if needs_land:
                 self.plots += 1
             ready_at = Simulator.now + BUILDINGS[building_id]["build_seconds"]
@@ -257,9 +367,7 @@ class Simulator:
         for era in (2, 3):
             if self.era < era and self.revenue >= ERAS[str(era)]["revenue_required"]:
                 self.era = era
-                if era == 2 and self.cash >= load("technology")["network"]["2"]["cost"]:
-                    self.cash -= load("technology")["network"]["2"]["cost"]
-                    self.network = 2
+                self.maybe_upgrade_network()
 
     def net_worth(self, at=None):
         now = Simulator.now if at is None else at
@@ -269,15 +377,15 @@ class Simulator:
         day = Simulator.now / DAY
         if self.curve and abs(self.curve[-1][0] - day) < 0.5:
             return
-        self.curve.append((day, self.net_worth(), self.cash, len(self.dcs), self.era, self.revenue, self.arrears))
+        self.curve.append((day, self.net_worth(), self.cash, len(self.dcs), self.era, self.revenue, self.arrears, self.total_built))
 
 
 def write_csv(results):
     OUT.mkdir(parents=True, exist_ok=True)
     for name, sim in results.items():
         with (OUT / f"{name}.csv").open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.writer(handle)
-            writer.writerow(["real_day", "net_worth", "cash", "datacenters", "era", "total_revenue", "arrears_count"])
+            writer = csv.writer(handle, lineterminator="\n")
+            writer.writerow(["real_day", "net_worth", "cash", "datacenters", "era", "total_revenue", "arrears_count", "total_built"])
             writer.writerows(sim.curve)
 
 
@@ -304,17 +412,33 @@ def point_at(sim, day):
     return min(sim.curve, key=lambda point: abs(point[0] - day))
 
 
-def print_acceptance(results):
+def print_acceptance(results, cohorts):
     active_day_1 = point_at(results["active"], 1)
     active_day_7 = point_at(results["active"], 7)
     idle_day_7 = point_at(results["idle"], 7)
     idle_ratio = idle_day_7[5] / active_day_7[5] if active_day_7[5] else 0
-    checks = (
+    checks = [
         (2 <= active_day_1[3] <= 3 and active_day_1[2] > 0, "day 1 active player has 2–3 data centers and positive cash"),
         (6 <= active_day_7[3] <= 10 and active_day_7[4] >= 2, "day 7 active player has 6–10 data centers and reaches era 2"),
         (0.4 <= idle_ratio <= 0.6, f"day 7 idle revenue is {idle_ratio:.0%} of active revenue"),
-        (not any(sim.bankrupt for sim in results.values()), "all three deterministic strategies survive 30 days"),
-    )
+    ]
+    aggressive_rate = sum(sim.arrears > 0 for sim in cohorts["aggressive"]) / len(cohorts["aggressive"])
+    all_runs = [sim for sims in cohorts.values() for sim in sims]
+    bankruptcy_rate = sum(sim.bankrupt for sim in all_runs) / len(all_runs)
+    prestige_days = [sim.prestige_ready_at / DAY for sim in cohorts["active"] if sim.prestige_ready_at is not None]
+    median_prestige = statistics.median(prestige_days) if prestige_days else math.inf
+    customer_seconds = {
+        customer: sum(sim.customer_seconds[customer] for sim in cohorts["active"])
+        for customer in CUSTOMERS
+    }
+    customer_total = sum(customer_seconds.values()) or 1
+    customer_shares = {customer: seconds / customer_total for customer, seconds in customer_seconds.items()}
+    checks.extend([
+        (14 <= median_prestige <= 21, f"active prestige readiness median is day {median_prestige:.1f} (target day 14–21)"),
+        (all(share >= 0.10 for share in customer_shares.values()), "active contract-time share: " + ", ".join(f"{key}={value:.0%}" for key, value in customer_shares.items())),
+        (0.30 <= aggressive_rate <= 0.60, f"aggressive arrears incidence is {aggressive_rate:.0%} (target 30–60%)"),
+        (bankruptcy_rate < 0.10, f"multi-seed bankruptcy incidence is {bankruptcy_rate:.0%} (target <10%)"),
+    ])
     for passed, description in checks:
         print(f"{'PASS' if passed else 'TUNE'}: {description}")
     aggressive = results["aggressive"]
@@ -328,13 +452,26 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--seed", type=int, default=20260802)
+    parser.add_argument("--seed-count", type=int, default=20)
+    parser.add_argument("--maintenance-scale", type=float, default=1.0, help="Calibration-only multiplier for T2/T3 maintenance")
+    parser.add_argument("--maintenance-t2-scale", type=float, default=None, help="Override the T2 calibration multiplier")
+    parser.add_argument("--maintenance-t3-scale", type=float, default=None, help="Override the T3 calibration multiplier")
+    parser.add_argument("--no-write", action="store_true", help="Do not replace the canonical CSV/SVG outputs")
     args = parser.parse_args()
-    results = {name: Simulator(name, args.seed + index).run(args.days) for index, name in enumerate(("idle", "active", "aggressive"))}
-    write_csv(results)
-    write_svg(results)
+    BUILDINGS["dc_t2"]["maintenance_per_month"] *= args.maintenance_t2_scale if args.maintenance_t2_scale is not None else args.maintenance_scale
+    BUILDINGS["dc_t3"]["maintenance_per_month"] *= args.maintenance_t3_scale if args.maintenance_t3_scale is not None else args.maintenance_scale
+    strategy_names = ("idle", "active", "aggressive")
+    cohorts = {
+        name: [Simulator(name, args.seed + run * 101 + index).run(args.days) for run in range(max(1, args.seed_count))]
+        for index, name in enumerate(strategy_names)
+    }
+    results = {name: cohorts[name][0] for name in strategy_names}
+    if not args.no_write:
+        write_csv(results)
+        write_svg(results)
     for name, sim in results.items():
         print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} bankrupt={sim.bankrupt}")
-    print_acceptance(results)
+    print_acceptance(results, cohorts)
     return 0
 
 

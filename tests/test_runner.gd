@@ -1,6 +1,7 @@
 extends Node
 
 const Rules := preload("res://gameplay/game_rules.gd")
+const Market := preload("res://gameplay/market_system.gd")
 
 var passed := 0
 var failed := 0
@@ -11,6 +12,7 @@ func _ready() -> void:
 	await _run_asset_integration_tests()
 	AudioService.apply_settings({"music_enabled": false, "sfx_enabled": false})
 	_run_rule_tests()
+	_run_gameplay_optimization_tests()
 	_run_initial_state_test()
 	_run_core_loop_test()
 	_run_construction_controls_test()
@@ -29,7 +31,7 @@ func _ready() -> void:
 func _run_data_tests() -> void:
 	_expect(DataRepository.errors.is_empty(), "all JSON data files load")
 	_expect(DataRepository.validate_references().is_empty(), "cross-table references are valid")
-	_expect(DataRepository.get_table("events").get("items", {}).size() == 12, "market has twelve documented events")
+	_expect(DataRepository.get_table("events").get("items", {}).size() == 16, "market includes the four network-gated major contracts")
 	_expect(Monetization.is_product_available("noads") and Monetization.localized_price("noads", "") == "US$ 5.99", "mock StoreKit catalog exposes localized product prices")
 
 func _run_asset_integration_tests() -> void:
@@ -54,8 +56,16 @@ func _run_asset_integration_tests() -> void:
 			break
 	var button_layout_ok := plot_button != null
 	if plot_button != null:
-		button_layout_ok = plot_button.icon != null and plot_button.get_theme_constant("icon_max_width") == 150
-	_expect(button_layout_ok, "production map art renders through Godot 4.7 button layout")
+		var world_art := plot_button.find_child("WorldArt", false, false) as TextureRect
+		button_layout_ok = world_art != null and world_art.texture != null and plot_button.size == ParkMap.PLOT_SIZE and world_art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_expect(button_layout_ok, "production map art renders in the direct-touch world layout")
+	var left_top: Vector2 = park_map.call("_plot_position", 0, 4)
+	var right_top: Vector2 = park_map.call("_plot_position", 1, 4)
+	var left_bottom: Vector2 = park_map.call("_plot_position", 2, 4)
+	var right_bottom: Vector2 = park_map.call("_plot_position", 3, 4)
+	var next_sale: Vector2 = park_map.call("_sale_position", 4)
+	var campus_grid_ok := is_equal_approx(left_top.y, right_top.y) and is_equal_approx(left_bottom.y, right_bottom.y) and right_top.x - left_top.x >= ParkMap.PLOT_SIZE.x and is_equal_approx(next_sale.x, (804.0 - ParkMap.PLOT_SIZE.x) * 0.5) and next_sale.y > left_bottom.y
+	_expect(campus_grid_ok, "campus parcels share row baselines and the expansion parcel stays centered")
 	park_map.queue_free()
 	await get_tree().process_frame
 
@@ -71,6 +81,104 @@ func _run_rule_tests() -> void:
 	var future := GameClock.wall_time() + 100
 	_expect(bool(GameClock.elapsed_since(future, future).get("rollback", false)), "wall-clock rollback is rejected")
 	_expect(int(SaveManager.migrate({"save_version": 0}).get("save_version", 0)) == SaveManager.SAVE_VERSION, "legacy save migrates to current schema")
+
+func _run_gameplay_optimization_tests() -> void:
+	var market := Market.new()
+	var event_state := Game._new_state()
+	event_state["player"]["era"] = 3
+	event_state["player"]["network_level"] = 1
+	var low_network_clean := true
+	for index: int in range(300):
+		var event_id := market._pick_event(event_state, Game.data)
+		low_network_clean = low_network_clean and int(DataRepository.get_entry("events", event_id).get("minimum_network_level", 1)) <= 1
+	_expect(low_network_clean, "major market contracts never appear below their network requirement")
+	event_state["player"]["network_level"] = 4
+	var saw_major_contract := false
+	for index: int in range(300):
+		var event_id := market._pick_event(event_state, Game.data)
+		if int(DataRepository.get_entry("events", event_id).get("minimum_network_level", 1)) >= 3:
+			saw_major_contract = true
+	_expect(saw_major_contract, "high-level networks unlock major market contracts")
+
+	var storage_dc := _test_datacenter("dc_market_storage", "dc_t1")
+	storage_dc["customer_id"] = "internet"
+	storage_dc["power_unit"] = "power_t1"
+	storage_dc["racks"][4] = {"rack_id": "rack_storage_t1", "status": "active", "enabled": true}
+	var storage_state := Game._new_state()
+	storage_state["plots"][0]["datacenter"] = storage_dc
+	storage_state["plots"][0]["status"] = "operational"
+	var storage_downturn := Rules.datacenter_income_per_month(storage_dc, storage_state, Game.data, func(_customer_id: String) -> float: return 0.5)
+	_expect(is_equal_approx(storage_downturn, 36.125), "storage racks absorb downturns with thirty-percent market sensitivity")
+	var gpu_dc := _test_datacenter("dc_market_gpu", "dc_t1")
+	gpu_dc["customer_id"] = "gpu_company"
+	gpu_dc["power_unit"] = "power_t2"
+	gpu_dc["coolers"] = {"north": "cool_air_t2"}
+	gpu_dc["racks"][0] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true}
+	var gpu_state := Game._new_state()
+	gpu_state["player"]["era"] = 2
+	gpu_state["player"]["network_level"] = 2
+	gpu_state["plots"][0]["datacenter"] = gpu_dc
+	gpu_state["plots"][0]["status"] = "operational"
+	var gpu_downturn := Rules.datacenter_income_per_month(gpu_dc, gpu_state, Game.data, func(_customer_id: String) -> float: return 0.5)
+	_expect(is_equal_approx(gpu_downturn, 276.0), "GPU racks amplify market movements with one-hundred-twenty-percent sensitivity")
+
+	Game.reset_for_tests()
+	Game.state["plots"][0]["datacenter"] = _test_datacenter("dc_parallel", "dc_t0")
+	Game.state["plots"][0]["status"] = "operational"
+	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	Game.state["construction_queue"] = [Game._queue_item("network", 1000.0), Game._queue_item("network", 1000.0)]
+	var first := Game.install_rack(dc["id"], 0, "rack_compute_t1")
+	var second := Game.install_rack(dc["id"], 1, "rack_storage_t1")
+	var third := Game.install_rack(dc["id"], 3, "rack_compute_t1")
+	_expect(bool(first.get("ok", false)) and bool(second.get("ok", false)) and Game.state["construction_queue"].size() == 2, "two rack installs run inside a data center without occupying the global queue")
+	_expect(not bool(third.get("ok", true)) and third.get("reason", "") == "rack_install_limit", "a data center enforces its two-rack installation capacity")
+	Game.advance_time(120.0, false)
+	_expect(dc["racks"][0].get("status", "") == "active" and dc["racks"][1].get("status", "") == "active", "parallel rack installations finish independently")
+	dc["power_unit"] = "power_t1"
+	dc["customer_id"] = "internet"
+	Game._reschedule_dc_faults(dc)
+	var full_income := Game.datacenter_monthly_income(dc)
+	var paused := Game.set_rack_enabled(dc["id"], 0, false)
+	var paused_status := Rules.rack_runtime_status(dc, 0, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
+	_expect(bool(paused.get("ok", false)) and not bool(paused_status.get("powered", true)) and float(dc["racks"][0].get("fault_at", 0.0)) < 0.0, "pausing a rack removes it from power allocation and fault scheduling")
+	_expect(Game.datacenter_monthly_income(dc) < full_income, "paused racks stop generating contract income")
+	_expect(Game.set_rack_enabled(dc["id"], 0, true).get("ok", false) and float(dc["racks"][0].get("fault_at", -1.0)) > Game.simulation_time(), "resuming a rack restores fault scheduling")
+	Game.reset_for_tests()
+	Game.state["plots"][0]["datacenter"] = _test_datacenter("dc_rack_accelerator", "dc_t0")
+	Game.state["plots"][0]["status"] = "operational"
+	dc = Game.state["plots"][0]["datacenter"]
+	Game.install_rack(dc["id"], 0, "rack_compute_t1")
+	var gems_before := int(Game.state["player"]["gems"])
+	_expect(Game.speed_up_rack_install_with_gems(dc["id"], 0).get("ok", false) and dc["racks"][0].get("status", "") == "active" and int(Game.state["player"]["gems"]) == gems_before - 1, "rack-local installation keeps its diamond accelerator")
+	Game.reset_for_tests()
+	Game.state["plots"][0]["datacenter"] = _test_datacenter("dc_legacy_rack", "dc_t0")
+	Game.state["plots"][0]["status"] = "operational"
+	dc = Game.state["plots"][0]["datacenter"]
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "installing", "construction_id": "legacy_rack_job"}
+	Game.state["construction_queue"] = [{"id": "legacy_rack_job", "type": "rack", "datacenter_id": dc["id"], "slot": 0, "rack_id": "rack_compute_t1", "started_at": 10.0, "complete_at": 130.0, "ad_uses": 1, "cost": 300.0}]
+	Game._ensure_state_shape()
+	_expect(Game.state["construction_queue"].is_empty() and float(dc["racks"][0].get("install_complete_at", 0.0)) == 130.0 and bool(dc["racks"][0].get("enabled", false)), "v1 rack queue jobs migrate into v2 rack-local installation state")
+
+	Game.reset_for_tests()
+	Game.state["plots"][0]["datacenter"] = _test_datacenter("dc_contract", "dc_t1")
+	Game.state["plots"][0]["status"] = "operational"
+	dc = Game.state["plots"][0]["datacenter"]
+	_expect(Game.sign_contract(dc["id"], "internet").get("ok", false), "contract starts a fixed initial term")
+	var term_end := float(dc.get("contract_end_at", 0.0))
+	var renewal_report := Game.advance_time(term_end - Game.simulation_time(), false)
+	_expect(float(dc.get("renewal_window_end_at", 0.0)) == term_end + 7200.0 and Game.contract_switch_fee(dc["id"], "mining") == 0.0 and not renewal_report.get("contracts", []).is_empty(), "term expiry opens and reports a one-month free-switch renewal window")
+	var cash_before_switch := float(Game.state["player"]["cash"])
+	_expect(Game.sign_contract(dc["id"], "mining").get("ok", false) and is_equal_approx(float(Game.state["player"]["cash"]), cash_before_switch), "switching clients during renewal does not charge a breach fee")
+	Game.sign_contract(dc["id"], "internet")
+	term_end = float(dc.get("contract_end_at", 0.0))
+	Game.advance_time(term_end + 7200.0 - Game.simulation_time(), false)
+	_expect(not dc.has("renewal_window_end_at") and float(dc.get("contract_end_at", 0.0)) > Game.simulation_time(), "an unused renewal window automatically renews the contract")
+
+func _test_datacenter(id: String, building_id: String) -> Dictionary:
+	var racks: Array = []
+	racks.resize(9)
+	racks.fill(null)
+	return {"id": id, "building_id": building_id, "status": "operational", "built_at": Game.simulation_time(), "power_unit": "", "coolers": {}, "racks": racks, "customer_id": "", "contract_end_at": 0.0, "aging_notices": []}
 
 func _run_initial_state_test() -> void:
 	Game.reset_for_tests()

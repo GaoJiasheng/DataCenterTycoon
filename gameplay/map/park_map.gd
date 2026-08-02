@@ -2,6 +2,7 @@ class_name ParkMap
 extends Control
 
 const Rules := preload("res://gameplay/game_rules.gd")
+const ThemeMaker := preload("res://ui/theme_factory.gd")
 
 signal datacenter_selected(datacenter_id: String)
 signal empty_plot_selected(plot_id: String)
@@ -9,19 +10,38 @@ signal buy_plot_requested
 
 const MIN_ZOOM := 0.7
 const MAX_ZOOM := 1.45
+const PLOT_SIZE := Vector2(344, 260)
+const CAMPUS_LEFT := 42.0
+const COLUMN_STEP := 376.0
+const ROW_STEP := 252.0
+const CAMPUS_SAFE_TOP := 360.0
+const CAMPUS_SAFE_BOTTOM := 420.0
+const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
 
 var content: Control
-var zoom := 1.0
-var camera_offset := Vector2(90, 70)
+var zoom := 1.02
+var camera_offset := Vector2(-8, 300)
 var dragging := false
 var last_pointer := Vector2.ZERO
 var touch_points: Dictionary = {}
 var last_pinch_distance := 0.0
+var world_size := Vector2(804, 1748)
+var target_buttons: Dictionary = {}
+var _ambient_time := 0.0
+var _active_art: Array[TextureRect] = []
+var _sway_art: Array[TextureRect] = []
+var _glow_art: Array[TextureRect] = []
+var _construction_labels: Array[Dictionary] = []
+var _countdown_accumulator := 0.0
+var _campus_bounds := Rect2()
+var _default_zoom := 1.02
+var _default_camera_offset := Vector2(-8, 300)
+var _world_texture_cache: Dictionary = {}
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(0, 900)
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	resized.connect(_apply_camera)
 	var ground_fill := ColorRect.new()
 	ground_fill.color = Color("7bc94c")
 	ground_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -36,42 +56,133 @@ func _ready() -> void:
 		ground_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ground_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		add_child(ground_view)
+	var top_shade := TextureRect.new()
+	var shade_gradient := Gradient.new()
+	shade_gradient.colors = PackedColorArray([Color(0.02, 0.06, 0.10, 0.20), Color(0.02, 0.06, 0.10, 0.0)])
+	shade_gradient.offsets = PackedFloat32Array([0.0, 1.0])
+	var shade_texture := GradientTexture2D.new()
+	shade_texture.gradient = shade_gradient
+	shade_texture.fill_from = Vector2(0.5, 0.0)
+	shade_texture.fill_to = Vector2(0.5, 1.0)
+	top_shade.texture = shade_texture
+	top_shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	top_shade.stretch_mode = TextureRect.STRETCH_SCALE
+	top_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_shade.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	top_shade.offset_bottom = 360
+	add_child(top_shade)
 	content = Control.new()
 	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(content)
 	_apply_camera()
+	set_process(true)
+
+func _process(delta: float) -> void:
+	_ambient_time += delta
+	for index: int in range(_active_art.size()):
+		var art := _active_art[index]
+		if is_instance_valid(art):
+			var pulse := 1.0 + sin(_ambient_time * 1.45 + index * 1.7) * 0.009
+			art.scale = Vector2.ONE * pulse
+	for index: int in range(_sway_art.size()):
+		var art := _sway_art[index]
+		if is_instance_valid(art):
+			art.rotation = sin(_ambient_time * 0.72 + index * 1.31) * 0.012
+	for index: int in range(_glow_art.size()):
+		var glow := _glow_art[index]
+		if is_instance_valid(glow):
+			glow.modulate.a = 0.11 + sin(_ambient_time * 1.8 + index) * 0.045
+			glow.rotation = _ambient_time * (0.035 if index % 2 == 0 else -0.03)
+	_countdown_accumulator += delta
+	if _countdown_accumulator >= 1.0:
+		_countdown_accumulator = 0.0
+		_refresh_construction_labels()
 
 func setup(plots: Array) -> void:
 	if content == null:
 		await ready
 	for child: Node in content.get_children():
+		content.remove_child(child)
 		child.queue_free()
-	_add_decorations()
+	target_buttons.clear()
+	_active_art.clear()
+	_sway_art.clear()
+	_glow_art.clear()
+	_construction_labels.clear()
+	var owned_count := plots.size()
+	var rows := int(ceil(float(owned_count) / 2.0)) + 1
+	_campus_bounds = Rect2()
+	_add_decorations(rows)
 	for index: int in range(plots.size()):
 		var plot: Dictionary = plots[index]
-		var position := _plot_position(index)
-		content.add_child(_plot_button(plot, position))
-	var sale := Button.new()
-	sale.text = "+\n%s" % tr("BUY_NEXT_PLOT")
-	sale.position = _plot_position(plots.size())
-	sale.size = Vector2(360, 215)
-	sale.add_theme_font_size_override("font_size", 24)
+		var position := _plot_position(index, owned_count)
+		var plot_button := _plot_button(plot, position)
+		content.add_child(plot_button)
+		_include_campus_rect(Rect2(position, PLOT_SIZE))
+		target_buttons[str(plot.get("id", ""))] = plot_button
+		var raw_dc: Variant = plot.get("datacenter", {})
+		if raw_dc is Dictionary and not raw_dc.is_empty():
+			var dc: Dictionary = raw_dc
+			target_buttons[str(dc.get("id", ""))] = plot_button
+	var sale := _world_button(
+		"plot_forsale",
+		"$%s" % Game.format_number(Game.next_plot_price()),
+		ThemeMaker.COLORS.yellow,
+		"ic_cash",
+		"price"
+	)
+	sale.position = _sale_position(owned_count)
 	sale.pressed.connect(func() -> void: buy_plot_requested.emit())
-	_apply_icon(sale, "plot_forsale")
-	_apply_style(sale, Color("6b4d38"), Color("ffc93c"))
 	content.add_child(sale)
+	_include_campus_rect(Rect2(sale.position, PLOT_SIZE))
+	target_buttons["sale"] = sale
+	world_size = Vector2(804, maxf(1748.0, rows * ROW_STEP + 680.0))
+	_frame_campus(false)
 	queue_redraw()
 
-func _add_decorations() -> void:
-	_add_decoration("deco_road", Vector2(220, 310), Vector2(500, 105), false)
-	_add_decoration("deco_tree", Vector2(20, 385), Vector2(130, 130))
-	_add_decoration("deco_bush", Vector2(700, 475), Vector2(90, 90))
-	_add_decoration("deco_pylon", Vector2(785, 315), Vector2(120, 120))
+func reset_camera() -> void:
+	zoom = _default_zoom
+	camera_offset = _default_camera_offset
+	_animate_camera()
 
-func _add_decoration(asset_id: String, at: Vector2, dimensions: Vector2, preserve_aspect: bool = true) -> void:
+func focus_target(target_id: String) -> void:
+	var target := target_buttons.get(target_id) as Control
+	if target == null:
+		return
+	zoom = 1.10
+	var world_center := target.position + target.size * 0.5
+	camera_offset = Vector2(size.x * 0.5, size.y * 0.35) - world_center * zoom
+	_clamp_camera_offset()
+	_animate_camera()
+
+func target_global_position(target_id: String) -> Vector2:
+	var target := target_buttons.get(target_id) as Control
+	return target.get_global_rect().get_center() if target != null else Vector2.ZERO
+
+func _add_decorations(rows: int) -> void:
+	# The grass is deliberately direction-neutral. Until the art kit contains a
+	# true isometric road set, a rotated top-down road would introduce a second,
+	# incompatible projection. The buildings and all motion follow one 2:1 axis.
+	_add_wind_streak(Vector2(-180, 560), 0.0, 1.0)
+	_add_wind_streak(Vector2(820, 910), 4.5, -1.0)
+	var campus_bottom := maxf(690.0, rows * ROW_STEP + 160.0)
+	var trees: Array[TextureRect] = []
+	# Decorations live in reserved outer gutters. They never occupy a parcel slot
+	# or become a third column competing with the interactive campus.
+	trees.append(_add_decoration("deco_tree", Vector2(-70, 330), Vector2(124, 124)))
+	trees.append(_add_decoration("deco_tree", Vector2(700, campus_bottom + 28), Vector2(128, 128)))
+	for tree: TextureRect in trees:
+		if tree != null:
+			tree.pivot_offset = tree.size * Vector2(0.5, 0.92)
+			_sway_art.append(tree)
+	_add_decoration("deco_bush", Vector2(724, 210), Vector2(80, 80))
+	_add_decoration("deco_bush", Vector2(4, campus_bottom + 170), Vector2(86, 86))
+	_add_decoration("deco_pylon", Vector2(658, campus_bottom + 246), Vector2(132, 132))
+
+func _add_decoration(asset_id: String, at: Vector2, dimensions: Vector2, preserve_aspect: bool = true) -> TextureRect:
 	var texture := AssetCatalog.texture(asset_id)
 	if texture == null:
-		return
+		return null
 	var view := TextureRect.new()
 	view.texture = texture
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -80,50 +191,106 @@ func _add_decoration(asset_id: String, at: Vector2, dimensions: Vector2, preserv
 	view.size = dimensions
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(view)
+	return view
+
+func _add_wind_streak(at: Vector2, delay: float, direction: float) -> void:
+	var texture := AssetCatalog.texture("fx_wind_streak")
+	if texture == null:
+		return
+	var streak := TextureRect.new()
+	streak.texture = texture
+	streak.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	streak.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	streak.position = at
+	streak.size = Vector2(220, 86)
+	streak.rotation = ISO_ANGLE * direction
+	streak.modulate = Color(1, 1, 1, 0.10)
+	streak.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(streak)
+	var tween := streak.create_tween().set_loops()
+	tween.tween_interval(delay)
+	var target := Vector2(900 if direction > 0.0 else -260, at.y + 540)
+	var origin := at
+	tween.tween_property(streak, "position", target, 9.0).set_trans(Tween.TRANS_LINEAR)
+	tween.tween_callback(func() -> void: streak.position = origin)
+	tween.tween_interval(6.0)
 
 func _plot_button(plot: Dictionary, at: Vector2) -> Button:
-	var button := Button.new()
-	button.position = at
-	button.size = Vector2(360, 215)
-	button.add_theme_font_size_override("font_size", 24)
 	var status := str(plot.get("status", "empty"))
-	var color := Color("577b45")
-	var border := Color("7bc94c")
+	var asset_id := "plot_owned"
+	var caption := ""
+	var caption_asset := ""
+	var accent := ThemeMaker.COLORS.green
 	match status:
 		"empty":
-			button.text = "%s\n#%d" % [tr("PLOT_EMPTY") % int(plot.get("index", 0)), int(plot.get("index", 0))]
-			button.pressed.connect(func() -> void: empty_plot_selected.emit(str(plot.get("id", ""))))
-			_apply_icon(button, "plot_owned")
+			caption = tr("BUILD")
+			caption_asset = ""
 		"building":
-			button.text = "🏗\n%s" % tr("INSTALLING")
-			color = Color("8d5d32")
-			border = Color("ff8a3d")
 			var construction := Game.find_construction(str(plot.get("construction_id", "")))
+			var remaining := maxf(0.0, float(construction.get("complete_at", 0.0)) - Game.simulation_time())
+			caption = Game.format_duration(remaining)
+			caption_asset = "ic_clock"
+			accent = ThemeMaker.COLORS.orange
 			var building := DataRepository.get_entry("buildings", str(construction.get("building_id", "")))
-			_apply_icon(button, str(building.get("asset_prefix", "")) + "_construction")
+			asset_id = str(building.get("asset_prefix", "")) + "_construction"
 		"ruined":
 			var dc: Dictionary = plot.get("datacenter", {})
-			button.text = "⚠\n%s" % tr("DEMOLISH")
-			button.pressed.connect(func() -> void: datacenter_selected.emit(str(dc.get("id", ""))))
-			color = Color("653d46")
-			border = Color("ff5a5a")
+			caption = tr("DEMOLISH")
+			caption_asset = "ic_warning"
+			accent = ThemeMaker.COLORS.red
 			var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
-			_apply_icon(button, str(building.get("asset_prefix", "")) + "_ruin")
+			asset_id = str(building.get("asset_prefix", "")) + "_ruin"
 		_:
 			var dc: Dictionary = plot.get("datacenter", {})
 			var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
-			button.text = "%s\n%s" % [tr(building.get("name_key", "")), tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(dc))]
-			button.pressed.connect(func() -> void: datacenter_selected.emit(str(dc.get("id", ""))))
-			color = Color("315b7e") if not str(dc.get("power_unit", "")).is_empty() else Color("3d4857")
-			border = Color("3aa7f0")
-			_apply_icon(button, _datacenter_asset_id(dc, building))
-	_apply_style(button, color, border)
+			caption = ""
+			for rack: Variant in dc.get("racks", []):
+				if rack is Dictionary and str(rack.get("status", "")) == "faulted":
+					caption = tr("FAULTED")
+					caption_asset = "ic_warning"
+					break
+			if caption.is_empty() and str(dc.get("power_unit", "")).is_empty():
+				caption = tr("UNPOWERED")
+				caption_asset = "ic_power"
+			accent = ThemeMaker.COLORS.sky if not str(dc.get("power_unit", "")).is_empty() else Color("8fa0ad")
+			asset_id = _datacenter_asset_id(dc, building)
+	var badge_mode := "hidden"
+	match status:
+		"empty": badge_mode = "add"
+		"building": badge_mode = "timer"
+		"ruined": badge_mode = "icon"
+		_:
+			if not caption.is_empty():
+				badge_mode = "icon"
+	var button := _world_button(asset_id, caption, accent, caption_asset, badge_mode)
+	button.position = at
+	if status == "building":
+		var countdown := button.find_child("StatusText", true, false) as Label
+		if countdown != null:
+			_construction_labels.append({"label": countdown, "construction_id": str(plot.get("construction_id", ""))})
+	match status:
+		"empty": button.pressed.connect(func() -> void: empty_plot_selected.emit(str(plot.get("id", ""))))
+		"ruined":
+			var ruined_dc: Dictionary = plot.get("datacenter", {})
+			button.pressed.connect(func() -> void: datacenter_selected.emit(str(ruined_dc.get("id", ""))))
+		"building": pass
+		_:
+			var active_dc: Dictionary = plot.get("datacenter", {})
+			button.pressed.connect(func() -> void: datacenter_selected.emit(str(active_dc.get("id", ""))))
 	return button
 
-func _plot_position(index: int) -> Vector2:
+func _plot_position(index: int, owned_count: int) -> Vector2:
 	var column := index % 2
 	var row := index / 2
-	return Vector2(column * 410 + (45 if row % 2 else 0), row * 255)
+	if owned_count % 2 == 1 and index == owned_count - 1:
+		return Vector2((804.0 - PLOT_SIZE.x) * 0.5, row * ROW_STEP + 18.0)
+	# Both bays in a campus row share one ground baseline. Perspective is carried
+	# by the isometric art itself rather than by a screen-space staircase.
+	return Vector2(CAMPUS_LEFT + column * COLUMN_STEP, row * ROW_STEP + 18.0)
+
+func _sale_position(owned_count: int) -> Vector2:
+	var sale_row := int(ceil(float(owned_count) / 2.0))
+	return Vector2((804.0 - PLOT_SIZE.x) * 0.5, sale_row * ROW_STEP + 18.0)
 
 func _datacenter_asset_id(dc: Dictionary, building: Dictionary) -> String:
 	var suffix := "_dark"
@@ -135,29 +302,162 @@ func _datacenter_asset_id(dc: Dictionary, building: Dictionary) -> String:
 			_: suffix = "_active"
 	return str(building.get("asset_prefix", "")) + suffix
 
-func _apply_style(button: Button, fill: Color, border: Color) -> void:
+func _world_button(asset_id: String, caption: String, accent: Color, caption_asset: String = "", badge_mode: String = "text") -> Button:
+	var button := Button.new()
+	button.name = "WorldPlotButton"
+	button.size = PLOT_SIZE
+	button.focus_mode = Control.FOCUS_NONE
+	button.tooltip_text = caption
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = fill
-	normal.border_color = border
-	normal.set_border_width_all(4)
-	normal.set_corner_radius_all(34)
-	normal.content_margin_left = 18
-	normal.content_margin_right = 18
-	normal.content_margin_top = 18
-	normal.content_margin_bottom = 18
+	normal.bg_color = Color(1, 1, 1, 0.0)
+	normal.set_corner_radius_all(42)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(accent, 0.10)
+	hover.border_color = Color(accent, 0.5)
+	hover.set_border_width_all(2)
+	var pressed := hover.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color(accent, 0.18)
 	button.add_theme_stylebox_override("normal", normal)
-	var pressed := normal.duplicate() as StyleBoxFlat
-	pressed.bg_color = fill.darkened(0.18)
+	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("hover", normal)
-
-func _apply_icon(button: Button, asset_id: String) -> void:
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var view := TextureRect.new()
+	view.name = "WorldArt"
 	var texture := AssetCatalog.texture(asset_id)
+	view.texture = _visible_world_texture(texture)
+	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.position = Vector2(12, -2)
+	view.size = Vector2(PLOT_SIZE.x - 24, 224)
+	view.pivot_offset = Vector2(view.size.x * 0.5, view.size.y * 0.82)
+	button.add_child(view)
+	if asset_id.ends_with("_active"):
+		_active_art.append(view)
+		var glow_texture := AssetCatalog.texture("fx_glow_ring")
+		if glow_texture != null:
+			var glow := TextureRect.new()
+			glow.texture = glow_texture
+			glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			glow.position = Vector2(64, 108)
+			glow.size = Vector2(216, 112)
+			glow.pivot_offset = glow.size * 0.5
+			glow.modulate = Color(0.55, 0.92, 1.0, 0.13)
+			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			button.add_child(glow)
+			button.move_child(glow, 0)
+			_glow_art.append(glow)
+	var status_badge := PanelContainer.new()
+	status_badge.name = "StatusBadge"
+	status_badge.add_theme_stylebox_override("panel", ThemeMaker.world_badge(accent, badge_mode in ["add", "icon"]))
+	status_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if badge_mode in ["add", "icon"]:
+		status_badge.position = Vector2(PLOT_SIZE.x - 92, 24)
+		status_badge.size = Vector2(64, 64)
+	else:
+		var badge_width := 190.0 if badge_mode == "price" else 176.0
+		status_badge.position = Vector2((PLOT_SIZE.x - badge_width) * 0.5, PLOT_SIZE.y - 58)
+		status_badge.size = Vector2(badge_width, 54)
+	button.add_child(status_badge)
+	var status_row := HBoxContainer.new()
+	status_row.name = "StatusRow"
+	status_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	status_row.add_theme_constant_override("separation", 8)
+	status_badge.add_child(status_row)
+	if badge_mode == "add":
+		var add_label := Label.new()
+		add_label.name = "StatusSymbol"
+		add_label.text = "+"
+		add_label.custom_minimum_size = Vector2(40, 40)
+		add_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		add_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		add_label.add_theme_font_size_override("font_size", 36)
+		add_label.add_theme_color_override("font_color", Color.WHITE)
+		add_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		status_row.add_child(add_label)
+	elif not caption_asset.is_empty():
+		var status_icon := TextureRect.new()
+		status_icon.texture = AssetCatalog.texture(caption_asset)
+		status_icon.custom_minimum_size = Vector2(36, 36) if badge_mode == "icon" else Vector2(30, 30)
+		status_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		status_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		status_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		status_row.add_child(status_icon)
+	if badge_mode in ["text", "timer", "price"]:
+		var caption_label := Label.new()
+		caption_label.name = "StatusText"
+		caption_label.text = caption
+		caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		caption_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		caption_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		caption_label.custom_minimum_size.x = 94
+		caption_label.add_theme_font_size_override("font_size", 20)
+		caption_label.add_theme_color_override("font_color", Color.WHITE)
+		caption_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		status_row.add_child(caption_label)
+	status_badge.visible = badge_mode != "hidden"
+	button.pivot_offset = button.size * 0.5
+	button.button_down.connect(_animate_button.bind(button, 0.96))
+	button.button_up.connect(_animate_button.bind(button, 1.0))
+	return button
+
+func _visible_world_texture(texture: Texture2D) -> Texture2D:
 	if texture == null:
+		return null
+	var cache_key := texture.resource_path
+	if _world_texture_cache.has(cache_key):
+		return _world_texture_cache[cache_key] as Texture2D
+	var image := texture.get_image()
+	if image == null or image.is_empty():
+		return texture
+	var used := image.get_used_rect()
+	if used.size.x <= 0 or used.size.y <= 0:
+		return texture
+	used = used.grow(12).intersection(Rect2i(Vector2i.ZERO, image.get_size()))
+	var cropped := AtlasTexture.new()
+	cropped.atlas = texture
+	cropped.region = Rect2(used)
+	_world_texture_cache[cache_key] = cropped
+	return cropped
+
+func _include_campus_rect(rect: Rect2) -> void:
+	_campus_bounds = rect if _campus_bounds.size == Vector2.ZERO else _campus_bounds.merge(rect)
+
+func _frame_campus(animate: bool) -> void:
+	if _campus_bounds.size == Vector2.ZERO:
+		_apply_camera()
 		return
-	button.icon = texture
-	button.expand_icon = true
-	button.add_theme_constant_override("icon_max_width", 150)
+	var viewport_size := size
+	if viewport_size.x < 1.0 or viewport_size.y < 1.0:
+		viewport_size = Vector2(804, 1748)
+	var safe_height := maxf(560.0, viewport_size.y - CAMPUS_SAFE_TOP - CAMPUS_SAFE_BOTTOM)
+	var fit_x := (viewport_size.x - 64.0) / _campus_bounds.size.x
+	var fit_y := safe_height / _campus_bounds.size.y
+	zoom = clampf(minf(fit_x, fit_y), 0.82, 1.06)
+	var safe_center := Vector2(viewport_size.x * 0.5, CAMPUS_SAFE_TOP + safe_height * 0.5)
+	camera_offset = safe_center - _campus_bounds.get_center() * zoom
+	_default_zoom = zoom
+	_default_camera_offset = camera_offset
+	_clamp_camera_offset()
+	_default_camera_offset = camera_offset
+	if animate:
+		_animate_camera()
+	else:
+		_apply_camera()
+
+func _refresh_construction_labels() -> void:
+	for entry: Dictionary in _construction_labels:
+		var label := entry.get("label") as Label
+		if label == null or not is_instance_valid(label):
+			continue
+		var construction := Game.find_construction(str(entry.get("construction_id", "")))
+		var remaining := maxf(0.0, float(construction.get("complete_at", 0.0)) - Game.simulation_time())
+		label.text = Game.format_duration(remaining)
+
+func _animate_button(button: Button, target_scale: float) -> void:
+	var tween := button.create_tween()
+	tween.tween_property(button, "scale", Vector2.ONE * target_scale, 0.10).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -208,8 +508,26 @@ func _zoom_at(local_point: Vector2, target_zoom: float) -> void:
 func _apply_camera() -> void:
 	if content == null:
 		return
+	_clamp_camera_offset()
 	content.position = camera_offset
 	content.scale = Vector2.ONE * zoom
+
+func _clamp_camera_offset() -> void:
+	var scaled := world_size * zoom
+	var min_x := minf(30.0, size.x - scaled.x - 30.0)
+	var min_y := minf(180.0, size.y - scaled.y - 180.0)
+	camera_offset.x = clampf(camera_offset.x, min_x, 60.0)
+	# A compact early campus needs room to sit between the HUD and the bottom
+	# actions. The former 300px ceiling pinned every layout to the top edge and
+	# left most of the useful phone canvas as empty grass.
+	camera_offset.y = clampf(camera_offset.y, min_y, 620.0)
+
+func _animate_camera() -> void:
+	if content == null:
+		return
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(content, "position", camera_offset, 0.30).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	tween.tween_property(content, "scale", Vector2.ONE * zoom, 0.30).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 
 func _pinch_distance() -> float:
 	if touch_points.size() < 2:

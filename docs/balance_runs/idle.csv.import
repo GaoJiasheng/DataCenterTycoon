@@ -6,10 +6,10 @@ uid="uid://d1pp2ekohx01s"
 
 [deps]
 
-files=["res://docs/balance_runs/idle.net.translation", "res://docs/balance_runs/idle.cash.translation", "res://docs/balance_runs/idle.datacenters.translation", "res://docs/balance_runs/idle.era.translation", "res://docs/balance_runs/idle.total.translation", "res://docs/balance_runs/idle.arrears.translation"]
+files=["res://docs/balance_runs/idle.net.translation", "res://docs/balance_runs/idle.cash.translation", "res://docs/balance_runs/idle.datacenters.translation", "res://docs/balance_runs/idle.era.translation", "res://docs/balance_runs/idle.total.translation", "res://docs/balance_runs/idle.arrears.translation", "res://docs/balance_runs/idle.total.translation"]
 
 source_file="res://docs/balance_runs/idle.csv"
-dest_files=["res://docs/balance_runs/idle.net.translation", "res://docs/balance_runs/idle.cash.translation", "res://docs/balance_runs/idle.datacenters.translation", "res://docs/balance_runs/idle.era.translation", "res://docs/balance_runs/idle.total.translation", "res://docs/balance_runs/idle.arrears.translation"]
+dest_files=["res://docs/balance_runs/idle.net.translation", "res://docs/balance_runs/idle.cash.translation", "res://docs/balance_runs/idle.datacenters.translation", "res://docs/balance_runs/idle.era.translation", "res://docs/balance_runs/idle.total.translation", "res://docs/balance_runs/idle.arrears.translation", "res://docs/balance_runs/idle.total.translation"]
 
 [params]
 

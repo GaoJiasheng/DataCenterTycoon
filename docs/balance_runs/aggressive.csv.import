@@ -6,10 +6,10 @@ uid="uid://84csbgkw2ohy"
 
 [deps]
 
-files=["res://docs/balance_runs/aggressive.net.translation", "res://docs/balance_runs/aggressive.cash.translation", "res://docs/balance_runs/aggressive.datacenters.translation", "res://docs/balance_runs/aggressive.era.translation", "res://docs/balance_runs/aggressive.total.translation", "res://docs/balance_runs/aggressive.arrears.translation"]
+files=["res://docs/balance_runs/aggressive.net.translation", "res://docs/balance_runs/aggressive.cash.translation", "res://docs/balance_runs/aggressive.datacenters.translation", "res://docs/balance_runs/aggressive.era.translation", "res://docs/balance_runs/aggressive.total.translation", "res://docs/balance_runs/aggressive.arrears.translation", "res://docs/balance_runs/aggressive.total.translation"]
 
 source_file="res://docs/balance_runs/aggressive.csv"
-dest_files=["res://docs/balance_runs/aggressive.net.translation", "res://docs/balance_runs/aggressive.cash.translation", "res://docs/balance_runs/aggressive.datacenters.translation", "res://docs/balance_runs/aggressive.era.translation", "res://docs/balance_runs/aggressive.total.translation", "res://docs/balance_runs/aggressive.arrears.translation"]
+dest_files=["res://docs/balance_runs/aggressive.net.translation", "res://docs/balance_runs/aggressive.cash.translation", "res://docs/balance_runs/aggressive.datacenters.translation", "res://docs/balance_runs/aggressive.era.translation", "res://docs/balance_runs/aggressive.total.translation", "res://docs/balance_runs/aggressive.arrears.translation", "res://docs/balance_runs/aggressive.total.translation"]
 
 [params]
 

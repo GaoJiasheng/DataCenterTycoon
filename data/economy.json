@@ -25,13 +25,15 @@
   },
   "construction": {
     "base_queue_capacity": 2,
+    "rack_install_capacity_per_datacenter": 2,
     "gems_per_600_seconds": 1,
     "ad_reduction_seconds": 1800,
     "max_ads_per_project": 2
   },
   "contracts": {
     "duration_seconds": 43200,
-    "breach_fee_monthly_income_ratio": 0.1,
+    "renewal_window_seconds": 7200,
+    "breach_fee_monthly_income_ratio": 0.25,
     "minimum_breach_fee": 25
   },
   "faults": {

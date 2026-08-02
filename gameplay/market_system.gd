@@ -124,6 +124,7 @@ func _process_noise(game_state: Dictionary, data: Dictionary) -> void:
 
 func _pick_event(game_state: Dictionary, data: Dictionary) -> String:
 	var player_era := int(game_state.get("player", {}).get("era", 1))
+	var network_level := int(game_state.get("player", {}).get("network_level", 1))
 	var blocked_customers: Dictionary = {}
 	if not bool(data.get("economy", {}).get("market", {}).get("allow_same_customer_event_stack", false)):
 		for queued: Dictionary in game_state.get("market", {}).get("active", []) + game_state.get("market", {}).get("previews", []):
@@ -135,6 +136,8 @@ func _pick_event(game_state: Dictionary, data: Dictionary) -> String:
 	for event_id: String in data.get("events", {}).get("items", {}):
 		var event_data: Dictionary = data["events"]["items"][event_id]
 		if int(event_data.get("minimum_era", 1)) > player_era:
+			continue
+		if int(event_data.get("minimum_network_level", 1)) > network_level:
 			continue
 		var blocked := false
 		for customer_id: String in event_data.get("customer_multipliers", {}):

@@ -69,6 +69,7 @@ func advance_time(real_seconds: float, offline: bool) -> Dictionary:
 		"completed": [],
 		"faults": [],
 		"events": [],
+		"contracts": [],
 		"aging": [],
 	}
 	if real_seconds <= 0.0 or state.get("bankruptcy", {}).get("status", "normal") == "game_over":
@@ -199,17 +200,28 @@ func install_rack(datacenter_id: String, slot: int, rack_id: String) -> Dictiona
 		return _failure("slot_locked")
 	if dc["racks"][slot] != null:
 		return _failure("slot_occupied")
-	if not _queue_has_capacity():
-		return _failure("queue_full")
+	var installing := 0
+	for entry: Variant in dc.get("racks", []):
+		if entry is Dictionary and entry.get("status", "") == "installing":
+			installing += 1
+	if installing >= int(data.get("economy", {}).get("construction", {}).get("rack_install_capacity_per_datacenter", 2)):
+		return _failure("rack_install_limit")
 	var cost := rack_purchase_cost(rack_id)
 	if not _spend_cash(cost):
 		return _failure("not_enough_cash")
-	var item := _queue_item("rack", float(rack.get("install_seconds", 0.0)))
-	item.merge({"datacenter_id": datacenter_id, "slot": slot, "rack_id": rack_id, "cost": cost})
-	state["construction_queue"].append(item)
-	dc["racks"][slot] = {"rack_id": rack_id, "status": "installing", "construction_id": item["id"]}
+	var started := simulation_time()
+	var installed := {
+		"rack_id": rack_id,
+		"status": "installing",
+		"enabled": true,
+		"started_at": started,
+		"install_complete_at": started + float(rack.get("install_seconds", 0.0)),
+		"ad_uses": 0,
+		"cost": cost,
+	}
+	dc["racks"][slot] = installed
 	_commit_action("rack_started")
-	return _success({"construction": item})
+	return _success({"rack_installation": installed.duplicate(true), "datacenter_id": datacenter_id, "slot": slot})
 
 func uninstall_rack(datacenter_id: String, slot: int) -> Dictionary:
 	var dc := find_datacenter(datacenter_id)
@@ -222,8 +234,22 @@ func uninstall_rack(datacenter_id: String, slot: int) -> Dictionary:
 	var refund: float = round(float(rack.get("cost", 0.0)) * float(data.get("economy", {}).get("aging", {}).get("rack_refund_ratio", 0.5)))
 	state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + refund
 	dc["racks"][slot] = null
+	_reschedule_dc_faults(dc)
 	_commit_action("rack_uninstalled")
 	return _success({"refund": refund})
+
+func set_rack_enabled(datacenter_id: String, slot: int, enabled: bool) -> Dictionary:
+	var dc := find_datacenter(datacenter_id)
+	var installed := _installed_rack(datacenter_id, slot)
+	if dc.is_empty() or installed.is_empty() or installed.get("status", "") != "active":
+		return _failure("rack_unavailable")
+	if bool(installed.get("enabled", true)) == enabled:
+		return _success({"enabled": enabled})
+	installed["enabled"] = enabled
+	installed["fault_at"] = -1.0
+	_reschedule_dc_faults(dc)
+	_commit_action("rack_power_changed")
+	return _success({"enabled": enabled})
 
 func install_power(datacenter_id: String, power_id: String) -> Dictionary:
 	return _install_attachment(datacenter_id, power_id, "power", "")
@@ -247,6 +273,7 @@ func sign_contract(datacenter_id: String, customer_id: String) -> Dictionary:
 			return _failure("not_enough_cash")
 	dc["customer_id"] = customer_id
 	dc["contract_end_at"] = simulation_time() + float(data.get("economy", {}).get("contracts", {}).get("duration_seconds", 43200.0))
+	dc.erase("renewal_window_end_at")
 	state["stats"]["contracts_signed"] = int(state["stats"].get("contracts_signed", 0)) + 1
 	_tutorial_event("contract_signed")
 	_commit_action("contract_signed")
@@ -255,6 +282,8 @@ func sign_contract(datacenter_id: String, customer_id: String) -> Dictionary:
 func contract_switch_fee(datacenter_id: String, customer_id: String) -> float:
 	var dc := find_datacenter(datacenter_id)
 	if dc.is_empty() or str(dc.get("customer_id", "")).is_empty() or dc.get("customer_id", "") == customer_id:
+		return 0.0
+	if simulation_time() >= float(dc.get("contract_end_at", INF)) or float(dc.get("renewal_window_end_at", 0.0)) > simulation_time():
 		return 0.0
 	var config: Dictionary = data.get("economy", {}).get("contracts", {})
 	return maxf(float(config.get("minimum_breach_fee", 25.0)), datacenter_monthly_income(dc) * float(config.get("breach_fee_monthly_income_ratio", 0.1)))
@@ -362,9 +391,24 @@ func speed_up_construction_with_gems(construction_id: String) -> Dictionary:
 		return _failure("not_enough_gems")
 	state["player"]["gems"] = int(state["player"].get("gems", 0)) - gems
 	item["complete_at"] = simulation_time()
-	var report := {"completed": [], "faults": [], "events": [], "aging": []}
+	var report := {"completed": [], "faults": [], "events": [], "contracts": [], "aging": []}
 	_process_due(true, false, report)
 	_commit_action("construction_sped_up")
+	return _success({"gems": gems})
+
+func speed_up_rack_install_with_gems(datacenter_id: String, slot: int) -> Dictionary:
+	var installed := _installed_rack(datacenter_id, slot)
+	if installed.is_empty() or installed.get("status", "") != "installing":
+		return _failure("rack_unavailable")
+	var remaining := maxf(0.0, float(installed.get("install_complete_at", 0.0)) - simulation_time())
+	var gems := maxi(1, int(ceil(remaining / 600.0)) * int(data.get("economy", {}).get("construction", {}).get("gems_per_600_seconds", 1)))
+	if int(state["player"].get("gems", 0)) < gems:
+		return _failure("not_enough_gems")
+	state["player"]["gems"] = int(state["player"].get("gems", 0)) - gems
+	installed["install_complete_at"] = simulation_time()
+	var report := {"completed": [], "faults": [], "events": [], "contracts": [], "aging": []}
+	_process_due(true, false, report)
+	_commit_action("rack_install_sped_up")
 	return _success({"gems": gems})
 
 func use_instant_build_ticket(construction_id: String) -> Dictionary:
@@ -375,7 +419,7 @@ func use_instant_build_ticket(construction_id: String) -> Dictionary:
 		return _failure("ticket_unavailable")
 	state["inventory"]["instant_build_tickets"] = int(state["inventory"].get("instant_build_tickets", 0)) - 1
 	item["complete_at"] = simulation_time()
-	var report := {"completed": [], "faults": [], "events": [], "aging": []}
+	var report := {"completed": [], "faults": [], "events": [], "contracts": [], "aging": []}
 	_process_due(true, false, report)
 	_commit_action("instant_build_ticket")
 	return _success()
@@ -552,8 +596,13 @@ func _next_boundary_after(now: float, include_noise: bool) -> float:
 		for installed: Variant in dc.get("racks", []):
 			if not installed is Dictionary:
 				continue
-			for key: String in ["repair_complete_at", "fault_at"]:
+			for key: String in ["install_complete_at", "repair_complete_at", "fault_at"]:
 				var value := float(installed.get(key, INF))
+				if value > now:
+					result = minf(result, value)
+		if not str(dc.get("customer_id", "")).is_empty():
+			for key: String in ["contract_end_at", "renewal_window_end_at"]:
+				var value := float(dc.get(key, INF))
 				if value > now:
 					result = minf(result, value)
 	var market_boundary := _market.next_transition_after(state, now, include_noise)
@@ -570,8 +619,9 @@ func _accrue_income(seconds: float) -> float:
 func _process_due(financial: bool, offline: bool, report: Dictionary) -> void:
 	var now := simulation_time()
 	_process_construction_completions(now, report)
+	_process_rack_installations(now, report)
 	_process_repairs_and_faults(now, report)
-	_process_contract_renewals(now)
+	_process_contract_renewals(now, report)
 	_process_aging(now, offline, report)
 	for notice: Dictionary in _market.process_due(state, data):
 		report.get("events", []).append(notice)
@@ -630,8 +680,42 @@ func _complete_rack(item: Dictionary) -> void:
 	var slot := int(item.get("slot", -1))
 	if dc.is_empty() or slot < 0 or slot >= 9:
 		return
-	dc["racks"][slot] = {"rack_id": item.get("rack_id", ""), "status": "active", "installed_at": float(item.get("complete_at", simulation_time())), "fault_at": -1.0}
-	_schedule_fault(dc, slot)
+	dc["racks"][slot] = {"rack_id": item.get("rack_id", ""), "status": "active", "enabled": true, "installed_at": float(item.get("complete_at", simulation_time())), "fault_at": -1.0}
+	_reschedule_dc_faults(dc)
+	_tutorial_event("rack_installed")
+	AudioService.play_sfx("sfx_rack_install")
+
+func _process_rack_installations(now: float, report: Dictionary) -> void:
+	for plot: Dictionary in state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if not dc is Dictionary or dc.get("status", "") != "operational":
+			continue
+		for slot: int in range(dc.get("racks", []).size()):
+			var installed: Variant = dc["racks"][slot]
+			if not installed is Dictionary or installed.get("status", "") != "installing":
+				continue
+			if float(installed.get("install_complete_at", INF)) > now:
+				continue
+			_complete_rack_installation(dc, slot, now, report)
+
+func _complete_rack_installation(dc: Dictionary, slot: int, now: float, report: Dictionary) -> void:
+	var installed: Dictionary = dc.get("racks", [])[slot]
+	var completed := {
+		"type": "rack",
+		"datacenter_id": dc.get("id", ""),
+		"slot": slot,
+		"rack_id": installed.get("rack_id", ""),
+		"complete_at": float(installed.get("install_complete_at", now)),
+	}
+	installed["status"] = "active"
+	installed["enabled"] = bool(installed.get("enabled", true))
+	installed["installed_at"] = float(installed.get("install_complete_at", now))
+	installed["fault_at"] = -1.0
+	for key: String in ["started_at", "install_complete_at", "ad_uses", "cost", "construction_id"]:
+		installed.erase(key)
+	_reschedule_dc_faults(dc)
+	report.get("completed", []).append(completed)
+	EventBus.construction_completed.emit(completed)
 	_tutorial_event("rack_installed")
 	AudioService.play_sfx("sfx_rack_install")
 
@@ -673,13 +757,29 @@ func _process_repairs_and_faults(now: float, report: Dictionary) -> void:
 					EventBus.rack_fault_occurred.emit(dc.get("id", ""), slot)
 					AudioService.play_sfx("sfx_fault")
 
-func _process_contract_renewals(now: float) -> void:
+func _process_contract_renewals(now: float, report: Dictionary) -> void:
 	var duration := float(data.get("economy", {}).get("contracts", {}).get("duration_seconds", 43200.0))
+	var renewal_window := float(data.get("economy", {}).get("contracts", {}).get("renewal_window_seconds", 7200.0))
 	for plot: Dictionary in state.get("plots", []):
 		var dc: Variant = plot.get("datacenter")
-		if dc is Dictionary and not str(dc.get("customer_id", "")).is_empty() and float(dc.get("contract_end_at", INF)) <= now:
-			while float(dc.get("contract_end_at", 0.0)) <= now:
-				dc["contract_end_at"] = float(dc.get("contract_end_at", now)) + duration
+		if not dc is Dictionary or str(dc.get("customer_id", "")).is_empty():
+			continue
+		while true:
+			var window_end := float(dc.get("renewal_window_end_at", 0.0))
+			if window_end <= 0.0:
+				var contract_end := float(dc.get("contract_end_at", INF))
+				if contract_end > now:
+					break
+				window_end = contract_end + renewal_window
+				dc["renewal_window_end_at"] = window_end
+				var opened := {"type": "renewal_window_opened", "datacenter_id": dc.get("id", ""), "customer_id": dc.get("customer_id", ""), "window_end_at": window_end}
+				report.get("contracts", []).append(opened)
+				EventBus.contract_renewal_opened.emit(dc.get("id", ""), dc.get("customer_id", ""), window_end)
+			if window_end > now:
+				break
+			dc["contract_end_at"] = window_end + duration
+			dc.erase("renewal_window_end_at")
+			report.get("contracts", []).append({"type": "contract_auto_renewed", "datacenter_id": dc.get("id", ""), "customer_id": dc.get("customer_id", ""), "contract_end_at": dc.get("contract_end_at", 0.0)})
 
 func _process_aging(now: float, offline: bool, report: Dictionary) -> void:
 	for plot: Dictionary in state.get("plots", []):
@@ -867,6 +967,10 @@ func _has_jobs_for_datacenter(datacenter_id: String) -> bool:
 	for item: Dictionary in state.get("construction_queue", []):
 		if item.get("datacenter_id", "") == datacenter_id:
 			return true
+	var dc := find_datacenter(datacenter_id)
+	for installed: Variant in dc.get("racks", []):
+		if installed is Dictionary and installed.get("status", "") == "installing":
+			return true
 	return false
 
 func _queue_item(type: String, duration: float) -> Dictionary:
@@ -937,6 +1041,15 @@ func _on_reward_result(placement: String, success: bool) -> void:
 					var reduction := float(data.get("economy", {}).get("construction", {}).get("ad_reduction_seconds", 1800.0))
 					item["complete_at"] = maxf(simulation_time(), float(item.get("complete_at", simulation_time())) - reduction)
 					item["ad_uses"] = int(item.get("ad_uses", 0)) + 1
+		"rack_install":
+			if parts.size() >= 3:
+				var installed := _installed_rack(parts[1], int(parts[2]))
+				if not installed.is_empty():
+					var reduction := float(data.get("economy", {}).get("construction", {}).get("ad_reduction_seconds", 1800.0))
+					installed["install_complete_at"] = maxf(simulation_time(), float(installed.get("install_complete_at", simulation_time())) - reduction)
+					installed["ad_uses"] = int(installed.get("ad_uses", 0)) + 1
+					var report := {"completed": [], "faults": [], "events": [], "contracts": [], "aging": []}
+					_process_due(true, false, report)
 		"arrears_rescue":
 			var maintenance := monthly_maintenance()
 			var cash := maintenance * float(data.get("economy", {}).get("bankruptcy", {}).get("rescue_maintenance_ratio", 0.5))
@@ -1012,6 +1125,14 @@ func _can_request_reward(placement: String) -> Dictionary:
 			var item := find_construction(parts[1])
 			if item.is_empty() or int(item.get("ad_uses", 0)) >= int(data.get("economy", {}).get("construction", {}).get("max_ads_per_project", 2)):
 				return _failure("reward_limit")
+		"rack_install":
+			if parts.size() < 3:
+				return _failure("reward_unavailable")
+			var installed := _installed_rack(parts[1], int(parts[2]))
+			if installed.is_empty() or installed.get("status", "") != "installing":
+				return _failure("reward_unavailable")
+			if int(installed.get("ad_uses", 0)) >= int(data.get("economy", {}).get("construction", {}).get("max_ads_per_project", 2)):
+				return _failure("reward_limit")
 		"arrears_rescue":
 			if state.get("bankruptcy", {}).get("status", "normal") != "arrears":
 				return _failure("reward_unavailable")
@@ -1045,6 +1166,37 @@ func _ensure_state_shape() -> void:
 		for key: String in defaults.get(section, {}):
 			if not state[section].has(key):
 				state[section][key] = defaults[section][key]
+	_migrate_legacy_rack_installations()
+	for plot: Dictionary in state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if not dc is Dictionary:
+			continue
+		for installed: Variant in dc.get("racks", []):
+			if installed is Dictionary and not installed.is_empty() and not installed.has("enabled"):
+				installed["enabled"] = true
+	state["save_version"] = SaveManager.SAVE_VERSION
+
+func _migrate_legacy_rack_installations() -> void:
+	var retained: Array = []
+	for item: Dictionary in state.get("construction_queue", []):
+		if item.get("type", "") != "rack":
+			retained.append(item)
+			continue
+		var dc := find_datacenter(str(item.get("datacenter_id", "")))
+		var slot := int(item.get("slot", -1))
+		if dc.is_empty() or slot < 0 or slot >= dc.get("racks", []).size():
+			continue
+		var installed: Variant = dc["racks"][slot]
+		if not installed is Dictionary or installed.is_empty():
+			installed = {"rack_id": item.get("rack_id", ""), "status": "installing"}
+			dc["racks"][slot] = installed
+		installed["enabled"] = true
+		installed["started_at"] = float(item.get("started_at", simulation_time()))
+		installed["install_complete_at"] = float(item.get("complete_at", simulation_time()))
+		installed["ad_uses"] = int(item.get("ad_uses", 0))
+		installed["cost"] = float(item.get("cost", 0.0))
+		installed.erase("construction_id")
+	state["construction_queue"] = retained
 
 func _new_state() -> Dictionary:
 	var economy: Dictionary = DataRepository.get_table("economy")

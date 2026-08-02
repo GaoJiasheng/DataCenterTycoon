@@ -12,7 +12,7 @@
 
 - [ ] `python3 tools/validate_data.py`
 - [ ] `godot --headless --path . tests/test_runner.tscn`
-- [ ] `godot --path . tests/visual_smoke.tscn`（9 个竖屏状态，含移动端 action sheet）
+- [ ] `godot --path . tests/visual_smoke.tscn`（22 个竖屏状态，含四地块混合园区、续约、停机、机柜加速/选购、字体边界、44pt 触控目标与移动端 action sheet 审计）
 - [ ] `python3 tools/simulate_economy.py`
 - [ ] `python3 tools/check_assets.py --strict --audio`
 - [ ] `python3 tools/check_app_store_assets.py`

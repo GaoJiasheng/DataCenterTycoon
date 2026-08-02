@@ -4,47 +4,194 @@ const MAIN_SCENE := preload("res://main.tscn")
 const OUTPUT_ROOT := "/tmp/data_center_tycoon_visual_"
 
 func _ready() -> void:
+	DisplayServer.window_set_size(Vector2i(402, 874))
 	Game.reset_for_tests()
+	Game.last_offline_report = {}
 	var main := MAIN_SCENE.instantiate()
 	add_child(main)
-	var pages := ["map", "build", "market", "tech", "store", "settings"]
 	var valid := true
-	for page: String in pages:
-		main.call("_navigate", page)
-		valid = (await _capture(main, page)) and valid
-	main.call("_navigate", "map")
-	main.call("_refresh")
+	valid = (await _capture(main, "map")) and valid
+	main.call("_show_plot_purchase")
+	valid = (await _capture(main, "action_sheet")) and valid
+	var action_sheet := main.find_child("ActionSheetOverlay", true, false)
+	if action_sheet != null:
+		action_sheet.queue_free()
+		await get_tree().process_frame
 	main.call("_show_building_picker", "plot_1")
 	await get_tree().create_timer(0.35).timeout
-	valid = (await _capture(main, "action_sheet")) and valid
-	var sheet := main.find_child("ActionSheetOverlay", true, false)
-	if sheet != null:
-		sheet.queue_free()
+	valid = (await _capture(main, "build_drawer")) and valid
+	var building_picker := main.find_child("BuildingPicker", true, false)
+	if building_picker != null:
+		building_picker.queue_free()
 		await get_tree().process_frame
+	main.park_map.reset_camera()
 	Game.start_datacenter_construction("plot_1", "dc_t0")
+	main.call("_navigate", "build")
+	valid = (await _capture(main, "construction_queue")) and valid
 	Game.advance_time(300.0, false)
 	main.call("_navigate", "map")
 	valid = (await _capture(main, "map_built")) and valid
 	await get_tree().create_timer(0.9).timeout
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	var mixed_powered := dc.duplicate(true)
+	mixed_powered["id"] = "visual_mixed_powered"
+	mixed_powered["power_unit"] = "power_t1"
+	var mixed_plots: Array[Dictionary] = [
+		{"id": "visual_mixed_0", "index": 1, "status": "operational", "datacenter": dc.duplicate(true)},
+		{"id": "visual_mixed_1", "index": 2, "status": "empty"},
+		{"id": "visual_mixed_2", "index": 3, "status": "empty"},
+		{"id": "visual_mixed_3", "index": 4, "status": "operational", "datacenter": mixed_powered},
+	]
+	main.park_map.setup(mixed_plots)
+	valid = (await _capture(main, "campus_mixed")) and valid
+	var dense_plots: Array[Dictionary] = []
+	for index: int in range(6):
+		var dense_dc := dc.duplicate(true)
+		dense_dc["id"] = "visual_dc_%d" % index
+		dense_dc["building_id"] = "dc_t%d" % mini(index, 3)
+		dense_dc["power_unit"] = "power_t1"
+		dense_plots.append({"id": "visual_plot_%d" % index, "index": index + 1, "status": "operational", "datacenter": dense_dc})
+	main.park_map.setup(dense_plots)
+	valid = (await _capture(main, "campus_dense")) and valid
+	main.park_map.setup(Game.state.get("plots", []))
 	main.call("_open_datacenter", str(dc.get("id", "")))
-	valid = (await _capture(main, "detail")) and valid
+	valid = (await _capture(main, "dc_context")) and valid
+	var dc_context := main.find_child("DatacenterContext", true, false)
+	if dc_context != null:
+		dc_context.queue_free()
+		await get_tree().process_frame
+	dc["power_unit"] = "power_t1"
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": false, "fault_at": -1.0}
+	dc["racks"][1] = {"rack_id": "rack_storage_t1", "status": "installing", "enabled": true, "started_at": Game.simulation_time(), "install_complete_at": Game.simulation_time() + 90.0, "ad_uses": 0}
+	dc["customer_id"] = "internet"
+	dc["contract_end_at"] = Game.simulation_time()
+	dc["renewal_window_end_at"] = Game.simulation_time() + 7200.0
+	for focus: String in ["racks", "infrastructure", "contracts"]:
+		main.call("_open_datacenter_detail", str(dc.get("id", "")), focus)
+		valid = (await _capture(main, "dc_%s" % focus)) and valid
+	main.call("_show_rack_actions", str(dc.get("id", "")), 1)
+	valid = (await _capture(main, "rack_install_actions")) and valid
+	var rack_install_sheet := main.find_child("ActionSheetOverlay", true, false)
+	if rack_install_sheet != null:
+		rack_install_sheet.queue_free()
+		await get_tree().process_frame
+	main.call("_show_rack_actions", str(dc.get("id", "")), 0)
+	valid = (await _capture(main, "rack_pause_actions")) and valid
+	var rack_pause_sheet := main.find_child("ActionSheetOverlay", true, false)
+	if rack_pause_sheet != null:
+		rack_pause_sheet.queue_free()
+		await get_tree().process_frame
+	main.call("_show_rack_picker", str(dc.get("id", "")), 3)
+	valid = (await _capture(main, "rack_picker")) and valid
+	var rack_picker_sheet := main.find_child("ActionSheetOverlay", true, false)
+	if rack_picker_sheet != null:
+		rack_picker_sheet.queue_free()
+		await get_tree().process_frame
+	main.call("_navigate", "map")
+	await get_tree().process_frame
+	main.call("_show_operations_hub")
+	valid = (await _capture(main, "operations")) and valid
+	var operations := main.find_child("OperationsHub", true, false)
+	if operations != null:
+		operations.queue_free()
+		await get_tree().process_frame
+	for page: String in ["market", "tech", "store", "settings"]:
+		main.call("_navigate", page)
+		valid = (await _capture(main, page)) and valid
+		if page == "tech":
+			main.call("_set_tech_section", "achievements")
+			valid = (await _capture(main, "achievements")) and valid
+	main.call("_show_era_overlay", 2, DataRepository.get_entry("eras", "2"))
+	valid = (await _capture(main, "era_unlock")) and valid
+	var era_overlay := main.find_child("EraOverlay", true, false)
+	if era_overlay != null:
+		era_overlay.queue_free()
+		await get_tree().process_frame
+	main.call("_on_bankruptcy_state_changed", "game_over")
+	valid = (await _capture(main, "game_over")) and valid
+	var game_over_sheet := main.find_child("ActionSheetOverlay", true, false)
+	if game_over_sheet != null:
+		game_over_sheet.queue_free()
+		await get_tree().process_frame
 	AudioService.stop_all()
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 9 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
+	print("VISUAL_SMOKE: %s 22 iPhone 17 portrait states -> %s*.png" % ["PASS" if valid else "FAIL", OUTPUT_ROOT])
 	get_tree().quit(0 if valid else 1)
 
 func _capture(main: Node, name: String) -> bool:
+	print("VISUAL_SMOKE: rendering %s" % name)
 	main.call("_refresh")
 	for _frame: int in range(3):
 		await get_tree().process_frame
+	await get_tree().create_timer(0.24).timeout
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
-	var valid := not image.is_empty() and image.get_width() >= 440 and image.get_height() >= 956
+	var valid := not image.is_empty() and image.get_width() >= 402 and image.get_height() >= 874 and _layout_is_safe(main, name)
 	var output_path := "%s%s.png" % [OUTPUT_ROOT, name]
 	var save_error := image.save_png(output_path) if valid else ERR_CANT_CREATE
 	if not valid or save_error != OK:
 		push_error("VISUAL_SMOKE: %s failed size=%dx%d save_error=%d" % [name, image.get_width(), image.get_height(), save_error])
+	else:
+		print("VISUAL_SMOKE: captured %s" % name)
 	return valid and save_error == OK
+
+func _layout_is_safe(main: Node, state_name: String) -> bool:
+	var viewport_rect := get_viewport().get_visible_rect()
+	var controls: Array[Control] = []
+	for node_name: String in ["ShellHeader", "WorldActions", "CompanyButton", "GemResource", "SettingsButton", "TaskButton", "PrimaryWorldAction", "OperationsButton"]:
+		var node := main.find_child(node_name, true, false) as Control
+		if node != null and node.is_visible_in_tree():
+			controls.append(node)
+	var valid := true
+	for control: Control in controls:
+		var rect := control.get_global_rect()
+		var inside := rect.position.x >= viewport_rect.position.x - 1.0 and rect.position.y >= viewport_rect.position.y - 1.0 and rect.end.x <= viewport_rect.end.x + 1.0 and rect.end.y <= viewport_rect.end.y + 1.0
+		var touch_safe := control.name in ["ShellHeader", "WorldActions"] or rect.size.y >= 88.0
+		if not inside or not touch_safe:
+			push_error("VISUAL_SMOKE: %s unsafe %s rect=%s viewport=%s" % [state_name, control.name, rect, viewport_rect])
+			valid = false
+	if state_name == "map":
+		var persistent_names := ["CompanyButton", "CashResource", "GemResource", "SettingsButton", "TaskButton", "PrimaryWorldAction", "OperationsButton"]
+		var persistent_count := 0
+		for node_name: String in persistent_names:
+			var persistent := main.find_child(node_name, true, false) as Control
+			if persistent != null and persistent.is_visible_in_tree():
+				persistent_count += 1
+		if persistent_count > 7 or main.find_child("BottomNav", true, false) != null:
+			push_error("VISUAL_SMOKE: map has %d persistent controls or a legacy tab bar" % persistent_count)
+			valid = false
+	if state_name == "dc_contracts":
+		for node: Node in main.find_children("*", "Button", true, false):
+			var contract_button := node as Button
+			if contract_button != null and contract_button.is_visible_in_tree() and contract_button.text.contains("0.00"):
+				push_error("VISUAL_SMOKE: locked contract exposes a zero multiplier: %s" % contract_button.text)
+				valid = false
+	valid = _typography_and_touch_are_safe(main, state_name) and valid
+	return valid
+
+func _typography_and_touch_are_safe(main: Node, state_name: String) -> bool:
+	var valid := true
+	for node: Node in main.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label == null or not label.is_visible_in_tree() or label.text.is_empty():
+			continue
+		var font := label.get_theme_font("font")
+		var font_size := label.get_theme_font_size("font_size")
+		var line_height := font.get_height(font_size)
+		if label.size.y + 1.0 < line_height:
+			push_error("VISUAL_SMOKE: %s label line clipped %s size=%s line=%.1f" % [state_name, label.name, label.size, line_height])
+			valid = false
+		if label.autowrap_mode == TextServer.AUTOWRAP_OFF and label.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING and label.get_combined_minimum_size().x > label.size.x + 1.0:
+			push_error("VISUAL_SMOKE: %s label width overflow %s text=%s size=%s min=%s" % [state_name, label.name, label.text, label.size, label.get_combined_minimum_size()])
+			valid = false
+	for node: Node in main.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button == null or not button.is_visible_in_tree() or button.disabled:
+			continue
+		var minimum_touch := 64.0 if button.toggle_mode else 88.0
+		if button.size.x + 1.0 < minimum_touch or button.size.y + 1.0 < minimum_touch:
+			push_error("VISUAL_SMOKE: %s undersized touch target %s size=%s" % [state_name, button.name, button.size])
+			valid = false
+	return valid

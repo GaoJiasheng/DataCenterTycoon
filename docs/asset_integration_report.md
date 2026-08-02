@@ -12,7 +12,7 @@
 
 ## 运行时接入
 
-- 园区：草地、地块、建筑全状态、道路、树木、灌木和电塔。
+- 园区：草地、地块、建筑全状态、树木、灌木和电塔；俯视道路素材已交付但不在等距世界中混用。
 - 机房：室内背景、九宫格机架、供电、冷却和客户徽章。
 - UI：货币与导航图标、导师姿态、商店商品图和时代图标。
 - 特效：施工扬尘、故障火花、市场天气/行情、金币、时代彩纸与破产烟雾。
@@ -21,10 +21,10 @@
 ## 验收
 
 - `python3 tools/check_assets.py --strict --audio`：通过。
-- `godot --headless --path . tests/test_runner.tscn`：64 passed，0 failed。
-- `godot --path . tests/visual_smoke.tscn`：9 个 440×956（iPhone 17 Pro Max 比例）竖屏状态通过实际 Metal 渲染并截图。
+- `godot --headless --path . tests/test_runner.tscn`：80 passed，0 failed。
+- `godot --path . tests/visual_smoke.tscn`：22 个 402×874（iPhone 17 比例）竖屏状态通过实际 Metal 渲染、截图、文字边界与 44pt 触控目标审计，覆盖初始园区、四地块混合园区、六机房组团、施工、抽屉、运营中心、机房三工作区、续约、停机、机柜选购/加速、四个深层系统、确认弹层、时代升级与破产结算。
 - `python3 tools/validate_data.py`：11 张数据表、本地化与 134 个美术 ID 通过。
-- `python3 tools/simulate_economy.py`：三种 30 天策略均存活。
+- `python3 tools/simulate_economy.py`：三种 30 天策略 × 20 种子均存活。
 
 ## 接入时修正
 

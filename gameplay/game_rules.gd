@@ -57,7 +57,7 @@ static func powered_slots(datacenter: Dictionary, racks_table: Dictionary, attac
 	var racks: Array = datacenter.get("racks", [])
 	for slot: int in range(mini(9, racks.size())):
 		var installed: Variant = racks[slot]
-		if not installed is Dictionary or installed.is_empty() or installed.get("status", "") == "installing":
+		if not installed is Dictionary or installed.is_empty() or installed.get("status", "") == "installing" or not bool(installed.get("enabled", true)):
 			continue
 		var rack: Dictionary = racks_table.get("items", {}).get(installed.get("rack_id", ""), {})
 		var demand := float(rack.get("power", 0.0))
@@ -85,10 +85,12 @@ static func rack_runtime_status(datacenter: Dictionary, slot: int, racks_table: 
 		return {"present": false, "powered": false, "overheated": false, "faulted": false}
 	var installed: Dictionary = racks[slot]
 	var rack: Dictionary = racks_table.get("items", {}).get(installed.get("rack_id", ""), {})
-	var powered := powered_slots(datacenter, racks_table, attachments_table)[slot]
+	var enabled := bool(installed.get("enabled", true))
+	var powered := enabled and powered_slots(datacenter, racks_table, attachments_table)[slot]
 	var cooling := cooling_at(datacenter, slot, attachments_table, economy)
 	return {
 		"present": true,
+		"enabled": enabled,
 		"powered": powered,
 		"overheated": powered and cooling < float(rack.get("heat", 0.0)),
 		"faulted": installed.get("status", "active") == "faulted",
@@ -129,7 +131,10 @@ static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dict
 		var overheat_multiplier := 1.0
 		if cooling_at(datacenter, slot, attachments, data.get("economy", {})) < float(rack.get("heat", 0.0)):
 			overheat_multiplier = float(data.get("economy", {}).get("aging", {}).get("overheat_income_multiplier", 0.5))
-		result += float(rack.get("income_per_month", 0.0)) * float(customer.get("fit", {}).get(kind, 0.0)) * overheat_multiplier
+		var raw_market_multiplier := float(market_multiplier.call(customer_id))
+		var sensitivity := float(rack.get("market_sensitivity", 1.0))
+		var effective_market_multiplier := maxf(0.0, 1.0 + (raw_market_multiplier - 1.0) * sensitivity)
+		result += float(rack.get("income_per_month", 0.0)) * float(customer.get("fit", {}).get(kind, 0.0)) * overheat_multiplier * effective_market_multiplier
 	if kinds.size() >= int(customer.get("diversity_required_kinds", 999)):
 		result *= float(customer.get("diversity_multiplier", 1.0))
 	var player: Dictionary = game_state.get("player", {})
@@ -137,7 +142,6 @@ static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dict
 	var network: Dictionary = data.get("technology", {}).get("network", {}).get(network_level, {})
 	var era: Dictionary = data.get("eras", {}).get("items", {}).get(str(player.get("era", 1)), {})
 	result *= aging_efficiency(progress)
-	result *= float(market_multiplier.call(customer_id))
 	result *= float(network.get("income_multiplier", 1.0))
 	result *= float(era.get("income_multiplier", 1.0))
 	result *= float(player.get("brand_multiplier", 1.0))

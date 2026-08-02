@@ -7,8 +7,18 @@ NAV_MARKET,Market,行情
 NAV_TECH,Tech,科技
 NAV_STORE,Store,商店
 NAV_SETTINGS,Settings,设置
+OPERATIONS_CENTER,Operations,运营中心
+OPERATIONS_SUBTITLE,Run the company without leaving the park,不离开园区即可管理公司
+COMPANY_OVERVIEW,Company,公司
+RACKS,Racks,机柜
+RACKS_SUBTITLE,Capacity health and hardware lifecycle,容量、健康状态与硬件生命周期
+INFRASTRUCTURE,Infrastructure,基础设施
+INFRASTRUCTURE_SUBTITLE,Power cooling and end-of-life decisions,供电、制冷与退役决策
+BUILD_DATA_CENTER,Build data center,建造机房
+VIEW_QUEUE,View queue,查看队列
 CASH_FORMAT,$%s,$%s
 GEMS_FORMAT,%s Gems,%s 钻石
+GEMS_REWARD_SHORT,Gems,钻石
 INCOME_RATE,$%s / month,$%s / 月
 BUY,Buy,购买
 BUILD,Build,建造
@@ -20,6 +30,10 @@ DEMOLISH,Clear ruins,清拆废墟
 SIGN_CONTRACT,Sign contract,签订合约
 SWITCH_CONTRACT,Switch contract,更换合约
 CONTRACT_BREACH_FEE,Switching fee: $%s,换约违约金：$%s
+CONTRACT_RENEWAL_WINDOW,Renewal window · free switching for %s,续约窗口 · %s 内免费换约
+CONTRACT_REMAINING,Term remaining: %s,合约剩余：%s
+CONTRACT_FREE_SWITCH,Free switch,免费换约
+TOAST_CONTRACT_RENEWAL,Contract renewal window is open,合约续约窗口已开启
 CANCEL,Cancel,取消
 CONFIRM,Confirm,确认
 CLOSE,Close,关闭
@@ -32,11 +46,18 @@ NOT_ENOUGH_GEMS,Not enough gems,钻石不足
 LOCKED,Locked,未解锁
 EMPTY_SLOT,Empty slot,空机位
 INSTALLING,Installing,安装中
+RACK_DISABLED,Paused,已停机
+RACK_TURN_ON,Power on,恢复运行
+RACK_TURN_OFF,Pause rack,停机保留
+RACK_MARKET_STEADY,Steady · 30% market exposure,稳健 · 30% 行情敏感
+RACK_MARKET_BALANCED,Balanced · 100% market exposure,均衡 · 100% 行情敏感
+RACK_MARKET_VOLATILE,Volatile · 120% market exposure,高波动 · 120% 行情敏感
 FAULTED,Faulted,故障
 OVERHEATED,Overheated,过热
 UNPOWERED,Unpowered,未通电
 POWERED,Powered,供电正常
 CONSTRUCTION_QUEUE,Construction queue,建设队列
+QUEUE_CAPACITY,%d of %d projects active,%d / %d 个项目进行中
 QUEUE_EMPTY,Nothing is being built,当前没有建设项目
 COMPLETE_IN,Complete in %s,%s 后完成
 SPEED_UP,Speed up,加速
@@ -57,6 +78,7 @@ ERA_PROGRESS,Era progress,时代进度
 PRESTIGE,IPO Restructure,上市重组
 PRESTIGE_LOCKED,Build %d data centers to unlock,累计建造 %d 座机房后解锁
 ACHIEVEMENTS,Achievements,成就
+ACHIEVEMENTS_SUBTITLE,Long-term milestones and permanent rewards,长期里程碑与永久奖励
 HIGHEST_NET_WORTH,Highest net worth,历史最高净值
 STAT_SURVIVAL,Company age,公司存续时间
 TOTAL_REVENUE,Total revenue,累计收入
@@ -130,6 +152,14 @@ EVENT_WINTER,Industry Winter,行业寒冬
 EVENT_WINTER_DESC,All customers cut spending.,所有客户缩减支出。
 EVENT_DIGITAL_WAVE,Digitalization Wave,数字化浪潮
 EVENT_DIGITAL_WAVE_DESC,Demand rises across the industry.,全行业需求上升。
+EVENT_CLOUD_FRAMEWORK,Cloud Framework Deal,云厂商年度框架大单
+EVENT_CLOUD_FRAMEWORK_DESC,A long-term cloud capacity tender opens.,长期云容量招标正式开启。
+EVENT_SOVEREIGN_AI,Sovereign AI Training Contract,主权 AI 训练合同
+EVENT_SOVEREIGN_AI_DESC,A national AI program reserves massive GPU capacity.,国家级 AI 项目集中采购 GPU 算力。
+EVENT_OVERSEAS_NODE,Overseas Node Tender,海外节点招标
+EVENT_OVERSEAS_NODE_DESC,Global services seek new internet edge capacity.,全球业务采购海外边缘节点容量。
+EVENT_AI_INFERENCE,AI Inference Demand Surge,AI 推理需求爆发
+EVENT_AI_INFERENCE_DESC,AI applications lift GPU and cloud demand together.,AI 应用同时拉升 GPU 与云端需求。
 STORE_NOADS,No Ads,永久去广告
 STORE_NOADS_DESC,Claim every rewarded benefit instantly forever.,永久直接领取所有激励广告奖励。
 STORE_OFFLINE24,24-hour Offline Earnings,24 小时离线收益
@@ -168,6 +198,7 @@ TOAST_ERA_UNLOCKED,A new era has begun!,新时代已经来临！
 TOAST_ACHIEVEMENT,Achievement unlocked: %s,成就达成：%s
 TOAST_TIME_ROLLBACK,Device time moved backward. Simulation is paused until time catches up.,检测到设备时间回拨，游戏时钟将冻结至追平。
 REASON_QUEUE_FULL,Construction queue is full,建设队列已满
+REASON_RACK_INSTALL_LIMIT,Two racks are already being installed in this data center,该机房已有两台机柜正在安装
 REASON_IN_PROGRESS,Finish ongoing work first,请先完成正在进行的工程
 REASON_NOT_UPGRADE,Choose a higher-level unit,请选择更高等级的设备
 REASON_REWARD_LIMIT,Reward limit reached,已达到奖励次数上限

@@ -20,7 +20,12 @@ func set_series(value: Dictionary) -> void:
 
 func _draw() -> void:
 	var rect := Rect2(Vector2(12, 12), size - Vector2(24, 24))
-	draw_rect(rect, Color("1d2c46"), true)
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color("101f31")
+	background.border_color = Color(1, 1, 1, 0.08)
+	background.set_border_width_all(1)
+	background.set_corner_radius_all(18)
+	draw_style_box(background, rect)
 	for index: int in range(5):
 		var y := rect.position.y + rect.size.y * float(index) / 4.0
 		draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), Color(1, 1, 1, 0.09), 2)

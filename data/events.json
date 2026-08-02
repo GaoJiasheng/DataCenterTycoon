@@ -12,6 +12,10 @@
     "gpu_shortage": {"name_key": "EVENT_GPU_SHORTAGE", "description_key": "EVENT_GPU_SHORTAGE_DESC", "purchase_multipliers": {"gpu": 2.0}, "duration_months": 2, "weight": 5, "minimum_era": 2},
     "compute_surplus": {"name_key": "EVENT_SURPLUS", "description_key": "EVENT_SURPLUS_DESC", "customer_multipliers": {"gpu_company": 0.5}, "duration_months": 3, "weight": 5, "minimum_era": 3},
     "industry_winter": {"name_key": "EVENT_WINTER", "description_key": "EVENT_WINTER_DESC", "all_customer_multiplier": 0.75, "duration_months": 2, "weight": 4, "minimum_era": 2},
-    "digital_wave": {"name_key": "EVENT_DIGITAL_WAVE", "description_key": "EVENT_DIGITAL_WAVE_DESC", "all_customer_multiplier": 1.25, "duration_months": 2, "weight": 4, "minimum_era": 1}
+    "digital_wave": {"name_key": "EVENT_DIGITAL_WAVE", "description_key": "EVENT_DIGITAL_WAVE_DESC", "all_customer_multiplier": 1.25, "duration_months": 2, "weight": 4, "minimum_era": 1},
+    "cloud_framework_deal": {"name_key": "EVENT_CLOUD_FRAMEWORK", "description_key": "EVENT_CLOUD_FRAMEWORK_DESC", "customer_multipliers": {"cloud": 2.2}, "duration_months": 4, "weight": 3, "minimum_era": 2, "minimum_network_level": 3},
+    "sovereign_ai_contract": {"name_key": "EVENT_SOVEREIGN_AI", "description_key": "EVENT_SOVEREIGN_AI_DESC", "customer_multipliers": {"gpu_company": 3.5}, "duration_months": 3, "weight": 3, "minimum_era": 3, "minimum_network_level": 4},
+    "overseas_node_tender": {"name_key": "EVENT_OVERSEAS_NODE", "description_key": "EVENT_OVERSEAS_NODE_DESC", "customer_multipliers": {"internet": 2.0}, "duration_months": 2, "weight": 3, "minimum_era": 2, "minimum_network_level": 3},
+    "ai_inference_surge": {"name_key": "EVENT_AI_INFERENCE", "description_key": "EVENT_AI_INFERENCE_DESC", "customer_multipliers": {"gpu_company": 2.0, "cloud": 1.3}, "duration_months": 3, "weight": 4, "minimum_era": 3, "minimum_network_level": 3}
   }
 }

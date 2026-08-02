@@ -3,7 +3,7 @@
 一款以「数据中心建设与运营」为题材的竖屏放置经营手游。
 玩家像种菜一样：买地 → 建机房 → 上架机器 → 接客户合约赚钱 → 机房老化退役 → 用赚到的钱建更多更好的机房。
 
-竖屏界面以 iPhone 17 Pro Max 的 440×956 pt 为标准尺寸，在 Godot 中使用 880×1912 设计画布；交互控件遵循至少 44pt 的触控热区，并为 Dynamic Island 与 Home Indicator 预留安全区。
+竖屏界面以 6.3 英寸 iPhone 17 的 402×874 pt 为标准尺寸，在 Godot 中使用 804×1748 设计画布；交互控件遵循至少 44pt 的触控热区，并为 Dynamic Island 与 Home Indicator 预留安全区。
 
 - 引擎：Godot 4（沿用 zombie-fire 的 Godot + iOS 发行经验）
 - 平台：iOS App Store（竖屏，多尺寸兼容）
@@ -21,14 +21,15 @@
 | [docs/03_art_spec.md](docs/03_art_spec.md) | 全局美术风格规范 + 全量素材清单（每个素材含尺寸/状态/英文生成 prompt） | 美术外包/生成模型 |
 | [docs/04_tech_plan.md](docs/04_tech_plan.md) | Godot 工程结构、数据 schema、存档与离线结算、里程碑、风险 | 程序 |
 | [docs/05_monetization_store.md](docs/05_monetization_store.md) | 广告位、IAP SKU、定价、商店文案（中英）、上架清单 | 商务/程序 |
+| [docs/06_gameplay_optimization_proposal.md](docs/06_gameplay_optimization_proposal.md) | 行情敏感度、网络大单、续约、独立上架、停机与多种子调平的实施记录 | 策划/程序 |
 
 ## 当前状态
 
 - [x] M0–M4：工程底座、完整经营循环、地图扩张、长线系统、转生、引导与成就
-- [x] 双语竖屏 UI、存档/三备份/迁移、90 天离线快进、行情、破产、商业化玩法逻辑
+- [x] iPhone 17 基准的双语竖屏 UI：世界优先园区、极简 HUD、动态主操作、情境抽屉、安全区和触觉接口
 - [x] 正式美术 134 项、音频 16 项完整接入；地图、机房、导航、商店、事件特效和三套音乐均走运行时接口
 - [x] StoreKit provider、交易幂等、限购、恢复购买和激励视频原生桥接口
-- [x] 64 项 Godot 回归测试、9 状态竖屏视觉烟雾测试、30 天三策略模拟、iOS 导出与 App Store 自动门禁
+- [x] 80 项 Godot 回归测试、21 状态竖屏视觉与排版审计、30 天三策略 × 20 种子模拟、iOS 导出与 App Store 自动门禁
 - [ ] 外部交付：P01 正式名称、P04 广告 SDK、Apple 账号/证书、商店截图和 TestFlight
 
 运行时已经使用正式视听资源；资源接口仍保留缺失回退，因此单张素材损坏或暂时移除不会阻止玩法逻辑启动。
