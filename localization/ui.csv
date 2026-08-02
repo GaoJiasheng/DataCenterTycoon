@@ -138,6 +138,9 @@ ARREARS_RESCUE,Claim emergency funds,领取救急金
 OFFLINE_TITLE,Welcome back,欢迎回来
 OFFLINE_EARNED,Your data centers earned $%s while you were away.,离线期间机房赚取了 $%s。
 OFFLINE_DOUBLE,Double reward,收益翻倍
+OFFLINE_CREDITED_TIME,Earnings credited for %s.,已结算 %s 的离线收益。
+OFFLINE_CAP_NOTICE,Offline earnings reached the %s cap.,离线收益已达到 %s 上限。
+AFFORD_SHORTFALL,Need $%s,还差 $%s
 SETTINGS_LANGUAGE,Language,语言
 SETTINGS_MUSIC,Music,音乐
 SETTINGS_SFX,Sound effects,音效

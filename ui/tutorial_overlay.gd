@@ -55,7 +55,7 @@ func _build_mask() -> void:
 	for index: int in range(4):
 		var pane := ColorRect.new()
 		pane.name = "TutorialMask%d" % index
-		pane.color = Color(0, 0, 0, 0.55)
+		pane.color = Color(0, 0, 0, 0.62)
 		pane.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(pane)
 		mask_panes.append(pane)
@@ -122,16 +122,32 @@ func _build_callout() -> void:
 	_resize_callout()
 
 func _add_programmatic_pointer() -> void:
-	var shaft := Polygon2D.new()
-	shaft.name = "PointerShaft"
-	shaft.polygon = PackedVector2Array([Vector2(31, 6), Vector2(51, 6), Vector2(58, 13), Vector2(58, 49), Vector2(24, 49), Vector2(24, 13)])
-	shaft.color = ThemeMaker.COLORS.ivory
+	var shaft_outline := _pointer_polygon("PointerShaftOutline", PackedVector2Array([
+		Vector2(27, 3), Vector2(55, 3), Vector2(61, 6), Vector2(65, 13),
+		Vector2(65, 49), Vector2(17, 49), Vector2(17, 13), Vector2(21, 6),
+	]), ThemeMaker.COLORS.ink)
+	pointer.add_child(shaft_outline)
+	var shaft := _pointer_polygon("PointerShaft", PackedVector2Array([
+		Vector2(33, 9), Vector2(49, 9), Vector2(55, 12), Vector2(59, 17),
+		Vector2(59, 45), Vector2(23, 45), Vector2(23, 17), Vector2(27, 12),
+	]), ThemeMaker.COLORS.ivory)
 	pointer.add_child(shaft)
-	var head := Polygon2D.new()
-	head.name = "PointerHead"
-	head.polygon = PackedVector2Array([Vector2(12, 45), Vector2(70, 45), Vector2(41, 78)])
-	head.color = ThemeMaker.COLORS.yellow
+	var head_outline := _pointer_polygon("PointerHeadOutline", PackedVector2Array([
+		Vector2(7, 41), Vector2(75, 41), Vector2(41, 82),
+	]), ThemeMaker.COLORS.ink)
+	pointer.add_child(head_outline)
+	var head := _pointer_polygon("PointerHead", PackedVector2Array([
+		Vector2(17, 48), Vector2(65, 48), Vector2(41, 76),
+	]), ThemeMaker.COLORS.yellow)
 	pointer.add_child(head)
+
+func _pointer_polygon(node_name: String, points: PackedVector2Array, fill: Color) -> Polygon2D:
+	var polygon := Polygon2D.new()
+	polygon.name = node_name
+	polygon.polygon = points
+	polygon.color = fill
+	polygon.antialiased = true
+	return polygon
 
 func _resize_callout() -> void:
 	if bubble == null or message == null:

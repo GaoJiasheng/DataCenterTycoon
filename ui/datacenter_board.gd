@@ -24,6 +24,7 @@ var preview_rack_id := ""
 var preview_slot := -1
 var _press_started: Dictionary = {}
 var _tooltip: PanelContainer
+var _stage: Control
 
 func setup(value: String) -> void:
 	datacenter_id = value
@@ -35,7 +36,26 @@ func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", ThemeMaker.SPACE[2])
 	EventBus.state_changed.connect(_on_state_changed)
+	resized.connect(_update_stage_scale)
 	_rebuild()
+
+# The board stage is authored in a fixed 660x660 coordinate space, but the page
+# content area is only 740 minus the sheet's frame insets. The stage minimum must
+# never reach layout negotiation at full size, or it widens the whole page and
+# pushes the header past the clip rect — so it is capped at build time and only
+# shrinks further on narrower parents.
+const STAGE_MAX_SCALE := 0.95
+
+func _update_stage_scale() -> void:
+	if _stage == null or not is_instance_valid(_stage):
+		return
+	var board_scale := STAGE_MAX_SCALE
+	if size.x > 0.0:
+		board_scale = clampf(size.x / BOARD_SIZE.x, 0.5, STAGE_MAX_SCALE)
+	_stage.scale = Vector2.ONE * board_scale
+	# scale is visual-only; layout must reserve the scaled footprint, otherwise
+	# SHRINK_CENTER still centers the unscaled 660u box and overflows the clip.
+	_stage.custom_minimum_size = BOARD_SIZE * board_scale
 
 func set_placement_preview(slot: int, rack_id: String) -> void:
 	preview_slot = slot
@@ -56,10 +76,10 @@ func placement_state_for_slot(slot: int, rack_id: String = "") -> Dictionary:
 		return {}
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
 	if slot not in _unlocked_slots(building):
-		return {"state": "locked", "symbol": "⚠", "hint": tr("LOCKED"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
+		return {"state": "locked", "symbol": "", "hint": tr("LOCKED"), "color": Color("718096")}
 	var racks: Array = dc.get("racks", [])
 	if slot < racks.size() and racks[slot] is Dictionary and not racks[slot].is_empty():
-		return {"state": "occupied", "symbol": "⚠", "hint": tr("REASON_IN_PROGRESS"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
+		return {"state": "occupied", "symbol": "", "hint": tr("REASON_IN_PROGRESS"), "color": Color("718096")}
 	var simulated := dc.duplicate(true)
 	var simulated_racks: Array = simulated.get("racks", []).duplicate(true)
 	while simulated_racks.size() < 9:
@@ -70,7 +90,7 @@ func placement_state_for_slot(slot: int, rack_id: String = "") -> Dictionary:
 	if not bool(runtime.get("powered", false)):
 		return {"state": "power", "symbol": "⚡", "hint": tr("BOARD_NEED_POWER"), "color": ThemeMaker.SEMANTIC.get("danger", ThemeMaker.COLORS.red)}
 	if bool(runtime.get("overheated", false)):
-		return {"state": "heat", "symbol": "⚠", "hint": tr("BOARD_OVERHEAT_HINT"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
+		return {"state": "heat", "symbol": "heat", "hint": tr("BOARD_OVERHEAT_HINT"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
 	return {"state": "ok", "symbol": "✓", "hint": tr("BOARD_PLACE_OK"), "color": ThemeMaker.SEMANTIC.get("success", ThemeMaker.COLORS.green)}
 
 func tutorial_target_rect(focus: String) -> Rect2:
@@ -104,6 +124,8 @@ func _rebuild() -> void:
 	stage.custom_minimum_size = BOARD_SIZE
 	stage.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	add_child(stage)
+	_stage = stage
+	_update_stage_scale()
 	_add_interior(stage)
 	_add_coverage(stage, dc)
 	_add_slots(stage, dc)
@@ -155,6 +177,7 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 		button.name = "RackSlot%d" % slot
 		button.position = _cell_position(slot)
 		button.size = CELL_SIZE
+		button.clip_contents = true
 		button.focus_mode = Control.FOCUS_NONE
 		button.tooltip_text = tr("EMPTY_SLOT")
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -172,7 +195,7 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 				fill = Color(ThemeMaker.SEMANTIC.get("danger", ThemeMaker.COLORS.red), 0.32)
 				border = ThemeMaker.SEMANTIC.get("danger", ThemeMaker.COLORS.red)
 			elif bool(runtime.get("overheated", false)):
-				fill = Color(ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange), 0.30)
+				fill = Color(ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange), 0.35)
 				border = ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)
 		elif open:
 			fill = Color("142a40", 0.72)
@@ -180,11 +203,15 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 		if not preview_rack_id.is_empty():
 			var placement := placement_state_for_slot(slot)
 			if not placement.is_empty():
-				border = Color(placement.get("color", ThemeMaker.COLORS.sky), 0.90)
-				fill = Color(placement.get("color", ThemeMaker.COLORS.sky), 0.16)
+				if str(placement.get("state", "")) in ["locked", "occupied"]:
+					button.modulate = Color(0.58, 0.62, 0.68, 0.78)
+				else:
+					border = Color(placement.get("color", ThemeMaker.COLORS.sky), 0.90)
+					fill = Color(placement.get("color", ThemeMaker.COLORS.sky), 0.16)
 		if not preview_rack_id.is_empty() and slot == preview_slot:
 			border = Color.WHITE
-		var normal := ThemeMaker.panel(fill, border, 3 if slot == preview_slot else 2, 18)
+		var overheat_border: bool = installed is Dictionary and not installed.is_empty() and bool(runtime.get("overheated", false))
+		var normal := ThemeMaker.panel(fill, border, 4 if overheat_border else (3 if slot == preview_slot else 2), 18)
 		normal.content_margin_left = 6
 		normal.content_margin_right = 6
 		normal.content_margin_top = 6
@@ -224,12 +251,31 @@ func _add_slot_art(button: Button, open: bool, installed: Variant, runtime: Dict
 	view.offset_right = -8
 	view.offset_bottom = -8
 	button.add_child(view)
+	if installed is Dictionary and not installed.is_empty() and str(installed.get("status", "")) == "installing":
+		var complete_at := float(installed.get("install_complete_at", Game.simulation_time()))
+		var rack_data := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
+		var duration := maxf(1.0, float(rack_data.get("install_seconds", complete_at - float(installed.get("started_at", Game.simulation_time())))))
+		var timer := Widgets.timer_bar(complete_at, duration)
+		timer.name = "RackInstallTimer"
+		timer.position = Vector2(8, 82)
+		timer.size = Vector2(CELL_SIZE.x - 16, 54)
+		timer.z_index = 4
+		var progress := timer.find_child("TimerProgress", true, false) as ProgressBar
+		if progress != null:
+			progress.custom_minimum_size.y = 16
+		var remaining := timer.find_child("TimerRemaining", true, false) as Label
+		if remaining != null:
+			remaining.add_theme_font_size_override("font_size", 18)
+			remaining.add_theme_color_override("font_color", Color.WHITE)
+			remaining.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+			remaining.add_theme_constant_override("outline_size", 3)
+		button.add_child(timer)
 	if installed is Dictionary and not installed.is_empty() and (bool(runtime.get("overheated", false)) or bool(runtime.get("faulted", false)) or not bool(runtime.get("powered", true))):
 		var icon := TextureRect.new()
 		icon.name = "RackStatus"
 		icon.texture = AssetCatalog.texture("ic_wrench" if bool(runtime.get("faulted", false)) else ("ic_heat" if bool(runtime.get("overheated", false)) else "ic_power"))
-		icon.position = Vector2(98, 8)
-		icon.size = Vector2(38, 38)
+		icon.position = Vector2(96, 6)
+		icon.size = Vector2(40, 40)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -238,18 +284,31 @@ func _add_slot_art(button: Button, open: bool, installed: Variant, runtime: Dict
 func _add_preview_badge(button: Button, state: Dictionary) -> void:
 	if state.is_empty():
 		return
+	var badge := PanelContainer.new()
+	badge.name = "PlacementState"
+	badge.set_meta("placement_state", str(state.get("state", "")))
+	badge.position = Vector2(98, 6)
+	badge.size = Vector2(40, 40)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(badge)
+	var symbol := str(state.get("symbol", ""))
+	if symbol.is_empty():
+		badge.visible = false
+		return
+	var badge_style := ThemeMaker.panel(state.get("color", ThemeMaker.COLORS.sky), Color.WHITE, 2, 20)
+	badge_style.content_margin_left = 0
+	badge_style.content_margin_top = 0
+	badge_style.content_margin_right = 0
+	badge_style.content_margin_bottom = 0
+	badge.add_theme_stylebox_override("panel", badge_style)
 	var label := Label.new()
-	label.name = "PlacementState"
-	label.text = str(state.get("symbol", ""))
-	label.position = Vector2(98, 94)
-	label.size = Vector2(40, 40)
+	label.name = "PlacementSymbol"
+	label.text = "♨" if symbol == "heat" else symbol
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 28)
 	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_stylebox_override("normal", ThemeMaker.panel(state.get("color", ThemeMaker.COLORS.sky), Color.WHITE, 2, 20))
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(label)
+	badge.add_child(label)
 
 func _add_coolers(stage: Control, dc: Dictionary) -> void:
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
@@ -273,10 +332,21 @@ func _add_coolers(stage: Control, dc: Dictionary) -> void:
 		button.add_theme_stylebox_override("normal", ThemeMaker.flat_group_box(accent, 8))
 		button.add_theme_stylebox_override("hover", ThemeMaker.flat_group_box(ThemeMaker.COLORS.sky if slot_available else Color.TRANSPARENT, 8))
 		button.add_theme_stylebox_override("pressed", ThemeMaker.flat_group_box(ThemeMaker.COLORS.sky if slot_available else Color.TRANSPARENT, 8))
-		button.icon = AssetCatalog.texture("ic_lock" if not slot_available else ("ic_cooling" if cooler_id.is_empty() else cooler_id + "_active"))
-		button.expand_icon = true
-		button.add_theme_constant_override("icon_max_width", 58)
-		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		# Exactly one branch owns the icon. Keeping the art in a dedicated child
+		# avoids Button's inherited icon being drawn under an installed cooler.
+		button.icon = null
+		var cooler_art := TextureRect.new()
+		cooler_art.name = "CoolerArt"
+		cooler_art.texture = AssetCatalog.texture("ic_lock" if not slot_available else ("ic_cooling" if cooler_id.is_empty() else cooler_id + "_active"))
+		cooler_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		cooler_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		cooler_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cooler_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cooler_art.offset_left = 12
+		cooler_art.offset_top = 12
+		cooler_art.offset_right = -12
+		cooler_art.offset_bottom = -12
+		button.add_child(cooler_art)
 		button.modulate = Color(1, 1, 1, 0.38) if not slot_available else (Color.WHITE if installed else Color(1, 1, 1, 0.78))
 		button.pressed.connect(func() -> void:
 			if slot_available:

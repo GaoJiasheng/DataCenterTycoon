@@ -69,6 +69,7 @@ var _primary_pulse_tween: Tween
 var _last_tutorial_step := -1
 
 func _ready() -> void:
+	_fit_desktop_window()
 	theme = ThemeMaker.create()
 	_build_shell()
 	_connect_events()
@@ -76,6 +77,19 @@ func _ready() -> void:
 	call_deferred("_show_pending_offline_report")
 	call_deferred("_queue_unseen_era_overlays")
 	call_deferred("_show_pending_bankruptcy_state")
+
+# Desktop preview only: size the window to the screen instead of the fixed
+# 440x956 override, keeping the iPhone 17 Pro Max logical aspect. iOS ignores this.
+func _fit_desktop_window() -> void:
+	if not OS.has_feature("pc"):
+		return
+	if not Game.persistence_enabled:
+		return  # test harness owns the window size (visual_smoke snapshots at 440x956)
+	var usable := DisplayServer.screen_get_usable_rect()
+	var height := int(usable.size.y * 0.92)
+	var width := int(round(height * 440.0 / 956.0))
+	DisplayServer.window_set_size(Vector2i(width, height))
+	DisplayServer.window_set_position(usable.position + (usable.size - Vector2i(width, height)) / 2)
 
 func _process(delta: float) -> void:
 	_refresh_cooldown -= delta
@@ -219,7 +233,7 @@ func _build_shell() -> void:
 	navigation_panel = PanelContainer.new()
 	navigation_panel.name = "WorldActions"
 	navigation_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	navigation_panel.offset_top = -116
+	navigation_panel.offset_top = -144
 	navigation_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	stage.add_child(navigation_panel)
 	var action_layer := Control.new()
@@ -229,16 +243,16 @@ func _build_shell() -> void:
 	task_button.name = "TaskButton"
 	task_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
 	task_button.offset_left = 0
-	task_button.offset_top = -48
+	task_button.offset_top = -62
 	task_button.offset_right = 96
-	task_button.offset_bottom = 48
+	task_button.offset_bottom = 34
 	task_button.tooltip_text = tr("VIEW_QUEUE")
 	task_button.pressed.connect(_navigate.bind("build"))
 	ThemeMaker.apply_round_button(task_button, ThemeMaker.COLORS.orange)
 	_wire_button_motion(task_button)
 	_set_button_asset(task_button, "ic_build", 42)
-	_add_world_action_caption(task_button, tr("NAV_BUILD"))
 	action_layer.add_child(task_button)
+	_add_world_action_caption(action_layer, tr("NAV_BUILD"), false)
 	queue_badge_label = _label("", 19, Color.WHITE)
 	queue_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	queue_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -262,9 +276,9 @@ func _build_shell() -> void:
 	operations_button.name = "OperationsButton"
 	operations_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
 	operations_button.offset_left = -96
-	operations_button.offset_top = -48
+	operations_button.offset_top = -62
 	operations_button.offset_right = 0
-	operations_button.offset_bottom = 48
+	operations_button.offset_bottom = 34
 	operations_button.tooltip_text = tr("OPERATIONS_CENTER")
 	operations_button.pressed.connect(_show_operations_hub)
 	ThemeMaker.apply_round_button(operations_button, ThemeMaker.COLORS.sky)
@@ -273,8 +287,8 @@ func _build_shell() -> void:
 	var operations_asset := "ic_operations" if AssetCatalog.texture("ic_operations") != null else "ic_network"
 	_set_button_asset(operations_button, operations_asset, 42)
 	operations_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_add_world_action_caption(operations_button, tr("OPERATIONS_SHORT"))
 	action_layer.add_child(operations_button)
+	_add_world_action_caption(action_layer, tr("OPERATIONS_SHORT"), true)
 	operations_badge = Widgets.badge(0)
 	operations_badge.position = Vector2(62, -6)
 	operations_badge_label = operations_badge.find_child("BadgeValue", true, false) as Label
@@ -366,6 +380,8 @@ func _refresh_page() -> void:
 		_rendered_page = "map"
 		return
 	var page_changed := _rendered_page != active_page
+	if page_changed and fx_layer != null:
+		fx_layer.clear()
 	_cache_page_scroll(_rendered_page)
 	for child: Node in page_host.get_children():
 		page_host.remove_child(child)
@@ -498,7 +514,7 @@ func _maybe_show_periodic_income(cash: float) -> void:
 	_last_income_fly_at = Game.simulation_time()
 	var source_id := _highest_income_datacenter_id()
 	var source := park_map.world_position_of(source_id) if park_map != null else Vector2.ZERO
-	fx_layer.fly_coins(source, cash_label.get_parent().get_parent() as Control, 3)
+	fx_layer.fly_coins(source, _cash_chip_target(), 3)
 	AudioService.play_sfx("sfx_cash")
 
 func _highest_income_datacenter_id() -> String:
@@ -978,9 +994,15 @@ func _market_legend_button(chart: MarketChart, customer_id: String, customer: Di
 	control.name = "Legend_%s" % customer_id
 	control.custom_minimum_size.y = 88
 	control.set_meta("legend_color", color)
-	var normal := ThemeMaker.panel(color.darkened(0.35), Color(color, 0.56), 1, 18)
-	var hover := ThemeMaker.panel(color.darkened(0.25), Color(color, 0.72), 1, 18)
-	var pressed := ThemeMaker.panel(color.darkened(0.45), Color(color, 0.56), 1, 18)
+	# Series identity comes from a color dot + border on a dark chip; saturated
+	# chip fills swallow the label text.
+	var dot := Image.create(20, 20, false, Image.FORMAT_RGBA8)
+	dot.fill(color)
+	control.icon = ImageTexture.create_from_image(dot)
+	control.add_theme_constant_override("h_separation", 10)
+	var normal := ThemeMaker.panel(Color(0, 0, 0, 0.30), Color(color, 0.62), 1, 18)
+	var hover := ThemeMaker.panel(Color(color, 0.18), Color(color, 0.80), 1, 18)
+	var pressed := ThemeMaker.panel(Color(0, 0, 0, 0.42), Color(color, 0.62), 1, 18)
 	control.add_theme_stylebox_override("normal", normal)
 	control.add_theme_stylebox_override("hover", hover)
 	control.add_theme_stylebox_override("pressed", pressed)
@@ -1015,8 +1037,10 @@ func _build_tech_page() -> Control:
 	network_box.add_child(_feature_heading("ic_network", "%s · %s" % [tr("NETWORK"), tr(network.get("name_key", ""))], "×%.2f" % float(network.get("income_multiplier", 1.0)), ThemeMaker.COLORS.cyan))
 	var next_network: Dictionary = DataRepository.get_table("technology").get("network", {}).get(str(network_level + 1), {})
 	if not next_network.is_empty():
-		var network_button := _button("%s %s · $%s" % [tr("UPGRADE"), tr(next_network.get("name_key", "")), Game.format_number(float(next_network.get("cost", 0.0)))], _upgrade_network, ThemeMaker.COLORS.sky)
+		var network_cost := float(next_network.get("cost", 0.0))
+		var network_button := _button("%s %s · $%s" % [tr("UPGRADE"), tr(next_network.get("name_key", "")), Game.format_number(network_cost)], _upgrade_network, ThemeMaker.COLORS.sky)
 		network_button.disabled = not Game.is_unlocked(next_network)
+		Widgets.affordable_style(network_button, network_cost)
 		network_box.add_child(network_button)
 	box.add_child(network_card)
 	var repair_level := int(Game.state.get("technology", {}).get("repair_team", 1))
@@ -1027,8 +1051,10 @@ func _build_tech_page() -> Control:
 	repair_box.add_child(_feature_heading("ic_wrench", "%s T%d" % [tr("TECH_REPAIR_TEAM"), repair_level], tr("TECH_REPAIR_TEAM_DESC"), ThemeMaker.COLORS.green))
 	var next_repair: Dictionary = DataRepository.get_table("technology").get("upgrades", {}).get("repair_team", {}).get("levels", {}).get(str(repair_level + 1), {})
 	if not next_repair.is_empty():
-		var repair_button := _button("%s · $%s" % [tr("UPGRADE"), Game.format_number(float(next_repair.get("cost", 0.0)))], _upgrade_repair, ThemeMaker.COLORS.green)
+		var repair_cost := float(next_repair.get("cost", 0.0))
+		var repair_button := _button("%s · $%s" % [tr("UPGRADE"), Game.format_number(repair_cost)], _upgrade_repair, ThemeMaker.COLORS.green)
 		repair_button.disabled = not Game.is_unlocked(next_repair)
+		Widgets.affordable_style(repair_button, repair_cost)
 		repair_box.add_child(repair_button)
 	box.add_child(repair_card)
 	box.add_child(_build_prestige_card(player))
@@ -1611,11 +1637,13 @@ func _show_rack_picker(datacenter_id: String, slot: int) -> void:
 	for rack_id: String in DataRepository.get_table("racks").get("items", {}):
 		var rack := DataRepository.get_entry("racks", rack_id)
 		if Game.is_unlocked(rack):
+			var rack_cost := Game.rack_purchase_cost(rack_id)
 			choices.append({
 				"id": rack_id,
 				"height": 132,
+				"cost": rack_cost,
 				"text": "%s · $%s\n⚡ %s   ♨ %s   $ %s/%s\n%s" % [
-					tr(rack.get("name_key", "")), Game.format_number(Game.rack_purchase_cost(rack_id)),
+					tr(rack.get("name_key", "")), Game.format_number(rack_cost),
 					Game.format_number(float(rack.get("power", 0.0))), Game.format_number(float(rack.get("heat", 0.0))),
 					Game.format_number(float(rack.get("income_per_month", 0.0))), tr("MONTH_SHORT"),
 					_rack_trait_label(float(rack.get("market_sensitivity", 1.0))),
@@ -1696,6 +1724,7 @@ func _show_building_picker(plot_id: String) -> void:
 		card.name = "Building_%s" % building_id
 		card.custom_minimum_size = Vector2(322, 418)
 		card.focus_mode = Control.FOCUS_NONE
+		card.set_meta("affordable_card", true)
 		ThemeMaker.apply_button_color(card, Color("1c3850"))
 		_wire_button_motion(card)
 		card.pressed.connect(func() -> void:
@@ -1716,12 +1745,18 @@ func _show_building_picker(plot_id: String) -> void:
 		var building_name := _label(tr(building.get("name_key", "")), 28, ThemeMaker.COLORS.cream)
 		building_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card_content.add_child(building_name)
-		var cost := _label("$%s" % Game.format_number(float(building.get("cost", 0.0))), 27, ThemeMaker.COLORS.yellow)
+		var building_cost := float(building.get("cost", 0.0))
+		var building_cash := float(Game.state.get("player", {}).get("cash", 0.0))
+		var cost_copy := "$%s" % Game.format_number(building_cost)
+		if building_cash < building_cost:
+			cost_copy += " · " + (tr("AFFORD_SHORTFALL") % Game.format_number(building_cost - building_cash))
+		var cost := _label(cost_copy, 23 if building_cash < building_cost else 27, ThemeMaker.COLORS.green if building_cash >= building_cost else Color("b8c2cc"))
 		cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card_content.add_child(cost)
 		var duration := _label(tr("COMPLETE_IN") % Game.format_duration(float(building.get("build_seconds", 0.0))), 20, ThemeMaker.COLORS.cyan)
 		duration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card_content.add_child(duration)
+		Widgets.affordable_style(card, building_cost)
 
 func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	var overlay := ColorRect.new()
@@ -1957,7 +1992,7 @@ func _show_attachment_picker(datacenter_id: String, kind: String, edge: String) 
 		var item := DataRepository.get_entry("attachments", attachment_id)
 		if item.get("kind", "") == kind and Game.is_unlocked(item):
 			var stat := "⚡ %s" % Game.format_number(float(item.get("capacity", 0.0))) if kind == "power" else "❄ %s · ▦ 3" % Game.format_number(float(item.get("cooling", 0.0)))
-			choices.append({"id": attachment_id, "height": 108, "text": "%s · $%s\n%s" % [tr(item.get("name_key", "")), Game.format_number(float(item.get("cost", 0.0))), stat]})
+			choices.append({"id": attachment_id, "height": 108, "cost": float(item.get("cost", 0.0)), "text": "%s · $%s\n%s" % [tr(item.get("name_key", "")), Game.format_number(float(item.get("cost", 0.0))), stat]})
 	_show_choice(tr("INSTALL"), choices, func(attachment_id: String) -> void:
 		var result: Dictionary = Game.install_power(datacenter_id, attachment_id) if kind == "power" else Game.install_cooler(datacenter_id, edge, attachment_id)
 		_handle_result(result)
@@ -2085,6 +2120,8 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 					choice_button.create_tween().tween_property(choice_button, "modulate", Color.WHITE, 0.14)
 			)
 		choice_button.custom_minimum_size.y = float(choice.get("height", 92.0))
+		if choice.has("cost"):
+			Widgets.affordable_style(choice_button, float(choice.get("cost", 0.0)))
 		choice_box.add_child(choice_button)
 	if show_cancel:
 		var cancel_button := _button(tr("CANCEL"), _dismiss_action_sheet.bind(overlay), Color("263d59"))
@@ -2161,10 +2198,18 @@ func _show_offline_dialog(report: Dictionary) -> void:
 	income_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ThemeMaker.apply_numeric_text(income_label)
 	box.add_child(income_label)
-	var earned := _label(tr("OFFLINE_EARNED") % Game.format_number(income), 22, ThemeMaker.COLORS.ink)
+	var elapsed := float(report.get("elapsed_seconds", 0.0))
+	var credited := float(report.get("credited_seconds", minf(elapsed, Game.offline_income_cap_seconds())))
+	var earned := _label(tr("OFFLINE_CREDITED_TIME") % Game.format_duration(credited), 22, ThemeMaker.COLORS.ink)
+	earned.name = "OfflineCreditCopy"
 	earned.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	earned.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(earned)
+	if elapsed > credited + 1.0:
+		var cap_hint := _label(tr("OFFLINE_CAP_NOTICE") % Game.format_duration(credited), 20, Color("725a36"))
+		cap_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cap_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(cap_hint)
 	var event_rows := _offline_event_rows(report)
 	if not event_rows.is_empty():
 		var events_box := VBoxContainer.new()
@@ -2261,6 +2306,8 @@ func _confirm(title_text: String, body: String, callback: Callable) -> void:
 	)
 
 func _navigate(page: String) -> void:
+	if fx_layer != null:
+		fx_layer.clear()
 	if page == active_page:
 		if page == "map" and park_map != null:
 			park_map.reset_camera()
@@ -2449,8 +2496,12 @@ func _on_reward_granted(_placement: String, _payload: Dictionary) -> void:
 func _fly_cash_reward(source: Vector2, count: int) -> void:
 	if fx_layer == null or cash_label == null:
 		return
-	var chip := cash_label.get_parent().get_parent() as Control
+	var chip := _cash_chip_target()
 	fx_layer.fly_coins(source, chip, count)
+
+func _cash_chip_target() -> Control:
+	var chip := find_child("CashResource", true, false) as Control
+	return chip if chip != null else cash_label
 
 func _on_world_alert_selected(datacenter_id: String, alert_type: String, slot: int) -> void:
 	match alert_type:
@@ -2929,17 +2980,21 @@ func _resource_chip(asset_id: String, accent: Color) -> PanelContainer:
 	row.add_child(affordance)
 	return chip
 
-func _add_world_action_caption(button: Button, text: String) -> void:
+func _add_world_action_caption(parent: Control, text: String, align_right: bool) -> void:
 	var caption := _label(text, 18, Color.WHITE)
-	caption.name = "EntryCaption"
-	caption.position = Vector2(-8, 66)
-	caption.size = Vector2(112, 28)
+	caption.name = "OperationsCaption" if align_right else "TaskCaption"
+	caption.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT if align_right else Control.PRESET_BOTTOM_LEFT)
+	caption.offset_left = -104 if align_right else -8
+	caption.offset_top = -36
+	caption.offset_right = 8 if align_right else 104
+	caption.offset_bottom = -8
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.add_theme_font_override("font", ThemeMaker.font_bold())
 	caption.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
 	caption.add_theme_constant_override("outline_size", 3)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(caption)
+	parent.add_child(caption)
 
 func _metric_chip(text: String, accent: Color) -> PanelContainer:
 	return Widgets.chip(text, accent.lightened(0.18))

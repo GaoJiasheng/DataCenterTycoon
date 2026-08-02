@@ -161,7 +161,13 @@ func target_global_position(target_id: String) -> Vector2:
 	return target.get_global_rect().get_center() if target != null else Vector2.ZERO
 
 func world_position_of(target_id: String) -> Vector2:
-	return target_global_position(target_id)
+	var target := target_buttons.get(target_id) as Control
+	if target == null:
+		return Vector2.ZERO
+	var art := target.find_child("WorldArt", true, false) as Control
+	# Coins originate from the visible building, not the plot button's lower
+	# status rail. A slight upward bias keeps the burst over the roofline.
+	return art.get_global_rect().get_center() + Vector2(0, -30) if art != null else target.get_global_rect().get_center()
 
 func target_control_of(target_id: String) -> Control:
 	return target_buttons.get(target_id) as Control

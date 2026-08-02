@@ -300,6 +300,13 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if persistent_count > 7 or main.find_child("BottomNav", true, false) != null:
 			push_error("VISUAL_SMOKE: map has %d persistent controls or a legacy tab bar" % persistent_count)
 			valid = false
+		var task_caption := main.find_child("TaskCaption", true, false) as Label
+		var operations_caption := main.find_child("OperationsCaption", true, false) as Label
+		var task_button := main.find_child("TaskButton", true, false) as Button
+		var operations_button := main.find_child("OperationsButton", true, false) as Button
+		if task_caption == null or operations_caption == null or task_button == null or operations_button == null or task_caption.get_parent() == task_button or operations_caption.get_parent() == operations_button or not task_button.text.is_empty() or not operations_button.text.is_empty():
+			push_error("VISUAL_SMOKE: map circular entries do not keep their labels outside the icon buttons")
+			valid = false
 	if state_name == "ftue_spotlight":
 		var spotlight := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
 		var primary := main.find_child("PrimaryWorldAction", true, false) as Control
@@ -311,8 +318,14 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if spotlight == null or not spotlight.visible or not bool(spotlight.call("is_actionable")) or primary == null or pointer == null or not pointer.visible or not hole.intersects(primary.get_global_rect()):
 			push_error("VISUAL_SMOKE: FTUE spotlight does not resolve the primary action hole and pointer")
 			valid = false
-		if pointer != null and AssetCatalog.texture("ic_pointer_hand") == null and pointer.find_children("Pointer*", "Polygon2D", true, false).size() != 2:
-			push_error("VISUAL_SMOKE: FTUE pointer fallback is not the two-polygon arrow")
+		if pointer != null and AssetCatalog.texture("ic_pointer_hand") == null:
+			var pointer_parts := pointer.find_children("Pointer*", "Polygon2D", true, false)
+			if pointer_parts.size() != 4 or pointer_parts.any(func(part: Node) -> bool: return not bool((part as Polygon2D).antialiased)):
+				push_error("VISUAL_SMOKE: FTUE pointer fallback lacks its antialiased capsule/triangle outline")
+				valid = false
+		var mask := main.find_child("TutorialMask0", true, false) as ColorRect
+		if mask == null or mask.color.a < 0.62:
+			push_error("VISUAL_SMOKE: FTUE dim layer is below 0.62")
 			valid = false
 		if pointer != null and pointer.get_global_rect().end.y > hole.position.y - 12.0:
 			push_error("VISUAL_SMOKE: FTUE pointer overlaps the spotlight target")
@@ -367,13 +380,26 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if state_name == "dc_board_placing" and main.find_children("PlacementState", "", true, false).size() != 9:
 			push_error("VISUAL_SMOKE: placement preview does not classify all nine slots")
 			valid = false
-		var placement_badges := main.find_children("PlacementState", "Label", true, false)
+		var placement_badges := main.find_children("PlacementState", "PanelContainer", true, false)
 		for placement_node: Node in placement_badges:
-			if (placement_node as Label).text not in ["✓", "⚠", "⚡"]:
-				push_error("VISUAL_SMOKE: placement preview uses an illegal badge %s" % (placement_node as Label).text)
+			var placement_state := str(placement_node.get_meta("placement_state", ""))
+			var should_show := placement_state in ["ok", "heat", "power"]
+			if placement_state not in ["ok", "heat", "power", "locked", "occupied"] or (placement_node as Control).visible != should_show:
+				push_error("VISUAL_SMOKE: placement preview state is not semantically visible: %s" % placement_state)
+				valid = false
+		for symbol_node: Node in main.find_children("PlacementSymbol", "Label", true, false):
+			if (symbol_node as Label).text not in ["✓", "⚡", "♨"]:
+				push_error("VISUAL_SMOKE: placement preview uses an illegal text badge %s" % (symbol_node as Label).text)
 				valid = false
 		if state_name != "dc_board_placing" and not placement_badges.is_empty():
 			push_error("VISUAL_SMOKE: non-placement board retains placement badges")
+			valid = false
+		if state_name == "dc_board" and main.find_child("RackInstallTimer", true, false) == null:
+			push_error("VISUAL_SMOKE: installing rack lacks its in-cell timer")
+			valid = false
+		var installed_cooler := main.find_child("Cooler_north", true, false) as Button
+		if installed_cooler == null or installed_cooler.icon != null or installed_cooler.find_children("CoolerArt", "TextureRect", true, false).size() != 1:
+			push_error("VISUAL_SMOKE: installed cooler is not rendered by exactly one icon branch")
 			valid = false
 		var locked_coolers := 0
 		for cooler_node: Node in main.find_children("Cooler_*", "Button", true, false):
@@ -420,6 +446,13 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if main.find_children("EraNode_*", "PanelContainer", true, false).size() != 3 or main.find_child("EraUnlockPreview", true, false) == null or main.find_child("PrestigeProgressBar", true, false) == null:
 			push_error("VISUAL_SMOKE: tech page lacks the three-era route or prestige progress")
 			valid = false
+		var affordability_count := 0
+		for button_node: Node in main.find_children("*", "Button", true, false):
+			if button_node.has_meta("purchase_cost"):
+				affordability_count += 1
+		if affordability_count < 2:
+			push_error("VISUAL_SMOKE: tech upgrades do not share the affordability contract")
+			valid = false
 	if state_name == "contract_comparison":
 		var sheet := main.find_child("ActionSheetOverlay", true, false)
 		if sheet == null:
@@ -447,6 +480,10 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 	if state_name == "offline_reward":
 		if main.find_child("OfflineRewardCard", true, false) == null or main.find_child("OfflineCoinPile", true, false) == null or main.find_child("OfflineDoubleButton", true, false) == null:
 			push_error("VISUAL_SMOKE: offline reward lacks animated earnings art or primary ×2 placement")
+			valid = false
+		var credit_copy := main.find_child("OfflineCreditCopy", true, false) as Label
+		if credit_copy == null or credit_copy.text.contains("12.8"):
+			push_error("VISUAL_SMOKE: offline reward repeats a final amount while the headline is still rolling")
 			valid = false
 	if state_name == "arrears":
 		var crisis_nodes := [main.find_child("ArrearsBanner", true, false), main.find_child("ArrearsVignette", true, false), main.find_child("ArrearsProgress", true, false), main.find_child("ArrearsRescueButton", true, false)]
@@ -582,11 +619,17 @@ func _button_text_contrast_is_safe(main: Node, state_name: String) -> bool:
 		var is_legal_color := font_color.is_equal_approx(Color.WHITE) or font_color.is_equal_approx(ThemeFactory.COLORS.cream)
 		var outline_size := button.get_theme_constant("outline_size")
 		var outline_color := button.get_theme_color("font_outline_color")
-		if not is_legal_color or outline_size < 4 or not outline_color.is_equal_approx(ThemeFactory.COLORS.ink):
+		# CJK strokes at small sizes get swallowed by a 4px outline; the readable
+		# combination is 3px below 26u and 4px from 26u up.
+		var required_outline := 4 if button.get_theme_font_size("font_size") >= 26 else 3
+		if not is_legal_color or outline_size < required_outline or not outline_color.is_equal_approx(ThemeFactory.COLORS.ink):
 			push_error("VISUAL_SMOKE: %s illegal button text contrast %s color=%s outline=%d/%s" % [state_name, button.name, font_color, outline_size, outline_color])
 			valid = false
 		if bool(button.get_meta("glossy_button", false)) and (button.text.contains("\n") or button.text.contains("\r")):
 			push_error("VISUAL_SMOKE: %s glossy button contains multiline content %s text=%s" % [state_name, button.name, button.text])
+			valid = false
+		if bool(button.get_meta("glossy_button", false)) and (button.get_theme_font_size("font_size") != 28 or not font_color.is_equal_approx(Color.WHITE) or outline_size < 4 or button.get_theme_constant("shadow_offset_y") < 2):
+			push_error("VISUAL_SMOKE: %s glossy CTA violates the 28u white/4px/shadow contract: %s" % [state_name, button.name])
 			valid = false
 	return valid
 

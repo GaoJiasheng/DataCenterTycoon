@@ -21,6 +21,7 @@ static func close_button(action: Callable) -> Button:
 	control.custom_minimum_size = Vector2(ThemeMaker.TOUCH_MIN, ThemeMaker.TOUCH_MIN)
 	control.size_flags_horizontal = Control.SIZE_SHRINK_END
 	control.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.title)
+	control.add_theme_constant_override("outline_size", 4)
 	control.add_theme_stylebox_override("normal", ThemeMaker.round_button_box(Color("263d59")))
 	control.add_theme_stylebox_override("hover", ThemeMaker.round_button_box(Color("365572")))
 	control.add_theme_stylebox_override("pressed", ThemeMaker.round_button_box(Color("1c3047"), true))
@@ -157,6 +158,48 @@ static func animate_number(label: Label, from_value: float, to_value: float, for
 			label.text = str(formatter.call(value))
 	, from_value, to_value, duration).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 	return tween
+
+static func affordable_style(button: Button, cost: float) -> void:
+	# One affordability contract for every purchase surface. It deliberately
+	# leaves the action enabled when cash is short so the gameplay layer can
+	# return its localized failure reason; presentation only changes hierarchy.
+	if not button.has_meta("affordability_base_text"):
+		button.set_meta("affordability_base_text", button.text)
+	var base_text := str(button.get_meta("affordability_base_text", button.text))
+	var cash := float(Game.state.get("player", {}).get("cash", 0.0))
+	var affordable := cash + 0.001 >= cost and not button.disabled
+	button.set_meta("affordable", affordable)
+	button.set_meta("purchase_cost", cost)
+	var old_pulse: Variant = button.get_meta("affordability_pulse") if button.has_meta("affordability_pulse") else null
+	if old_pulse is Tween and (old_pulse as Tween).is_valid():
+		(old_pulse as Tween).kill()
+	button.scale = Vector2.ONE
+	button.modulate = Color.WHITE
+	var card_surface := bool(button.get_meta("affordable_card", false))
+	if card_surface:
+		var accent := ThemeMaker.COLORS.green if affordable else Color("6f7b88")
+		var normal := ThemeMaker.flat_group_box(accent)
+		normal.border_color = Color(accent, 0.78 if affordable else 0.34)
+		normal.set_border_width_all(2)
+		button.add_theme_stylebox_override("normal", normal)
+		button.add_theme_stylebox_override("hover", ThemeMaker.flat_group_box(accent.lightened(0.08)))
+		button.add_theme_stylebox_override("pressed", ThemeMaker.flat_group_box(accent.darkened(0.08)))
+	else:
+		button.text = base_text
+		if affordable:
+			ThemeMaker.apply_button_role(button, "primary")
+		else:
+			ThemeMaker.apply_button_role(button, "disabled")
+			var shortfall := maxf(0.0, cost - cash)
+			var shortfall_copy := TranslationServer.translate("AFFORD_SHORTFALL") % Game.format_number(shortfall)
+			button.text = "%s\n%s" % [base_text, shortfall_copy]
+			var line_count := button.text.count("\n") + 1
+			button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, float(line_count * 30 + 28))
+	if affordable:
+		var pulse := button.create_tween().set_loops()
+		pulse.tween_property(button, "modulate", Color(1.08, 1.08, 1.08, 1.0), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		pulse.tween_property(button, "modulate", Color.WHITE, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		button.set_meta("affordability_pulse", pulse)
 
 static func wire_button_motion(control: Button) -> void:
 	control.resized.connect(func() -> void: control.pivot_offset = control.size * 0.5)

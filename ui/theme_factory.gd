@@ -40,6 +40,29 @@ const FONT_LATIN_PATH := "res://assets/fonts/Baloo2-Variable.ttf"
 const FONT_CJK_PATH := "res://assets/fonts/NotoSansSC-Variable.ttf"
 
 static var _font_cache: Dictionary = {}
+static var _scaled_texture_cache: Dictionary = {}
+
+# Painted nine-slice sources are high-res (1024²) with thick decorated frames.
+# Rendering their border strips 1:1 would eat 100u+ per edge, and using smaller
+# slice margins cuts through the painted frame (the "folded border" artifacts).
+# Downscaling once at load keeps the painted frame proportional on phone UI.
+static func scaled_texture(asset_id: String, scale: float) -> Texture2D:
+	var cache_key := "%s@%.2f" % [asset_id, scale]
+	if _scaled_texture_cache.has(cache_key):
+		return _scaled_texture_cache[cache_key] as Texture2D
+	var source := AssetCatalog.texture(asset_id)
+	if source == null:
+		return null
+	var image := source.get_image()
+	if image == null:
+		return source
+	image = image.duplicate()
+	if image.is_compressed():
+		image.decompress()
+	image.resize(int(image.get_width() * scale), int(image.get_height() * scale), Image.INTERPOLATE_LANCZOS)
+	var scaled := ImageTexture.create_from_image(image)
+	_scaled_texture_cache[cache_key] = scaled
+	return scaled
 
 static func create() -> Theme:
 	var result := Theme.new()
@@ -59,14 +82,24 @@ static func create() -> Theme:
 	result.set_color("font_color", "Button", Color.WHITE)
 	result.set_color("font_disabled_color", "Button", Color("9aa9ba"))
 	result.set_font_size("font_size", "Button", 24)
-	result.set_constant("outline_size", "Button", 4)
+	result.set_constant("outline_size", "Button", 3)
 	result.set_color("font_outline_color", "Button", COLORS.ink)
 	result.set_stylebox("normal", "LineEdit", panel(Color("fff6e8"), COLORS.sky, 2, 14))
 	result.set_color("font_color", "LineEdit", COLORS.navy)
 	result.set_stylebox("normal", "OptionButton", button_box(COLORS.navy, 16))
 	result.set_stylebox("normal", "CheckButton", StyleBoxEmpty.new())
-	var progress_background := texture_box("progress_frame", Vector4(44, 30, 44, 30), Vector4(12, 8, 12, 8))
-	var progress_fill := texture_box("progress_fill", Vector4(44, 30, 44, 30), Vector4(8, 6, 8, 6))
+	# Bars render 34-42u tall; the painted progress_frame needs 60u of slices and
+	# folds over itself at that size. Flat styles scale cleanly at any height.
+	var progress_background := panel(Color("0a1726"), Color(1, 1, 1, 0.14), 1, 12)
+	progress_background.content_margin_left = 5
+	progress_background.content_margin_right = 5
+	progress_background.content_margin_top = 5
+	progress_background.content_margin_bottom = 5
+	var progress_fill := panel(COLORS.green, Color.TRANSPARENT, 0, 8)
+	progress_fill.content_margin_left = 0
+	progress_fill.content_margin_right = 0
+	progress_fill.content_margin_top = 0
+	progress_fill.content_margin_bottom = 0
 	result.set_stylebox("background", "ProgressBar", progress_background)
 	result.set_stylebox("fill", "ProgressBar", progress_fill)
 	result.set_color("font_color", "ProgressBar", COLORS.cream)
@@ -149,6 +182,7 @@ static func flat_group_box(accent: Color = Color.TRANSPARENT, padding: int = GRO
 
 static func flat_button_box(role: String = "secondary", hovered: bool = false, pressed: bool = false) -> StyleBoxFlat:
 	var fill := {
+		"primary": Color("31593f"),
 		"warning": Color("5b4937"),
 		"danger": Color("603a43"),
 		"premium": Color("4a3f60"),
@@ -177,8 +211,8 @@ static func glass_panel(fill: Color, opacity: float = 0.94, radius: int = 24, ac
 	box.shadow_offset = Vector2(0, 2)
 	return box
 
-static func texture_box(asset_id: String, texture_margins: Vector4, content_margins: Vector4, tint: Color = Color.WHITE) -> StyleBox:
-	var texture := AssetCatalog.texture(asset_id)
+static func texture_box(asset_id: String, texture_margins: Vector4, content_margins: Vector4, tint: Color = Color.WHITE, texture_scale: float = 1.0) -> StyleBox:
+	var texture: Texture2D = scaled_texture(asset_id, texture_scale) if texture_scale != 1.0 else AssetCatalog.texture(asset_id)
 	if texture == null:
 		return panel(COLORS.navy, Color(1, 1, 1, 0.10), 1, 22)
 	var box := StyleBoxTexture.new()
@@ -198,28 +232,34 @@ static func texture_box(asset_id: String, texture_margins: Vector4, content_marg
 
 static func art_panel(dark: bool = true, compact: bool = false) -> StyleBox:
 	var asset_id := "panel_dark" if dark else "panel_main"
-	var edge := 32.0 if compact else 52.0
-	var inset := 22.0 if compact else 38.0
-	var box := texture_box(asset_id, Vector4(edge, edge, edge, edge), Vector4(inset, inset, inset, inset))
+	# Source frames measure ~60-70px thick with corner screws out to ~95px (1024²).
+	# At 0.5x that means slices must be ≥48 to keep screws whole, and content must
+	# clear the ~35px painted frame plus breathing room — anything less draws text
+	# on top of the frame.
+	var edge := 52.0
+	var inset := 48.0 if compact else 56.0
+	var box := texture_box(asset_id, Vector4(edge, edge, edge, edge), Vector4(inset, inset, inset, inset), Color.WHITE, 0.5)
 	if box is StyleBoxFlat:
 		return glass_panel(Color("0d2135") if dark else Color("f7f1e4"), 0.985, 28, Color("4b718b") if dark else Color("d8cdb7"))
 	return box
 
 static func resource_panel() -> StyleBox:
-	# HUD chips are only 88u high. Their slice edges must stay below half that
-	# height or StyleBoxTexture folds the frame over its content.
-	var box := texture_box("panel_main", Vector4(22, 22, 22, 22), Vector4(12, 8, 12, 8))
-	if box is StyleBoxFlat:
-		var fallback := panel(Color("f8f3e9"), Color("d8d0c2"), 1, 18)
-		fallback.content_margin_left = 12
-		fallback.content_margin_right = 12
-		fallback.content_margin_top = 8
-		fallback.content_margin_bottom = 8
-		return fallback
+	# HUD chips are too small for the painted frame — slicing panel_main at chip
+	# scale cuts through its 60px frame and smears it. Small controls stay flat.
+	var box := panel(Color("f8f3e9"), Color("d8d0c2"), 1, 24)
+	box.content_margin_left = 16
+	box.content_margin_right = 16
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
+	box.shadow_color = Color(0, 0, 0, 0.14)
+	box.shadow_size = 2
+	box.shadow_offset = Vector2(0, 1)
 	return box
 
 static func dialog_box() -> StyleBox:
-	var box := texture_box("dialog_bubble", Vector4(48, 34, 48, 54), Vector4(28, 20, 28, 34))
+	# Content margins must exceed the slice margins, otherwise text sits on the
+	# painted bubble frame.
+	var box := texture_box("dialog_bubble", Vector4(48, 34, 48, 54), Vector4(56, 40, 56, 62))
 	if box is StyleBoxFlat:
 		var fallback := panel(Color("fffaf0"), Color("dfd4c1"), 1, 22)
 		fallback.shadow_color = Color(0, 0, 0, 0.18)
@@ -229,14 +269,16 @@ static func dialog_box() -> StyleBox:
 	return box
 
 static func art_button_box(asset_id: String, tint: Color = Color.WHITE) -> StyleBox:
-	var box := texture_box(asset_id, Vector4(46, 24, 46, 24), Vector4(20, 12, 20, 14), tint)
-	# Button renders include generous transparent export padding. Crop that
-	# padding before nine-slicing so a 44pt control still looks 44pt tall.
+	# Pill geometry (512x256 source): opaque 10..502 x 58..198, cap curvature ~70px,
+	# bottom bevel ~17px. Side slices must clear the cap curve (80px) and text must
+	# clear rim + gloss, or labels land on the painted border.
+	# Until the matte A1 exports land, pull the legacy gloss below pure white so
+	# the top highlight can never erase the CTA copy.
+	var subdued_tint := tint * Color(0.92, 0.92, 0.92, 1.0)
+	var box := texture_box(asset_id, Vector4(80, 22, 80, 34), Vector4(56, 16, 56, 26), subdued_tint)
+	# Crop transparent export padding so a 44pt control still looks 44pt tall.
 	if box is StyleBoxTexture:
-		(box as StyleBoxTexture).region_rect = Rect2(0, 46, 512, 166)
-		if asset_id == "btn_primary":
-			(box as StyleBoxTexture).content_margin_top += 6
-			(box as StyleBoxTexture).content_margin_bottom = maxf(8.0, (box as StyleBoxTexture).content_margin_bottom - 6.0)
+		(box as StyleBoxTexture).region_rect = Rect2(0, 52, 512, 160)
 	return box
 
 static func world_badge(accent: Color, compact: bool = false) -> StyleBox:
@@ -260,16 +302,28 @@ static func apply_button_role(button: Button, role: String) -> void:
 		button.add_theme_stylebox_override("normal", art_button_box("btn_primary"))
 		button.add_theme_stylebox_override("hover", art_button_box("btn_primary", Color("fff4dc")))
 		button.add_theme_stylebox_override("pressed", art_button_box("btn_primary", Color("c8d4dc")))
+		# The glossy pill is reserved for large CTAs; 28u is the size where white
+		# text with a 4px ink outline stays crisp on the bright highlight band.
+		button.add_theme_font_size_override("font_size", 28)
+		button.add_theme_font_override("font", font_bold())
+		button.add_theme_color_override("font_shadow_color", COLORS.ink)
+		button.add_theme_constant_override("shadow_offset_x", 0)
+		button.add_theme_constant_override("shadow_offset_y", 2)
+		button.add_theme_constant_override("shadow_outline_size", 2)
 	else:
 		button.add_theme_stylebox_override("normal", flat_button_box(role))
 		button.add_theme_stylebox_override("hover", flat_button_box(role, true))
 		button.add_theme_stylebox_override("pressed", flat_button_box(role, false, true))
+		button.add_theme_font_size_override("font_size", TYPE_SCALE.body)
+		button.add_theme_font_override("font", font_regular())
 	button.add_theme_stylebox_override("disabled", flat_button_box("disabled"))
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	button.add_theme_color_override("font_color", Color.WHITE)
 	button.add_theme_color_override("font_disabled_color", Color("9aa9ba"))
 	button.add_theme_color_override("font_outline_color", COLORS.ink)
-	button.add_theme_constant_override("outline_size", 4)
+	# 4px outlines swallow CJK stroke interiors below 26u; keep the heavy outline
+	# for the large glossy CTA and use 3px on standard 24u buttons.
+	button.add_theme_constant_override("outline_size", 4 if glossy else 3)
 
 static func button_role_for_color(color: Color) -> String:
 	if color.r > 0.78 and color.g < 0.45:

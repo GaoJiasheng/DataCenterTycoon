@@ -59,16 +59,25 @@
 
 ---
 
-## 3. 桌面窗口修复（5 分钟，立刻做）
+## 3. 桌面窗口修复（修订版 · 2026-08-03）
 
-```ini
-# project.godot [display]
-window/size/window_width_override=440    # 880 → 440（0.5x，匹配笔记本屏）
-window/size/window_height_override=956   # 1912 → 956
-window/stretch/aspect="keep"             # expand → keep（桌面窗口拉动时不再改变构图）
+> 首版方案（固定 440×956 + aspect keep）已被推翻：固定尺寸在大屏显示器上过小（所有者 5K 屏实测只占 1/6 宽度，且 0.55x 缩放导致画面发糊）；`keep` 在真机上会因各 iPhone 宽高比差异出现黑边。按下述修订执行：
+
+1. **`project.godot`**：`window/stretch/aspect` 改回 `"expand"`（真机多机型适配的正确值）；两个 `window_*_override` 保留为兜底但会被下述脚本覆盖。
+2. **启动自适应开窗**（放 `ui/main_view.gd::_ready()`，UI 层负责呈现，不进 core）：
+
+```gdscript
+if OS.has_feature("pc"):   # 仅桌面平台；iOS 不执行
+    var usable := DisplayServer.screen_get_usable_rect()
+    var height := int(usable.size.y * 0.92)
+    var width := int(round(height * 440.0 / 956.0))   # iPhone 17 Pro Max 逻辑比例
+    DisplayServer.window_set_size(Vector2i(width, height))
+    DisplayServer.window_set_position(usable.position + (usable.size - Vector2i(width, height)) / 2)
 ```
 
-`canvas_items` 拉伸模式下 0.5x 整数比例缩放，桌面预览清晰不糊；iOS 真机不受 override 影响。验收：在 1440×900 的屏幕上窗口完整可见、文字边缘锐利。
+3. **基准机型说明**：设备基线为 iPhone 17 Pro Max（440×956 pt，真机按原生 1320×2868 渲染，canvas_items 模式下字体与矢量样式满分辨率重新光栅化，不存在缩放糊）。设计画布维持 804×1748 不迁移——两者宽高比差异 <0.1%，`expand` 自动补齐，迁移画布只有成本没有收益。`visual_smoke` 截图窗口维持 440×956（Pro Max 逻辑尺寸）。
+
+验收：在所有者的 5K 主屏（UI 2560×1440）上启动，窗口高约 1240pt 居中、文字锐利；拖动窗口任意改变大小不出现黑边、不破坏构图；iOS 导出配置零变化。
 
 ---
 

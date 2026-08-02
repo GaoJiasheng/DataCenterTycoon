@@ -20,6 +20,11 @@ func fly_coins(world_position: Vector2, target: Control, count: int = 3) -> void
 	for index: int in range(amount):
 		_spawn_coin(texture, start, destination, index, amount, target)
 
+func clear() -> void:
+	for child: Node in get_children():
+		if child.name == "FlyingCoin":
+			child.queue_free()
+
 func pulse_target(target: Control) -> void:
 	if target == null or not is_instance_valid(target):
 		return
