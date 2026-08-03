@@ -149,3 +149,11 @@
 - [x] R4：`BestValueRibbon` 按本地化 Label 的 minimum size + 24u 自适应，单行不裁剪；中英双语门禁覆盖。
 - [x] R5：英文 30/30 与简中 30/30 Metal 实渲染回归通过；`test_runner` 103/103，数据 11 表 / 双语 / 134 art IDs 通过。
 - [x] 按所有者最终约定，桌面预览与自动截图统一为 402×874；原 440×956 批次截图作废。
+
+### 2026-08-03 · 批次②（C · 全局色调统一）
+
+- [x] 园区层增加按本地时间连续插值的白天 / 黄昏 / 夜晚三档色调；色值严格为 `DAY(1,0.97,0.90)`、`EVENING(1,0.88,0.78)`、`NIGHT(0.72,0.78,0.95)`，只调制 ParkMap，不污染 HUD。
+- [x] 夜间 active 建筑亮度提升到 1.30；视觉回归支持 `--preview-hour`，23:00 人工截图存档。
+- [x] UI 深色工作面收敛为 `ThemeMaker.SURFACE #122438`，内部分组收敛为 `SURFACE_GROUP rgba(0,0,0,0.22)`；辅助青色降为 `TEXT_SECONDARY #9fb8cc`。
+- [x] map 前后对比与夜间图已存 `docs/ui_review/10_batch2_*_en_map.png`，全部为 402×874 原始截图。
+- [x] `test_runner` 103/103；英文 30/30、简中 30/30 Metal 实渲染回归通过；数据门禁通过。

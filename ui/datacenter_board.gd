@@ -137,7 +137,7 @@ func _add_interior(stage: Control) -> void:
 	frame.position = Vector2(98, 98)
 	frame.size = Vector2(464, 464)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("0c1c2c"), Color(ThemeMaker.COLORS.sky, 0.48), 2, 24))
+	frame.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE, Color(ThemeMaker.COLORS.sky, 0.48), 2, 24))
 	stage.add_child(frame)
 	var texture := AssetCatalog.texture("dc_interior_bg")
 	if texture != null:
@@ -183,10 +183,10 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var open := slot in unlocked
 		var installed: Variant = racks[slot] if slot < racks.size() else null
-		var fill := Color("18293c", 0.82)
+		var fill := ThemeMaker.SURFACE_GROUP
 		var border := Color("8db8d5", 0.54)
 		if not open:
-			fill = Color("14202d", 0.84)
+			fill = ThemeMaker.SURFACE_GROUP
 			border = Color("677687", 0.45)
 		var runtime: Dictionary = {}
 		if installed is Dictionary and not installed.is_empty():
@@ -198,7 +198,7 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 				fill = Color(ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange), 0.35)
 				border = ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)
 		elif open:
-			fill = Color("18293c", 0.82)
+			fill = ThemeMaker.SURFACE_GROUP
 			border = Color("8db8d5", 0.54)
 		if not preview_rack_id.is_empty():
 			var placement := placement_state_for_slot(slot)
@@ -390,7 +390,7 @@ func _add_power_meter(dc: Dictionary) -> void:
 	progress.name = "BoardPowerMeter"
 	progress.show_percentage = false
 	progress.custom_minimum_size.y = 40
-	var meter_background := ThemeMaker.panel(Color("0a1725"), Color(1, 1, 1, 0.12), 1, 20)
+	var meter_background := ThemeMaker.panel(ThemeMaker.SURFACE_GROUP, Color(1, 1, 1, 0.12), 1, 20)
 	meter_background.content_margin_left = 0
 	meter_background.content_margin_right = 0
 	meter_background.content_margin_top = 0

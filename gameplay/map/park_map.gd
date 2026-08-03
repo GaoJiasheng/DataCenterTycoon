@@ -18,6 +18,9 @@ const ROW_STEP := 284.0
 const CAMPUS_SAFE_TOP := 360.0
 const CAMPUS_SAFE_BOTTOM := 420.0
 const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
+const DAY_TINT := Color(1.0, 0.97, 0.90)
+const EVENING_TINT := Color(1.0, 0.88, 0.78)
+const NIGHT_TINT := Color(0.72, 0.78, 0.95)
 
 var content: Control
 var zoom := 1.02
@@ -38,6 +41,9 @@ var _campus_bounds := Rect2()
 var _default_zoom := 1.02
 var _default_camera_offset := Vector2(-8, 300)
 var _world_texture_cache: Dictionary = {}
+var _grade_refresh_accumulator := 0.0
+var _window_light_boost := 1.0
+var _preview_hour := -1.0
 
 func _ready() -> void:
 	clip_contents = true
@@ -75,16 +81,22 @@ func _ready() -> void:
 	content = Control.new()
 	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(content)
+	_refresh_day_grade(true)
 	_apply_camera()
 	set_process(true)
 
 func _process(delta: float) -> void:
 	_ambient_time += delta
+	_grade_refresh_accumulator += delta
+	if _grade_refresh_accumulator >= 30.0:
+		_grade_refresh_accumulator = 0.0
+		_refresh_day_grade()
 	for index: int in range(_active_art.size()):
 		var art := _active_art[index]
 		if is_instance_valid(art):
 			var pulse := 1.0 + sin(_ambient_time * 1.45 + index * 1.7) * 0.009
 			art.scale = Vector2.ONE * pulse
+			art.self_modulate = Color(_window_light_boost, _window_light_boost, _window_light_boost, 1.0)
 	for index: int in range(_sway_art.size()):
 		var art := _sway_art[index]
 		if is_instance_valid(art):
@@ -98,6 +110,45 @@ func _process(delta: float) -> void:
 	if _countdown_accumulator >= 1.0:
 		_countdown_accumulator = 0.0
 		_refresh_construction_labels()
+
+func color_grade_for_hour(hour: float) -> Dictionary:
+	var wrapped := fposmod(hour, 24.0)
+	if wrapped < 6.0:
+		return {"tint": NIGHT_TINT, "window_boost": 1.30}
+	if wrapped < 9.0:
+		var dawn := smoothstep(6.0, 9.0, wrapped)
+		return {"tint": NIGHT_TINT.lerp(DAY_TINT, dawn), "window_boost": lerpf(1.30, 1.0, dawn)}
+	if wrapped < 16.0:
+		return {"tint": DAY_TINT, "window_boost": 1.0}
+	if wrapped < 19.0:
+		var sunset := smoothstep(16.0, 19.0, wrapped)
+		return {"tint": DAY_TINT.lerp(EVENING_TINT, sunset), "window_boost": lerpf(1.0, 1.12, sunset)}
+	if wrapped < 22.0:
+		var nightfall := smoothstep(19.0, 22.0, wrapped)
+		return {"tint": EVENING_TINT.lerp(NIGHT_TINT, nightfall), "window_boost": lerpf(1.12, 1.30, nightfall)}
+	return {"tint": NIGHT_TINT, "window_boost": 1.30}
+
+func set_preview_hour(hour: float) -> void:
+	_preview_hour = fposmod(hour, 24.0)
+	_refresh_day_grade(true)
+
+func clear_preview_hour() -> void:
+	_preview_hour = -1.0
+	_refresh_day_grade(true)
+
+func _refresh_day_grade(immediate: bool = false) -> void:
+	var hour := _preview_hour
+	if hour < 0.0:
+		var clock := Time.get_time_dict_from_system()
+		hour = float(clock.get("hour", 12)) + float(clock.get("minute", 0)) / 60.0 + float(clock.get("second", 0)) / 3600.0
+	var grade := color_grade_for_hour(hour)
+	var target_tint: Color = grade.get("tint", DAY_TINT)
+	_window_light_boost = float(grade.get("window_boost", 1.0))
+	if immediate or not is_inside_tree():
+		modulate = target_tint
+		return
+	var tween := create_tween()
+	tween.tween_property(self, "modulate", target_tint, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 func setup(plots: Array) -> void:
 	if content == null:

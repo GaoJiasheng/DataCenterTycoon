@@ -1,16 +1,20 @@
 class_name ThemeFactory
 extends RefCounted
 
+const SURFACE := Color("122438")
+const SURFACE_GROUP := Color(0, 0, 0, 0.22)
+const TEXT_SECONDARY := Color("9fb8cc")
+
 const COLORS := {
 	"sky": Color("3aa7f0"),
 	"navy": Color("2b3a55"),
-	"navy_dark": Color("16263d"),
+	"navy_dark": SURFACE,
 	"green": Color("7bc94c"),
 	"yellow": Color("ffc93c"),
 	"orange": Color("ff8a3d"),
 	"red": Color("ff5a5a"),
 	"purple": Color("9b6bf3"),
-	"cyan": Color("9fe8ff"),
+	"cyan": TEXT_SECONDARY,
 	"cream": Color("fff6e8"),
 	"brown": Color("b07b4f"),
 	"ink": Color("18304a"),
@@ -74,7 +78,7 @@ static func create() -> Theme:
 	result.set_constant("shadow_offset_x", "Label", 0)
 	result.set_constant("shadow_offset_y", "Label", 0)
 	# Only a page/sheet opts into an illustrated frame. Nested groups remain flat.
-	result.set_stylebox("panel", "PanelContainer", glass_panel(Color("102236"), 0.96, 22))
+	result.set_stylebox("panel", "PanelContainer", glass_panel(SURFACE, 0.96, 22))
 	result.set_stylebox("normal", "Button", flat_button_box("secondary"))
 	result.set_stylebox("hover", "Button", flat_button_box("secondary", true))
 	result.set_stylebox("pressed", "Button", flat_button_box("secondary", false, true))
@@ -90,7 +94,7 @@ static func create() -> Theme:
 	result.set_stylebox("normal", "CheckButton", StyleBoxEmpty.new())
 	# Bars render 34-42u tall; the painted progress_frame needs 60u of slices and
 	# folds over itself at that size. Flat styles scale cleanly at any height.
-	var progress_background := panel(Color("0a1726"), Color(1, 1, 1, 0.14), 1, 12)
+	var progress_background := panel(SURFACE_GROUP, Color(1, 1, 1, 0.14), 1, 12)
 	progress_background.content_margin_left = 5
 	progress_background.content_margin_right = 5
 	progress_background.content_margin_top = 5
@@ -171,7 +175,7 @@ static func button_box(color: Color, radius: int = 18, pressed: bool = false) ->
 
 static func flat_group_box(accent: Color = Color.TRANSPARENT, padding: int = GROUP_PADDING) -> StyleBoxFlat:
 	var border := Color(accent, 0.34) if accent.a > 0.0 else Color(1, 1, 1, 0.06)
-	var box := panel(Color(0, 0, 0, 0.22), border, 1, RADIUS.card)
+	var box := panel(SURFACE_GROUP, border, 1, RADIUS.card)
 	box.content_margin_left = padding
 	box.content_margin_right = padding
 	box.content_margin_top = padding
@@ -240,7 +244,7 @@ static func art_panel(dark: bool = true, compact: bool = false) -> StyleBox:
 	var inset := 48.0 if compact else 56.0
 	var box := texture_box(asset_id, Vector4(edge, edge, edge, edge), Vector4(inset, inset, inset, inset), Color.WHITE, 0.5)
 	if box is StyleBoxFlat:
-		return glass_panel(Color("0d2135") if dark else Color("f7f1e4"), 0.985, 28, Color("4b718b") if dark else Color("d8cdb7"))
+		return glass_panel(SURFACE if dark else Color("f7f1e4"), 0.985, 28, Color("4b718b") if dark else Color("d8cdb7"))
 	return box
 
 static func resource_panel() -> StyleBox:
@@ -282,7 +286,7 @@ static func art_button_box(asset_id: String, tint: Color = Color.WHITE) -> Style
 	return box
 
 static func world_badge(accent: Color, compact: bool = false) -> StyleBox:
-	var box := panel(Color("10283d", 0.94), Color(accent, 0.78), 2, 28 if compact else 18)
+	var box := panel(Color(SURFACE, 0.94), Color(accent, 0.78), 2, 28 if compact else 18)
 	box.content_margin_left = 10 if compact else 12
 	box.content_margin_right = 10 if compact else 12
 	box.content_margin_top = 6

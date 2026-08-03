@@ -18,6 +18,9 @@ func _ready() -> void:
 	Game.last_offline_report = {}
 	var main := MAIN_SCENE.instantiate()
 	add_child(main)
+	var preview_hour := _requested_preview_hour()
+	if preview_hour >= 0.0:
+		main.park_map.call("set_preview_hour", preview_hour)
 	var valid := true
 	valid = (await _capture(main, "map")) and valid
 	valid = (await _capture(main, "ftue_spotlight")) and valid
@@ -205,6 +208,12 @@ func _requested_locale() -> String:
 				return requested
 	return "zh_CN"
 
+func _requested_preview_hour() -> float:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--preview-hour="):
+			return clampf(float(argument.trim_prefix("--preview-hour=")), 0.0, 23.99)
+	return -1.0
+
 func _fill_market_history(point_count: int) -> void:
 	var history: Dictionary = {}
 	var now := Game.simulation_time()
@@ -304,6 +313,18 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				persistent_count += 1
 		if persistent_count > 7 or main.find_child("BottomNav", true, false) != null:
 			push_error("VISUAL_SMOKE: map has %d persistent controls or a legacy tab bar" % persistent_count)
+			valid = false
+		var noon_grade: Dictionary = main.park_map.call("color_grade_for_hour", 12.0)
+		var evening_grade: Dictionary = main.park_map.call("color_grade_for_hour", 19.0)
+		var night_grade: Dictionary = main.park_map.call("color_grade_for_hour", 23.0)
+		var noon_tint: Color = noon_grade.get("tint", Color.TRANSPARENT)
+		var evening_tint: Color = evening_grade.get("tint", Color.TRANSPARENT)
+		var night_tint: Color = night_grade.get("tint", Color.TRANSPARENT)
+		if not noon_tint.is_equal_approx(ParkMap.DAY_TINT) or not evening_tint.is_equal_approx(ParkMap.EVENING_TINT) or not night_tint.is_equal_approx(ParkMap.NIGHT_TINT) or not is_equal_approx(float(night_grade.get("window_boost", 1.0)), 1.30):
+			push_error("VISUAL_SMOKE: map does not expose the day/evening/night grading contract")
+			valid = false
+		if not ThemeFactory.SURFACE.is_equal_approx(Color("122438")) or not ThemeFactory.SURFACE_GROUP.is_equal_approx(Color(0, 0, 0, 0.22)) or not ThemeFactory.COLORS.cyan.is_equal_approx(Color("9fb8cc")):
+			push_error("VISUAL_SMOKE: final-look surface or secondary-text palette drifted")
 			valid = false
 		var task_caption := main.find_child("TaskCaption", true, false) as Label
 		var operations_caption := main.find_child("OperationsCaption", true, false) as Label

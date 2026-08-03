@@ -1,6 +1,8 @@
 class_name MarketChart
 extends Control
 
+const ThemeMaker := preload("res://ui/theme_factory.gd")
+
 const CUSTOMER_COLORS := {
 	"internet": Color("3aa7f0"),
 	"mining": Color("ffc93c"),
@@ -35,7 +37,7 @@ func toggle_series(customer_id: String) -> void:
 func _draw() -> void:
 	var rect := Rect2(Vector2(12, 12), size - Vector2(24, 24))
 	var background := StyleBoxFlat.new()
-	background.bg_color = Color("101f31")
+	background.bg_color = ThemeMaker.SURFACE
 	background.border_color = Color(1, 1, 1, 0.08)
 	background.set_border_width_all(1)
 	background.set_corner_radius_all(18)

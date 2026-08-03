@@ -104,7 +104,7 @@ func _process(delta: float) -> void:
 
 func _build_shell() -> void:
 	var background := ColorRect.new()
-	background.color = Color("0b1626")
+	background.color = ThemeMaker.SURFACE
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
@@ -627,7 +627,7 @@ func _operation_module_card(module: Dictionary, action: Callable) -> Button:
 	ThemeMaker.apply_compact_button(card, Color("243b55"))
 	_wire_button_motion(card)
 	var accent: Color = module.get("accent", ThemeMaker.COLORS.sky)
-	card.add_theme_stylebox_override("normal", ThemeMaker.glass_panel(Color("142a40"), 0.98, 24, Color(accent, 0.42)))
+	card.add_theme_stylebox_override("normal", ThemeMaker.glass_panel(ThemeMaker.SURFACE, 0.98, 24, Color(accent, 0.42)))
 	var content := VBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1089,7 +1089,7 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 		var node := PanelContainer.new()
 		node.name = "EraNode_%d" % node_era
 		node.custom_minimum_size = Vector2(170, 178)
-		node.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("17314b") if node_era == era_id else Color("102236"), ThemeMaker.COLORS.yellow if node_era == era_id else Color(1, 1, 1, 0.12), 3 if node_era == era_id else 1, 20))
+		node.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE.lightened(0.08) if node_era == era_id else ThemeMaker.SURFACE, ThemeMaker.COLORS.yellow if node_era == era_id else Color(1, 1, 1, 0.12), 3 if node_era == era_id else 1, 20))
 		route.add_child(node)
 		var node_box := VBoxContainer.new()
 		node_box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1127,7 +1127,7 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 		var chip := PanelContainer.new()
 		chip.custom_minimum_size = Vector2(138, 108)
 		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		chip.add_theme_stylebox_override("panel", ThemeMaker.panel(Color(0, 0, 0, 0.22), Color.TRANSPARENT, 0, 16))
+		chip.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE_GROUP, Color.TRANSPARENT, 0, 16))
 		var chip_box := VBoxContainer.new()
 		chip_box.alignment = BoxContainer.ALIGNMENT_CENTER
 		chip.add_child(chip_box)
@@ -1223,7 +1223,7 @@ func _build_achievements_section() -> Control:
 		var achievement_card := PanelContainer.new()
 		achievement_card.custom_minimum_size.y = 168
 		achievement_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		achievement_card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("102033"), 0.97, 20, ThemeMaker.COLORS.green if done else Color("6b7e91")))
+		achievement_card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(ThemeMaker.SURFACE, 0.97, 20, ThemeMaker.COLORS.green if done else Color("6b7e91")))
 		var card_box := VBoxContainer.new()
 		card_box.add_theme_constant_override("separation", 8)
 		achievement_card.add_child(card_box)
@@ -1258,7 +1258,7 @@ func _build_store_page() -> Control:
 	var box := _page_box()
 	box.add_child(_system_page_header(tr("NAV_STORE"), tr("GEMS_FORMAT") % Game.format_number(float(Game.state["player"].get("gems", 0))), "ic_shop"))
 	var wallet := PanelContainer.new()
-	wallet.add_theme_stylebox_override("panel", ThemeMaker.panel(Color(0, 0, 0, 0.12), Color.TRANSPARENT, 0, ThemeMaker.RADIUS.card))
+	wallet.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE_GROUP, Color.TRANSPARENT, 0, ThemeMaker.RADIUS.card))
 	var wallet_row := HBoxContainer.new()
 	wallet_row.add_theme_constant_override("separation", 18)
 	wallet.add_child(wallet_row)
@@ -1666,7 +1666,7 @@ func _event_card(event_state: Dictionary, preview: bool) -> Control:
 		var multiplier := float(multipliers.get(customer_id, 1.0))
 		var impact := PanelContainer.new()
 		impact.custom_minimum_size = Vector2(126, 68)
-		impact.add_theme_stylebox_override("panel", ThemeMaker.panel(Color(0, 0, 0, 0.24), Color.TRANSPARENT, 0, 14))
+		impact.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE_GROUP, Color.TRANSPARENT, 0, 14))
 		var row := HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		impact.add_child(row)
@@ -3054,7 +3054,7 @@ func _resource_chip(asset_id: String, accent: Color) -> PanelContainer:
 	chip.add_child(visual_margin)
 	var capsule := PanelContainer.new()
 	capsule.custom_minimum_size.y = 72
-	var chip_style := ThemeMaker.panel(Color("102236", 0.94), Color(1, 1, 1, 0.08), 1, 18)
+	var chip_style := ThemeMaker.panel(Color(ThemeMaker.SURFACE, 0.94), Color(1, 1, 1, 0.08), 1, 18)
 	chip_style.content_margin_left = 12
 	chip_style.content_margin_right = 12
 	chip_style.content_margin_top = 8
@@ -3214,7 +3214,7 @@ func _system_page_header(title_text: String, subtitle: String, asset_id: String)
 
 func _segmented_control(items: Array, selected_id: String, callback: Callable) -> Control:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("091827"), Color(1, 1, 1, 0.08), 1, 22))
+	panel.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE, Color(1, 1, 1, 0.08), 1, 22))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
@@ -3277,7 +3277,7 @@ func _empty_action_state(asset_id: String, title_text: String, body_text: String
 func _status_card(asset_id: String, text: String, accent: Color) -> Control:
 	var card := PanelContainer.new()
 	card.custom_minimum_size.y = 144
-	card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("102236"), 0.96, 24))
+	card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(ThemeMaker.SURFACE, 0.96, 24))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 18)
@@ -3400,7 +3400,7 @@ func _asset_preview(asset_id: String, fallback_text: String, color: Color, heigh
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(120, height)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("102236"), Color(color, 0.36), 1, 18))
+	panel.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE, Color(color, 0.36), 1, 18))
 	var texture := AssetCatalog.texture(asset_id)
 	if texture != null:
 		var view := TextureRect.new()
