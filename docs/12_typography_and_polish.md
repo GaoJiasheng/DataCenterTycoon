@@ -93,3 +93,27 @@
   | 修复前（同位置放大） | 修复后（同位置放大） |
   |---|---|
   | ![W2 修复前](ui_review/12_w2_before_zh_zoom.png) | ![W2 修复后](ui_review/12_w2_after_zh_zoom.png) |
+
+### 批次② · T1–T5 字体系统（2026-08-03）
+
+- [x] **T1 · 资源圆体静态 OTF 入库。** 使用官方 Resource Han Rounded CN `v1.910` CFF2 CN 母版，固定 Medium / Bold / Heavy 三个字重并转换为静态 CFF OTF；三枚运行时字体与 SIL OFL 1.1 许可一并入库，旧 Noto Sans SC 及其许可已删除。上游压缩包与母版 SHA-256 写入 `assets/fonts/README.md`，完整 64 MB 母版不进入游戏包。
+
+  ![T1 字体加载与页面标题](ui_review/12_t1_font_loaded_zh_zoom.png)
+
+- [x] **T2 · 可复现子集化与缺字门禁。** 新增 `tools/subset_fonts.py`：自动汇总 `localization/ui.csv`、可打印 ASCII、格式化标点及 GB2312 一级 3,500 常用汉字缓冲集，再从官方可变母版生成三枚确定性静态 OTF。最终 Medium / Bold / Heavy 分别为 1,719,752 / 1,714,512 / 1,709,372 bytes。`tools/check_assets.py` 新增 sfnt cmap 校验，任何 ui.csv 字符未被三枚子集共同覆盖都会令门禁失败。
+
+  ![T2 中文与格式化字符覆盖](ui_review/12_t2_subset_coverage_zh_zoom.png)
+
+- [x] **T3 · 中西文 fallback 链。** `font_regular` = Baloo 2 560 → RHR Medium，`font_bold` = Baloo 2 720 → RHR Bold，新增 `font_display` = Baloo 2 800 → RHR Heavy；纯数字仍使用 Baloo 2 + `tnum`。商店页同屏的中文、价格和单位均由对应职责的字体渲染。
+
+  ![T3 fallback 链同屏效果](ui_review/12_t3_fallback_chain_zh_zoom.png)
+
+- [x] **T4 · 字重角色落库。** `ThemeFactory.apply_text_role()` 统一 `display / title / button / numeric / world / body` 六种角色：页面与 Sheet 标题使用 display，卡片标题与按钮使用 bold，正文与副标使用 regular，世界层文字使用带描边的 heavy 链。`visual_smoke` 新增逐节点字体角色断言，禁止调用点用局部字体覆盖破坏层级。
+
+  ![T4 标题、卡片与正文层级](ui_review/12_t4_weight_roles_zh_zoom.png)
+
+- [x] **T5 · 商店前后对比与双语回归。** 同一位置可见「限时特惠 / 钻石商店」由偏文档感的细黑体变为圆润粗字，产品标题和正文形成两级节奏，同时保留 Baloo 2 价格的玩具感。最终静态 OTF 版本 `visual_smoke` 简中 30/30、英文 30/30 均通过，无 tofu、裁剪、叠印或字体角色错误。
+
+  | 修复前（同位置放大） | 修复后（同位置放大） |
+  |---|---|
+  | ![T5 商店字体修复前](ui_review/12_t5_store_before_zh_zoom.png) | ![T5 商店字体修复后](ui_review/12_t5_store_after_zh_zoom.png) |

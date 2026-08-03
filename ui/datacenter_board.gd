@@ -277,7 +277,7 @@ func _add_slot_art(button: Button, open: bool, installed: Variant, runtime: Dict
 		remaining.size = Vector2(timer.size.x - 4, 30)
 		remaining.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		remaining.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		remaining.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+		ThemeMaker.apply_text_role(remaining, "world")
 		remaining.add_theme_font_size_override("font_size", 18)
 		remaining.add_theme_color_override("font_color", Color.WHITE)
 		remaining.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)

@@ -628,7 +628,9 @@ func _show_operations_hub() -> void:
 	var heading_copy := VBoxContainer.new()
 	heading_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_child(heading_copy)
-	heading_copy.add_child(_label(tr("OPERATIONS_CENTER"), 38, ThemeMaker.COLORS.cream))
+	var operations_title := _label(tr("OPERATIONS_CENTER"), 38, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(operations_title, "display")
+	heading_copy.add_child(operations_title)
 	heading_copy.add_child(_label(tr("OPERATIONS_SUBTITLE"), 22, ThemeMaker.COLORS.cyan))
 	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	heading.add_child(close_button)
@@ -691,7 +693,9 @@ func _operation_module_card(module: Dictionary, action: Callable) -> Button:
 	dot_style.content_margin_bottom = 0
 	status_dot.add_theme_stylebox_override("panel", dot_style)
 	top.add_child(status_dot)
-	content.add_child(_label(str(module.get("title", "")), 28, ThemeMaker.COLORS.cream))
+	var module_title := _label(str(module.get("title", "")), 28, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(module_title, "title")
+	content.add_child(module_title)
 	var subtitle := _label(str(module.get("subtitle", "")), 20, ThemeMaker.COLORS.cyan)
 	subtitle.max_lines_visible = 2
 	subtitle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -912,6 +916,7 @@ func _contract_customer_card(dc: Dictionary, customer_id: String, customer: Dict
 	top.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	copy.add_child(top)
 	var title := _label(tr(customer.get("name_key", "")), ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
+	ThemeMaker.apply_text_role(title, "title")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.max_lines_visible = 1
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1302,7 +1307,9 @@ func _build_store_page() -> Control:
 	var wallet_copy := VBoxContainer.new()
 	wallet_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wallet_row.add_child(wallet_copy)
-	wallet_copy.add_child(_label(tr("GEMS_FORMAT") % Game.format_number(float(Game.state["player"].get("gems", 0))), 34, ThemeMaker.COLORS.purple.lightened(0.18)))
+	var wallet_title := _label(tr("GEMS_FORMAT") % Game.format_number(float(Game.state["player"].get("gems", 0))), 34, ThemeMaker.COLORS.purple.lightened(0.18))
+	ThemeMaker.apply_text_role(wallet_title, "title")
+	wallet_copy.add_child(wallet_title)
 	wallet_copy.add_child(_label(tr("STORE_WALLET_HINT"), 22, ThemeMaker.COLORS.cyan))
 	box.add_child(wallet)
 	var sections := {
@@ -1363,6 +1370,7 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 	title_row.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	copy.add_child(title_row)
 	var title := _label(tr(product.get("name_key", "")), ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
+	ThemeMaker.apply_text_role(title, "title")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_row.add_child(title)
@@ -1644,6 +1652,7 @@ func _customer_market_card(customer_id: String, customer: Dictionary) -> Control
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(copy)
 	var customer_name := _label(tr(customer.get("name_key", "")), ThemeMaker.TYPE_SCALE.heading, Color.WHITE)
+	ThemeMaker.apply_text_role(customer_name, "title")
 	customer_name.max_lines_visible = 1
 	customer_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	copy.add_child(customer_name)
@@ -1672,7 +1681,9 @@ func _feature_heading(asset_id: String, title_text: String, subtitle: String, ac
 	var copy := VBoxContainer.new()
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(copy)
-	copy.add_child(_label(title_text, 28, ThemeMaker.COLORS.cream))
+	var feature_title := _label(title_text, 28, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(feature_title, "title")
+	copy.add_child(feature_title)
 	var sub := _label(subtitle, 21, accent.lightened(0.15))
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.add_child(sub)
@@ -1685,7 +1696,9 @@ func _event_card(event_state: Dictionary, preview: bool) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	card.add_child(box)
-	box.add_child(_label("%s · %s" % [tr("MARKET_PREVIEW") if preview else tr("MARKET_ACTIVE"), tr(event.get("name_key", ""))], 27, ThemeMaker.COLORS.orange if preview else ThemeMaker.COLORS.green))
+	var event_title := _label("%s · %s" % [tr("MARKET_PREVIEW") if preview else tr("MARKET_ACTIVE"), tr(event.get("name_key", ""))], 27, ThemeMaker.COLORS.orange if preview else ThemeMaker.COLORS.green)
+	ThemeMaker.apply_text_role(event_title, "title")
+	box.add_child(event_title)
 	var description := _label(tr(event.get("description_key", "")), 22, ThemeMaker.COLORS.cream)
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(description)
@@ -1794,7 +1807,9 @@ func _show_building_picker(plot_id: String) -> void:
 	var heading_copy := VBoxContainer.new()
 	heading_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_child(heading_copy)
-	heading_copy.add_child(_label(tr("BUILD_DATA_CENTER"), 36, ThemeMaker.COLORS.cream))
+	var picker_title := _label(tr("BUILD_DATA_CENTER"), 36, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(picker_title, "display")
+	heading_copy.add_child(picker_title)
 	var plot_index := 1
 	for plot: Dictionary in Game.state.get("plots", []):
 		if str(plot.get("id", "")) == plot_id:
@@ -1841,6 +1856,7 @@ func _show_building_picker(plot_id: String) -> void:
 		card.add_child(card_content)
 		card_content.add_child(_icon_view(str(building.get("asset_prefix", "")) + "_active", Vector2(252, 238)))
 		var building_name := _label(tr(building.get("name_key", "")), 28, ThemeMaker.COLORS.cream)
+		ThemeMaker.apply_text_role(building_name, "title")
 		building_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card_content.add_child(building_name)
 		var building_cost := float(building.get("cost", 0.0))
@@ -2016,7 +2032,9 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	var copy := VBoxContainer.new()
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(copy)
-	copy.add_child(_label(tr(building.get("name_key", "")), 34, ThemeMaker.COLORS.cream))
+	var context_title := _label(tr(building.get("name_key", "")), 34, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(context_title, "display")
+	copy.add_child(context_title)
 	copy.add_child(_label(_datacenter_status_text(dc), 23, _datacenter_status_color(dc)))
 	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	header.add_child(close_button)
@@ -2193,6 +2211,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	heading.add_theme_constant_override("separation", 12)
 	sheet_box.add_child(heading)
 	var title_label := _label(title_text, 36, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(title_label, "display")
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	heading.add_child(title_label)
@@ -2315,6 +2334,7 @@ func _show_offline_dialog(report: Dictionary) -> void:
 	box.add_theme_constant_override("separation", 18)
 	margin.add_child(box)
 	var title := _label(tr("OFFLINE_TITLE"), 43, ThemeMaker.COLORS.ink)
+	ThemeMaker.apply_text_role(title, "display")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	box.add_child(_coin_pile())
@@ -2892,7 +2912,7 @@ func _show_game_over_overlay() -> void:
 	box.add_child(_icon_view("ic_bankrupt", Vector2(180, 180)))
 	var title := _label(tr("GAME_OVER"), 48, ThemeMaker.COLORS.red.lightened(0.16))
 	title.name = "GameOverTitle"
-	title.add_theme_font_override("font", ThemeMaker.font_bold())
+	ThemeMaker.apply_text_role(title, "display")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var survival := float(GameClock.wall_time() - int(Game.state.get("clock", {}).get("created_at", GameClock.wall_time())))
@@ -3043,11 +3063,13 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	rule.add_theme_constant_override("separation", 8)
 	box.add_child(rule)
 	var headline := _label((tr("ERA_ARRIVAL") % tr(era.get("name_key", ""))).strip_edges(), 46, ThemeMaker.COLORS.ink)
+	ThemeMaker.apply_text_role(headline, "display")
 	headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(headline)
 	box.add_child(_icon_view("ic_era%d" % era_id, Vector2(250, 230)))
 	var unlock_title := _label(tr("ERA_UNLOCK_SUMMARY"), 26, Color("a96b05"))
+	ThemeMaker.apply_text_role(unlock_title, "title")
 	unlock_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(unlock_title)
 	var unlocks := _era_unlock_items(era_id)
@@ -3197,7 +3219,7 @@ func _add_world_action_caption(parent: Control, text: String, align_right: bool)
 	caption.offset_bottom = 28
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	caption.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+	ThemeMaker.apply_text_role(caption, "world")
 	caption.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
 	caption.add_theme_constant_override("outline_size", 3)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3210,7 +3232,7 @@ func _add_world_action_caption(parent: Control, text: String, align_right: bool)
 	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	fill.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	fill.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	fill.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+	ThemeMaker.apply_text_role(fill, "world")
 	fill.add_theme_color_override("font_outline_color", Color.WHITE)
 	fill.add_theme_constant_override("outline_size", 1)
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3317,6 +3339,7 @@ func _system_page_header(title_text: String, subtitle: String, asset_id: String)
 	copy.add_theme_constant_override("separation", 0)
 	header.add_child(copy)
 	var title := _label(title_text, 34, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(title, "display")
 	title.max_lines_visible = 1
 	copy.add_child(title)
 	if not subtitle.is_empty():
@@ -3379,6 +3402,7 @@ func _empty_action_state(asset_id: String, title_text: String, body_text: String
 	center.add_child(box)
 	box.add_child(_icon_view(asset_id, Vector2(176, 176)))
 	var title := _label(title_text, 34, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(title, "title")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var body := _label(body_text, 25, ThemeMaker.COLORS.cyan)
@@ -3472,6 +3496,7 @@ func _label(text: String, font_size: int = 28, color: Color = Color.WHITE) -> La
 	label.text = text
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
+	ThemeMaker.apply_text_role(label, "body")
 	return label
 
 func _icon_view(asset_id: String, dimensions: Vector2) -> TextureRect:
@@ -3547,7 +3572,7 @@ func _build_primary_action_content() -> void:
 	primary_action_text.name = "PrimaryWorldActionText"
 	primary_action_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	primary_action_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	primary_action_text.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+	ThemeMaker.apply_text_role(primary_action_text, "world")
 	primary_action_text.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
 	primary_action_text.add_theme_constant_override("outline_size", 4)
 	primary_action_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3556,7 +3581,7 @@ func _build_primary_action_content() -> void:
 	primary_action_text_fill.name = "PrimaryWorldActionTextFill"
 	primary_action_text_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	primary_action_text_fill.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	primary_action_text_fill.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+	ThemeMaker.apply_text_role(primary_action_text_fill, "world")
 	# A 1u white expansion pass restores stroke interiors while the 4u ink pass
 	# below it remains the outer contrast rim.
 	primary_action_text_fill.add_theme_color_override("font_outline_color", Color.WHITE)

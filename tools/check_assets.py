@@ -2,6 +2,7 @@
 """Validate delivered visual and audio assets without third-party packages."""
 
 import argparse
+import csv
 import json
 import struct
 import sys
@@ -12,10 +13,17 @@ ART_MANIFEST = ROOT / "assets/art/manifest.json"
 AUDIO_MANIFEST = ROOT / "assets/audio/manifest.json"
 FONT_FILES = {
     "Baloo 2 variable": ROOT / "assets/fonts/Baloo2-Variable.ttf",
-    "Noto Sans SC variable": ROOT / "assets/fonts/NotoSansSC-Variable.ttf",
+    "Resource Han Rounded CN Medium": ROOT / "assets/fonts/ResourceHanRoundedCN-Medium.otf",
+    "Resource Han Rounded CN Bold": ROOT / "assets/fonts/ResourceHanRoundedCN-Bold.otf",
+    "Resource Han Rounded CN Heavy": ROOT / "assets/fonts/ResourceHanRoundedCN-Heavy.otf",
     "Baloo 2 OFL": ROOT / "assets/fonts/OFL-Baloo2.txt",
-    "Noto Sans SC OFL": ROOT / "assets/fonts/OFL-NotoSansSC.txt",
+    "Resource Han Rounded OFL": ROOT / "assets/fonts/OFL-ResourceHanRounded.txt",
 }
+RHR_FONT_FILES = tuple(
+    ROOT / "assets/fonts" / f"ResourceHanRoundedCN-{weight}.otf"
+    for weight in ("Medium", "Bold", "Heavy")
+)
+LOCALIZATION = ROOT / "localization/ui.csv"
 
 
 def expanded_art_items():
@@ -106,8 +114,117 @@ def validate_fonts():
             failures.append(f"{label}: missing {path.relative_to(ROOT)}")
         elif path.stat().st_size == 0:
             failures.append(f"{label}: empty file")
-    print(f"FONTS: {len(FONT_FILES) - len(failures)}/{len(FONT_FILES)} present")
+    required_characters = localization_characters(LOCALIZATION)
+    for path in RHR_FONT_FILES:
+        if not path.is_file() or path.stat().st_size == 0:
+            continue
+        try:
+            codepoints = sfnt_codepoints(path)
+        except (ValueError, struct.error) as error:
+            failures.append(f"{path.name}: cannot read cmap ({error})")
+            continue
+        missing = sorted(required_characters - codepoints)
+        if missing:
+            preview = "".join(chr(codepoint) for codepoint in missing[:24])
+            failures.append(f"{path.name}: missing {len(missing)} ui.csv characters ({preview})")
+    print(f"FONTS: {len(FONT_FILES) - sum(1 for label, path in FONT_FILES.items() if not path.exists() or path.stat().st_size == 0)}/{len(FONT_FILES)} present; Resource Han Rounded coverage checked against ui.csv")
     return failures
+
+
+def localization_characters(path):
+    characters = set()
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        for row in csv.reader(handle):
+            for field in row:
+                characters.update(ord(character) for character in field if ord(character) >= 0x20)
+    return characters
+
+
+def sfnt_codepoints(path):
+    payload = path.read_bytes()
+    if len(payload) < 12:
+        raise ValueError("truncated sfnt header")
+    table_count = struct.unpack_from(">H", payload, 4)[0]
+    cmap_offset = None
+    for index in range(table_count):
+        record = 12 + index * 16
+        if record + 16 > len(payload):
+            raise ValueError("truncated table directory")
+        tag, _, offset, length = struct.unpack_from(">4sIII", payload, record)
+        if tag == b"cmap":
+            if offset + length > len(payload):
+                raise ValueError("cmap exceeds file bounds")
+            cmap_offset = offset
+            break
+    if cmap_offset is None:
+        raise ValueError("font has no cmap table")
+    subtable_count = struct.unpack_from(">H", payload, cmap_offset + 2)[0]
+    codepoints = set()
+    for index in range(subtable_count):
+        record = cmap_offset + 4 + index * 8
+        platform, encoding, relative_offset = struct.unpack_from(">HHI", payload, record)
+        if platform != 0 and not (platform == 3 and encoding in (1, 10)):
+            continue
+        subtable = cmap_offset + relative_offset
+        if subtable + 2 > len(payload):
+            continue
+        format_id = struct.unpack_from(">H", payload, subtable)[0]
+        if format_id == 4:
+            codepoints.update(cmap_format_4_codepoints(payload, subtable))
+        elif format_id == 12:
+            codepoints.update(cmap_format_12_codepoints(payload, subtable))
+    if not codepoints:
+        raise ValueError("font has no supported Unicode cmap")
+    return codepoints
+
+
+def cmap_format_4_codepoints(payload, offset):
+    length = struct.unpack_from(">H", payload, offset + 2)[0]
+    end = offset + length
+    if end > len(payload):
+        raise ValueError("truncated cmap format 4")
+    segment_count = struct.unpack_from(">H", payload, offset + 6)[0] // 2
+    end_codes = offset + 14
+    start_codes = end_codes + segment_count * 2 + 2
+    deltas = start_codes + segment_count * 2
+    range_offsets = deltas + segment_count * 2
+    codepoints = set()
+    for index in range(segment_count):
+        last = struct.unpack_from(">H", payload, end_codes + index * 2)[0]
+        first = struct.unpack_from(">H", payload, start_codes + index * 2)[0]
+        delta = struct.unpack_from(">h", payload, deltas + index * 2)[0]
+        range_offset_address = range_offsets + index * 2
+        range_offset = struct.unpack_from(">H", payload, range_offset_address)[0]
+        for codepoint in range(first, last + 1):
+            if codepoint == 0xFFFF:
+                continue
+            if range_offset == 0:
+                glyph = (codepoint + delta) & 0xFFFF
+            else:
+                glyph_address = range_offset_address + range_offset + (codepoint - first) * 2
+                if glyph_address + 2 > end:
+                    continue
+                glyph = struct.unpack_from(">H", payload, glyph_address)[0]
+                if glyph:
+                    glyph = (glyph + delta) & 0xFFFF
+            if glyph:
+                codepoints.add(codepoint)
+    return codepoints
+
+
+def cmap_format_12_codepoints(payload, offset):
+    length = struct.unpack_from(">I", payload, offset + 4)[0]
+    end = offset + length
+    if end > len(payload):
+        raise ValueError("truncated cmap format 12")
+    group_count = struct.unpack_from(">I", payload, offset + 12)[0]
+    codepoints = set()
+    for index in range(group_count):
+        first, last, first_glyph = struct.unpack_from(">III", payload, offset + 16 + index * 12)
+        if first_glyph == 0:
+            first += 1
+        codepoints.update(range(first, last + 1))
+    return codepoints
 
 
 def main():

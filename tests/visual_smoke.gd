@@ -408,7 +408,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if primary_world_action != null:
 			for color_name: String in primary_states:
 				primary_is_white = primary_is_white and primary_world_action.get_theme_color(color_name).is_equal_approx(Color.WHITE)
-			primary_is_white = primary_is_white and primary_world_action.get_theme_font("font") == ThemeFactory.font_world_heavy()
+			primary_is_white = primary_is_white and primary_world_action.get_theme_font("font") == ThemeFactory.font_bold()
 			primary_is_white = primary_is_white and primary_world_action.get_theme_constant("outline_size") == 4
 			primary_is_white = primary_is_white and primary_world_action.get_theme_color("font_outline_color").is_equal_approx(ThemeFactory.COLORS.ink)
 		if primary_world_text != null and primary_world_fill != null:
@@ -416,7 +416,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			primary_is_white = primary_is_white and primary_world_text.get_theme_color("font_color").is_equal_approx(Color.WHITE) and primary_world_text.get_theme_constant("outline_size") == 4
 			primary_is_white = primary_is_white and primary_world_fill.text == primary_world_text.text and primary_world_fill.get_theme_color("font_color").is_equal_approx(Color.WHITE) and primary_world_fill.get_theme_color("font_outline_color").is_equal_approx(Color.WHITE) and primary_world_fill.get_theme_constant("outline_size") == 1
 		if not primary_is_white:
-			push_error("VISUAL_SMOKE: F1 PrimaryWorldAction is not pure-white heavy CJK with a 4px ink outline")
+			push_error("VISUAL_SMOKE: F1 PrimaryWorldAction is not pure-white bold CJK with a 4px ink outline")
 			valid = false
 		for caption_name: String in ["TaskCaption", "OperationsCaption"]:
 			var world_caption := main.find_child(caption_name, true, false) as Label
@@ -790,6 +790,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: game over title/restart hierarchy is below the P1 contract")
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
+	valid = _typography_roles_are_valid(main, state_name) and valid
 	valid = _text_is_within_clipping_ancestors(main, state_name) and valid
 	valid = _sibling_labels_do_not_overlap(main, state_name) and valid
 	valid = _panel_content_is_not_compressed(main, state_name) and valid
@@ -991,5 +992,23 @@ func _typography_and_touch_are_safe(main: Node, state_name: String) -> bool:
 		var minimum_touch := 64.0 if button.toggle_mode else 88.0
 		if button.size.x + 1.0 < minimum_touch or button.size.y + 1.0 < minimum_touch:
 			push_error("VISUAL_SMOKE: %s undersized touch target %s size=%s" % [state_name, button.name, button.size])
+			valid = false
+	return valid
+
+func _typography_roles_are_valid(main: Node, state_name: String) -> bool:
+	var valid := true
+	for node: Node in main.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.has_meta("typography_role"):
+			continue
+		var role := str(control.get_meta("typography_role", "body"))
+		var expected := ThemeFactory.font_regular()
+		match role:
+			"display": expected = ThemeFactory.font_display()
+			"title", "button": expected = ThemeFactory.font_bold()
+			"numeric": expected = ThemeFactory.font_numeric()
+			"world": expected = ThemeFactory.font_world_heavy()
+		if control.get_theme_font("font") != expected:
+			push_error("VISUAL_SMOKE: %s typography role %s resolved to the wrong font on %s" % [state_name, role, control.name])
 			valid = false
 	return valid

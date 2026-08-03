@@ -21,7 +21,7 @@
 
 根 UI 使用 804×1748 设备无关设计画布；桌面交互预览固定为 iPhone 17 Pro Max 物理分辨率 1320×2868 的一半（660×1434），自动审片截图使用 990×2151（桌面预览的 150%），均以 `aspect=keep` 等比缩放。产品采用四层复杂度：持久化 `ParkMap` 世界层、七项以内的 HUD/动态主操作层、对象情境抽屉层，以及保留园区为背景的高不透明运营工作台层。园区以两列同基线的紧凑组团容纳多机房，奇数末项与下一块待购土地自动居中；所有素材先按非透明内容裁切，再吸附到统一地面锚点。地图只为价格与倒计时保留短文本，其余状态收为可点击对象角标。沿 2:1 等距轴移动的风迹、树木摆动、建筑呼吸、供电光环和实时施工倒计时只属于表现层，不改变模拟规则。
 
-`state_changed("tick"|"offline_advance")` 只进入 `_refresh_hud()` 和节点上注册的 `live_update`；玩家动作才触发 `_refresh_page()`。页面重建前后由 `PageScroll` 缓存恢复滚动位置。机房抽屉直接嵌 `DatacenterBoard`，将供电、冷却与机柜合并为空间决策，独立深层只保留合约。字体固定为仓库内 Baloo 2 → Noto Sans SC fallback，按钮/面板优先使用交付九宫格，缺失资产时才回退 flat style。
+`state_changed("tick"|"offline_advance")` 只进入 `_refresh_hud()` 和节点上注册的 `live_update`；玩家动作才触发 `_refresh_page()`。页面重建前后由 `PageScroll` 缓存恢复滚动位置。机房抽屉直接嵌 `DatacenterBoard`，将供电、冷却与机柜合并为空间决策，独立深层只保留合约。字体固定为仓库内 Baloo 2 → Resource Han Rounded CN 的 Medium/Bold/Heavy 子集 fallback，按钮/面板优先使用交付九宫格，缺失资产时才回退 flat style。
 
 ## 存档模型
 

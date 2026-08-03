@@ -28,7 +28,7 @@ The runtime uses `canvas_items` stretch, so the layout scales to other portrait 
 
 - Standard interactive target: at least 88 Godot units / 44 points high.
 - World utility target: 96 Godot units / 48 points. The dynamic primary action is 96 units / 48 points high.
-- The packaged typography chain is Baloo 2 → Noto Sans SC; numeric displays use tabular figures. No runtime system-font dependency is allowed.
+- The packaged typography chain is Baloo 2 → weight-matched Resource Han Rounded CN subsets; numeric displays use tabular figures. No runtime system-font dependency is allowed.
 - Page titles use the 36–44 unit display/title steps. Body and button labels use the 20–28 unit caption/body/heading steps depending on density.
 - Outer horizontal margin: 32 Godot units / 16 points.
 - Desktop safe-area simulation: 16pt left/right, 58pt top, and 34pt bottom.

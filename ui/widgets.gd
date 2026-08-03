@@ -55,6 +55,7 @@ static func chip(text: String, accent: Color = Color.WHITE) -> PanelContainer:
 	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	label.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
 	label.add_theme_color_override("font_color", accent)
+	ThemeMaker.apply_text_role(label, "body")
 	control.add_child(label)
 	return control
 
@@ -71,6 +72,7 @@ static func badge(count: int) -> PanelContainer:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.micro)
 	label.add_theme_color_override("font_color", Color.WHITE)
+	ThemeMaker.apply_text_role(label, "numeric")
 	control.add_child(label)
 	return control
 
@@ -89,6 +91,7 @@ static func timer_bar(complete_at: float, duration: float) -> VBoxContainer:
 	remaining.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	remaining.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
 	remaining.add_theme_color_override("font_color", ThemeMaker.COLORS.cyan)
+	ThemeMaker.apply_text_role(remaining, "numeric")
 	box.add_child(remaining)
 	var update := func() -> void:
 		var left := maxf(0.0, complete_at - Game.simulation_time())
@@ -117,7 +120,7 @@ static func section_header(title_text: String, subtitle_text: String = "") -> VB
 	var title := Label.new()
 	title.name = "Title"
 	title.text = title_text
-	title.add_theme_font_override("font", ThemeMaker.font_bold())
+	ThemeMaker.apply_text_role(title, "title")
 	title.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.heading)
 	title.add_theme_color_override("font_color", ThemeMaker.COLORS.cream)
 	box.add_child(title)
@@ -129,6 +132,7 @@ static func section_header(title_text: String, subtitle_text: String = "") -> VB
 		subtitle.max_lines_visible = 1
 		subtitle.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
 		subtitle.add_theme_color_override("font_color", ThemeMaker.COLORS.cyan)
+		ThemeMaker.apply_text_role(subtitle, "body")
 		box.add_child(subtitle)
 	return box
 
@@ -139,7 +143,7 @@ static func empty_state(title_text: String, body_text: String) -> VBoxContainer:
 	var title := Label.new()
 	title.text = title_text
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_override("font", ThemeMaker.font_bold())
+	ThemeMaker.apply_text_role(title, "title")
 	title.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.heading)
 	box.add_child(title)
 	var body := Label.new()
@@ -148,6 +152,7 @@ static func empty_state(title_text: String, body_text: String) -> VBoxContainer:
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_constant_override("line_spacing", ThemeMaker.TEXT_LINE_SPACING)
 	body.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.body)
+	ThemeMaker.apply_text_role(body, "body")
 	box.add_child(body)
 	return box
 

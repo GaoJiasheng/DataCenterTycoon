@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://dxlw2ucklyeou"
-path="res://.godot/imported/NotoSansSC-Variable.ttf-70b5073a51e7ea4f966271447f3c7a60.fontdata"
+uid="uid://btiiewe20gq2n"
+path="res://.godot/imported/ResourceHanRoundedCN-Bold.otf-537d0f63773246ed85f3d9cb58099a0a.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/NotoSansSC-Variable.ttf"
-dest_files=["res://.godot/imported/NotoSansSC-Variable.ttf-70b5073a51e7ea4f966271447f3c7a60.fontdata"]
+source_file="res://assets/fonts/ResourceHanRoundedCN-Bold.otf"
+dest_files=["res://.godot/imported/ResourceHanRoundedCN-Bold.otf-537d0f63773246ed85f3d9cb58099a0a.fontdata"]
 
 [params]
 

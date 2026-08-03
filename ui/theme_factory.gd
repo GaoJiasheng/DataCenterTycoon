@@ -41,7 +41,9 @@ const GROUP_GAP := 24
 const ITEM_GAP := 12
 const TEXT_LINE_SPACING := 6
 const FONT_LATIN_PATH := "res://assets/fonts/Baloo2-Variable.ttf"
-const FONT_CJK_PATH := "res://assets/fonts/NotoSansSC-Variable.ttf"
+const FONT_CJK_MEDIUM_PATH := "res://assets/fonts/ResourceHanRoundedCN-Medium.otf"
+const FONT_CJK_BOLD_PATH := "res://assets/fonts/ResourceHanRoundedCN-Bold.otf"
+const FONT_CJK_HEAVY_PATH := "res://assets/fonts/ResourceHanRoundedCN-Heavy.otf"
 
 static var _font_cache: Dictionary = {}
 static var _scaled_texture_cache: Dictionary = {}
@@ -110,65 +112,62 @@ static func create() -> Theme:
 	return result
 
 static func font_regular() -> Font:
-	return _font_variation("regular", 520, true)
+	return _font_variation("regular", 560, FONT_CJK_MEDIUM_PATH)
 
 static func font_bold() -> Font:
-	return _font_variation("bold", 720, true)
+	return _font_variation("bold", 720, FONT_CJK_BOLD_PATH)
+
+static func font_display() -> Font:
+	return _font_variation("display", 800, FONT_CJK_HEAVY_PATH)
 
 static func font_heavy() -> Font:
-	# World CTAs keep a 4px ink outline for contrast. The heavier CJK master
-	# preserves a genuinely white interior instead of letting that outline swallow
-	# the thin strokes at 28u.
-	return _font_variation("heavy", 900, true)
+	return _font_variation("heavy", 900, FONT_CJK_HEAVY_PATH)
 
 static func font_world_heavy() -> Font:
-	# Godot does not consistently propagate a variation axis from a Latin master
-	# into its CJK fallback. Use the CJK variable face as the primary font in
-	# Chinese so 900-weight strokes survive the required world-text outline.
-	if not TranslationServer.get_locale().begins_with("zh"):
-		return font_heavy()
-	var cache_key := "world_heavy_cjk"
-	if _font_cache.has(cache_key):
-		return _font_cache[cache_key] as Font
-	var cjk := load(FONT_CJK_PATH) as Font
-	if cjk == null:
-		return font_heavy()
-	var variation := FontVariation.new()
-	variation.base_font = cjk
-	variation.variation_opentype = {"wght": 900}
-	_font_cache[cache_key] = variation
-	return variation
+	# The static Heavy CJK fallback preserves white stroke interiors beneath the
+	# required world-layer outline without replacing Baloo 2 for Latin glyphs.
+	return font_heavy()
 
 static func font_numeric() -> Font:
-	var font := _font_variation("numeric", 650, true)
+	var font := _font_variation("numeric", 650)
 	if font is FontVariation:
 		(font as FontVariation).opentype_features = {"tnum": 1}
 	return font
 
-static func _font_variation(cache_key: String, weight: int, include_cjk: bool) -> Font:
+static func _font_variation(cache_key: String, weight: int, cjk_path: String = "") -> Font:
 	if _font_cache.has(cache_key):
 		return _font_cache[cache_key] as Font
 	var latin := load(FONT_LATIN_PATH) as Font
-	var cjk := load(FONT_CJK_PATH) as Font
-	if latin == null or cjk == null:
+	var cjk: Font = null
+	if not cjk_path.is_empty():
+		cjk = load(cjk_path) as Font
+	if latin == null or (not cjk_path.is_empty() and cjk == null):
 		var fallback := SystemFont.new()
 		fallback.font_names = PackedStringArray(["SF Pro Rounded", "PingFang SC", "Arial Rounded MT Bold", "Arial"])
 		fallback.font_weight = weight
 		_font_cache[cache_key] = fallback
 		return fallback
-	var cjk_variation := FontVariation.new()
-	cjk_variation.base_font = cjk
-	cjk_variation.variation_opentype = {"wght": weight}
 	var variation := FontVariation.new()
 	variation.base_font = latin
 	variation.variation_opentype = {"wght": weight}
-	if include_cjk:
-		variation.fallbacks = [cjk_variation]
+	if cjk != null:
+		variation.fallbacks = [cjk]
 	_font_cache[cache_key] = variation
 	return variation
 
 static func apply_numeric_text(label: Label) -> void:
-	label.add_theme_font_override("font", font_numeric())
+	apply_text_role(label, "numeric")
+
+static func apply_text_role(control: Control, role: String) -> void:
+	var role_font := font_regular()
+	match role:
+		"display": role_font = font_display()
+		"title", "button": role_font = font_bold()
+		"numeric": role_font = font_numeric()
+		"world": role_font = font_world_heavy()
+		_: role_font = font_regular()
+	control.set_meta("typography_role", role)
+	control.add_theme_font_override("font", role_font)
 
 static func world_text(label: Label) -> void:
 	label.add_theme_color_override("font_outline_color", COLORS.ink)
@@ -326,6 +325,7 @@ static func apply_button_color(button: Button, color: Color) -> void:
 static func apply_button_role(button: Button, role: String) -> void:
 	var glossy := role == "primary" and not button.text.contains("\n")
 	button.set_meta("glossy_button", glossy)
+	button.set_meta("typography_role", "button")
 	if glossy:
 		button.add_theme_stylebox_override("normal", art_button_box("btn_primary"))
 		button.add_theme_stylebox_override("hover", art_button_box("btn_primary", Color("fff4dc")))
@@ -333,7 +333,7 @@ static func apply_button_role(button: Button, role: String) -> void:
 		# The glossy pill is reserved for large CTAs; 28u is the size where white
 		# text with a 4px ink outline stays crisp on the bright highlight band.
 		button.add_theme_font_size_override("font_size", 28)
-		button.add_theme_font_override("font", font_world_heavy())
+		button.add_theme_font_override("font", font_bold())
 		button.add_theme_color_override("font_shadow_color", COLORS.ink)
 		button.add_theme_constant_override("shadow_offset_x", 0)
 		button.add_theme_constant_override("shadow_offset_y", 2)
@@ -343,7 +343,7 @@ static func apply_button_role(button: Button, role: String) -> void:
 		button.add_theme_stylebox_override("hover", flat_button_box(role, true))
 		button.add_theme_stylebox_override("pressed", flat_button_box(role, false, true))
 		button.add_theme_font_size_override("font_size", TYPE_SCALE.body)
-		button.add_theme_font_override("font", font_regular())
+		button.add_theme_font_override("font", font_bold())
 	button.add_theme_stylebox_override("disabled", flat_button_box("disabled"))
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	button.add_theme_color_override("font_color", Color.WHITE)
@@ -387,6 +387,7 @@ static func apply_icon_button(button: Button) -> void:
 
 static func apply_prominent_danger(button: Button) -> void:
 	button.set_meta("glossy_button", false)
+	button.set_meta("typography_role", "button")
 	button.add_theme_stylebox_override("normal", button_box(Color("b7444f"), RADIUS.button))
 	button.add_theme_stylebox_override("hover", button_box(Color("c9505a"), RADIUS.button))
 	button.add_theme_stylebox_override("pressed", button_box(Color("923640"), RADIUS.button, true))
@@ -418,6 +419,8 @@ static func round_button_box(color: Color, pressed: bool = false) -> StyleBoxFla
 	return box
 
 static func apply_compact_button(button: Button, accent: Color) -> void:
+	button.set_meta("typography_role", "button")
+	button.add_theme_font_override("font", font_bold())
 	var normal := glass_panel(Color("18344d"), 0.94, 20, Color(COLORS.ivory, 0.36))
 	var hover := glass_panel(Color("214c68"), 0.98, 20, accent)
 	var pressed := glass_panel(Color("11283e"), 0.98, 20, accent)

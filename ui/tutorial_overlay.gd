@@ -113,7 +113,7 @@ func _build_callout() -> void:
 	message.custom_minimum_size.x = 440
 	message.max_lines_visible = 2
 	message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	message.add_theme_font_override("font", ThemeMaker.font_regular())
+	ThemeMaker.apply_text_role(message, "body")
 	message.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.body)
 	message.add_theme_color_override("font_color", ThemeMaker.COLORS.ink)
 	message.add_theme_constant_override("line_spacing", ThemeMaker.TEXT_LINE_SPACING)
