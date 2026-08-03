@@ -18,6 +18,12 @@ const CAMPUS_TOP := 18.0
 const COLUMN_STEP := 384.0 # PLOT_SIZE.x + PLOT_LANE
 const ISO_RISE := 192.0 # 2:1 axis rise for one column step
 const ROW_STEP := 384.0
+const ROAD_EDGE_OVERLAP := 8.0
+const ROAD_SPRITE_PADDING := 8.0
+const ROAD_PAD_ANCHOR_REACH_X := 112.0
+const ROAD_ISO_A_SOURCE_ANGLE := deg_to_rad(-31.1913)
+const ROAD_ISO_B_SOURCE_ANGLE := deg_to_rad(30.7479)
+const DECO_LANE_CLEARANCE := 20.0
 const CAMPUS_SAFE_TOP := 360.0
 const CAMPUS_SAFE_BOTTOM := 420.0
 const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
@@ -420,8 +426,10 @@ func _add_campus_paths(plots: Array) -> void:
 	if slot_count < 2:
 		return
 	for slot: int in range(slot_count - 1):
-		var from := _plot_position(slot, plots.size()) + PLOT_SIZE * 0.5
-		var to := _plot_position(slot + 1, plots.size()) + PLOT_SIZE * 0.5
+		# Roads bridge only adjacent pad-edge anchors. The 8u inward overlap hides
+		# antialias seams without letting the road sprite continue through a pad.
+		var from := _road_edge_anchor(slot, slot + 1, plots.size(), ROAD_EDGE_OVERLAP)
+		var to := _road_edge_anchor(slot + 1, slot, plots.size(), ROAD_EDGE_OVERLAP)
 		var direction := to - from
 		# road_iso_a is the / axis, road_iso_b is the \\ axis. A road is
 		# undirected, so the X sign selects the sprite matching this grid edge.
@@ -446,12 +454,22 @@ func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D, slot: int
 	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	if uses_iso_asset:
 		# The final road art is already rendered on the shared 2:1 axes. Its
-		# transparent square preserves that projection without runtime rotation.
-		view.size = Vector2.ONE * (distance + 56.0)
+		# generated pixels are about four degrees steeper than the actual 2:1
+		# campus grid, so apply only that measured correction. This keeps the
+		# baked perspective while making the visible centreline meet both pads.
+		view.size = Vector2.ONE * (distance + ROAD_SPRITE_PADDING)
 		view.position = (from + to) * 0.5 - view.size * 0.5
-		view.rotation = 0.0
+		var source_angle := ROAD_ISO_B_SOURCE_ANGLE if asset_id == "road_iso_b" else ROAD_ISO_A_SOURCE_ANGLE
+		var target_angle := direction.angle()
+		if target_angle > PI * 0.5:
+			target_angle -= PI
+		elif target_angle < -PI * 0.5:
+			target_angle += PI
+		view.rotation = target_angle - source_angle
+		view.set_meta("source_axis_angle", source_angle)
+		view.set_meta("target_axis_angle", target_angle)
 	else:
-		view.size = Vector2(distance + 40.0, 96.0)
+		view.size = Vector2(distance + ROAD_SPRITE_PADDING, 56.0)
 		view.position = (from + to) * 0.5 - view.size * 0.5
 		view.rotation = direction.angle()
 	view.pivot_offset = view.size * 0.5
@@ -464,7 +482,26 @@ func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D, slot: int
 	view.set_meta("lane_to_slot", slot + 1)
 	view.set_meta("lane_asset_id", asset_id if uses_iso_asset else "ground_path_straight")
 	view.set_meta("using_iso_asset", uses_iso_asset)
+	view.set_meta("edge_from", from)
+	view.set_meta("edge_to", to)
+	view.set_meta("edge_overlap", ROAD_EDGE_OVERLAP)
 	content.add_child(view)
+
+func _road_edge_anchor(from_slot: int, toward_slot: int, plot_count: int, overlap: float = 0.0) -> Vector2:
+	var center := _plot_position(from_slot, plot_count) + PLOT_SIZE * 0.5
+	var toward := _plot_position(toward_slot, plot_count) + PLOT_SIZE * 0.5
+	var delta := toward - center
+	if delta.is_zero_approx():
+		return center
+	# The concrete pad is a cropped isometric diamond inside the 344x260 touch
+	# rect. Its two visible lane midpoints sit 112x56 from the logical center;
+	# using the touch-rect edge produces the old center-through-pad overshoot.
+	var scale_to_edge := ROAD_PAD_ANCHOR_REACH_X / maxf(absf(delta.x), 0.001)
+	var boundary := center + delta * scale_to_edge
+	return boundary - delta.normalized() * overlap
+
+func road_edge_anchor_for_slots(from_slot: int, toward_slot: int, plot_count: int, overlap: float = ROAD_EDGE_OVERLAP) -> Vector2:
+	return _road_edge_anchor(from_slot, toward_slot, plot_count, overlap)
 
 func _add_environment_props(plots: Array) -> void:
 	for array_index: int in range(plots.size()):
@@ -479,24 +516,55 @@ func _add_environment_props(plots: Array) -> void:
 		var used_anchors: Array[int] = []
 		if powered:
 			var pylon_dimensions := Vector2(132, 132)
-			var pylon := _add_world_prop("deco_pylon", _plot_deco_position(plot_origin, 1, pylon_dimensions), pylon_dimensions, "%d_power" % plot_index)
+			var pylon_position := _pylon_deco_position(plot_origin, pylon_dimensions)
+			var pylon := _add_world_prop("deco_pylon", pylon_position, pylon_dimensions, "%d_power" % plot_index)
 			if pylon != null:
+				var pylon_clearance := _distance_to_campus_lanes(pylon_position + pylon_dimensions * 0.5, plots.size() + 1)
 				pylon.set_meta("grid_slot", array_index)
 				pylon.set_meta("deco_anchor", 1)
+				pylon.set_meta("deco_anchor_name", "right_rear")
+				pylon.set_meta("lane_clearance", pylon_clearance)
 				used_anchors.append(1)
 		var prop_count := 0 if plot_index % 3 == 0 else (1 if powered else plot_index % 3)
 		for slot: int in range(prop_count):
 			var prop_type := (plot_index - 1 + slot) % 4
-			var anchor := (plot_index - 1 + slot * 2) % 4
+			# The inner-side anchors are reserved for the two road axes. Regular
+			# props stay on the exterior side of their grid column.
+			var safe_anchors: Array[int] = [0, 2]
+			if array_index % 2 != 0:
+				safe_anchors = [1, 3]
+			var anchor := safe_anchors[(plot_index - 1 + slot) % safe_anchors.size()]
 			while anchor in used_anchors:
-				anchor = (anchor + 1) % 4
+				anchor = safe_anchors[(safe_anchors.find(anchor) + 1) % safe_anchors.size()]
 			var asset_id: String = CAMPUS_PROP_IDS[prop_type]
 			var dimensions: Vector2 = CAMPUS_PROP_SIZES[prop_type]
 			var prop := _add_world_prop(asset_id, _plot_deco_position(plot_origin, anchor, dimensions), dimensions, "%d_%d" % [plot_index, slot])
 			if prop != null:
+				var prop_clearance := _distance_to_campus_lanes(prop.position + prop.size * 0.5, plots.size() + 1)
 				prop.set_meta("grid_slot", array_index)
 				prop.set_meta("deco_anchor", anchor)
+				prop.set_meta("lane_clearance", prop_clearance)
 				used_anchors.append(anchor)
+
+func _pylon_deco_position(plot_origin: Vector2, dimensions: Vector2) -> Vector2:
+	# Dedicated right-rear anchor, outside both the road band and building art.
+	var anchor_center := plot_origin + Vector2(PLOT_SIZE.x + 20.0, -56.0)
+	return anchor_center - dimensions * 0.5
+
+func _distance_to_campus_lanes(point: Vector2, slot_count: int) -> float:
+	var nearest := INF
+	for slot: int in range(maxi(0, slot_count - 1)):
+		var from := _road_edge_anchor(slot, slot + 1, slot_count - 1, 0.0)
+		var to := _road_edge_anchor(slot + 1, slot, slot_count - 1, 0.0)
+		nearest = minf(nearest, _point_segment_distance(point, from, to))
+	return nearest
+
+func _point_segment_distance(point: Vector2, from: Vector2, to: Vector2) -> float:
+	var segment := to - from
+	if segment.length_squared() <= 0.001:
+		return point.distance_to(from)
+	var along := clampf((point - from).dot(segment) / segment.length_squared(), 0.0, 1.0)
+	return point.distance_to(from + segment * along)
 
 func _plot_deco_position(plot_origin: Vector2, anchor: int, dimensions: Vector2) -> Vector2:
 	# Four explicit anchors sit just outside the pad corners. The rear pair are

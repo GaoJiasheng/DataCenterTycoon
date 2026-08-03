@@ -405,9 +405,10 @@ func _refresh_hud() -> void:
 	_refresh_arrears_hud()
 	_refresh_tutorial()
 	var on_map := active_page == "map"
-	# The park is the product's persistent spatial anchor. Deep systems open as
-	# high-opacity work surfaces above it instead of replacing the world.
-	world_host.visible = true
+	# System pages are opaque work surfaces. Keeping the depth-sorted park alive
+	# behind their safe-area gutters allowed southern plots and their price rails
+	# to peek through the right edge of the board.
+	world_host.visible = on_map
 	navigation_panel.visible = on_map
 	page_host.visible = not on_map
 	_refresh_live_page()

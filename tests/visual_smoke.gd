@@ -267,6 +267,8 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	# client area. Keep a 2px platform tolerance, but always execute layout gates.
 	var image_valid := not image.is_empty() and image.get_width() >= PREVIEW_SIZE.x - 2 and image.get_height() >= PREVIEW_SIZE.y - 2
 	var layout_valid := _layout_is_safe(main, name)
+	if name == "dc_board":
+		layout_valid = _page_right_edge_is_solid(main, image) and layout_valid
 	var valid := image_valid and layout_valid
 	var output_path := "%s%s.png" % [output_root, name]
 	# `aspect=keep` can make the macOS Metal drawable one pixel narrower because
@@ -512,8 +514,20 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			var using_iso_asset := bool(lane.get_meta("using_iso_asset", false))
 			if using_iso_asset:
 				production_lane_count += 1
-			if not bool(lane.get_meta("world_lane", false)) or (using_iso_asset and not is_zero_approx(lane.rotation)) or (not using_iso_asset and not is_equal_approx(absf(tan(lane.rotation)), 0.5)):
+			var source_axis_angle := float(lane.get_meta("source_axis_angle", 0.0))
+			var target_axis_angle := float(lane.get_meta("target_axis_angle", 0.0))
+			var rendered_axis_angle := source_axis_angle + lane.rotation
+			if not bool(lane.get_meta("world_lane", false)) or (using_iso_asset and absf(angle_difference(rendered_axis_angle, target_axis_angle)) > 0.005) or (not using_iso_asset and not is_equal_approx(absf(tan(lane.rotation)), 0.5)):
 				push_error("VISUAL_SMOKE: dense campus lane left the shared 2:1 axis: %s rotation=%f" % [lane.name, lane.rotation])
+				valid = false
+			var from_slot := int(lane.get_meta("lane_from_slot", -1))
+			var to_slot := int(lane.get_meta("lane_to_slot", -1))
+			var expected_from: Vector2 = main.park_map.call("road_edge_anchor_for_slots", from_slot, to_slot, 6, 8.0)
+			var expected_to: Vector2 = main.park_map.call("road_edge_anchor_for_slots", to_slot, from_slot, 6, 8.0)
+			var actual_from: Vector2 = lane.get_meta("edge_from", Vector2.ZERO)
+			var actual_to: Vector2 = lane.get_meta("edge_to", Vector2.ZERO)
+			if actual_from.distance_to(expected_from) > 0.5 or actual_to.distance_to(expected_to) > 0.5 or not is_equal_approx(float(lane.get_meta("edge_overlap", 0.0)), 8.0) or maxf(lane.size.x, lane.size.y) > 240.0:
+				push_error("VISUAL_SMOKE: W1 lane does not terminate on two 8u-overlapped pad-edge anchors: %s" % lane.name)
 				valid = false
 		var prop_types: Dictionary = {}
 		var environment_count := 0
@@ -524,6 +538,12 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			var prop_type := str(node.get_meta("world_prop_type", ""))
 			if not prop_type.is_empty():
 				prop_types[prop_type] = true
+				if node.has_meta("grid_slot") and float(node.get_meta("lane_clearance", 0.0)) < 20.0:
+					push_error("VISUAL_SMOKE: W2 campus prop occupies the protected road band: %s clearance=%.1f" % [node.name, float(node.get_meta("lane_clearance", 0.0))])
+					valid = false
+				if prop_type == "deco_pylon" and str(node.get_meta("deco_anchor_name", "")) != "right_rear":
+					push_error("VISUAL_SMOKE: W2 pylon is not bound to the dedicated right-rear anchor")
+					valid = false
 			if node is Button and node.has_meta("grid_slot"):
 				grid_slots[int(node.get_meta("grid_slot"))] = true
 		if path_segments.size() != 6 or lane_axes.size() != 2:
@@ -562,6 +582,9 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		var power_meter := main.find_child("BoardPowerMeter", true, false)
 		if board == null or power_meter == null:
 			push_error("VISUAL_SMOKE: %s lacks the board or power meter" % state_name)
+			valid = false
+		if main.world_host == null or main.world_host.visible:
+			push_error("VISUAL_SMOKE: S1 system board still exposes the world through its safe-area edge")
 			valid = false
 		var coverage_count := main.find_children("CoolingCoverage_*", "", true, false).size()
 		if coverage_count != 3:
@@ -806,6 +829,28 @@ func _asset_palette_metrics(asset_id: String) -> Dictionary:
 		"gold_ratio": float(gold) / float(visible),
 		"used_aspect": float(image.get_used_rect().size.x) / maxf(1.0, float(image.get_used_rect().size.y)),
 	}
+
+func _page_right_edge_is_solid(main: Node, image: Image) -> bool:
+	var page_host := main.find_child("PageHost", true, false) as Control
+	if page_host == null or image == null or image.is_empty():
+		push_error("VISUAL_SMOKE: S1 cannot sample the PageHost right edge")
+		return false
+	var viewport_rect := get_viewport().get_visible_rect()
+	var scale := Vector2(
+		float(image.get_width()) / maxf(1.0, viewport_rect.size.x),
+		float(image.get_height()) / maxf(1.0, viewport_rect.size.y)
+	)
+	var page_rect := page_host.get_global_rect()
+	var sample_x := clampi(int(round((page_rect.end.x - 2.0) * scale.x)), 0, image.get_width() - 1)
+	var first_y := int(round((page_rect.position.y + page_rect.size.y * 0.20) * scale.y))
+	var last_y := int(round((page_rect.position.y + page_rect.size.y * 0.80) * scale.y))
+	for pixel_y: int in range(first_y, last_y + 1, maxi(1, (last_y - first_y) / 24)):
+		var color := image.get_pixel(sample_x, clampi(pixel_y, 0, image.get_height() - 1)).linear_to_srgb()
+		var panel_like := color.b > color.r * 1.15 and color.b >= color.g * 0.88 and maxf(color.r, maxf(color.g, color.b)) > 0.10
+		if not panel_like:
+			push_error("VISUAL_SMOKE: S1 PageHost right edge exposes non-panel pixel at y=%d color=%s" % [pixel_y, str(color)])
+			return false
+	return true
 
 func _text_is_within_clipping_ancestors(main: Node, state_name: String) -> bool:
 	var valid := true
