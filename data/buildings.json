@@ -6,6 +6,7 @@
       "name_key": "BUILDING_T0",
       "cost": 800,
       "build_seconds": 300,
+      "tutorial_build_seconds": 30,
       "lifespan_seconds": 86400,
       "unlocked_slots": [0, 1, 3, 4],
       "cooler_slots": 1,

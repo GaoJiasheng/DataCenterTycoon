@@ -421,6 +421,9 @@ func _refresh_hud() -> void:
 	var operations_count := _operations_attention_count()
 	operations_badge_label.text = str(operations_count)
 	operations_badge.visible = operations_count > 0
+	var fault_attention := _has_fault_attention()
+	operations_badge.set_meta("attention_tone", "fault" if fault_attention else "normal")
+	operations_badge.add_theme_stylebox_override("panel", ThemeMaker.notification_badge(ThemeMaker.COLORS.red if fault_attention else Color("9a6a18")))
 	_refresh_primary_action()
 	_refresh_arrears_hud()
 	_refresh_tutorial()
@@ -597,7 +600,7 @@ func _highest_income_datacenter_id() -> String:
 	return best_id
 
 func _operations_attention_count() -> int:
-	var result: int = Game.state.get("market", {}).get("active", []).size()
+	var result: int = Game.state.get("market", {}).get("active", []).size() + _fault_attention_count()
 	var cash := float(Game.state.get("player", {}).get("cash", 0.0))
 	var technology: Dictionary = DataRepository.get_table("technology")
 	var network_level := int(Game.state.get("player", {}).get("network_level", 1))
@@ -609,6 +612,20 @@ func _operations_attention_count() -> int:
 	if not next_repair.is_empty() and Game.is_unlocked(next_repair) and cash >= float(next_repair.get("cost", INF)):
 		result += 1
 	return result
+
+func _has_fault_attention() -> bool:
+	return _fault_attention_count() > 0
+
+func _fault_attention_count() -> int:
+	var count := 0
+	for plot: Dictionary in Game.state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if not dc is Dictionary:
+			continue
+		for rack: Variant in dc.get("racks", []):
+			if rack is Dictionary and str(rack.get("status", "")) == "faulted":
+				count += 1
+	return count
 
 func _set_primary_affordability_pulse(enabled: bool) -> void:
 	if enabled and (_primary_pulse_tween == null or not _primary_pulse_tween.is_valid()):
@@ -2376,16 +2393,25 @@ func _show_rack_actions(datacenter_id: String, slot: int) -> void:
 	elif installed.get("status", "") == "faulted":
 		body = tr("FAULTED")
 		status_color = ThemeMaker.COLORS.red
-		choices.append({"id": "repair", "text": tr("REPAIR"), "color": ThemeMaker.COLORS.green})
-		choices.append({"id": "ad", "text": tr("WATCH_AD")})
-		choices.append({"id": "gems", "text": "%s · 2 %s" % [tr("REPAIR"), tr("GEMS_REWARD_SHORT")]})
+		var faults: Dictionary = DataRepository.get_table("economy").get("faults", {})
+		var repair_cost: float = ceil(float(rack.get("cost", 0.0)) * float(faults.get("repair_cost_ratio", 0.05)))
+		var repair_seconds := (float(faults.get("repair_seconds_min", 600.0)) + float(faults.get("repair_seconds_max", 1800.0))) * 0.5
+		var repair_level := str(Game.state.get("technology", {}).get("repair_team", 1))
+		repair_seconds *= float(DataRepository.get_table("technology").get("upgrades", {}).get("repair_team", {}).get("levels", {}).get(repair_level, {}).get("repair_time_multiplier", 1.0))
+		var repair_uses := int(Game.state.get("reward_limits", {}).get("repair_uses", 0))
+		var repair_limit := int(faults.get("rewarded_repairs_per_hour", 4))
+		var instant_gems := int(faults.get("instant_repair_gems", 2))
+		choices.append({"id": "repair", "text": tr("REPAIR_QUOTE") % [Game.format_number(repair_cost), Game.format_duration(repair_seconds)], "color": ThemeMaker.COLORS.green})
+		choices.append({"id": "ad", "text": tr("REPAIR_AD_QUOTE") % [repair_uses, repair_limit]})
+		choices.append({"id": "gems", "text": tr("REPAIR_GEMS_QUOTE") % instant_gems})
 	else:
 		var enabled := bool(installed.get("enabled", true))
 		body = tr("RACK_DISABLED") if not enabled else tr("POWERED")
 		status_color = Color("aeb8c4") if not enabled else ThemeMaker.COLORS.green
 		choices.append({"id": "power", "text": tr("RACK_TURN_ON") if not enabled else tr("RACK_TURN_OFF"), "color": ThemeMaker.COLORS.green if not enabled else ThemeMaker.COLORS.sky})
 	if installed.get("status", "") != "installing":
-		choices.append({"id": "uninstall", "text": tr("RETIRE")})
+		var refund: float = round(float(rack.get("cost", 0.0)) * float(DataRepository.get_table("economy").get("aging", {}).get("rack_refund_ratio", 0.5)))
+		choices.append({"id": "uninstall", "text": tr("DISMANTLE_RACK_QUOTE") % Game.format_number(refund), "color": Color("263d59")})
 	_present_action_sheet(tr(rack.get("name_key", "RACKS")), body, choices, func(action: String) -> void:
 		match action:
 			"install_ad": _handle_result(Game.request_reward("rack_install:%s:%d" % [datacenter_id, slot]))
@@ -2468,6 +2494,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 			_dismiss_action_sheet(overlay, callback.bind(choice_id))
 		, choice_color)
 		choice_button.name = "Choice_%s" % choice_id
+		choice_button.set_meta("choice_id", choice_id)
 		if choice.has("asset"):
 			_set_button_asset(choice_button, str(choice.get("asset", "")), 64)
 		if hold_seconds > 0.0:
@@ -2908,7 +2935,10 @@ func _on_market_event_started(event_id: String) -> void:
 			_play_fx("fx_snowflake", 250)
 		"digital_wave": _play_fx("fx_wind_streak")
 		"mining_crash", "policy_tightening": _play_fx("fx_smoke_puff")
-		"coin_boom": _play_fx("fx_coin")
+		# A coin_boom used to spawn a 100u rack coin in the middle of the road.
+		# The event banner, market page and per-building benefit badge are the
+		# semantic feedback; a context-free world coin is actively misleading.
+		"coin_boom": pass
 		"ai_model_boom": _play_fx("fx_glow_ring")
 		_: _play_fx("fx_glow_ring", 260)
 

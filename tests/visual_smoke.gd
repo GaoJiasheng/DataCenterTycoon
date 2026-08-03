@@ -506,9 +506,14 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			var badge := node as PanelContainer
 			if badge != null and badge.has_meta("alert_type"):
 				alert_count += 1
+				var alert_type := str(badge.get_meta("alert_type", ""))
 				var badge_style := badge.get_theme_stylebox("panel") as StyleBoxFlat
-				if not bool(badge.get_meta("breathing", false)) or badge_style == null or not badge_style.border_color.is_equal_approx(Color.WHITE) or badge_style.get_border_width(SIDE_TOP) < 2:
-					push_error("VISUAL_SMOKE: world alert lacks its white rim or breathing affordance")
+				var should_breathe := alert_type == "fault"
+				if bool(badge.get_meta("breathing", false)) != should_breathe or badge_style == null or not badge_style.border_color.is_equal_approx(Color.WHITE) or badge_style.get_border_width(SIDE_TOP) < 2:
+					push_error("VISUAL_SMOKE: world alert lacks its semantic urgency or white rim: %s" % alert_type)
+					valid = false
+				if str(badge.get_meta("alert_tone", "")) != alert_type:
+					push_error("VISUAL_SMOKE: world alert tone does not match its action: %s" % alert_type)
 					valid = false
 				if not viewport_rect.intersects(badge.get_global_rect()):
 					push_error("VISUAL_SMOKE: world alert is outside the viewport: %s" % badge.get_meta("alert_type"))

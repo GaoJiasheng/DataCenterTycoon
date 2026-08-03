@@ -29,6 +29,10 @@ BUILD,Build,建造
 INSTALL,Install,安装
 UPGRADE,Upgrade,升级
 REPAIR,Repair,维修
+REPAIR_QUOTE,Repair · $%s · about %s,维修 · $%s · 约 %s
+REPAIR_AD_QUOTE,Watch ad · Repair now (%d/%d this hour),看广告 · 立即修复（本小时 %d/%d）
+REPAIR_GEMS_QUOTE,Instant repair · %d Gems,钻石立修 · %d 钻石
+DISMANTLE_RACK_QUOTE,Dismantle rack · Recover $%s,拆除机柜 · 回收 $%s
 RETIRE,Retire,退役
 DEMOLISH,Clear ruins,清拆废墟
 SIGN_CONTRACT,Sign contract,签订合约

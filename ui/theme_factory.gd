@@ -319,6 +319,33 @@ static func world_badge(accent: Color, compact: bool = false) -> StyleBox:
 	box.shadow_offset = Vector2(0, 2)
 	return box
 
+static func alert_badge(alert_type: String) -> StyleBoxFlat:
+	var fill := {
+		"fault": Color("b3343d"),
+		"overheat": Color("a64f24"),
+		"contract": Color("9a6a18"),
+		"market": Color("2f7548"),
+		"retire": Color("a65422"),
+		"unpowered": Color("31536b"),
+	}.get(alert_type, Color("31536b")) as Color
+	var box := panel(fill, Color.WHITE, 2, 28)
+	box.content_margin_left = 10
+	box.content_margin_right = 10
+	box.content_margin_top = 6
+	box.content_margin_bottom = 6
+	box.shadow_color = Color(0, 0, 0, 0.22)
+	box.shadow_size = 4
+	box.shadow_offset = Vector2(0, 2)
+	return box
+
+static func notification_badge(accent: Color) -> StyleBoxFlat:
+	var box := panel(accent, Color.WHITE, 2, 21)
+	box.content_margin_left = 0
+	box.content_margin_right = 0
+	box.content_margin_top = 0
+	box.content_margin_bottom = 0
+	return box
+
 static func sale_price_badge() -> StyleBoxFlat:
 	# A compact sign plate belongs to the parcel instead of reading as a second
 	# floating CTA. The warm rim connects it to the physical sale sign while the

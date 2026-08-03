@@ -173,7 +173,11 @@ func start_datacenter_construction(plot_id: String, building_id: String) -> Dict
 	var cost := float(building.get("cost", 0.0))
 	if not _spend_cash(cost):
 		return _failure("not_enough_cash")
-	var item := _queue_item("datacenter", float(building.get("build_seconds", 0.0)))
+	var build_seconds := float(building.get("build_seconds", 0.0))
+	var tutorial: Dictionary = state.get("tutorial", {})
+	if building_id == "dc_t0" and not bool(tutorial.get("completed", false)):
+		build_seconds = float(building.get("tutorial_build_seconds", build_seconds))
+	var item := _queue_item("datacenter", build_seconds)
 	item.merge({"plot_id": plot_id, "building_id": building_id, "cost": cost})
 	state["construction_queue"].append(item)
 	plot["status"] = "building"

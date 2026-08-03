@@ -25,12 +25,14 @@ func _ready() -> void:
 	await _shot("s0_welcome_picker")
 	_assert_sheet_reward_uses_hud_pulse()
 	_close("BuildingPicker")
-	Game.start_datacenter_construction("plot_1", "dc_t0")
+	var tutorial_build := Game.start_datacenter_construction("plot_1", "dc_t0")
+	var tutorial_job: Dictionary = tutorial_build.get("construction", {})
+	_expect(float(tutorial_job.get("complete_at", 0.0)) - float(tutorial_job.get("started_at", 0.0)) <= 30.0, "FT4 tutorial T0 construction must complete within 30 seconds")
 	await _shot("s1_power_step_during_construction")
 	_assert_no_started_celebration("construction start")
 	_assert_tutorial_target("power", "drawer", "construction_wait", true)
 	_assert_construction_timer_capsule()
-	Game.advance_time(300.0, false)
+	Game.advance_time(30.0, false)
 	await _shot("s1_power_step_dc_built_map")
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
 	var dc_id := str(dc.get("id", ""))
@@ -90,6 +92,7 @@ func _ready() -> void:
 	await _shot("s8_tutorial_done_map")
 	_assert_sale_focus(true)
 	await _assert_fx_ttl()
+	_assert_standard_t0_duration()
 	AudioService.stop_all()
 	if failures.is_empty():
 		print("FLOW_AUDIT: PASS -> %s*.png" % OUT)
@@ -104,6 +107,13 @@ func _close(node_name: String) -> void:
 	var overlay := main.find_child(node_name, true, false)
 	if overlay != null:
 		overlay.queue_free()
+
+func _assert_standard_t0_duration() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	var standard_build := Game.start_datacenter_construction("plot_1", "dc_t0")
+	var standard_job: Dictionary = standard_build.get("construction", {})
+	_expect(is_equal_approx(float(standard_job.get("complete_at", 0.0)) - float(standard_job.get("started_at", 0.0)), 300.0), "FT4 T0 construction must restore its normal 300-second duration after tutorial completion")
 
 func _assert_batch_one_shell() -> void:
 	var stage := main.find_child("ShellStage", true, false) as Control

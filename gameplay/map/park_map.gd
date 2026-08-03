@@ -751,13 +751,9 @@ func _wire_alert_badge(button: Button, datacenter_id: String, alert_type: String
 	badge.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	badge.set_meta("alert_type", alert_type)
 	badge.set_meta("datacenter_id", datacenter_id)
-	badge.set_meta("breathing", true)
-	var badge_style := badge.get_theme_stylebox("panel") as StyleBoxFlat
-	if badge_style != null:
-		badge_style = badge_style.duplicate() as StyleBoxFlat
-		badge_style.border_color = Color.WHITE
-		badge_style.set_border_width_all(2)
-		badge.add_theme_stylebox_override("panel", badge_style)
+	badge.set_meta("alert_tone", alert_type)
+	badge.set_meta("breathing", alert_type == "fault")
+	badge.add_theme_stylebox_override("panel", ThemeMaker.alert_badge(alert_type))
 	badge.gui_input.connect(func(event: InputEvent) -> void:
 		if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
 			badge.accept_event()
@@ -770,8 +766,10 @@ func _wire_alert_badge(button: Button, datacenter_id: String, alert_type: String
 	entrance.finished.connect(func() -> void:
 		if not is_instance_valid(badge):
 			return
+		if alert_type != "fault":
+			return
 		var breath := badge.create_tween().set_loops()
-		breath.tween_property(badge, "scale", Vector2.ONE * 1.08, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		breath.tween_property(badge, "scale", Vector2.ONE * 1.10, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		breath.tween_property(badge, "scale", Vector2.ONE, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	)
 
