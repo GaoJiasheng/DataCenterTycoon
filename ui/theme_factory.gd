@@ -333,6 +333,18 @@ static func sale_price_badge() -> StyleBoxFlat:
 	box.shadow_offset = Vector2(0, 1)
 	return box
 
+static func construction_timer_badge() -> StyleBoxFlat:
+	# Flat capsule: no nine-slice seam can open at the short 68u world scale.
+	var box := panel(Color("14283d"), Color(COLORS.orange, 0.92), 2, 18)
+	box.content_margin_left = 12
+	box.content_margin_right = 12
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
+	box.shadow_color = Color(0, 0, 0, 0.18)
+	box.shadow_size = 3
+	box.shadow_offset = Vector2(0, 2)
+	return box
+
 static func apply_button_color(button: Button, color: Color) -> void:
 	apply_button_role(button, button_role_for_color(color))
 

@@ -1,0 +1,38 @@
+name: Project gates
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  logic-ui-and-ftue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.7
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.0
+          use-dotnet: false
+          include-templates: false
+
+      - name: Import project
+        run: godot --headless --path . --editor --quit
+
+      - name: Validate data and localization
+        run: python3 tools/validate_data.py
+
+      - name: Run logic suite
+        run: godot --headless --path . tests/test_runner.tscn
+
+      - name: Run assertion-based FTUE flow audit
+        run: godot --headless --path . tests/flow_audit.tscn
+
+      - name: Run Chinese rendered UI smoke
+        run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN

@@ -29,16 +29,19 @@ func _ready() -> void:
 	await _shot("s1_power_step_during_construction")
 	_assert_no_started_celebration("construction start")
 	_assert_tutorial_target("power", "drawer", "construction_wait", true)
+	_assert_construction_timer_capsule()
 	Game.advance_time(300.0, false)
 	await _shot("s1_power_step_dc_built_map")
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
 	var dc_id := str(dc.get("id", ""))
 	_assert_tutorial_target("power", "drawer", "world_building")
 	_assert_world_target_matches_building(dc_id)
+	_assert_world_fx_extent(dc_id)
 	main.call("_open_datacenter", dc_id)
 	await _shot("s1_power_step_drawer_open")
 	_assert_tutorial_target("power", "drawer", "control")
 	_assert_unpowered_copy_and_drawer_lock()
+	_assert_sheet_blocks_world_fx(dc_id)
 	main.call("_show_attachment_picker", dc_id, "power", "")
 	await _shot("s1_power_picker_sheet")
 	_assert_sheet_reward_uses_hud_pulse()
@@ -86,6 +89,7 @@ func _ready() -> void:
 	Game.advance_time(3600.0, false)
 	await _shot("s8_tutorial_done_map")
 	_assert_sale_focus(true)
+	await _assert_fx_ttl()
 	AudioService.stop_all()
 	if failures.is_empty():
 		print("FLOW_AUDIT: PASS -> %s*.png" % OUT)
@@ -186,6 +190,54 @@ func _assert_sale_focus(expected: bool) -> void:
 	var sale_price := main.find_child("SalePriceBadge", true, false) as CanvasItem
 	var sale_tether := main.find_child("SalePriceTether", true, false) as CanvasItem
 	_expect(sale_price != null and sale_tether != null and sale_price.visible == expected and sale_tether.visible == expected, "E1 sale price tag visibility must follow the buy-land step (%s)" % expected)
+
+func _assert_construction_timer_capsule() -> void:
+	var progress := main.find_child("ConstructionProgress", true, false) as ProgressBar
+	var row := progress.get_parent() as Control if progress != null else null
+	var badge := row.get_parent() as PanelContainer if row != null else null
+	var button := badge.get_parent() as Button if badge != null else null
+	var style := badge.get_theme_stylebox("panel") as StyleBoxFlat if badge != null else null
+	_expect(badge != null and button != null and style != null and bool(badge.get_meta("construction_timer_flat", false)), "C4 construction countdown must use the flat capsule style")
+	if badge != null and button != null and style != null:
+		_expect(button.get_global_rect().encloses(badge.get_global_rect()) and style.get_border_width(SIDE_TOP) >= 2 and style.get_border_width(SIDE_RIGHT) >= 2, "C4 construction capsule must be closed and contained on every edge")
+
+func _assert_world_fx_extent(datacenter_id: String) -> void:
+	var layer := main.find_child("FxLayer", true, false) as FxLayer
+	if layer == null:
+		_expect(false, "C2 FxLayer must exist")
+		return
+	layer.clear()
+	main.call("_play_fx_at_world", "fx_dust_puff", datacenter_id, 190.0)
+	var effect: Control = null
+	for child: Node in layer.get_children():
+		if str(child.get_meta("fx_asset_id", "")) == "fx_dust_puff":
+			effect = child as Control
+			break
+	_expect(effect != null and float(effect.get_meta("fx_extent", INF)) <= 120.0, "C2 installation dust must be capped at 120u")
+	layer.clear()
+
+func _assert_sheet_blocks_world_fx(datacenter_id: String) -> void:
+	var layer := main.find_child("FxLayer", true, false) as FxLayer
+	var drawer := main.find_child("DatacenterContext", true, false) as CanvasItem
+	if layer == null or drawer == null:
+		_expect(false, "C2 sheet and FxLayer must exist")
+		return
+	var before := layer.active_effect_count()
+	main.call("_play_fx_at_world", "fx_dust_puff", datacenter_id, 190.0)
+	_expect(layer.active_effect_count() == before, "C2 an open sheet must drop world FX")
+	_expect(layer.z_index < drawer.z_index, "C2 world FX layer must render below sheets")
+
+func _assert_fx_ttl() -> void:
+	var layer := main.find_child("FxLayer", true, false) as FxLayer
+	if layer == null:
+		_expect(false, "C1 FxLayer must exist for TTL audit")
+		return
+	layer.clear()
+	main.call("_play_fx", "fx_smoke_puff", 420.0)
+	var effect := layer.get_child(0) as Control if layer.get_child_count() > 0 else null
+	_expect(effect != null and float(effect.get_meta("fx_extent", INF)) <= 100.0, "C2 non-celebration global FX must be capped at 100u")
+	await get_tree().create_timer(2.55).timeout
+	_expect(layer.active_effect_count() == 0, "C1 every managed FX node must self-destruct within 2.5s")
 
 func _expect(condition: bool, message: String) -> void:
 	if condition:

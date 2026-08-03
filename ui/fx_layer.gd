@@ -9,7 +9,9 @@ var _pulse_targets: Array[Control] = []
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	z_index = 95
+	# Sheets start at z=90 and the tutorial at z=98. World/reward FX must stay
+	# below both so no dust or glow can cover a decision surface.
+	z_index = 80
 
 func fly_coins(world_position: Vector2, target: Control, count: int = 3) -> void:
 	var texture := AssetCatalog.texture("fx_coin")

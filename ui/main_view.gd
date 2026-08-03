@@ -19,6 +19,17 @@ const LEGAL_DOCUMENTS := {
 	"terms": "res://docs/public/terms.html",
 	"support": "res://docs/public/support.html",
 }
+const FX_EXTENT_LIMITS := {
+	"fx_confetti_set": 240.0,
+	"fx_dust_puff": 120.0,
+	"fx_spark": 100.0,
+	"fx_snowflake": 100.0,
+	"fx_frost_patch": 100.0,
+	"fx_wind_streak": 100.0,
+	"fx_smoke_puff": 100.0,
+	"fx_coin": 100.0,
+	"fx_glow_ring": 100.0,
+}
 
 var cash_label: Label
 var gems_label: Label
@@ -2943,11 +2954,14 @@ func _fly_cash_reward(source: Vector2, count: int) -> void:
 func _world_reward_fx_available(source: Vector2) -> bool:
 	if active_page != "map" or source == Vector2.ZERO:
 		return false
-	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "OfflineOverlay", "EraOverlay", "GameOverOverlay"]:
+	return not _blocking_surface_visible()
+
+func _blocking_surface_visible() -> bool:
+	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "GameOverOverlay"]:
 		var overlay := find_child(overlay_name, true, false) as CanvasItem
 		if overlay != null and overlay.is_visible_in_tree():
-			return false
-	return true
+			return true
+	return false
 
 func _cash_chip_target() -> Control:
 	var chip := find_child("CashResource", true, false) as Control
@@ -3224,16 +3238,19 @@ func _show_toast(message: String, cue_id: String = "") -> void:
 	tween.tween_property(toast_label, "modulate:a", 0.0, 0.35)
 	tween.tween_callback(func() -> void: toast_label.visible = false)
 
-func _play_fx(asset_id: String, extent: float = 340.0) -> void:
+func _play_fx(asset_id: String, extent: float = -1.0) -> void:
 	var texture := AssetCatalog.texture(asset_id)
 	if texture == null or not is_inside_tree() or fx_layer == null:
 		return
+	extent = _bounded_fx_extent(asset_id, extent)
 	var view := TextureRect.new()
 	view.texture = texture
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.z_index = 0
+	view.set_meta("fx_asset_id", asset_id)
+	view.set_meta("fx_extent", extent)
 	fx_layer.add_effect(view)
 	view.set_anchors_preset(Control.PRESET_CENTER)
 	view.offset_left = -extent * 0.5
@@ -3249,9 +3266,10 @@ func _play_fx(asset_id: String, extent: float = 340.0) -> void:
 	tween.tween_property(view, "modulate:a", 0.0, 0.35).set_delay(0.5)
 	tween.finished.connect(view.queue_free)
 
-func _play_fx_at_world(asset_id: String, target_id: String, extent: float = 190.0) -> void:
-	if active_page != "map" or park_map == null or fx_layer == null:
+func _play_fx_at_world(asset_id: String, target_id: String, extent: float = -1.0) -> void:
+	if active_page != "map" or park_map == null or fx_layer == null or _blocking_surface_visible():
 		return
+	extent = _bounded_fx_extent(asset_id, extent)
 	var target := park_map.target_global_position(target_id)
 	var texture := AssetCatalog.texture(asset_id)
 	if target == Vector2.ZERO or texture == null:
@@ -3262,6 +3280,8 @@ func _play_fx_at_world(asset_id: String, target_id: String, extent: float = 190.
 	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.z_index = 0
+	view.set_meta("fx_asset_id", asset_id)
+	view.set_meta("fx_extent", extent)
 	view.size = Vector2.ONE * extent
 	fx_layer.add_effect(view)
 	view.global_position = target - view.size * 0.5
@@ -3273,6 +3293,10 @@ func _play_fx_at_world(asset_id: String, target_id: String, extent: float = 190.
 	tween.tween_property(view, "modulate:a", 1.0, 0.10)
 	tween.tween_property(view, "modulate:a", 0.0, 0.28).set_delay(0.34)
 	tween.finished.connect(view.queue_free)
+
+func _bounded_fx_extent(asset_id: String, requested: float) -> float:
+	var limit := float(FX_EXTENT_LIMITS.get(asset_id, 100.0))
+	return limit if requested <= 0.0 else minf(requested, limit)
 
 func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	var existing := find_child("EraOverlay", true, false)

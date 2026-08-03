@@ -29,7 +29,7 @@
 - [x] iPhone 17 基准的双语竖屏 UI：世界优先园区、极简 HUD、动态主操作、情境抽屉、安全区和触觉接口
 - [x] 正式美术 134 项、音频 16 项完整接入；地图、机房、导航、商店、事件特效和三套音乐均走运行时接口
 - [x] StoreKit provider、交易幂等、限购、恢复购买和激励视频原生桥接口
-- [x] 80 项 Godot 回归测试、21 状态竖屏视觉与排版审计、30 天三策略 × 20 种子模拟、iOS 导出与 App Store 自动门禁
+- [x] 103 项 Godot 回归测试、双语各 30 状态竖屏视觉与排版审计、断言化 FTUE 流程审计、30 天三策略 × 20 种子模拟、iOS 导出与 App Store 自动门禁
 - [ ] 外部交付：P01 正式名称、P04 广告 SDK、Apple 账号/证书、商店截图和 TestFlight
 
 运行时已经使用正式视听资源；资源接口仍保留缺失回退，因此单张素材损坏或暂时移除不会阻止玩法逻辑启动。
@@ -41,12 +41,15 @@
 ```sh
 godot --path .
 godot --headless --path . tests/test_runner.tscn
+godot --headless --path . tests/flow_audit.tscn
 godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=en
 godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN
 godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn
 python3 tools/validate_data.py
 python3 tools/simulate_economy.py
 ```
+
+`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、103 项逻辑、该流程门禁和中文 30 态渲染回归。
 
 资源重做或更新后执行：
 

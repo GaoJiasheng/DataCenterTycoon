@@ -780,13 +780,16 @@ func _configure_construction_timer(button: Button, label: Label, construction: D
 	var row := button.find_child("StatusRow", true, false) as HBoxContainer
 	if badge == null or row == null:
 		return
+	badge.add_theme_stylebox_override("panel", ThemeMaker.construction_timer_badge())
+	badge.set_meta("construction_timer_flat", true)
+	badge.clip_contents = true
 	badge.size.y = 68
 	badge.position.y = PLOT_SIZE.y - 72
 	label.custom_minimum_size.x = 70
 	var progress := ProgressBar.new()
 	progress.name = "ConstructionProgress"
 	progress.show_percentage = false
-	progress.custom_minimum_size = Vector2(54, 18)
+	progress.custom_minimum_size = Vector2(54, 16)
 	row.add_child(progress)
 	var started := float(construction.get("started_at", Game.simulation_time()))
 	var completed := float(construction.get("complete_at", started + 1.0))
