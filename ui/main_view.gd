@@ -2791,7 +2791,6 @@ func _show_offline_dialog(report: Dictionary) -> void:
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.z_index = 100
 	add_child(overlay)
-	_add_era_confetti(overlay)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(center)
@@ -2816,6 +2815,12 @@ func _show_offline_dialog(report: Dictionary) -> void:
 	box.add_child(title)
 	box.add_child(_coin_pile())
 	var income := float(report.get("income", 0.0))
+	var prior_balance := float(report.get("balance_before", maxf(0.0, float(Game.state.get("player", {}).get("cash", 0.0)) - income)))
+	var celebrate := income > maxf(1.0, prior_balance * 0.20)
+	overlay.set_meta("confetti_enabled", celebrate)
+	overlay.set_meta("offline_income_ratio", income / maxf(1.0, prior_balance))
+	if celebrate:
+		_add_era_confetti(overlay)
 	var income_label := _label("$0", 48, Color("a96b05"))
 	income_label.name = "OfflineIncome"
 	income_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

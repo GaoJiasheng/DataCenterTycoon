@@ -22,6 +22,7 @@ func _ready() -> void:
 	main = MAIN_SCENE.instantiate()
 	add_child(main)
 	await _shot("m0_daily_map_overview")
+	_assert_building_variants()
 	# --- fault flow ---
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
 	var dc_id := str(dc.get("id", ""))
@@ -121,16 +122,23 @@ func _ready() -> void:
 	# --- offline return ---
 	dc["racks"][1]["status"] = "faulted"
 	dc["racks"][1]["fault_at"] = -1.0
-	Game.last_offline_report = {"elapsed_seconds": 21600.0, "credited_seconds": 21600.0, "income": 5200.0, "completed": [], "faults": [{"datacenter_id": dc_id, "slot": 1}], "events": [{"type": "event_started", "event_id": "coin_boom"}], "aging": [{"datacenter_id": str(dc3.get("id", "")), "stage": "aging"}]}
+	Game.last_offline_report = {"elapsed_seconds": 21600.0, "credited_seconds": 21600.0, "income": 5200.0, "balance_before": 20800.0, "completed": [], "faults": [{"datacenter_id": dc_id, "slot": 1}], "events": [{"type": "event_started", "event_id": "coin_boom"}], "aging": [{"datacenter_id": str(dc3.get("id", "")), "stage": "aging"}]}
 	main.call("_show_offline_dialog", Game.last_offline_report)
 	await _shot("m5_offline_return")
 	_assert_offline_routes()
+	var major_offline := main.find_child("OfflineOverlay", true, false)
+	_expect(major_offline != null and bool(major_offline.get_meta("confetti_enabled", false)) and main.find_child("EraConfetti", true, false) != null, "M10 offline celebration must remain for income above twenty percent of the previous balance")
 	var fault_route := main.find_child("OfflineEvent_fault", true, false) as Button
 	if fault_route != null:
 		fault_route.pressed.emit()
 		await get_tree().create_timer(0.32).timeout
 	_expect(main.find_child("OfflineOverlay", true, false) == null and main.find_child("ActionSheetOverlay", true, false) != null, "M9 fault milestone must close offline summary and deep-link to repair choices")
 	_close("ActionSheetOverlay")
+	_close("OfflineOverlay")
+	main.call("_show_offline_dialog", {"elapsed_seconds": 21600.0, "credited_seconds": 21600.0, "income": 100.0, "balance_before": 26000.0, "completed": [], "faults": [], "events": [], "aging": []})
+	await _shot("m5_offline_modest_no_confetti")
+	var modest_offline := main.find_child("OfflineOverlay", true, false)
+	_expect(modest_offline != null and not bool(modest_offline.get_meta("confetti_enabled", true)) and modest_offline.find_child("EraConfetti", true, false) == null, "M10 routine offline income must not spray confetti")
 	_close("OfflineOverlay")
 	# --- era 2 progress moment (mid raise toward next goal) ---
 	main.call("_navigate", "tech")
@@ -193,6 +201,23 @@ func _alert_badge(alert_type: String) -> PanelContainer:
 		if str(node.get_meta("alert_type", "")) == alert_type:
 			return node as PanelContainer
 	return null
+
+func _assert_building_variants() -> void:
+	var seen: Dictionary = {}
+	for node: Node in main.find_children("WorldArt", "TextureRect", true, false):
+		var art := node as TextureRect
+		if art == null or str(art.get_meta("world_asset_id", "")) != "dc_t1_active":
+			continue
+		seen[int(art.get_meta("building_variant", -1))] = {
+			"flip": art.flip_h,
+			"hue": float(art.get_meta("hue_shift_degrees", 0.0)),
+			"material": art.material,
+		}
+	_expect(seen.has(0) and seen.has(1), "M12 repeated same-tier buildings must alternate between two stable presentation variants")
+	if seen.has(0) and seen.has(1):
+		var first: Dictionary = seen[0]
+		var second: Dictionary = seen[1]
+		_expect(bool(first.get("flip", false)) != bool(second.get("flip", false)) and absf(float(first.get("hue", 0.0)) - float(second.get("hue", 0.0))) >= 9.9 and first.get("material") is ShaderMaterial and second.get("material") is ShaderMaterial, "M12 variants must combine mirroring with a subtle ten-degree hue spread")
 
 func _assert_alert_badge(alert_type: String, expected_tone: String, breathing: bool) -> void:
 	var badge := _alert_badge(alert_type)

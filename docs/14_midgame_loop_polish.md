@@ -116,3 +116,13 @@
 - [x] **FT3**：聚光洞由 14u 扩为 20u breathing gutter，描边圆角统一为 28u，并为两项参数建立流程断言。截图：[20u 聚光留白](ui_review/14_batch3/ft2_ft3_world_focus.png)。
 
 批次③视觉证据均由 990×2151（iPhone 17 Pro Max 逻辑比例桌面预览）实机窗口重新捕获。门禁结果：`validate_data` 通过；`test_runner` 103/103；`flow_audit` 全绿；扩展后的 `midgame_audit` 全绿；`visual_smoke` 中文 30/30、英文 30/30。
+
+### 批次④ · G 门禁 + M10/M12 收尾（2026-08-04）
+
+- [x] **G / CI**：`midgame_audit.tscn` 已作为独立步骤接入 GitHub Actions，与逻辑 suite、FTUE flow audit 同级；英文 30 态也补入 CI，避免本地“双语全绿”而远端只验证中文。
+- [x] **M10**：离线卡不再无条件撒彩纸。仅当离线收益超过离开前余额 20% 才庆祝；普通收益保持安静，收益数字和领取操作不变。截图：[重大收益保留彩纸](ui_review/14_batch4/m10_major_offline_confetti.png)、[日常收益无彩纸](ui_review/14_batch4/m10_routine_offline.png)。
+- [x] **M12**：同 tier 世界建筑按地块索引稳定分为 A/B 两个展示变体：左右镜像交替，并施加 −5°/+5° 的轻微色相差；不改资产 ID、碰撞、网格或玩法数据。截图：[同 tier A/B 变体](ui_review/14_batch4/m12_building_variants.png)。
+
+`midgame_audit` 新增 M10 双阈值断言和 M12 镜像/色相材质断言；headless 运行不再等待不存在的渲染帧，因此可稳定作为 CI 门禁。
+
+最终门禁：`validate_data` 通过；`test_runner` 103/103；`flow_audit` 全绿；`midgame_audit`（M1–M12 + FT 残留）全绿；`visual_smoke` 中文 30/30、英文 30/30。批次①–④均已按独立提交边界执行。

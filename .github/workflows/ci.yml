@@ -34,5 +34,11 @@ jobs:
       - name: Run assertion-based FTUE flow audit
         run: godot --headless --path . tests/flow_audit.tscn
 
+      - name: Run assertion-based mid-game loop audit
+        run: godot --headless --path . tests/midgame_audit.tscn
+
       - name: Run Chinese rendered UI smoke
         run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN
+
+      - name: Run English rendered UI smoke
+        run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=en

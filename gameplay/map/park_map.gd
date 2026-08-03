@@ -68,6 +68,7 @@ var _countdown_accumulator := 0.0
 var _campus_bounds := Rect2()
 var _default_zoom := 1.02
 var _default_camera_offset := Vector2(-8, 300)
+var _building_variant_shader: Shader
 var _world_texture_cache: Dictionary = {}
 var _grade_refresh_accumulator := 0.0
 var _window_light_boost := 1.0
@@ -707,6 +708,8 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 	var world_art := button.find_child("WorldArt", false, false) as TextureRect
 	if world_art != null:
 		world_art.set_meta("ambient_phase", float(int(plot.get("index", 0))) * 1.73)
+		if asset_id.begins_with("dc_") and status not in ["building", "ruined"]:
+			_apply_building_variant(world_art, int(plot.get("index", 0)))
 	if status == "building":
 		var countdown := button.find_child("StatusText", true, false) as Label
 		if countdown != null:
@@ -724,6 +727,44 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 			if not alert_type.is_empty():
 				_wire_alert_badge(button, str(active_dc.get("id", "")), alert_type, alert_slot)
 	return button
+
+func _apply_building_variant(view: TextureRect, plot_index: int) -> void:
+	var variant := posmod(plot_index, 2)
+	var degrees := -5.0 if variant == 0 else 5.0
+	view.flip_h = variant == 1
+	view.set_meta("building_variant", variant)
+	view.set_meta("hue_shift_degrees", degrees)
+	if _building_variant_shader == null:
+		_building_variant_shader = Shader.new()
+		_building_variant_shader.code = """
+shader_type canvas_item;
+uniform float hue_shift = 0.0;
+
+vec3 rgb_to_hsv(vec3 c) {
+	vec4 k = vec4(0.0, -0.3333333, 0.6666667, -1.0);
+	vec4 p = mix(vec4(c.bg, k.wz), vec4(c.gb, k.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 0.0000001;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv_to_rgb(vec3 c) {
+	vec3 p = abs(fract(c.xxx + vec3(0.0, 0.6666667, 0.3333333)) * 6.0 - 3.0);
+	return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
+}
+
+void fragment() {
+	vec4 source = texture(TEXTURE, UV) * COLOR;
+	vec3 hsv = rgb_to_hsv(source.rgb);
+	hsv.x = fract(hsv.x + hue_shift);
+	COLOR = vec4(hsv_to_rgb(hsv), source.a);
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = _building_variant_shader
+	material.set_shader_parameter("hue_shift", degrees / 360.0)
+	view.material = material
 
 func _datacenter_alert(dc: Dictionary) -> Dictionary:
 	var racks: Array = dc.get("racks", [])
