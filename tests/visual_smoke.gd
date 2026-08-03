@@ -39,6 +39,8 @@ func _ready() -> void:
 	valid = (await _capture(main, "construction_queue")) and valid
 	Game.advance_time(300.0, false)
 	main.call("_navigate", "map")
+	# Capture the settled building rather than the intentional completion squash.
+	await get_tree().create_timer(0.65).timeout
 	valid = (await _capture(main, "map_built")) and valid
 	await get_tree().create_timer(0.9).timeout
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
@@ -372,11 +374,14 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: expected three actionable world alerts, got %d" % alert_count)
 			valid = false
 	if state_name in ["map_built", "campus_dense", "world_alerts"]:
-		var building_count := main.find_children("BuildingGroundShadow", "Polygon2D", true, false).size()
+		var building_count := main.find_children("WorldArt", "TextureRect", true, false).size()
 		var foundation_count := main.find_children("PlotFoundation", "TextureRect", true, false).size()
 		var expected_min := 6 if state_name == "campus_dense" else (3 if state_name == "world_alerts" else 1)
 		if building_count < expected_min or foundation_count < expected_min:
-			push_error("VISUAL_SMOKE: %s lacks unified plot foundations or ground shadows %d/%d" % [state_name, foundation_count, building_count])
+			push_error("VISUAL_SMOKE: %s lacks unified plot foundations or building art %d/%d" % [state_name, foundation_count, building_count])
+			valid = false
+		if not main.find_children("BuildingGroundShadow", "Polygon2D", true, false).is_empty():
+			push_error("VISUAL_SMOKE: %s retains a duplicate procedural shadow over A2 baked shadows" % state_name)
 			valid = false
 	if state_name == "dc_context":
 		var contract_hint := main.find_child("ContractPowerHint", true, false) as Label

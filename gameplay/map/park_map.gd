@@ -431,7 +431,6 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	button.add_theme_stylebox_override("pressed", pressed)
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	if asset_id.begins_with("dc_"):
-		_add_building_shadow(button)
 		_add_owned_plot_base(button)
 	var view := TextureRect.new()
 	view.name = "WorldArt"
@@ -525,20 +524,6 @@ func _add_owned_plot_base(button: Button) -> void:
 	base.size = Vector2(PLOT_SIZE.x - 14, 226)
 	base.modulate = Color(1, 1, 1, 0.86)
 	button.add_child(base)
-
-func _add_building_shadow(button: Button) -> void:
-	var shadow := Polygon2D.new()
-	shadow.name = "BuildingGroundShadow"
-	var points := PackedVector2Array()
-	var center := Vector2(PLOT_SIZE.x * 0.5, 202)
-	var radii := Vector2((PLOT_SIZE.x - 24.0) * 0.36, 27)
-	for index: int in range(32):
-		var angle := TAU * float(index) / 32.0
-		points.append(center + Vector2(cos(angle) * radii.x, sin(angle) * radii.y))
-	shadow.polygon = points
-	shadow.color = Color(0, 0, 0, 0.18)
-	shadow.antialiased = true
-	button.add_child(shadow)
 
 func _visible_world_texture(texture: Texture2D) -> Texture2D:
 	if texture == null:
