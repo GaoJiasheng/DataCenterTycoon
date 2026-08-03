@@ -691,6 +691,8 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 				accent = ThemeMaker.COLORS.red if alert_type == "fault" else ThemeMaker.COLORS.orange
 			elif alert_type in ["contract", "retire"]:
 				accent = ThemeMaker.COLORS.yellow if alert_type == "retire" else ThemeMaker.COLORS.sky
+			elif alert_type == "market":
+				accent = ThemeMaker.COLORS.green
 			asset_id = _datacenter_asset_id(dc, building)
 	var badge_mode := "hidden"
 	match status:
@@ -737,11 +739,35 @@ func _datacenter_alert(dc: Dictionary) -> Dictionary:
 			return {"type": "overheat", "slot": slot, "caption": tr("OVERHEATED"), "asset": "ic_heat"}
 	if not str(dc.get("customer_id", "")).is_empty() and float(dc.get("contract_end_at", INF)) <= Game.simulation_time():
 		return {"type": "contract", "slot": -1, "caption": tr("CONTRACT_RENEWAL_FREE"), "asset": "ic_contract"}
+	var benefit := _datacenter_market_benefit(dc)
+	if not benefit.is_empty():
+		return {"type": "market", "slot": -1, "caption": "×%.1f" % float(benefit.get("multiplier", 1.0)), "asset": "ic_market_up"}
 	var progress := Rules.age_progress(dc, Game.simulation_time(), DataRepository.get_table("buildings"))
 	var aging_start := float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6))
 	if progress >= aging_start:
 		return {"type": "retire", "slot": -1, "caption": tr("RETIRE"), "asset": "ic_retire"}
 	return {}
+
+func _datacenter_market_benefit(dc: Dictionary) -> Dictionary:
+	var customer_id := str(dc.get("customer_id", ""))
+	if customer_id.is_empty():
+		return {}
+	var best: Dictionary = {}
+	for active: Variant in Game.state.get("market", {}).get("active", []):
+		if not active is Dictionary or float(active.get("end_at", 0.0)) <= Game.simulation_time():
+			continue
+		var event_id := str(active.get("event_id", ""))
+		var event := DataRepository.get_entry("events", event_id)
+		var multiplier := float(event.get("all_customer_multiplier", 1.0))
+		multiplier *= float(event.get("customer_multipliers", {}).get(customer_id, 1.0))
+		if multiplier <= 1.0 or multiplier <= float(best.get("multiplier", 1.0)):
+			continue
+		best = {
+			"event_id": event_id,
+			"multiplier": multiplier,
+			"end_at": float(active.get("end_at", 0.0)),
+		}
+	return best
 
 func _wire_alert_badge(button: Button, datacenter_id: String, alert_type: String, slot: int) -> void:
 	var badge := button.find_child("StatusBadge", true, false) as PanelContainer

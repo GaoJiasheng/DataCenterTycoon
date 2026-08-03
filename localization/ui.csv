@@ -51,6 +51,7 @@ REPAIR_AD_QUOTE,Watch ad · Repair now (%d/%d this hour),看广告 · 立即修�
 REPAIR_GEMS_QUOTE,Instant repair · %d Gems,钻石立修 · %d 钻石
 DISMANTLE_RACK_QUOTE,Dismantle rack · Recover $%s,拆除机柜 · 回收 $%s
 RETIRE,Retire,退役
+RETIRE_TRADEOFF,Recovery value falls with age · Current $%s / month,回收金随老化每天递减 · 当前月收入 $%s
 DEMOLISH,Clear ruins,清拆废墟
 SIGN_CONTRACT,Sign contract,签订合约
 SWITCH_CONTRACT,Switch contract,更换合约
@@ -127,6 +128,7 @@ EVENT_STARTS_IN,Starts in %s,%s 后开始
 EVENT_CHECK_MY_DC,Review my contracts,查看我的合约
 MARKET_EVENT_STARTED,%s is live · Tap to rebalance,%s 已开始 · 点击调整合约
 MARKET_EVENT_ENDED,%s has ended · Tap to review,%s 已结束 · 点击复盘
+MARKET_BENEFIT_STATUS,%s ×%.1f active · %s left,%s ×%.1f 生效中 · 剩 %s
 NETWORK,Network access,网络接入
 ERA_PROGRESS,Era progress,时代进度
 ERA_CURRENT,Current,当前
@@ -272,7 +274,7 @@ TUTORIAL_BUY_LAND,Expansion starts with land. Buy the next plot.,扩张从土地
 TUTORIAL_RETIRE,This building has aged. Retire it before it becomes a ruin.,机房已经老化，在报废前主动退役。
 TUTORIAL_STANDARD,Build a standard data center to complete the basics.,建造标准机房，完成基础教学。
 TUTORIAL_OPEN_DC_PREFIX,Tap the data center — %s,点开机房——%s
-TUTORIAL_BUILDING_WAIT,Construction is underway · %s remaining. The transformer lesson begins when the building is ready.,机房正在施工 · 还剩 %s。建成后再开始变压器教学。
+TUTORIAL_BUILDING_WAIT,Building · %s left. Install the transformer when it is ready.,施工中 · 剩 %s。建成后安装变压器。
 TUTORIAL_RETIRE_WAIT,The container data center is still healthy. Its final lesson unlocks when aging begins.,集装箱机房还很新。等它进入老化期，再回来上最后一课。
 TUTORIAL_RETIRE_READY,The data center is aging. Tap it to learn how to retire it.,机房已进入老化期。点开它，学习如何主动退役。
 TOAST_CONSTRUCTION_STARTED,Construction started,建设已开始

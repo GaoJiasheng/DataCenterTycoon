@@ -165,6 +165,10 @@ func _run_ui_refresh_test() -> void:
 	main.call("_dismiss_action_sheet", overlay)
 	await get_tree().create_timer(0.24).timeout
 	_expect(not is_instance_valid(overlay), "action sheet dismissal waits for its exit animation before freeing")
+	# Generic reward-juice coverage belongs to the post-tutorial state. Active
+	# FTUE steps intentionally suppress world coin trajectories (FT2).
+	Game.state["tutorial"]["completed"] = true
+	main.call("_refresh_hud")
 	main.call("_fly_cash_reward", Vector2(220, 520), 12)
 	await get_tree().process_frame
 	var fx_layer := main.find_child("FxLayer", true, false)

@@ -85,12 +85,23 @@ func _ready() -> void:
 	dc["racks"][1]["fault_at"] = -1.0
 	main.call("_navigate", "map")
 	await get_tree().process_frame
+	# Renewal remains visible through the task-center test, then returns to a
+	# normal term so the same mining site can surface its market benefit badge.
+	dc2["contract_end_at"] = Game.simulation_time() + 20000.0
+	dc2.erase("renewal_window_end_at")
 	# --- market event flow ---
 	Game.state["market"]["active"] = [{"event_id": "coin_boom", "start_at": Game.simulation_time() - 600.0, "end_at": Game.simulation_time() + 13800.0}]
 	EventBus.market_event_started.emit("coin_boom")
 	main.call("_refresh")
 	await _shot("m3_event_banner_map")
 	_assert_no_context_free_coin_fx()
+	_assert_alert_badge("market", "market", false)
+	main.call("_on_world_alert_selected", dc2_id, "market", -1)
+	await _shot("m3_event_benefit_drawer")
+	_assert_market_benefit_drawer("coin_boom", 2.5)
+	_close("DatacenterContext")
+	await get_tree().process_frame
+	await _assert_market_banner_route_and_swipe()
 	main.call("_navigate", "market")
 	await _shot("m3_event_market_page")
 	main.call("_navigate", "map")
@@ -105,11 +116,20 @@ func _ready() -> void:
 	_assert_alert_badge("retire", "retire", false)
 	main.call("_open_datacenter", str(dc3.get("id", "")))
 	await _shot("m4_aging_drawer_decision")
+	_assert_retirement_decision(dc3)
 	_close("DatacenterContext")
 	# --- offline return ---
+	dc["racks"][1]["status"] = "faulted"
+	dc["racks"][1]["fault_at"] = -1.0
 	Game.last_offline_report = {"elapsed_seconds": 21600.0, "credited_seconds": 21600.0, "income": 5200.0, "completed": [], "faults": [{"datacenter_id": dc_id, "slot": 1}], "events": [{"type": "event_started", "event_id": "coin_boom"}], "aging": [{"datacenter_id": str(dc3.get("id", "")), "stage": "aging"}]}
 	main.call("_show_offline_dialog", Game.last_offline_report)
 	await _shot("m5_offline_return")
+	_assert_offline_routes()
+	var fault_route := main.find_child("OfflineEvent_fault", true, false) as Button
+	if fault_route != null:
+		fault_route.pressed.emit()
+		await get_tree().create_timer(0.32).timeout
+	_expect(main.find_child("OfflineOverlay", true, false) == null and main.find_child("ActionSheetOverlay", true, false) != null, "M9 fault milestone must close offline summary and deep-link to repair choices")
 	_close("ActionSheetOverlay")
 	_close("OfflineOverlay")
 	# --- era 2 progress moment (mid raise toward next goal) ---
@@ -210,6 +230,35 @@ func _assert_no_context_free_coin_fx() -> void:
 				found_coin = true
 	_expect(not found_coin, "M7 coin_boom must not leave a context-free giant coin in the world")
 
+func _assert_market_benefit_drawer(event_id: String, multiplier: float) -> void:
+	var label := main.find_child("MarketBenefitStatus", true, false) as Label
+	var event := DataRepository.get_entry("events", event_id)
+	_expect(label != null and label.visible and label.text.contains(tr(event.get("name_key", ""))), "M8 benefited data-center drawer must name the active event")
+	_expect(label != null and is_equal_approx(float(label.get_meta("market_multiplier", 1.0)), multiplier) and label.text.contains("×%.1f" % multiplier), "M8 drawer must disclose the exact active income multiplier")
+	_expect(label != null and (label.text.contains("剩") or label.text.to_lower().contains("left")), "M8 drawer benefit feedback must include a live remaining-time cue")
+
+func _assert_market_banner_route_and_swipe() -> void:
+	var banner := main.find_child("MarketEventBanner", true, false) as Button
+	_expect(banner != null and str(banner.get_meta("destination", "")) == "market", "M11 event banner must explicitly route to the market page")
+	_expect(banner != null and bool(banner.get_meta("swipe_dismiss_enabled", false)) and not banner.gui_input.get_connections().is_empty(), "M11 event banner must expose a connected right-swipe dismiss gesture")
+	if banner == null:
+		return
+	main.call("_dismiss_market_banner", banner)
+	await get_tree().create_timer(0.3).timeout
+	_expect(not is_instance_valid(banner), "M11 dismissed event banner must leave the scene instead of blocking the map")
+
+func _assert_retirement_decision(dc: Dictionary) -> void:
+	var button := main.find_child("RetireButton", true, false) as Button
+	var tradeoff := main.find_child("RetireTradeoff", true, false) as Label
+	var monthly := Game.format_number(Game.datacenter_monthly_income(dc))
+	_expect(button != null and bool(button.get_meta("warning_active", false)) and float(button.get_meta("retirement_progress", 0.0)) >= 0.87, "M6 retirement CTA must switch to warning priority at the 87% decision point")
+	_expect(tradeoff != null and tradeoff.text.contains(monthly) and (tradeoff.text.contains("递减") or tradeoff.text.to_lower().contains("falls")), "M6 retirement decision must disclose declining recovery value and current monthly income")
+
+func _assert_offline_routes() -> void:
+	for route_type: String in ["fault", "market", "aging"]:
+		var row := main.find_child("OfflineEvent_%s" % route_type, true, false) as Button
+		_expect(row != null and str(row.get_meta("offline_action", "")) == route_type and not row.pressed.get_connections().is_empty(), "M9 offline %s milestone must be a connected one-tap route" % route_type)
+
 func _assert_renewal_drawer(dc: Dictionary) -> void:
 	var cta := main.find_child("ContractCTA", true, false) as Button
 	var status := main.find_child("DatacenterStatus", true, false) as Label
@@ -248,8 +297,9 @@ func _shot(shot_name: String) -> bool:
 	for _i in range(4):
 		await get_tree().process_frame
 	await get_tree().create_timer(0.3).timeout
-	await RenderingServer.frame_post_draw
-	var image := get_viewport().get_texture().get_image()
-	image.save_png("%s%s.png" % [OUT, shot_name])
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		var image := get_viewport().get_texture().get_image()
+		image.save_png("%s%s.png" % [OUT, shot_name])
 	print("MID_AUDIT: %s" % shot_name)
 	return true

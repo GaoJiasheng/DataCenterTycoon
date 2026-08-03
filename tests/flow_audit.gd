@@ -31,6 +31,7 @@ func _ready() -> void:
 	await _shot("s1_power_step_during_construction")
 	_assert_no_started_celebration("construction start")
 	_assert_tutorial_target("power", "drawer", "construction_wait", true)
+	_assert_tutorial_orphan_guard()
 	_assert_construction_timer_capsule()
 	Game.advance_time(30.0, false)
 	await _shot("s1_power_step_dc_built_map")
@@ -39,6 +40,7 @@ func _ready() -> void:
 	_assert_tutorial_target("power", "drawer", "world_building")
 	_assert_world_target_matches_building(dc_id)
 	_assert_world_fx_extent(dc_id)
+	_assert_tutorial_suppresses_world_coins()
 	main.call("_open_datacenter", dc_id)
 	await _shot("s1_power_step_drawer_open")
 	_assert_tutorial_target("power", "drawer", "control")
@@ -166,8 +168,29 @@ func _assert_tutorial_target(step_id: String, context: String, source: String, a
 	else:
 		_expect(resolved.size.x > 1.0 and resolved.size.y > 1.0 and overlay.is_actionable(), "B2 %s must expose one actionable target" % step_id)
 		_expect(overlay.target_rect.intersects(resolved), "D2 %s spotlight must intersect its current resolved target" % step_id)
+		var expected_hole := resolved.grow(20.0).intersection(overlay.get_viewport_rect())
+		_expect(overlay.target_rect.position.distance_to(expected_hole.position) < 0.5 and overlay.target_rect.size.distance_to(expected_hole.size) < 0.5, "FT3 %s spotlight must keep a 20u breathing gutter" % step_id)
+		var hole_border := overlay.find_child("TutorialHoleBorder", true, false) as PanelContainer
+		_expect(hole_border != null and int(hole_border.get_meta("spotlight_corner_radius", 0)) == 28, "FT3 spotlight border must use a 28u corner radius")
 		var callout := main.find_child("TutorialCallout", true, false) as Control
 		_expect(callout != null and not callout.get_global_rect().intersects(resolved), "E3 %s callout must not cover its tap target" % step_id)
+
+func _assert_tutorial_orphan_guard() -> void:
+	var message := main.find_child("TutorialMessage", true, false) as Label
+	_expect(message != null and bool(message.get_meta("orphan_guard", false)) and message.custom_minimum_size.x >= 500.0, "FT1 tutorial copy must reserve enough width for clean CJK wrapping")
+	if message == null or message.text.is_empty():
+		return
+	var last_bounds := message.get_character_bounds(message.text.length() - 1)
+	var last_line_chars := 0
+	for index: int in range(message.text.length()):
+		var bounds := message.get_character_bounds(index)
+		if bounds.size != Vector2.ZERO and absf(bounds.position.y - last_bounds.position.y) < 1.0 and not message.text.substr(index, 1).strip_edges().is_empty():
+			last_line_chars += 1
+	_expect(last_line_chars >= 2, "FT1 tutorial bubble last line must contain at least two visible characters")
+
+func _assert_tutorial_suppresses_world_coins() -> void:
+	var layer := main.find_child("FxLayer", true, false) as FxLayer
+	_expect(layer != null and layer.active_coin_count() == 0, "FT2 active tutorial steps must suppress world coin trajectories")
 
 func _assert_world_target_matches_building(datacenter_id: String) -> void:
 	var overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay

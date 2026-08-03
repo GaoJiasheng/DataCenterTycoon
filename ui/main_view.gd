@@ -14,6 +14,7 @@ const HAPTIC_LIGHT := 8
 const HAPTIC_MEDIUM := 16
 const HAPTIC_HEAVY := 24
 const HAPTIC_SUCCESS := 32
+const RETIRE_WARNING_PROGRESS := 0.87
 const LEGAL_DOCUMENTS := {
 	"privacy": "res://docs/public/privacy.html",
 	"terms": "res://docs/public/terms.html",
@@ -584,7 +585,7 @@ func _maybe_show_periodic_income(cash: float) -> void:
 	_last_income_fly_at = Game.simulation_time()
 	var source_id := _highest_income_datacenter_id()
 	var source := park_map.world_position_of(source_id) if park_map != null else Vector2.ZERO
-	fx_layer.fly_coins(source, _cash_chip_target(), 3)
+	_fly_cash_reward(source, 3)
 	AudioService.play_sfx("sfx_cash")
 
 func _highest_income_datacenter_id() -> String:
@@ -1021,9 +1022,28 @@ func _build_infrastructure_management(dc: Dictionary, progress: float) -> Contro
 			_set_button_asset(cooler_button, cooler_id + "_active", 54)
 		attachments.add_child(cooler_button)
 	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
-		var refund := Rules.retirement_value(dc, Game.simulation_time(), Game.data)
-		section.add_child(_button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(str(dc.get("id", ""))), ThemeMaker.COLORS.orange))
+		section.add_child(_retirement_decision(dc, progress))
 	return section
+
+func _retirement_decision(dc: Dictionary, progress: float) -> VBoxContainer:
+	var decision := VBoxContainer.new()
+	decision.name = "RetirementDecision"
+	decision.add_theme_constant_override("separation", 6)
+	var refund := Rules.retirement_value(dc, Game.simulation_time(), Game.data)
+	var warning := progress >= RETIRE_WARNING_PROGRESS
+	var button_color := ThemeMaker.COLORS.orange if warning else Color("3b536c")
+	var retire_button := _button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(str(dc.get("id", ""))), button_color)
+	retire_button.name = "RetireButton"
+	retire_button.set_meta("retirement_progress", progress)
+	retire_button.set_meta("warning_active", warning)
+	decision.add_child(retire_button)
+	var tradeoff := _label(tr("RETIRE_TRADEOFF") % Game.format_number(Game.datacenter_monthly_income(dc)), 20, Color("b8c2cc"))
+	tradeoff.name = "RetireTradeoff"
+	tradeoff.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tradeoff.max_lines_visible = 1
+	tradeoff.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	decision.add_child(tradeoff)
+	return decision
 
 func _build_contract_management(dc: Dictionary) -> Control:
 	var section := VBoxContainer.new()
@@ -2396,6 +2416,12 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	var context_status := _label(_datacenter_header_status_text(dc), 23, _datacenter_status_color(dc))
 	context_status.name = "DatacenterStatus"
 	copy.add_child(context_status)
+	var market_benefit := _label("", 20, ThemeMaker.COLORS.green)
+	market_benefit.name = "MarketBenefitStatus"
+	market_benefit.max_lines_visible = 1
+	market_benefit.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	copy.add_child(market_benefit)
+	_refresh_market_benefit_status(market_benefit, dc)
 	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	header.add_child(close_button)
 	var metrics := HBoxContainer.new()
@@ -2418,6 +2444,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		context_icon.texture = AssetCatalog.texture(_datacenter_context_asset(live_dc, live_building))
 		context_status.text = _datacenter_header_status_text(live_dc)
 		context_status.add_theme_color_override("font_color", _datacenter_status_color(live_dc))
+		_refresh_market_benefit_status(market_benefit, live_dc)
 		income_value.text = tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(live_dc))
 		var live_progress := Rules.age_progress(live_dc, Game.simulation_time(), DataRepository.get_table("buildings"))
 		lifespan_value.text = "%s  %d%%" % [tr("LIFESPAN"), int(live_progress * 100.0)]
@@ -2431,10 +2458,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		, ThemeMaker.COLORS.red))
 		return
 	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
-		var refund := Rules.retirement_value(dc, Game.simulation_time(), Game.data)
-		var retire_button := _button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(datacenter_id), ThemeMaker.COLORS.orange)
-		retire_button.name = "RetireButton"
-		sheet_box.add_child(retire_button)
+		sheet_box.add_child(_retirement_decision(dc, progress))
 	var board := _create_datacenter_board(datacenter_id)
 	sheet_box.add_child(board)
 	var powered := not str(dc.get("power_unit", "")).is_empty()
@@ -2483,6 +2507,42 @@ func _datacenter_header_status_text(dc: Dictionary) -> String:
 		return status
 	var customer := DataRepository.get_entry("customers", customer_id)
 	return tr("DATACENTER_CLIENT_STATUS") % [tr(customer.get("name_key", "CONTRACT_NONE")), status]
+
+func _datacenter_market_benefit(dc: Dictionary) -> Dictionary:
+	var customer_id := str(dc.get("customer_id", ""))
+	if customer_id.is_empty():
+		return {}
+	var best: Dictionary = {}
+	for active: Variant in Game.state.get("market", {}).get("active", []):
+		if not active is Dictionary or float(active.get("end_at", 0.0)) <= Game.simulation_time():
+			continue
+		var event_id := str(active.get("event_id", ""))
+		var event := DataRepository.get_entry("events", event_id)
+		var multiplier := float(event.get("all_customer_multiplier", 1.0))
+		multiplier *= float(event.get("customer_multipliers", {}).get(customer_id, 1.0))
+		if multiplier <= 1.0 or multiplier <= float(best.get("multiplier", 1.0)):
+			continue
+		best = {
+			"event_id": event_id,
+			"multiplier": multiplier,
+			"end_at": float(active.get("end_at", 0.0)),
+		}
+	return best
+
+func _refresh_market_benefit_status(label: Label, dc: Dictionary) -> void:
+	var benefit := _datacenter_market_benefit(dc)
+	label.visible = not benefit.is_empty()
+	if benefit.is_empty():
+		label.text = ""
+		return
+	var event := DataRepository.get_entry("events", str(benefit.get("event_id", "")))
+	label.text = tr("MARKET_BENEFIT_STATUS") % [
+		tr(event.get("name_key", "")),
+		float(benefit.get("multiplier", 1.0)),
+		Game.format_duration(maxf(0.0, float(benefit.get("end_at", 0.0)) - Game.simulation_time())),
+	]
+	label.set_meta("event_id", str(benefit.get("event_id", "")))
+	label.set_meta("market_multiplier", float(benefit.get("multiplier", 1.0)))
 
 func _refresh_contract_cta(button: Button, dc: Dictionary) -> void:
 	var renewal_end := float(dc.get("renewal_window_end_at", 0.0))
@@ -2780,10 +2840,29 @@ func _show_offline_dialog(report: Dictionary) -> void:
 		events_box.add_theme_constant_override("separation", 6)
 		box.add_child(events_box)
 		for item: Dictionary in event_rows:
-			var event_row := HBoxContainer.new()
-			event_row.add_theme_constant_override("separation", 10)
-			event_row.add_child(_icon_view(str(item.get("icon", "ic_check")), Vector2(38, 38)))
-			event_row.add_child(_label("%d · %s" % [int(item.get("count", 0)), tr(item.get("key", ""))], 20, ThemeMaker.COLORS.ink))
+			var event_row := Button.new()
+			event_row.name = "OfflineEvent_%s" % str(item.get("type", "unknown"))
+			event_row.custom_minimum_size.y = ThemeMaker.TOUCH_MIN
+			event_row.focus_mode = Control.FOCUS_NONE
+			event_row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			event_row.set_meta("offline_action", str(item.get("type", "")))
+			event_row.add_theme_stylebox_override("normal", ThemeMaker.panel(Color("f2ead9"), Color("d6c8aa"), 1, 14))
+			event_row.add_theme_stylebox_override("hover", ThemeMaker.panel(Color("fff7e7"), ThemeMaker.COLORS.yellow, 2, 14))
+			event_row.add_theme_stylebox_override("pressed", ThemeMaker.panel(Color("e8dcc5"), ThemeMaker.COLORS.yellow, 2, 14))
+			event_row.pressed.connect(_dismiss_full_overlay.bind(overlay, _run_offline_event.bind(item.duplicate(true))))
+			var event_content := HBoxContainer.new()
+			event_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			event_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 14)
+			event_content.add_theme_constant_override("separation", 10)
+			event_content.add_child(_icon_view(str(item.get("icon", "ic_check")), Vector2(38, 38)))
+			var event_copy := _label("%d · %s" % [int(item.get("count", 0)), tr(item.get("key", ""))], 20, ThemeMaker.COLORS.ink)
+			event_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			event_copy.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			event_content.add_child(event_copy)
+			var chevron := _label("›", 28, Color("725a36"))
+			chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			event_content.add_child(chevron)
+			event_row.add_child(event_content)
 			events_box.add_child(event_row)
 	var double_button := Widgets.button("%s  ×2" % tr("OFFLINE_DOUBLE"), func() -> void:
 		var result := Game.request_reward("offline_double")
@@ -2818,19 +2897,49 @@ func _coin_pile() -> Control:
 
 func _offline_event_rows(report: Dictionary) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
-	if not report.get("completed", []).is_empty(): rows.append({"icon": "ic_check", "count": report["completed"].size(), "key": "TOAST_CONSTRUCTION_COMPLETE"})
-	if not report.get("faults", []).is_empty(): rows.append({"icon": "ic_warning", "count": report["faults"].size(), "key": "FAULTED"})
-	if not report.get("events", []).is_empty(): rows.append({"icon": "ic_market_up", "count": report["events"].size(), "key": "NAV_MARKET"})
-	if not report.get("aging", []).is_empty(): rows.append({"icon": "ic_retire", "count": report["aging"].size(), "key": "LIFESPAN"})
+	if not report.get("completed", []).is_empty():
+		var completed: Dictionary = report["completed"][0]
+		rows.append({"type": "completed", "icon": "ic_check", "count": report["completed"].size(), "key": "TOAST_CONSTRUCTION_COMPLETE", "datacenter_id": str(completed.get("datacenter_id", "")), "plot_id": str(completed.get("plot_id", ""))})
+	if not report.get("faults", []).is_empty():
+		var fault: Dictionary = report["faults"][0]
+		rows.append({"type": "fault", "icon": "ic_warning", "count": report["faults"].size(), "key": "FAULTED", "datacenter_id": str(fault.get("datacenter_id", "")), "slot": int(fault.get("slot", -1))})
+	if not report.get("events", []).is_empty():
+		rows.append({"type": "market", "icon": "ic_market_up", "count": report["events"].size(), "key": "NAV_MARKET"})
+	if not report.get("aging", []).is_empty():
+		var aging: Dictionary = report["aging"][0]
+		rows.append({"type": "aging", "icon": "ic_retire", "count": report["aging"].size(), "key": "LIFESPAN", "datacenter_id": str(aging.get("datacenter_id", ""))})
 	return rows
 
-func _dismiss_full_overlay(overlay: CanvasItem) -> void:
+func _run_offline_event(item: Dictionary) -> void:
+	match str(item.get("type", "")):
+		"fault":
+			var dc_id := str(item.get("datacenter_id", ""))
+			var slot := int(item.get("slot", -1))
+			var dc := Game.find_datacenter(dc_id)
+			var racks: Array = dc.get("racks", [])
+			if slot >= 0 and slot < racks.size() and racks[slot] is Dictionary and str(racks[slot].get("status", "")) == "faulted":
+				_show_rack_actions(dc_id, slot)
+			else:
+				_show_datacenter_context(dc_id)
+		"market": _navigate("market")
+		"aging": _show_datacenter_context(str(item.get("datacenter_id", "")))
+		_:
+			_navigate("map")
+			var target_id := str(item.get("datacenter_id", item.get("plot_id", "")))
+			if park_map != null and not target_id.is_empty():
+				park_map.focus_target(target_id)
+
+func _dismiss_full_overlay(overlay: CanvasItem, after: Callable = Callable()) -> void:
 	if not is_instance_valid(overlay) or bool(overlay.get_meta("dismissing", false)):
 		return
 	overlay.set_meta("dismissing", true)
 	var tween := create_tween()
 	tween.tween_property(overlay, "modulate:a", 0.0, 0.20)
-	tween.tween_callback(overlay.queue_free)
+	tween.tween_callback(func() -> void:
+		overlay.queue_free()
+		if after.is_valid():
+			after.call()
+	)
 
 func _offline_events_summary(report: Dictionary) -> String:
 	var lines: Array[String] = []
@@ -3112,8 +3221,11 @@ func _show_market_banner(event_id: String, started: bool) -> void:
 		existing.queue_free()
 	var event := DataRepository.get_entry("events", event_id)
 	var message := tr("MARKET_EVENT_STARTED" if started else "MARKET_EVENT_ENDED") % tr(event.get("name_key", ""))
-	var banner := _button(message, _navigate.bind("market"), ThemeMaker.COLORS.orange if started else ThemeMaker.COLORS.sky)
+	var banner := _button(message, Callable(), ThemeMaker.COLORS.orange if started else ThemeMaker.COLORS.sky)
 	banner.name = "MarketEventBanner"
+	banner.set_meta("destination", "market")
+	banner.set_meta("swipe_dismiss_enabled", true)
+	banner.pressed.connect(_open_market_from_banner.bind(banner))
 	banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	banner.offset_left = 44
 	banner.offset_top = -110
@@ -3122,11 +3234,55 @@ func _show_market_banner(event_id: String, started: bool) -> void:
 	banner.z_index = 96
 	_set_button_asset(banner, "ic_market_up", 42)
 	add_child(banner)
+	_wire_market_banner_swipe(banner)
 	var tween := create_tween()
+	banner.set_meta("lifecycle_tween", tween)
 	tween.tween_property(banner, "position:y", 130.0, 0.30).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_interval(4.0)
 	tween.tween_property(banner, "position:y", -120.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_callback(banner.queue_free)
+
+func _open_market_from_banner(banner: Button) -> void:
+	if is_instance_valid(banner) and not bool(banner.get_meta("swipe_dismissing", false)):
+		_navigate("market")
+
+func _wire_market_banner_swipe(banner: Button) -> void:
+	var state := {"active": false, "start_x": 0.0, "base_x": 0.0}
+	banner.gui_input.connect(func(event: InputEvent) -> void:
+		var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed)
+		var released: bool = (event is InputEventScreenTouch and not event.pressed) or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed)
+		if pressed:
+			state["active"] = true
+			state["start_x"] = _pointer_position(event).x
+			state["base_x"] = banner.position.x
+		elif event is InputEventScreenDrag and bool(state["active"]):
+			var delta := maxf(0.0, event.position.x - float(state["start_x"]))
+			banner.position.x = float(state["base_x"]) + minf(delta, 220.0)
+			banner.modulate.a = 1.0 - minf(delta / 420.0, 0.45)
+		elif released and bool(state["active"]):
+			state["active"] = false
+			var delta := _pointer_position(event).x - float(state["start_x"])
+			if delta >= 80.0:
+				banner.set_meta("swipe_dismissing", true)
+				banner.accept_event()
+				_dismiss_market_banner(banner)
+			else:
+				var settle := banner.create_tween().set_parallel(true)
+				settle.tween_property(banner, "position:x", float(state["base_x"]), 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+				settle.tween_property(banner, "modulate:a", 1.0, 0.14)
+	)
+
+func _dismiss_market_banner(banner: Button) -> void:
+	if not is_instance_valid(banner) or bool(banner.get_meta("dismissing", false)):
+		return
+	banner.set_meta("dismissing", true)
+	var lifecycle: Variant = banner.get_meta("lifecycle_tween", null)
+	if lifecycle is Tween and (lifecycle as Tween).is_valid():
+		(lifecycle as Tween).kill()
+	var tween := banner.create_tween().set_parallel(true)
+	tween.tween_property(banner, "position:x", banner.position.x + 360.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(banner, "modulate:a", 0.0, 0.18)
+	tween.chain().tween_callback(banner.queue_free)
 
 func _on_reward_granted(_placement: String, _payload: Dictionary) -> void:
 	AudioService.play_sfx("sfx_cash")
@@ -3144,6 +3300,8 @@ func _fly_cash_reward(source: Vector2, count: int) -> void:
 
 func _world_reward_fx_available(source: Vector2) -> bool:
 	if active_page != "map" or source == Vector2.ZERO:
+		return false
+	if tutorial_overlay != null and tutorial_overlay.visible:
 		return false
 	return not _blocking_surface_visible()
 
@@ -3164,6 +3322,7 @@ func _on_world_alert_selected(datacenter_id: String, alert_type: String, slot: i
 		"unpowered": _show_attachment_picker(datacenter_id, "power", "")
 		"contract": _open_datacenter_detail(datacenter_id, "contracts")
 		"overheat": _open_datacenter_detail(datacenter_id, "racks")
+		"market": _show_datacenter_context(datacenter_id)
 		_: _show_datacenter_context(datacenter_id)
 
 func _offline_report_is_material(report: Dictionary) -> bool:

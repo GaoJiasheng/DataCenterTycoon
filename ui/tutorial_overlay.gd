@@ -28,7 +28,7 @@ func _ready() -> void:
 
 func present(rect: Rect2, copy: String, guide_asset: String, action: Callable) -> void:
 	visible = true
-	target_rect = rect.grow(14.0).intersection(get_viewport_rect()) if rect.size != Vector2.ZERO else Rect2()
+	target_rect = rect.grow(20.0).intersection(get_viewport_rect()) if rect.size != Vector2.ZERO else Rect2()
 	target_action = action
 	message.text = copy
 	guide.texture = AssetCatalog.texture(guide_asset)
@@ -62,12 +62,13 @@ func _build_mask() -> void:
 	hole_border = PanelContainer.new()
 	hole_border.name = "TutorialHoleBorder"
 	hole_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var border_style := ThemeMaker.panel(Color.TRANSPARENT, Color(ThemeMaker.COLORS.yellow, 0.90), 6, int(ThemeMaker.RADIUS.get("button", 18)))
+	var border_style := ThemeMaker.panel(Color.TRANSPARENT, Color(ThemeMaker.COLORS.yellow, 0.90), 6, 28)
 	border_style.content_margin_left = 0
 	border_style.content_margin_right = 0
 	border_style.content_margin_top = 0
 	border_style.content_margin_bottom = 0
 	hole_border.add_theme_stylebox_override("panel", border_style)
+	hole_border.set_meta("spotlight_corner_radius", 28)
 	add_child(hole_border)
 
 func _build_callout() -> void:
@@ -91,7 +92,7 @@ func _build_callout() -> void:
 
 	bubble = PanelContainer.new()
 	bubble.name = "TutorialCallout"
-	bubble.custom_minimum_size.x = 620
+	bubble.custom_minimum_size.x = 680
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble.add_theme_stylebox_override("panel", ThemeMaker.dialog_box())
 	add_child(bubble)
@@ -110,8 +111,9 @@ func _build_callout() -> void:
 	message.name = "TutorialMessage"
 	message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	message.custom_minimum_size.x = 440
+	message.custom_minimum_size.x = 500
 	message.max_lines_visible = 2
+	message.set_meta("orphan_guard", true)
 	message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ThemeMaker.apply_text_role(message, "body")
 	message.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.body)
@@ -152,7 +154,7 @@ func _pointer_polygon(node_name: String, points: PackedVector2Array, fill: Color
 func _resize_callout() -> void:
 	if bubble == null or message == null:
 		return
-	bubble.size = Vector2(620, maxf(ThemeMaker.TOUCH_MIN, bubble.get_combined_minimum_size().y + ThemeMaker.GROUP_PADDING))
+	bubble.size = Vector2(680, maxf(ThemeMaker.TOUCH_MIN, bubble.get_combined_minimum_size().y + ThemeMaker.GROUP_PADDING))
 
 func _layout_mask(actionable: bool) -> void:
 	for pane: ColorRect in mask_panes:
