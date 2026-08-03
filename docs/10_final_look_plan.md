@@ -70,7 +70,7 @@
 | 批 | 图标 | SUBJECT 示例 |
 |---|---|---|
 | 1（高频） | ic_cash / ic_diamond / ic_build / ic_market_up / ic_tech / ic_shop / ic_settings / ic_contract / ic_power / ic_cooling | coin stack / faceted purple gem / claw hammer / rising line chart on tiny board / gear with circuit traces / striped awning shop front / … |
-| 2 | ic_wrench / ic_heat / ic_lock / ic_check / ic_close / ic_clock / ic_network / ic_prestige / ic_retire / ic_warning / ic_speedup / ic_play_ad / ic_era1-3 / ic_operations / ic_pointer_hand | … |
+| 2 | ic_wrench / ic_heat / ic_lock / ic_check / ic_close / ic_clock / ic_network / ic_prestige / ic_retire / ic_warning / ic_speedup / ic_play_ad / ic_era1-3 / ic_operations / ic_pointer_hand / ic_server | … |
 
 - 交付后 `import_assets.py --visual` 接入，零代码；
 - **验收**：operations 四卡、HUD、底部圆钮同屏时图标像一套字体：同描边、同光源、同体量。
@@ -167,3 +167,13 @@
 - [x] 新增 dense-campus 门禁：路段、交叉口、道具种类、环境节点预算 ≤60、雾层 alpha 范围；`test_runner` 103/103，数据与资产门禁通过。
 - [x] 英文 30/30、简中 30/30 Metal 实渲染回归通过；所有输出截图精确 660×1434。
 - [x] 同尺寸真实基线与结果已存 `docs/ui_review/10_batch3_before_en_map.png`、`10_batch3_after_en_map.png`、`10_batch3_compare_en_map.png`；资产联系表为 `10_batch3_world_assets_contact.png`。
+
+### 2026-08-03 · 批次④（I · 统一图标系统）
+
+- [x] 内置 `imagegen` 独立重绘全套 30 枚 `ic_*`，统一为蓝白金手绘 3D 材质、6px 等效深海军蓝轮廓、左上暖光与 48px 可读体量；每次生成均携带项目建筑风格锚。
+- [x] 原有 27 枚图标全量替换，并补齐 `ic_operations`、`ic_pointer_hand`、`ic_server`；manifest 143→146，UI 分类 38→41。
+- [x] 全部源稿、透明中间稿和最终标准化稿保留在 `art-renders/visual/work/final_look_icons/`，构建脚本可重复生成；正式成品同步到 `art-renders/visual/final/ui/` 与 `assets/art/ui/`。
+- [x] `ic_network` 严格保留 3 节点 / 3 连线；紫色宝石单独采用硬色键阈值，避免主体被软遮罩误伤；服务器图标消除键色漂移导致的半透明方框（partial alpha 48.60%→0.61%）；资产技术 QA 146/146。
+- [x] 48px 与全尺寸联系表存为 `docs/ui_review/10_batch4_icons_48px_contact.png`、`10_batch4_icons_full_contact.png`。
+- [x] `test_runner` 103/103；英文 30/30、简中 30/30 Metal 实渲染回归通过；30 态输出全部精确为 660×1434。
+- [x] 人工放大检查 HUD、FTUE、运营、科技与商店；归档真实运行截图 `10_batch4_en_operations.png`、`10_batch4_en_tech.png`、`10_batch4_en_store.png`、`10_batch4_zh_ftue_spotlight.png`，无白底、裁边、文字互压或图标体量漂移。

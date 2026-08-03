@@ -70,12 +70,13 @@
     {"directory": "ui", "size": [1024, 512], "alpha": true, "ids": ["dialog_bubble"]},
     {
       "directory": "ui",
-      "size": [256, 256],
+      "size": [512, 512],
       "alpha": true,
       "ids": [
         "ic_cash", "ic_diamond", "ic_power", "ic_cooling", "ic_heat", "ic_wrench", "ic_warning", "ic_clock", "ic_contract",
         "ic_market_up", "ic_market_down", "ic_build", "ic_tech", "ic_shop", "ic_settings", "ic_network", "ic_play_ad",
-        "ic_retire", "ic_speedup", "ic_lock", "ic_check", "ic_close", "ic_era1", "ic_era2", "ic_era3", "ic_prestige", "ic_bankrupt"
+        "ic_retire", "ic_speedup", "ic_lock", "ic_check", "ic_close", "ic_era1", "ic_era2", "ic_era3", "ic_prestige", "ic_bankrupt",
+        "ic_operations", "ic_pointer_hand", "ic_server"
       ]
     },
     {"directory": "store", "size": [1024, 1024], "alpha": false, "ids": ["app_icon"]},

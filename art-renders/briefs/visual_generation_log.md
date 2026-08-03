@@ -2,7 +2,7 @@
 
 ## 风格锚：`dc_t1_active`
 
-- 状态：已由项目所有者确认，并作为当前 143 件视觉素材的风格锚
+- 状态：已由项目所有者确认，并作为当前 146 件视觉素材的风格锚
 - 当前候选：`../visual/work/dc_t1_active_v1.png`
 - 输出规格：768×768，RGBA PNG，548,292 bytes
 - 主体 alpha 边界：`(38, 143)–(729, 664)`
@@ -53,3 +53,12 @@ Avoid: pixel art, photorealistic photo, gritty realism, dystopian cyberpunk, hor
 - 透明处理：5 个道具用技能随附 `remove_chroma_key.py` 去色键；道路按绿色优势值生成软 alpha，只保留混凝土主体，避免与权威草地形成方形拼缝；边缘雾以亮度转换为 alpha。
 - 可复现构建：`finish_final_look_world.py` + `build_final_visuals.py`；最终自动 QA 143/143。
 - 人工审片：`docs/ui_review/10_batch3_world_assets_contact.png`、`docs/ui_review/10_batch3_compare_en_map.png`。
+
+## §10 批次④：统一图标系统
+
+- 生成工具：内置 `imagegen`，30 个独立生成调用；每次均附带 `dc_t1_active` 作为材质、光源和项目配色参考。
+- 全量替换原 27 枚图标，并补齐运行时已有引用 `ic_operations`、`ic_pointer_hand` 与公共 `ic_server`，视觉总数 143→146；UI 分类 38→41。
+- 所有图标统一 512×512、6px 等效深海军蓝外轮廓、左上暖光、蓝白金主色和 48px 可读体量；`ic_network` 人工确认严格 3 节点 / 3 连线。
+- 洋红色键由技能脚本移除，再以 `finish_transparent_asset.py` 统一安全边距；紫色 `ic_diamond` 使用更窄的硬阈值，避免软遮罩误伤宝石主体；`ic_server` 使用扩大的 70→180 软阈值，alpha 分布审计由异常的 48.60% 全画布半透明恢复为 0.61% 正常抗锯齿边缘。
+- 可复现构建与技术 QA：`build_final_visuals.py` 146/146；运行时导入 146/146、零缺失。
+- 人工审片：`docs/ui_review/10_batch4_icons_48px_contact.png`、`docs/ui_review/10_batch4_icons_full_contact.png`。

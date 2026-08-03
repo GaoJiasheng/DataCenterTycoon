@@ -139,14 +139,20 @@ def build_manifest() -> list[Asset]:
     for name, width, height in components:
         assets.append(Asset("ui", name, f"{name}_source_v1.png", width, height, shadow=False, margin=0.02))
 
-    # 27 standalone UI icons.  Network v3 is the accepted exact-three-node revision.
+    # 30 standalone §10 icons from one controlled imagegen prompt family.
     icons = (
         "cash diamond power cooling heat wrench warning clock contract market_up market_down "
-        "build tech shop settings network play_ad retire speedup lock check close era1 era2 era3 prestige bankrupt"
+        "build tech shop settings network play_ad retire speedup lock check close era1 era2 era3 prestige bankrupt "
+        "operations pointer_hand server"
     ).split()
     for icon in icons:
-        revision = "v3" if icon == "network" else "v1"
-        assets.append(Asset("ui", f"ic_{icon}", f"ic_{icon}_source_{revision}.png", 256, 256, shadow=False, margin=0.06))
+        if icon == "diamond":
+            matte = "final_icon_hard"
+        elif icon == "server":
+            matte = "final_icon_server"
+        else:
+            matte = "final_icon_soft"
+        assets.append(Asset("ui", f"ic_{icon}", f"final_look_icons/ic_{icon}_chroma.png", 512, 512, shadow=False, margin=0.045, matte=matte))
 
     # 6 store/marketing assets.
     assets.extend([
@@ -158,7 +164,7 @@ def build_manifest() -> list[Asset]:
         Asset("store", "noads_badge", "noads_badge_source_v1.png", 512, 512, shadow=False, margin=0.04),
     ])
 
-    assert len(assets) == 143, f"expected 143 assets, got {len(assets)}"
+    assert len(assets) == 146, f"expected 146 assets, got {len(assets)}"
     assert len({(a.category, a.name) for a in assets}) == len(assets)
     return assets
 
@@ -171,15 +177,38 @@ def chroma_to_alpha(asset: Asset) -> Path:
     source = WORK / asset.source
     alpha = ALPHA_WORK / asset.category / f"{asset.name}_alpha.png"
     alpha.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        "python3", str(REMOVE_KEY), "--input", str(source), "--out", str(alpha),
-        "--auto-key", "border", "--tolerance", "20", "--force",
-    ]
+    if asset.matte == "final_icon_hard":
+        command = [
+            "python3", str(REMOVE_KEY), "--input", str(source), "--out", str(alpha),
+            "--key-color", "#ff00ff", "--tolerance", "14", "--force",
+        ]
+    elif asset.matte == "final_icon_soft":
+        command = [
+            "python3", str(REMOVE_KEY), "--input", str(source), "--out", str(alpha),
+            "--key-color", "#ff00ff", "--soft-matte",
+            "--transparent-threshold", "18", "--opaque-threshold", "80",
+            "--edge-feather", "0.6", "--edge-contract", "1", "--spill-cleanup", "--force",
+        ]
+    elif asset.matte == "final_icon_server":
+        # This source's key field varies around #ef0cd6. A wider soft ramp
+        # removes the otherwise invisible full-canvas veil while preserving
+        # the navy silhouette and cream rails.
+        command = [
+            "python3", str(REMOVE_KEY), "--input", str(source), "--out", str(alpha),
+            "--key-color", "#ff00ff", "--soft-matte",
+            "--transparent-threshold", "70", "--opaque-threshold", "180",
+            "--edge-feather", "0.6", "--edge-contract", "1", "--spill-cleanup", "--force",
+        ]
+    else:
+        command = [
+            "python3", str(REMOVE_KEY), "--input", str(source), "--out", str(alpha),
+            "--auto-key", "border", "--tolerance", "20", "--force",
+        ]
     if asset.matte == "soft":
         command.extend(["--soft-matte", "--transparent-threshold", "10", "--opaque-threshold", "82", "--despill"])
     elif asset.matte == "hard_feather":
         command.extend(["--edge-feather", "0.45", "--despill"])
-    else:
+    elif asset.matte not in ("final_icon_soft", "final_icon_hard", "final_icon_server"):
         command.append("--despill")
     run(command)
     return alpha

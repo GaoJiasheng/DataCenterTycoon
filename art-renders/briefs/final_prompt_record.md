@@ -33,7 +33,7 @@ shadow; opaque background art is full-bleed.
 - 特效：风痕、雪花、霜斑、烟、火花、金币、光环、五色纸屑和尘团均为单帧元素；半透明边缘在本地软遮罩中恢复。
 - 角色：中年工程师“老高”，黄色安全帽、蓝色工作马甲、奶油衬衫和无字平板；normal、happy、worried、alert、thinking 五种姿态保持同一五官与服装。
 - 客户徽章：互联网为蓝色地球与橙色聊天气泡，挖掘为金色晶体与镐，云计算为白云与三段上行箭头，GPU 为紫色抽象芯片；全部避免真实品牌。
-- UI：面板和按钮为可触摸的手绘 9-slice 元件，中心无字；27 枚图标逐枚生成，单主体、粗圆轮廓、48px 可读，不使用代码绘制的线框图形。
+- UI：面板和按钮为可触摸的手绘 9-slice 元件，中心无字；30 枚图标逐枚生成，单主体、粗圆轮廓、48px 可读，不使用代码绘制的线框图形。
 - 商店：应用图标与启动图为不透明全幅插画；三档礼包按木箱、宝箱、金色金库逐级强化价值感；去广告徽章使用蓝色轻盈曲带而非负面红斜杠。
 
 ## 最终返修决策
@@ -74,3 +74,35 @@ Use case: stylized-concept. Asset type: isometric game environment prop. Exactly
 ```text
 Use case: stylized-concept. Asset type: game environment edge-fog mask texture. A clean wide soft radial edge haze mask: pure black center fading smoothly toward pale warm ivory #fff4d8 at outer edges and corners. Extremely smooth low-frequency airbrush gradient, wide 2:1 landscape, central 55 percent pure black and clear, corners slightly strongest. No objects, clouds, wisps, noise, texture, banding, border line, vignette ring, text, logo, or watermark; smooth enough to convert luminance into alpha.
 ```
+
+## §10 批次④ · 统一图标系统生成提示
+
+以下 30 枚图标均由内置 `imagegen` 独立生成，并携带
+`visual/final/buildings/dc_t1_active.png` 作为项目材质与配色参考。源稿、去色键中间稿与最终标准化稿分别保存于
+`visual/work/final_look_icons/*_chroma.png`、`*_alpha.png`、`*_final.png`，成品保存于
+`visual/final/ui/ic_*.png`。
+
+### 公共提示
+
+```text
+Use case: stylized-concept
+Asset type: production game UI icon for a premium mobile idle/tycoon game
+Primary request: create exactly one {ICON_SUBJECT}
+Style/medium: chunky rounded hand-painted 3D cartoon icon; same friendly tactile material language and blue-cream-gold palette as the attached Data Center Tycoon building style reference; thick consistent dark-navy outline equivalent to 6px at 512px; soft warm top-left light; slight front-facing 3/4 tilt; polished top-tier casual mobile-game quality
+Composition/framing: single centered subject, balanced visual mass, generous even padding, completely inside frame, instantly readable at 48px
+Scene/backdrop: perfectly flat uniform solid #ff00ff chroma-key field for local background removal; no floor plane, gradient, texture, reflections, or lighting variation in the background
+Constraints: do not use #ff00ff anywhere in the subject; no cast shadow outside the icon silhouette; no scenery, UI panel, container tile, text, letters, numbers, real logo, border, signature, or watermark
+Avoid: thin lines, flat vector art, emoji style, clip art, photorealism, gritty cyberpunk, excessive tiny detail, asymmetrical padding, cropping
+```
+
+### 逐件主体映射
+
+- 高频资源：`ic_cash` 三枚金币与折叠蓝色钞票；`ic_diamond` 紫色切面宝石；`ic_build` 蓝白羊角锤；`ic_market_up` 深蓝行情板、蓝色上行线与金箭头；`ic_tech` 金齿轮与三条蓝色电路线；`ic_shop` 蓝白店面与条纹雨棚；`ic_settings` 奶油齿轮、蓝色轮毂与金色紧固件；`ic_contract` 奶油卷轴、蓝丝带与金印章；`ic_power` 金色闪电插入蓝色插头；`ic_cooling` 蓝色涡轮风扇与奶油边框。
+- 系统资源：`ic_wrench` 蓝钢活动扳手；`ic_heat` 深蓝格栅与三道橙色热浪；`ic_lock` 蓝色挂锁；`ic_check` 绿色奖章上的奶油勾；`ic_close` 珊瑚奖章上的奶油叉；`ic_clock` 蓝边奶油闹钟；`ic_network` 严格三个蓝节点与三条金线；`ic_prestige` 金月桂与蓝星；`ic_retire` 奶油安全帽、蓝色门与向外金箭头；`ic_warning` 金三角警示牌；`ic_speedup` 蓝色秒表与双奶油快进箭头；`ic_play_ad` 蓝屏、奶油播放符号与无字金票券。
+- 世界与状态资源：`ic_era1` 集装箱机房；`ic_era2` 双窗双冷却器中型机房；`ic_era3` 一对连通高层塔楼；`ic_operations` 三表盘深蓝控制台；`ic_pointer_hand` 蓝袖口奶油手套指针；`ic_market_down` 深蓝行情板、蓝色下行线与珊瑚箭头；`ic_bankrupt` 裂开的蓝白钱包与坠落金币；`ic_server` 立式蓝色服务器机柜。
+
+### 后处理与验收
+
+- 通用图标使用技能随附 `remove_chroma_key.py --key-color '#ff00ff' --soft-matte --transparent-threshold 18 --opaque-threshold 80 --edge-feather 0.6 --edge-contract 1 --spill-cleanup`；紫色宝石为保护主体紫色，单独使用硬阈值 `--tolerance 14`。`ic_server` 源图的键色场在 `#ef0cd6` 周围轻微漂移，单独使用 `transparent=70 / opaque=180` 的宽软阈值，消除浅色底可见的全画布半透明 veil。
+- `finish_transparent_asset.py --size 512 --margin 0.045 --no-shadow` 统一画布、体量和安全边距；`build_final_visuals.py` 复现全部成品。
+- 30 枚缩至 48px 的人工检查联系表：`docs/ui_review/10_batch4_icons_48px_contact.png`；全尺寸联系表：`docs/ui_review/10_batch4_icons_full_contact.png`。
