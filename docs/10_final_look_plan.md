@@ -205,5 +205,6 @@
 - [x] 启动屏改为 `#8FBF5A` 草绿留白 + 单一蓝色机房主体，1536×2732 RGB、不透明；`project.godot` 的 boot splash 底色同步，加载前后不再闪旧深蓝。
 - [x] 图标与启动屏生成原稿、完整 prompt、标准化构建和 QA 均已落库；视觉资产仍为 146/146，无清单漂移，品牌面成品同步到 `art-renders/visual/final/store/` 与 `assets/art/store/`。
 - [x] 园区 / 机房棋盘 / 行情 / 时代演出 / 离线奖励 / 商店六个终检屏完成英文与简中真实 Metal 回放；12 张归档均为 660×1434，位于 `docs/ui_review/10_final_{en,zh_CN}_*.png`。
+- [x] 桌面交互预览无条件锁定 660×1434；移除按系统 usable-height 自动缩小的旧分支，屏幕空间不足时只把窗口贴顶，不再改变客户区尺寸。
 - [x] 最终自动门禁：数据与 146 art / 23 audio 资产通过；`test_runner` 103/103；英文 30/30、简中 30/30 视觉回归通过。
 - [ ] 真机双语与正式 App Store 截图不能由桌面回归替代：已实际触发 `iOS Release Candidate` 导出，Godot 因 preset 的 Team ID、Bundle ID 与签名仍为所有者占位输入而在配置检查阶段拒绝导出；本机也没有可用 iOS Simulator。保持为 `docs/release_checklist.md` 的外部发行门禁，不虚报完成。

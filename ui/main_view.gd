@@ -91,11 +91,13 @@ func _fit_desktop_window() -> void:
 		return  # The visual harness owns the same 660x1434 capture size.
 	var usable := DisplayServer.screen_get_usable_rect()
 	var preview_size := Vector2i(660, 1434)
-	if preview_size.y > int(usable.size.y * 0.96):
-		var scale := float(usable.size.y) * 0.96 / float(preview_size.y)
-		preview_size = Vector2i(roundi(preview_size.x * scale), roundi(preview_size.y * scale))
 	DisplayServer.window_set_size(preview_size)
-	DisplayServer.window_set_position(usable.position + (usable.size - preview_size) / 2)
+	var centered := usable.position + (usable.size - preview_size) / 2
+	# Keep the title bar reachable on a scaled desktop without silently changing
+	# the owner's requested half-native preview size.
+	centered.x = maxi(usable.position.x, centered.x)
+	centered.y = maxi(usable.position.y, centered.y)
+	DisplayServer.window_set_position(centered)
 
 func _process(delta: float) -> void:
 	_refresh_cooldown -= delta
