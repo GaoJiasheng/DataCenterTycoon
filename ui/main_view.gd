@@ -33,6 +33,10 @@ var navigation_panel: PanelContainer
 var era_icon: TextureRect
 var company_label: Label
 var primary_action_button: Button
+var primary_action_icon: TextureRect
+var primary_action_text: Label
+var primary_action_text_fill: Label
+var primary_action_text_stack: Control
 var task_button: Button
 var operations_button: Button
 var operations_badge: PanelContainer
@@ -299,6 +303,7 @@ func _build_shell() -> void:
 	primary_action_button.offset_bottom = -8
 	primary_action_button.add_theme_font_size_override("font_size", 28)
 	action_layer.add_child(primary_action_button)
+	_build_primary_action_content()
 
 	operations_button = Button.new()
 	operations_button.name = "OperationsButton"
@@ -472,22 +477,19 @@ func _refresh_primary_action() -> void:
 		if str(plot.get("status", "")) == "empty":
 			_primary_action_kind = "build"
 			_primary_action_target = str(plot.get("id", ""))
-			primary_action_button.text = tr("BUILD_DATA_CENTER")
-			_set_button_asset(primary_action_button, "ic_build", 40)
+			_set_primary_action_content(tr("BUILD_DATA_CENTER"), "ic_build")
 			ThemeMaker.apply_button_color(primary_action_button, ThemeMaker.COLORS.green)
 			_animate_primary_action_change(previous_kind)
 			return
 	var queue_size: int = Game.state.get("construction_queue", []).size()
 	if queue_size > 0:
 		_primary_action_kind = "queue"
-		primary_action_button.text = "%s  ·  %d" % [tr("VIEW_QUEUE"), queue_size]
-		_set_button_asset(primary_action_button, "ic_clock", 40)
+		_set_primary_action_content("%s  ·  %d" % [tr("VIEW_QUEUE"), queue_size], "ic_clock")
 		ThemeMaker.apply_button_color(primary_action_button, ThemeMaker.COLORS.orange)
 		_animate_primary_action_change(previous_kind)
 		return
 	_primary_action_kind = "buy_plot"
-	primary_action_button.text = "%s  ·  $%s" % [tr("BUY_NEXT_PLOT"), Game.format_number(Game.next_plot_price())]
-	_set_button_asset(primary_action_button, "ic_cash", 40)
+	_set_primary_action_content("%s  ·  $%s" % [tr("BUY_NEXT_PLOT"), Game.format_number(Game.next_plot_price())], "ic_cash")
 	ThemeMaker.apply_button_color(primary_action_button, ThemeMaker.COLORS.green)
 	_set_primary_affordability_pulse(float(Game.state.get("player", {}).get("cash", 0.0)) >= Game.next_plot_price())
 	_animate_primary_action_change(previous_kind)
@@ -3177,7 +3179,7 @@ func _resource_chip(asset_id: String, accent: Color) -> PanelContainer:
 	return chip
 
 func _add_world_action_caption(parent: Control, text: String, align_right: bool) -> void:
-	var caption := _label(text, 18, Color.WHITE)
+	var caption := _label(text, 20, Color.WHITE)
 	caption.name = "OperationsCaption" if align_right else "TaskCaption"
 	caption.set_anchors_preset(Control.PRESET_TOP_RIGHT if align_right else Control.PRESET_TOP_LEFT)
 	caption.offset_left = -104 if align_right else -8
@@ -3186,11 +3188,24 @@ func _add_world_action_caption(parent: Control, text: String, align_right: bool)
 	caption.offset_bottom = 28
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	caption.add_theme_font_override("font", ThemeMaker.font_bold())
+	caption.add_theme_font_override("font", ThemeMaker.font_world_heavy())
 	caption.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
 	caption.add_theme_constant_override("outline_size", 3)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(caption)
+	# A second fill-only pass keeps the 20u Chinese interiors actually white. The
+	# outlined parent remains the contrast and geometry contract; making the fill a
+	# child avoids presenting two independent labels to layout/overlap gates.
+	var fill := _label(text, 20, Color.WHITE)
+	fill.name = "%sFill" % caption.name
+	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fill.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fill.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	fill.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+	fill.add_theme_color_override("font_outline_color", Color.WHITE)
+	fill.add_theme_constant_override("outline_size", 1)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caption.add_child(fill)
 
 func _metric_chip(text: String, accent: Color) -> PanelContainer:
 	return Widgets.chip(text, accent.lightened(0.18))
@@ -3492,6 +3507,66 @@ func _set_button_asset(button: Button, asset_id: String, max_width: int) -> void
 	button.expand_icon = true
 	button.add_theme_constant_override("icon_max_width", max_width)
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+func _build_primary_action_content() -> void:
+	# Native Button text draws a 4px CJK outline so far inward at 28u that the
+	# nominally-white fill becomes visually gray. Keep the Button itself as the
+	# accessible 88u target, but render its icon and text as a deterministic stack.
+	primary_action_button.text = ""
+	primary_action_button.icon = null
+	var center := CenterContainer.new()
+	center.name = "PrimaryWorldActionContent"
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	primary_action_button.add_child(center)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 10)
+	center.add_child(row)
+	primary_action_icon = TextureRect.new()
+	primary_action_icon.name = "PrimaryWorldActionIcon"
+	primary_action_icon.custom_minimum_size = Vector2(40, 40)
+	primary_action_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	primary_action_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	primary_action_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(primary_action_icon)
+	primary_action_text_stack = Control.new()
+	primary_action_text_stack.name = "PrimaryWorldActionTextStack"
+	primary_action_text_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(primary_action_text_stack)
+	primary_action_text = _label("", 28, Color.WHITE)
+	primary_action_text.name = "PrimaryWorldActionText"
+	primary_action_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	primary_action_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	primary_action_text.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+	primary_action_text.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+	primary_action_text.add_theme_constant_override("outline_size", 4)
+	primary_action_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	primary_action_text_stack.add_child(primary_action_text)
+	primary_action_text_fill = _label("", 28, Color.WHITE)
+	primary_action_text_fill.name = "PrimaryWorldActionTextFill"
+	primary_action_text_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	primary_action_text_fill.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	primary_action_text_fill.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+	# A 1u white expansion pass restores stroke interiors while the 4u ink pass
+	# below it remains the outer contrast rim.
+	primary_action_text_fill.add_theme_color_override("font_outline_color", Color.WHITE)
+	primary_action_text_fill.add_theme_constant_override("outline_size", 1)
+	primary_action_text_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	primary_action_text.add_child(primary_action_text_fill)
+	_set_primary_action_content(tr("BUILD_DATA_CENTER"), "ic_build")
+
+func _set_primary_action_content(text: String, asset_id: String) -> void:
+	if primary_action_text == null or primary_action_text_fill == null or primary_action_icon == null or primary_action_text_stack == null:
+		return
+	primary_action_button.set_meta("primary_action_text", text)
+	primary_action_button.tooltip_text = text
+	primary_action_icon.texture = AssetCatalog.texture(asset_id)
+	primary_action_text.text = text
+	primary_action_text_fill.text = text
+	var font := ThemeMaker.font_world_heavy()
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28)
+	primary_action_text_stack.custom_minimum_size = Vector2(ceilf(text_size.x) + 8.0, maxf(44.0, ceilf(font.get_height(28)) + 4.0))
 
 func _asset_preview(asset_id: String, fallback_text: String, color: Color, height: float) -> Control:
 	var panel := PanelContainer.new()

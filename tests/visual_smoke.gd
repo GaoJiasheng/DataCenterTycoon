@@ -372,6 +372,34 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				if not viewport_rect.grow(-4.0).encloses(caption_rect) or caption_rect.end.y > button_rect.position.y + 1.0:
 					push_error("VISUAL_SMOKE: map action caption is outside the safe strip or below its button %s caption=%s button=%s" % [caption.name, caption_rect, button_rect])
 					valid = false
+	if state_name == "campus_dense":
+		# F1 is deliberately separate from the generic button-color sweep: its old
+		# 720-weight CJK fallback technically reported white, while the 4px outline
+		# visually swallowed the glyph interiors. Lock the exact world CTA contract.
+		var primary_world_action := main.find_child("PrimaryWorldAction", true, false) as Button
+		var primary_world_text := main.find_child("PrimaryWorldActionText", true, false) as Label
+		var primary_world_fill := main.find_child("PrimaryWorldActionTextFill", true, false) as Label
+		var primary_states := ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]
+		var primary_is_white := primary_world_action != null and primary_world_text != null and primary_world_fill != null
+		if primary_world_action != null:
+			for color_name: String in primary_states:
+				primary_is_white = primary_is_white and primary_world_action.get_theme_color(color_name).is_equal_approx(Color.WHITE)
+			primary_is_white = primary_is_white and primary_world_action.get_theme_font("font") == ThemeFactory.font_world_heavy()
+			primary_is_white = primary_is_white and primary_world_action.get_theme_constant("outline_size") == 4
+			primary_is_white = primary_is_white and primary_world_action.get_theme_color("font_outline_color").is_equal_approx(ThemeFactory.COLORS.ink)
+		if primary_world_text != null and primary_world_fill != null:
+			primary_is_white = primary_is_white and primary_world_text.text == str(primary_world_action.get_meta("primary_action_text", ""))
+			primary_is_white = primary_is_white and primary_world_text.get_theme_color("font_color").is_equal_approx(Color.WHITE) and primary_world_text.get_theme_constant("outline_size") == 4
+			primary_is_white = primary_is_white and primary_world_fill.text == primary_world_text.text and primary_world_fill.get_theme_color("font_color").is_equal_approx(Color.WHITE) and primary_world_fill.get_theme_color("font_outline_color").is_equal_approx(Color.WHITE) and primary_world_fill.get_theme_constant("outline_size") == 1
+		if not primary_is_white:
+			push_error("VISUAL_SMOKE: F1 PrimaryWorldAction is not pure-white heavy CJK with a 4px ink outline")
+			valid = false
+		for caption_name: String in ["TaskCaption", "OperationsCaption"]:
+			var world_caption := main.find_child(caption_name, true, false) as Label
+			var world_caption_fill := main.find_child("%sFill" % caption_name, true, false) as Label
+			if world_caption == null or world_caption_fill == null or world_caption_fill.get_parent() != world_caption or not world_caption.get_theme_color("font_color").is_equal_approx(Color.WHITE) or world_caption.get_theme_font_size("font_size") != 20 or world_caption.get_theme_constant("outline_size") != 3 or not world_caption.get_theme_color("font_outline_color").is_equal_approx(ThemeFactory.COLORS.ink) or world_caption.get_theme_font("font") != ThemeFactory.font_world_heavy() or not world_caption_fill.get_theme_color("font_color").is_equal_approx(Color.WHITE) or not world_caption_fill.get_theme_color("font_outline_color").is_equal_approx(Color.WHITE) or world_caption_fill.get_theme_constant("outline_size") != 1:
+				push_error("VISUAL_SMOKE: F10 world action caption violates the 20u white/heavy/3px contract: %s" % caption_name)
+				valid = false
 	if state_name == "store":
 		var best_value := main.find_child("BestValueRibbon", true, false) as PanelContainer
 		var best_value_label := main.find_child("BestValueLabel", true, false) as Label
@@ -509,9 +537,15 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if state_name != "dc_board_placing" and not placement_badges.is_empty():
 			push_error("VISUAL_SMOKE: non-placement board retains placement badges")
 			valid = false
-		if state_name == "dc_board" and main.find_child("RackInstallTimer", true, false) == null:
-			push_error("VISUAL_SMOKE: installing rack lacks its in-cell timer")
-			valid = false
+		if state_name == "dc_board":
+			var install_timer := main.find_child("RackInstallTimer", true, false) as Control
+			var install_progress := main.find_child("TimerProgress", true, false) as ProgressBar
+			var install_remaining := main.find_child("TimerRemaining", true, false) as Label
+			var timer_parent := install_timer.get_parent() as Control if install_timer != null else null
+			var timer_inside := install_timer != null and timer_parent != null and timer_parent.get_global_rect().grow(-4.0).encloses(install_timer.get_global_rect())
+			if not timer_inside or install_progress == null or install_progress.position.y > 6.0 or install_progress.size.y > 14.0 or install_remaining == null or install_remaining.horizontal_alignment != HORIZONTAL_ALIGNMENT_RIGHT or not install_remaining.get_theme_color("font_color").is_equal_approx(Color.WHITE) or install_remaining.get_theme_constant("outline_size") < 3:
+				push_error("VISUAL_SMOKE: F7 installing rack timer is not a fully contained top strip with right-aligned white time")
+				valid = false
 		var installed_cooler := main.find_child("Cooler_north", true, false) as Button
 		if installed_cooler == null or installed_cooler.icon != null or installed_cooler.find_children("CoolerArt", "TextureRect", true, false).size() != 1:
 			push_error("VISUAL_SMOKE: installed cooler is not rendered by exactly one icon branch")

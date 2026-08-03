@@ -255,20 +255,41 @@ func _add_slot_art(button: Button, open: bool, installed: Variant, runtime: Dict
 		var complete_at := float(installed.get("install_complete_at", Game.simulation_time()))
 		var rack_data := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
 		var duration := maxf(1.0, float(rack_data.get("install_seconds", complete_at - float(installed.get("started_at", Game.simulation_time())))))
-		var timer := Widgets.timer_bar(complete_at, duration)
+		# F7: keep the countdown wholly inside the clipped slot. A compact top strip
+		# communicates progress without the old bottom capsule losing half its text.
+		var timer := Control.new()
 		timer.name = "RackInstallTimer"
-		timer.position = Vector2(8, 82)
-		timer.size = Vector2(CELL_SIZE.x - 16, 54)
+		timer.position = Vector2(8, 6)
+		timer.size = Vector2(CELL_SIZE.x - 16, 46)
 		timer.z_index = 4
-		var progress := timer.find_child("TimerProgress", true, false) as ProgressBar
-		if progress != null:
-			progress.custom_minimum_size.y = 16
-		var remaining := timer.find_child("TimerRemaining", true, false) as Label
-		if remaining != null:
-			remaining.add_theme_font_size_override("font_size", 18)
-			remaining.add_theme_color_override("font_color", Color.WHITE)
-			remaining.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
-			remaining.add_theme_constant_override("outline_size", 3)
+		timer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var progress := ProgressBar.new()
+		progress.name = "TimerProgress"
+		progress.show_percentage = false
+		progress.max_value = duration
+		progress.position = Vector2.ZERO
+		progress.size = Vector2(timer.size.x, 12)
+		progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		timer.add_child(progress)
+		var remaining := Label.new()
+		remaining.name = "TimerRemaining"
+		remaining.position = Vector2(0, 12)
+		remaining.size = Vector2(timer.size.x - 4, 30)
+		remaining.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		remaining.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		remaining.add_theme_font_override("font", ThemeMaker.font_world_heavy())
+		remaining.add_theme_font_size_override("font_size", 18)
+		remaining.add_theme_color_override("font_color", Color.WHITE)
+		remaining.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+		remaining.add_theme_constant_override("outline_size", 3)
+		remaining.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		timer.add_child(remaining)
+		var update_timer := func() -> void:
+			var left := maxf(0.0, complete_at - Game.simulation_time())
+			progress.value = clampf(duration - left, 0.0, duration)
+			remaining.text = Game.format_duration(left)
+		update_timer.call()
+		timer.set_meta("live_update", update_timer)
 		button.add_child(timer)
 	if installed is Dictionary and not installed.is_empty() and (bool(runtime.get("overheated", false)) or bool(runtime.get("faulted", false)) or not bool(runtime.get("powered", true))):
 		var icon := TextureRect.new()

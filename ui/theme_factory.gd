@@ -115,6 +115,30 @@ static func font_regular() -> Font:
 static func font_bold() -> Font:
 	return _font_variation("bold", 720, true)
 
+static func font_heavy() -> Font:
+	# World CTAs keep a 4px ink outline for contrast. The heavier CJK master
+	# preserves a genuinely white interior instead of letting that outline swallow
+	# the thin strokes at 28u.
+	return _font_variation("heavy", 900, true)
+
+static func font_world_heavy() -> Font:
+	# Godot does not consistently propagate a variation axis from a Latin master
+	# into its CJK fallback. Use the CJK variable face as the primary font in
+	# Chinese so 900-weight strokes survive the required world-text outline.
+	if not TranslationServer.get_locale().begins_with("zh"):
+		return font_heavy()
+	var cache_key := "world_heavy_cjk"
+	if _font_cache.has(cache_key):
+		return _font_cache[cache_key] as Font
+	var cjk := load(FONT_CJK_PATH) as Font
+	if cjk == null:
+		return font_heavy()
+	var variation := FontVariation.new()
+	variation.base_font = cjk
+	variation.variation_opentype = {"wght": 900}
+	_font_cache[cache_key] = variation
+	return variation
+
 static func font_numeric() -> Font:
 	var font := _font_variation("numeric", 650, true)
 	if font is FontVariation:
@@ -309,7 +333,7 @@ static func apply_button_role(button: Button, role: String) -> void:
 		# The glossy pill is reserved for large CTAs; 28u is the size where white
 		# text with a 4px ink outline stays crisp on the bright highlight band.
 		button.add_theme_font_size_override("font_size", 28)
-		button.add_theme_font_override("font", font_bold())
+		button.add_theme_font_override("font", font_world_heavy())
 		button.add_theme_color_override("font_shadow_color", COLORS.ink)
 		button.add_theme_constant_override("shadow_offset_x", 0)
 		button.add_theme_constant_override("shadow_offset_y", 2)
