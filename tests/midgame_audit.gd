@@ -52,7 +52,39 @@ func _ready() -> void:
 	_assert_alert_badge("contract", "contract", false)
 	main.call("_open_datacenter", dc2_id)
 	await _shot("m2_renewal_drawer")
+	_assert_renewal_drawer(dc2)
+	var renewal_cta := main.find_child("ContractCTA", true, false) as Button
+	var renewal_copy_before := renewal_cta.text if renewal_cta != null else ""
+	Game.advance_time(60.0, false)
+	main.call("_refresh")
+	await get_tree().process_frame
+	_expect(renewal_cta != null and renewal_cta.text != renewal_copy_before, "M4 renewal CTA countdown must update live")
 	_close("DatacenterContext")
+	await get_tree().process_frame
+	main.call("_on_world_alert_selected", dc2_id, "contract", -1)
+	await _shot("m2_renewal_direct_contracts")
+	_assert_contract_deep_link(dc2_id)
+	main.call("_navigate", "map")
+	await get_tree().process_frame
+	# The task center must aggregate simultaneous actionable work and make every
+	# row a direct route rather than another informational dead end.
+	dc["racks"][1]["status"] = "faulted"
+	dc["racks"][1]["fault_at"] = -1.0
+	main.call("_refresh")
+	main.call("_show_operations_hub")
+	await _shot("m2_task_center")
+	_assert_task_center(2)
+	var fault_task := main.find_child("TaskAction_fault_mid_dc_0_1", true, false) as Button
+	if fault_task != null:
+		fault_task.pressed.emit()
+		await get_tree().create_timer(0.4).timeout
+	_expect(main.find_child("ActionSheetOverlay", true, false) != null, "M2 fault task must deep-link to its repair action sheet")
+	_close("ActionSheetOverlay")
+	_close("OperationsHub")
+	dc["racks"][1]["status"] = "active"
+	dc["racks"][1]["fault_at"] = -1.0
+	main.call("_navigate", "map")
+	await get_tree().process_frame
 	# --- market event flow ---
 	Game.state["market"]["active"] = [{"event_id": "coin_boom", "start_at": Game.simulation_time() - 600.0, "end_at": Game.simulation_time() + 13800.0}]
 	EventBus.market_event_started.emit("coin_boom")
@@ -177,6 +209,33 @@ func _assert_no_context_free_coin_fx() -> void:
 			if str(child.get_meta("fx_asset_id", "")) == "fx_coin":
 				found_coin = true
 	_expect(not found_coin, "M7 coin_boom must not leave a context-free giant coin in the world")
+
+func _assert_renewal_drawer(dc: Dictionary) -> void:
+	var cta := main.find_child("ContractCTA", true, false) as Button
+	var status := main.find_child("DatacenterStatus", true, false) as Label
+	var customer := DataRepository.get_entry("customers", str(dc.get("customer_id", "")))
+	var customer_name := tr(customer.get("name_key", "CONTRACT_NONE"))
+	_expect(cta != null and bool(cta.get_meta("renewal_active", false)) and (cta.text.contains("免费") or cta.text.to_lower().contains("free")), "M4 renewal drawer CTA must be gold and explicitly say free switching")
+	_expect(cta != null and float(cta.get_meta("renewal_end_at", 0.0)) > Game.simulation_time(), "M4 renewal CTA must carry its live countdown deadline")
+	_expect(status != null and status.text.contains(customer_name), "M5 drawer header must identify the current client")
+
+func _assert_contract_deep_link(datacenter_id: String) -> void:
+	var expected_card := main.find_child("Contract_%s" % str(Game.find_datacenter(datacenter_id).get("customer_id", "")), true, false)
+	_expect(str(main.get("active_page")) == "detail" and str(main.get("_detail_focus")) == "contracts" and expected_card != null, "M4 renewal world badge must deep-link straight to the contract tab")
+
+func _assert_task_center(expected_count: int) -> void:
+	var hub := main.find_child("OperationsHub", true, false)
+	var list := main.find_child("OperationsTaskList", true, false) as VBoxContainer
+	var operations := main.find_child("OperationsButton", true, false) as Button
+	var badge := operations.find_child("Badge", true, false) as PanelContainer if operations != null else null
+	var badge_value := badge.find_child("BadgeValue", true, false) as Label if badge != null else null
+	_expect(hub != null and list != null and list.get_child_count() == expected_count, "M2 task center must aggregate every actionable fault and renewal")
+	_expect(badge_value != null and int(badge_value.text) == expected_count and str(badge.get_meta("attention_tone", "")) == "fault", "M2 operations badge must equal actionable count and stay red while a fault exists")
+	if list != null:
+		for row: Node in list.get_children():
+			var task_id := str(row.get_meta("task_id", "")).replace(":", "_")
+			var action := main.find_child("TaskAction_%s" % task_id, true, false) as Button
+			_expect(action != null and not action.pressed.get_connections().is_empty(), "M2 task %s must expose a connected one-tap action" % task_id)
 
 func _expect(condition: bool, message: String) -> void:
 	if condition:

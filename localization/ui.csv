@@ -7,9 +7,26 @@ NAV_MARKET,Market,行情
 NAV_TECH,Tech,科技
 NAV_STORE,Store,商店
 NAV_SETTINGS,Settings,设置
-OPERATIONS_CENTER,Operations,运营中心
+OPERATIONS_CENTER,Task center,待办中心
 OPERATIONS_SUBTITLE,Run the company without leaving the park,不离开园区即可管理公司
 OPERATIONS_SHORT,Ops,运营
+OPERATIONS_PENDING,Action queue,待办队列
+OPERATIONS_PENDING_SUMMARY,%d actions · Urgent first,%d 项待办 · 紧急优先
+OPERATIONS_ALL_CLEAR,All caught up,事项已清空
+OPERATIONS_ALL_CLEAR_DETAIL,The park is running normally · Check market signals below,园区运行正常 · 可顺手查看下方行情
+OPERATIONS_TOOLS,Management tools,管理工具
+TASK_FAULT_TITLE,%s fault · %s,%s 故障 · %s
+TASK_FAULT_SUBTITLE,Income interrupted · Fix first,收入已中断 · 建议优先处理
+TASK_GO_REPAIR,Repair,去维修
+TASK_RENEWAL_TITLE,Free switch · %s left,免费换约窗口 · 剩 %s
+TASK_RENEWAL_SUBTITLE,%s · %s,%s · %s
+TASK_GO_RENEW,Switch,去换约
+TASK_RETIRE_TITLE,Retirement ready · %s,可退役 · %s
+TASK_RETIRE_SUBTITLE,Recover $%s · Current $%s / month,回收 $%s · 当前月收入 $%s
+TASK_GO_DECIDE,Review,去决策
+TASK_MARKET_TITLE,%s is live,%s 进行中
+TASK_MARKET_SUBTITLE,Review beneficiaries and rebalance contracts,查看受益机房并调整合约
+TASK_VIEW_MARKET,Market,看行情
 COMPANY_OVERVIEW,Company,公司
 ERA_SHORT,Era %d,时代 %d
 UNLOCK_AT_ERA,Unlocks in Era %d,时代 %d 解锁
@@ -39,6 +56,7 @@ SIGN_CONTRACT,Sign contract,签订合约
 SWITCH_CONTRACT,Switch contract,更换合约
 CONTRACT_BREACH_FEE,Switching fee: $%s,换约违约金：$%s
 CONTRACT_RENEWAL_WINDOW,Renewal window · free switching for %s,续约窗口 · %s 内免费换约
+CONTRACT_RENEWAL_CTA,Free switch · %s left,免费换约 · 剩 %s
 CONTRACT_REMAINING,Term remaining: %s,合约剩余：%s
 CONTRACT_FREE_SWITCH,Free switch,免费换约
 CONTRACT_PROJECTED,Projected $%s / month,预计 $%s / 月
@@ -96,6 +114,7 @@ LIFESPAN,Lifespan,寿命
 MAINTENANCE,Maintenance $%s / month,维护费 $%s / 月
 CONTRACT_NONE,No active contract,尚未签约
 CONTRACT_CURRENT,Client: %s,客户：%s
+DATACENTER_CLIENT_STATUS,%s · %s,%s · %s
 MARKET_ACTIVE,Active events,正在发生
 MARKET_PREVIEW,Coming next,新闻预告
 MARKET_CALM,Markets are calm,当前行情平稳

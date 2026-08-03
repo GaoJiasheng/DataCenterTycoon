@@ -49,7 +49,7 @@ func _ready() -> void:
 	_assert_sheet_reward_uses_hud_pulse()
 	_close("ActionSheetOverlay")
 	Game.install_power(dc_id, "power_t1")
-	Game.advance_time(300.0, false)
+	Game.advance_time(301.0, false)
 	await _shot("s2_rack_step_after_power")
 	_assert_tutorial_target("first_rack", "drawer", "control")
 	_assert_datacenter_header(dc_id)
@@ -64,7 +64,7 @@ func _ready() -> void:
 	_assert_tutorial_target("cooling", "drawer", "control")
 	_assert_datacenter_header(dc_id)
 	Game.install_cooler(dc_id, "north", "cool_air_t1")
-	Game.advance_time(300.0, false)
+	Game.advance_time(301.0, false)
 	await _shot("s5_buy_plot_step")
 	_assert_tutorial_target("buy_land", "map", "control")
 	_expect(main.find_child("DatacenterContext", true, false) == null, "B1 map context must clear the previous data-center drawer")
@@ -183,7 +183,7 @@ func _assert_datacenter_header(datacenter_id: String) -> void:
 	_expect(status != null and income != null, "D1 live data-center header fields must exist")
 	if status == null or income == null or dc.is_empty():
 		return
-	var expected_status := str(main.call("_datacenter_status_text", dc))
+	var expected_status := str(main.call("_datacenter_header_status_text", dc))
 	var expected_income := tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(dc))
 	_expect(status.text == expected_status, "D1 drawer status must match authoritative data (%s)" % expected_status)
 	_expect(income.text == expected_income, "D1 drawer income must match authoritative data (%s)" % expected_income)

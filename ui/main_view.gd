@@ -600,18 +600,7 @@ func _highest_income_datacenter_id() -> String:
 	return best_id
 
 func _operations_attention_count() -> int:
-	var result: int = Game.state.get("market", {}).get("active", []).size() + _fault_attention_count()
-	var cash := float(Game.state.get("player", {}).get("cash", 0.0))
-	var technology: Dictionary = DataRepository.get_table("technology")
-	var network_level := int(Game.state.get("player", {}).get("network_level", 1))
-	var next_network: Dictionary = technology.get("network", {}).get(str(network_level + 1), {})
-	if not next_network.is_empty() and Game.is_unlocked(next_network) and cash >= float(next_network.get("cost", INF)):
-		result += 1
-	var repair_level := int(Game.state.get("technology", {}).get("repair_team", 1))
-	var next_repair: Dictionary = technology.get("upgrades", {}).get("repair_team", {}).get("levels", {}).get(str(repair_level + 1), {})
-	if not next_repair.is_empty() and Game.is_unlocked(next_repair) and cash >= float(next_repair.get("cost", INF)):
-		result += 1
-	return result
+	return _operations_tasks(false).size()
 
 func _has_fault_attention() -> bool:
 	return _fault_attention_count() > 0
@@ -626,6 +615,68 @@ func _fault_attention_count() -> int:
 			if rack is Dictionary and str(rack.get("status", "")) == "faulted":
 				count += 1
 	return count
+
+func _operations_tasks(include_market: bool = true) -> Array[Dictionary]:
+	var tasks: Array[Dictionary] = []
+	var now := Game.simulation_time()
+	var buildings := DataRepository.get_table("buildings")
+	var racks := DataRepository.get_table("racks")
+	var aging_start := float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6))
+	for plot: Dictionary in Game.state.get("plots", []):
+		var dc_variant: Variant = plot.get("datacenter")
+		if not dc_variant is Dictionary:
+			continue
+		var dc := dc_variant as Dictionary
+		if str(dc.get("status", "")) != "operational":
+			continue
+		var dc_id := str(dc.get("id", ""))
+		var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
+		var building_name := tr(building.get("name_key", "DC_DETAIL"))
+		var installed_racks: Array = dc.get("racks", [])
+		for slot: int in range(installed_racks.size()):
+			var installed: Variant = installed_racks[slot]
+			if installed is Dictionary and str(installed.get("status", "")) == "faulted":
+				var rack := racks.get("items", {}).get(str(installed.get("rack_id", "")), {}) as Dictionary
+				tasks.append({
+					"id": "fault:%s:%d" % [dc_id, slot], "type": "fault", "priority": 0,
+					"datacenter_id": dc_id, "slot": slot, "asset": "ic_wrench", "accent": ThemeMaker.COLORS.red,
+					"title": tr("TASK_FAULT_TITLE") % [tr(rack.get("name_key", "RACKS")), building_name],
+					"subtitle": tr("TASK_FAULT_SUBTITLE"), "action": tr("TASK_GO_REPAIR"),
+				})
+		var renewal_end := float(dc.get("renewal_window_end_at", 0.0))
+		if renewal_end > now:
+			var customer := DataRepository.get_entry("customers", str(dc.get("customer_id", "")))
+			tasks.append({
+				"id": "renewal:%s" % dc_id, "type": "renewal", "priority": 1,
+				"datacenter_id": dc_id, "slot": -1, "asset": "ic_contract", "accent": ThemeMaker.COLORS.yellow,
+				"title": tr("TASK_RENEWAL_TITLE") % Game.format_duration(renewal_end - now),
+				"subtitle": tr("TASK_RENEWAL_SUBTITLE") % [tr(customer.get("name_key", "CONTRACT_NONE")), building_name],
+				"action": tr("TASK_GO_RENEW"),
+			})
+		var progress := Rules.age_progress(dc, now, buildings)
+		if progress >= aging_start:
+			tasks.append({
+				"id": "retire:%s" % dc_id, "type": "retire", "priority": 2,
+				"datacenter_id": dc_id, "slot": -1, "asset": "ic_retire", "accent": ThemeMaker.COLORS.orange,
+				"title": tr("TASK_RETIRE_TITLE") % building_name,
+				"subtitle": tr("TASK_RETIRE_SUBTITLE") % [Game.format_number(Rules.retirement_value(dc, now, Game.data)), Game.format_number(Game.datacenter_monthly_income(dc))],
+				"action": tr("TASK_GO_DECIDE"),
+			})
+	if include_market:
+		for active: Dictionary in Game.state.get("market", {}).get("active", []):
+			var event := DataRepository.get_entry("events", str(active.get("event_id", "")))
+			tasks.append({
+				"id": "market:%s" % str(active.get("event_id", "")), "type": "market", "priority": 3,
+				"datacenter_id": "", "slot": -1, "asset": "ic_market_up", "accent": ThemeMaker.COLORS.green,
+				"title": tr("TASK_MARKET_TITLE") % tr(event.get("name_key", "NAV_MARKET")),
+				"subtitle": tr("TASK_MARKET_SUBTITLE"), "action": tr("TASK_VIEW_MARKET"),
+			})
+	tasks.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a.get("priority", 99)) == int(b.get("priority", 99)):
+			return str(a.get("id", "")) < str(b.get("id", ""))
+		return int(a.get("priority", 99)) < int(b.get("priority", 99))
+	)
+	return tasks
 
 func _set_primary_affordability_pulse(enabled: bool) -> void:
 	if enabled and (_primary_pulse_tween == null or not _primary_pulse_tween.is_valid()):
@@ -664,9 +715,11 @@ func _on_news_input(event: InputEvent) -> void:
 		_navigate("market")
 
 func _show_operations_hub() -> void:
-	var parts := _create_world_sheet("OperationsHub", 680)
+	var parts := _create_world_sheet("OperationsHub", 1560)
 	var overlay := parts["overlay"] as ColorRect
 	var box := parts["box"] as VBoxContainer
+	var tasks := _operations_tasks(true)
+	var actionable_count := _operations_attention_count()
 	var heading := HBoxContainer.new()
 	heading.add_theme_constant_override("separation", 12)
 	box.add_child(heading)
@@ -676,9 +729,37 @@ func _show_operations_hub() -> void:
 	var operations_title := _label(tr("OPERATIONS_CENTER"), 38, ThemeMaker.COLORS.cream)
 	ThemeMaker.apply_text_role(operations_title, "display")
 	heading_copy.add_child(operations_title)
-	heading_copy.add_child(_label(tr("OPERATIONS_SUBTITLE"), 22, ThemeMaker.COLORS.cyan))
+	var summary_text := tr("OPERATIONS_PENDING_SUMMARY") % actionable_count if actionable_count > 0 else tr("OPERATIONS_ALL_CLEAR")
+	heading_copy.add_child(_label(summary_text, 22, ThemeMaker.COLORS.cyan if actionable_count == 0 else ThemeMaker.COLORS.orange))
 	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	heading.add_child(close_button)
+
+	var scroll := ScrollContainer.new()
+	scroll.name = "OperationsScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var content := VBoxContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_theme_constant_override("separation", ThemeMaker.GROUP_GAP)
+	scroll.add_child(content)
+	var pending_title := _label(tr("OPERATIONS_PENDING"), 27, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(pending_title, "title")
+	content.add_child(pending_title)
+	if tasks.is_empty():
+		var clear_card := Widgets.flat_card(ThemeMaker.COLORS.green)
+		clear_card.name = "OperationsClearState"
+		var clear_copy := _label(tr("OPERATIONS_ALL_CLEAR_DETAIL"), 22, ThemeMaker.COLORS.cyan)
+		clear_copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		clear_card.add_child(clear_copy)
+		content.add_child(clear_card)
+	else:
+		var task_list := VBoxContainer.new()
+		task_list.name = "OperationsTaskList"
+		task_list.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+		content.add_child(task_list)
+		for task: Dictionary in tasks:
+			task_list.add_child(_operations_task_row(task, overlay))
 
 	var queue_size: int = Game.state.get("construction_queue", []).size()
 	var era_id := int(Game.state.get("player", {}).get("era", 1))
@@ -689,21 +770,72 @@ func _show_operations_hub() -> void:
 		{"id": "tech", "title": tr("NAV_TECH"), "subtitle": tr(era.get("name_key", "ERA_1")), "asset": "ic_tech", "accent": ThemeMaker.COLORS.purple},
 		{"id": "store", "title": tr("NAV_STORE"), "subtitle": tr("GEMS_FORMAT") % Game.format_number(float(Game.state.get("player", {}).get("gems", 0))), "asset": "ic_shop", "accent": ThemeMaker.COLORS.green},
 	]
+	var tools_title := _label(tr("OPERATIONS_TOOLS"), 27, ThemeMaker.COLORS.cream)
+	ThemeMaker.apply_text_role(tools_title, "title")
+	content.add_child(tools_title)
 	var grid := GridContainer.new()
+	grid.name = "OperationsToolsGrid"
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
-	box.add_child(grid)
+	content.add_child(grid)
 	for module: Dictionary in modules:
 		var module_id := str(module["id"])
 		var card := _operation_module_card(module, func() -> void:
 			_dismiss_world_sheet(overlay, _navigate.bind(module_id))
-		)
+		, true)
 		grid.add_child(card)
 
-func _operation_module_card(module: Dictionary, action: Callable) -> Button:
+func _operations_task_row(task: Dictionary, overlay: ColorRect) -> PanelContainer:
+	var accent: Color = task.get("accent", ThemeMaker.COLORS.sky)
+	var row := Widgets.flat_card(accent)
+	var safe_id := str(task.get("id", "task")).replace(":", "_")
+	row.name = "OperationsTask_%s" % safe_id
+	row.custom_minimum_size.y = 124
+	row.set_meta("task_id", str(task.get("id", "")))
+	row.set_meta("task_type", str(task.get("type", "")))
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 16)
+	row.add_child(line)
+	line.add_child(_icon_view(str(task.get("asset", "ic_warning")), Vector2(54, 54)))
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.add_theme_constant_override("separation", 4)
+	line.add_child(copy)
+	var title := _label(str(task.get("title", "")), 23, ThemeMaker.COLORS.cream)
+	title.name = "TaskTitle"
+	title.max_lines_visible = 1
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	ThemeMaker.apply_text_role(title, "title")
+	copy.add_child(title)
+	var subtitle := _label(str(task.get("subtitle", "")), 20, ThemeMaker.COLORS.cyan)
+	subtitle.name = "TaskSubtitle"
+	subtitle.max_lines_visible = 1
+	subtitle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	copy.add_child(subtitle)
+	var role := "danger" if str(task.get("type", "")) == "fault" else ("warning" if str(task.get("type", "")) in ["renewal", "retire"] else "secondary")
+	var action_button := Widgets.button(str(task.get("action", "")), func() -> void:
+		_dismiss_world_sheet(overlay, _run_operations_task.bind(task.duplicate(true)))
+	, role)
+	action_button.name = "TaskAction_%s" % safe_id
+	action_button.custom_minimum_size = Vector2(142, ThemeMaker.TOUCH_MIN)
+	action_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	action_button.set_meta("task_id", str(task.get("id", "")))
+	action_button.set_meta("task_type", str(task.get("type", "")))
+	line.add_child(action_button)
+	return row
+
+func _run_operations_task(task: Dictionary) -> void:
+	var datacenter_id := str(task.get("datacenter_id", ""))
+	match str(task.get("type", "")):
+		"fault": _show_rack_actions(datacenter_id, int(task.get("slot", -1)))
+		"renewal": _open_datacenter_detail(datacenter_id, "contracts")
+		"retire": _show_datacenter_context(datacenter_id)
+		"market": _navigate("market")
+
+func _operation_module_card(module: Dictionary, action: Callable, compact: bool = false) -> Button:
 	var card := Button.new()
-	card.custom_minimum_size = Vector2(0, 214)
+	card.custom_minimum_size = Vector2(0, 164 if compact else 214)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.focus_mode = Control.FOCUS_NONE
 	card.pressed.connect(action)
@@ -723,7 +855,7 @@ func _operation_module_card(module: Dictionary, action: Callable) -> Button:
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(top)
-	top.add_child(_icon_view(str(module.get("asset", "ic_build")), Vector2(72, 72)))
+	top.add_child(_icon_view(str(module.get("asset", "ic_build")), Vector2(56, 56) if compact else Vector2(72, 72)))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(spacer)
@@ -738,7 +870,7 @@ func _operation_module_card(module: Dictionary, action: Callable) -> Button:
 	dot_style.content_margin_bottom = 0
 	status_dot.add_theme_stylebox_override("panel", dot_style)
 	top.add_child(status_dot)
-	var module_title := _label(str(module.get("title", "")), 28, ThemeMaker.COLORS.cream)
+	var module_title := _label(str(module.get("title", "")), 24 if compact else 28, ThemeMaker.COLORS.cream)
 	ThemeMaker.apply_text_role(module_title, "title")
 	content.add_child(module_title)
 	var subtitle := _label(str(module.get("subtitle", "")), 20, ThemeMaker.COLORS.cyan)
@@ -2261,7 +2393,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	var context_title := _label(tr(building.get("name_key", "")), 34, ThemeMaker.COLORS.cream)
 	ThemeMaker.apply_text_role(context_title, "display")
 	copy.add_child(context_title)
-	var context_status := _label(_datacenter_status_text(dc), 23, _datacenter_status_color(dc))
+	var context_status := _label(_datacenter_header_status_text(dc), 23, _datacenter_status_color(dc))
 	context_status.name = "DatacenterStatus"
 	copy.add_child(context_status)
 	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
@@ -2284,11 +2416,14 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 			return
 		var live_building := DataRepository.get_entry("buildings", str(live_dc.get("building_id", "")))
 		context_icon.texture = AssetCatalog.texture(_datacenter_context_asset(live_dc, live_building))
-		context_status.text = _datacenter_status_text(live_dc)
+		context_status.text = _datacenter_header_status_text(live_dc)
 		context_status.add_theme_color_override("font_color", _datacenter_status_color(live_dc))
 		income_value.text = tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(live_dc))
 		var live_progress := Rules.age_progress(live_dc, Game.simulation_time(), DataRepository.get_table("buildings"))
 		lifespan_value.text = "%s  %d%%" % [tr("LIFESPAN"), int(live_progress * 100.0)]
+		var live_contract_button := overlay.find_child("ContractCTA", true, false) as Button
+		if live_contract_button != null:
+			_refresh_contract_cta(live_contract_button, live_dc)
 	)
 	if str(dc.get("status", "")) == "ruined":
 		sheet_box.add_child(_button(tr("DEMOLISH"), func() -> void:
@@ -2304,13 +2439,15 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	sheet_box.add_child(board)
 	var powered := not str(dc.get("power_unit", "")).is_empty()
 	var contract_action := func() -> void:
-		if powered:
+		var live_dc := Game.find_datacenter(datacenter_id)
+		if not str(live_dc.get("power_unit", "")).is_empty():
 			_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, "contracts"))
 		else:
 			_show_toast(tr("BOARD_INSTALL_POWER"))
 	var contract_button := _button(tr("SIGN_CONTRACT"), contract_action, ThemeMaker.COLORS.sky if powered else Color("6f7b88"))
 	contract_button.name = "ContractCTA"
 	_set_button_asset(contract_button, "ic_contract", 42)
+	_refresh_contract_cta(contract_button, dc)
 	sheet_box.add_child(contract_button)
 	if not powered:
 		var power_hint := _label(tr("BOARD_INSTALL_POWER"), 20, Color("b8c2cc"))
@@ -2338,6 +2475,30 @@ func _datacenter_status_text(dc: Dictionary) -> String:
 	if str(dc.get("power_unit", "")).is_empty():
 		return tr("UNPOWERED")
 	return tr("POWERED")
+
+func _datacenter_header_status_text(dc: Dictionary) -> String:
+	var status := _datacenter_status_text(dc)
+	var customer_id := str(dc.get("customer_id", ""))
+	if customer_id.is_empty():
+		return status
+	var customer := DataRepository.get_entry("customers", customer_id)
+	return tr("DATACENTER_CLIENT_STATUS") % [tr(customer.get("name_key", "CONTRACT_NONE")), status]
+
+func _refresh_contract_cta(button: Button, dc: Dictionary) -> void:
+	var renewal_end := float(dc.get("renewal_window_end_at", 0.0))
+	var renewal_active := renewal_end > Game.simulation_time()
+	button.text = tr("CONTRACT_RENEWAL_CTA") % Game.format_duration(renewal_end - Game.simulation_time()) if renewal_active else tr("SIGN_CONTRACT")
+	button.set_meta("renewal_active", renewal_active)
+	button.set_meta("renewal_end_at", renewal_end if renewal_active else 0.0)
+	var visual_state := "renewal" if renewal_active else ("ready" if not str(dc.get("power_unit", "")).is_empty() else "disabled")
+	if str(button.get_meta("contract_visual_state", "")) == visual_state:
+		return
+	button.set_meta("contract_visual_state", visual_state)
+	ThemeMaker.apply_button_color(button, ThemeMaker.COLORS.yellow if renewal_active else (ThemeMaker.COLORS.sky if visual_state == "ready" else Color("6f7b88")))
+	if renewal_active:
+		button.add_theme_stylebox_override("normal", ThemeMaker.renewal_button_box())
+		button.add_theme_stylebox_override("hover", ThemeMaker.renewal_button_box(true))
+		button.add_theme_stylebox_override("pressed", ThemeMaker.renewal_button_box(false, true))
 
 func _datacenter_status_color(dc: Dictionary) -> Color:
 	if str(dc.get("status", "")) == "ruined":

@@ -96,3 +96,11 @@
 - [x] **FT4 / B3 方案①**：`dc_t0` 新增 `tutorial_build_seconds: 30`；仅教学未完成时使用，普通状态仍使用 300 秒。截图：[30 秒教学施工态](ui_review/14_batch1/ft4_tutorial_30s.png)。`flow_audit` 同时断言教学期 `≤30s` 与教学完成后 `=300s`。
 
 门禁结果：`validate_data` 通过；`test_runner` 103/103；`flow_audit` 全绿；`midgame_audit` 批次①断言全绿；`visual_smoke` 中文 30/30、英文 30/30。批次①未混入 TestFlight、`project.godot` 或 12 号文档的既有工作区改动。
+
+### 批次② · M2 + M4/M5（2026-08-03）
+
+- [x] **M2**：运营入口升级为待办中心，HUD 徽标只计算故障、免费换约、可退役三类 actionable 事项；故障存在时为红色，否则为金色。第一屏按“故障→续约→退役→行情”排序，每行只保留图标、主信息、一行辅助和 88u 一键直达按钮，原管理四宫格降到列表下方并支持滚动。截图：[两项并发待办](ui_review/14_batch2/m2_task_center.png)、[英文窄屏回归](ui_review/14_batch2/operations_en.png)。流程审计点击故障行后直接打开对应机柜维修操作单，并断言所有行均绑定 action。
+- [x] **M4**：续约窗口内，机房抽屉 CTA 改为带金色描边的“免费换约 · 剩 X”，倒计时通过 `live_update` 实时刷新并携带权威截止时间；世界金色卷轴直接深链合约 tab。截图：[续约抽屉 CTA](ui_review/14_batch2/m2_renewal_drawer.png)、[角标直达合约页](ui_review/14_batch2/m2_renewal_direct_contracts.png)。
+- [x] **M5**：机房抽屉头部由单纯“供电正常”扩展为“挖矿客户 · 供电正常”，无客户时仍保持原状态文案；D1 流程断言同步改为权威头部组合文案。
+
+门禁结果：`validate_data` 通过；`test_runner` 103/103；`flow_audit` 全绿；`midgame_audit` 的 M2/M4/M5 与深链断言全绿；`visual_smoke` 中文 30/30、英文 30/30。待办队列数量、红色故障优先级、续约倒计时更新和世界角标直达均已自动化覆盖。

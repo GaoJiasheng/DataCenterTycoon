@@ -346,6 +346,22 @@ static func notification_badge(accent: Color) -> StyleBoxFlat:
 	box.content_margin_bottom = 0
 	return box
 
+static func renewal_button_box(hovered: bool = false, pressed: bool = false) -> StyleBoxFlat:
+	var fill := Color("94681b")
+	if hovered:
+		fill = Color("aa7a25")
+	elif pressed:
+		fill = Color("735014")
+	var box := panel(fill, Color("f2c14e"), 2, RADIUS.button)
+	box.content_margin_left = GROUP_PADDING
+	box.content_margin_right = GROUP_PADDING
+	box.content_margin_top = ITEM_GAP
+	box.content_margin_bottom = ITEM_GAP
+	box.shadow_color = Color(0, 0, 0, 0.16)
+	box.shadow_size = 2
+	box.shadow_offset = Vector2(0, 1)
+	return box
+
 static func sale_price_badge() -> StyleBoxFlat:
 	# A compact sign plate belongs to the parcel instead of reading as a second
 	# floating CTA. The warm rim connects it to the physical sale sign while the
