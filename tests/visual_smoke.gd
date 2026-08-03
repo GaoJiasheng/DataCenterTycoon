@@ -382,19 +382,19 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if not ThemeFactory.SURFACE.is_equal_approx(Color("122438")) or not ThemeFactory.SURFACE_GROUP.is_equal_approx(Color(0, 0, 0, 0.22)) or not ThemeFactory.COLORS.cyan.is_equal_approx(Color("9fb8cc")):
 			push_error("VISUAL_SMOKE: final-look surface or secondary-text palette drifted")
 			valid = false
-		var task_caption := main.find_child("TaskCaption", true, false) as Label
-		var operations_caption := main.find_child("OperationsCaption", true, false) as Label
 		var task_button := main.find_child("TaskButton", true, false) as Button
 		var operations_button := main.find_child("OperationsButton", true, false) as Button
-		if task_caption == null or operations_caption == null or task_button == null or operations_button == null or task_caption.get_parent() == task_button or operations_caption.get_parent() == operations_button or not task_button.text.is_empty() or not operations_button.text.is_empty():
-			push_error("VISUAL_SMOKE: map circular entries do not keep their labels outside the icon buttons")
+		var task_caption := task_button.find_child("WorldActionLabel", true, false) as Label if task_button != null else null
+		var operations_caption := operations_button.find_child("WorldActionLabel", true, false) as Label if operations_button != null else null
+		if task_caption == null or operations_caption == null or task_button == null or operations_button == null or not task_button.is_ancestor_of(task_caption) or not operations_button.is_ancestor_of(operations_caption) or not task_button.text.is_empty() or not operations_button.text.is_empty():
+			push_error("VISUAL_SMOKE: map action labels are not owned by their clickable entries")
 			valid = false
 		for caption: Label in [task_caption, operations_caption]:
 			if caption != null:
 				var caption_rect := caption.get_global_rect()
 				var button_rect := task_button.get_global_rect() if caption == task_caption else operations_button.get_global_rect()
-				if not viewport_rect.grow(-4.0).encloses(caption_rect) or caption_rect.end.y > button_rect.position.y + 1.0:
-					push_error("VISUAL_SMOKE: map action caption is outside the safe strip or below its button %s caption=%s button=%s" % [caption.name, caption_rect, button_rect])
+				if not viewport_rect.grow(-4.0).encloses(caption_rect) or not button_rect.encloses(caption_rect) or caption.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+					push_error("VISUAL_SMOKE: map action caption escapes its clickable button %s caption=%s button=%s" % [caption.name, caption_rect, button_rect])
 					valid = false
 	if state_name == "campus_dense":
 		# F1 is deliberately separate from the generic button-color sweep: its old
@@ -418,11 +418,11 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if not primary_is_white:
 			push_error("VISUAL_SMOKE: F1 PrimaryWorldAction is not pure-white bold CJK with a 4px ink outline")
 			valid = false
-		for caption_name: String in ["TaskCaption", "OperationsCaption"]:
-			var world_caption := main.find_child(caption_name, true, false) as Label
-			var world_caption_fill := main.find_child("%sFill" % caption_name, true, false) as Label
-			if world_caption == null or world_caption_fill == null or world_caption_fill.get_parent() != world_caption or not world_caption.get_theme_color("font_color").is_equal_approx(Color.WHITE) or world_caption.get_theme_font_size("font_size") != 20 or world_caption.get_theme_constant("outline_size") != 3 or not world_caption.get_theme_color("font_outline_color").is_equal_approx(ThemeFactory.COLORS.ink) or world_caption.get_theme_font("font") != ThemeFactory.font_world_heavy() or not world_caption_fill.get_theme_color("font_color").is_equal_approx(Color.WHITE) or not world_caption_fill.get_theme_color("font_outline_color").is_equal_approx(Color.WHITE) or world_caption_fill.get_theme_constant("outline_size") != 1:
-				push_error("VISUAL_SMOKE: F10 world action caption violates the 20u white/heavy/3px contract: %s" % caption_name)
+		for button_name: String in ["TaskButton", "OperationsButton"]:
+			var world_button := main.find_child(button_name, true, false) as Button
+			var world_caption := world_button.find_child("WorldActionLabel", true, false) as Label if world_button != null else null
+			if world_caption == null or not world_button.is_ancestor_of(world_caption) or not world_caption.get_theme_color("font_color").is_equal_approx(Color.WHITE) or world_caption.get_theme_font_size("font_size") != 20 or world_caption.get_theme_constant("outline_size") != 3 or not world_caption.get_theme_color("font_outline_color").is_equal_approx(ThemeFactory.COLORS.ink) or world_caption.get_theme_font("font") != ThemeFactory.font_world_heavy():
+				push_error("VISUAL_SMOKE: F10 world action caption violates the owned 20u white/heavy/3px contract: %s" % button_name)
 				valid = false
 		var sale_price := main.find_child("SalePriceBadge", true, false) as PanelContainer
 		var sale_tether := main.find_child("SalePriceTether", true, false) as ColorRect

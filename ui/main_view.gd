@@ -208,16 +208,23 @@ func _build_shell() -> void:
 	company_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	company_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	company_button.add_child(company_center)
-	var company_row := HBoxContainer.new()
-	company_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	company_row.add_theme_constant_override("separation", 4)
-	company_center.add_child(company_row)
 	era_icon = _icon_view("ic_era1", Vector2(46, 46))
-	company_row.add_child(era_icon)
-	company_label = _label("1", 24, Color.WHITE)
+	company_center.add_child(era_icon)
+	company_label = _label("1", 20, Color.WHITE)
+	company_label.name = "EraCornerBadge"
+	company_label.position = Vector2(58, 50)
+	company_label.size = Vector2(30, 28)
+	company_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ThemeMaker.world_text(company_label)
 	company_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	company_row.add_child(company_label)
+	var era_badge_style := ThemeMaker.panel(Color("173252"), Color.WHITE, 2, 14)
+	era_badge_style.content_margin_left = 4
+	era_badge_style.content_margin_right = 4
+	era_badge_style.content_margin_top = 2
+	era_badge_style.content_margin_bottom = 2
+	company_label.add_theme_stylebox_override("normal", era_badge_style)
+	company_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	company_button.add_child(company_label)
 	topbar.add_child(company_button)
 	var cash_chip := _resource_chip("ic_cash", ThemeMaker.COLORS.yellow)
 	cash_chip.name = "CashResource"
@@ -270,9 +277,6 @@ func _build_shell() -> void:
 	navigation_panel = PanelContainer.new()
 	navigation_panel.name = "WorldActions"
 	navigation_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	# Include the two external captions in the bottom safe-area contract. Keeping
-	# them above their icon buttons makes the labels readable even on the dense
-	# campus framing and leaves an explicit 8u breathing strip below the CTA.
 	navigation_panel.offset_top = -168
 	navigation_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	stage.add_child(navigation_panel)
@@ -283,20 +287,19 @@ func _build_shell() -> void:
 	task_button.name = "TaskButton"
 	task_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
 	task_button.offset_left = 0
-	task_button.offset_top = -50
-	task_button.offset_right = 96
-	task_button.offset_bottom = 46
+	task_button.offset_top = -64
+	task_button.offset_right = 112
+	task_button.offset_bottom = 64
 	task_button.tooltip_text = tr("VIEW_QUEUE")
 	task_button.pressed.connect(_navigate.bind("build"))
 	ThemeMaker.apply_world_hud_button(task_button)
 	_wire_button_motion(task_button)
-	_set_button_asset(task_button, "ic_build", 42)
+	_set_world_action_content(task_button, "ic_build", tr("NAV_BUILD"))
 	action_layer.add_child(task_button)
-	_add_world_action_caption(action_layer, tr("NAV_BUILD"), false)
 	queue_badge_label = _label("", 19, Color.WHITE)
 	queue_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	queue_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	queue_badge_label.position = Vector2(62, -6)
+	queue_badge_label.position = Vector2(78, -6)
 	queue_badge_label.size = Vector2(42, 42)
 	queue_badge_label.add_theme_stylebox_override("normal", ThemeMaker.panel(ThemeMaker.COLORS.red, Color.WHITE, 2, 21))
 	queue_badge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -316,22 +319,19 @@ func _build_shell() -> void:
 	operations_button = Button.new()
 	operations_button.name = "OperationsButton"
 	operations_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
-	operations_button.offset_left = -96
-	operations_button.offset_top = -50
+	operations_button.offset_left = -112
+	operations_button.offset_top = -64
 	operations_button.offset_right = 0
-	operations_button.offset_bottom = 46
+	operations_button.offset_bottom = 64
 	operations_button.tooltip_text = tr("OPERATIONS_CENTER")
 	operations_button.pressed.connect(_show_operations_hub)
 	ThemeMaker.apply_world_hud_button(operations_button)
 	_wire_button_motion(operations_button)
-	operations_button.text = ""
 	var operations_asset := "ic_operations" if AssetCatalog.texture("ic_operations") != null else "ic_network"
-	_set_button_asset(operations_button, operations_asset, 42)
-	operations_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_set_world_action_content(operations_button, operations_asset, tr("OPERATIONS_SHORT"))
 	action_layer.add_child(operations_button)
-	_add_world_action_caption(action_layer, tr("OPERATIONS_SHORT"), true)
 	operations_badge = Widgets.badge(0)
-	operations_badge.position = Vector2(62, -6)
+	operations_badge.position = Vector2(78, -6)
 	operations_badge_label = operations_badge.find_child("BadgeValue", true, false) as Label
 	operations_badge.visible = false
 	operations_button.add_child(operations_badge)
@@ -1548,11 +1548,10 @@ func _refresh_tutorial() -> void:
 	var steps: Array = DataRepository.get_table("tutorial").get("steps", [])
 	var index := int(tutorial.get("step", 0))
 	if _last_tutorial_step >= 0 and index > _last_tutorial_step:
-		_play_fx("fx_confetti_set", 300)
+		if fx_layer != null:
+			fx_layer.clear()
 		AudioService.play_sfx("sfx_tap")
-		_haptic(HAPTIC_SUCCESS)
-		if index in [1, 4, 7]:
-			_fly_cash_reward(Vector2.ZERO, 3)
+		_haptic(HAPTIC_LIGHT)
 	_last_tutorial_step = index
 	var completed := bool(tutorial.get("completed", false)) or index >= steps.size()
 	if completed:
@@ -2705,7 +2704,19 @@ func _fly_cash_reward(source: Vector2, count: int) -> void:
 	if fx_layer == null or cash_label == null:
 		return
 	var chip := _cash_chip_target()
-	fx_layer.fly_coins(source, chip, count)
+	if _world_reward_fx_available(source):
+		fx_layer.fly_coins(source, chip, count)
+	else:
+		fx_layer.pulse_target(chip)
+
+func _world_reward_fx_available(source: Vector2) -> bool:
+	if active_page != "map" or source == Vector2.ZERO:
+		return false
+	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "OfflineOverlay", "EraOverlay", "GameOverOverlay"]:
+		var overlay := find_child(overlay_name, true, false) as CanvasItem
+		if overlay != null and overlay.is_visible_in_tree():
+			return false
+	return true
 
 func _cash_chip_target() -> Control:
 	var chip := find_child("CashResource", true, false) as Control
@@ -2958,6 +2969,8 @@ func _on_locale_changed(_locale: String) -> void:
 	var settings_button := find_child("SettingsButton", true, false) as Button
 	if settings_button != null:
 		settings_button.tooltip_text = tr("NAV_SETTINGS")
+	_set_world_action_label(task_button, tr("NAV_BUILD"))
+	_set_world_action_label(operations_button, tr("OPERATIONS_SHORT"))
 	_request_full_refresh()
 
 func _on_purchase_completed(_product_id: String, success: bool, _message: String) -> void:
@@ -2980,14 +2993,15 @@ func _show_toast(message: String, cue_id: String = "") -> void:
 
 func _play_fx(asset_id: String, extent: float = 340.0) -> void:
 	var texture := AssetCatalog.texture(asset_id)
-	if texture == null or not is_inside_tree():
+	if texture == null or not is_inside_tree() or fx_layer == null:
 		return
 	var view := TextureRect.new()
 	view.texture = texture
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	view.z_index = 120
+	view.z_index = 0
+	fx_layer.add_effect(view)
 	view.set_anchors_preset(Control.PRESET_CENTER)
 	view.offset_left = -extent * 0.5
 	view.offset_top = -extent * 0.5
@@ -2996,15 +3010,14 @@ func _play_fx(asset_id: String, extent: float = 340.0) -> void:
 	view.pivot_offset = Vector2(extent, extent) * 0.5
 	view.scale = Vector2.ONE * 0.45
 	view.modulate.a = 0.0
-	add_child(view)
-	var tween := create_tween().set_parallel(true)
+	var tween := view.create_tween().set_parallel(true)
 	tween.tween_property(view, "scale", Vector2.ONE * 1.15, 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(view, "modulate:a", 1.0, 0.12)
 	tween.tween_property(view, "modulate:a", 0.0, 0.35).set_delay(0.5)
 	tween.finished.connect(view.queue_free)
 
 func _play_fx_at_world(asset_id: String, target_id: String, extent: float = 190.0) -> void:
-	if active_page != "map" or park_map == null:
+	if active_page != "map" or park_map == null or fx_layer == null:
 		return
 	var target := park_map.target_global_position(target_id)
 	var texture := AssetCatalog.texture(asset_id)
@@ -3015,14 +3028,14 @@ func _play_fx_at_world(asset_id: String, target_id: String, extent: float = 190.
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	view.z_index = 120
+	view.z_index = 0
 	view.size = Vector2.ONE * extent
+	fx_layer.add_effect(view)
 	view.global_position = target - view.size * 0.5
 	view.pivot_offset = view.size * 0.5
 	view.scale = Vector2.ONE * 0.35
 	view.modulate.a = 0.0
-	add_child(view)
-	var tween := create_tween().set_parallel(true)
+	var tween := view.create_tween().set_parallel(true)
 	tween.tween_property(view, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(view, "modulate:a", 1.0, 0.10)
 	tween.tween_property(view, "modulate:a", 0.0, 0.28).set_delay(0.34)
@@ -3211,34 +3224,39 @@ func _resource_chip(asset_id: String, accent: Color) -> PanelContainer:
 	row.add_child(affordance)
 	return chip
 
-func _add_world_action_caption(parent: Control, text: String, align_right: bool) -> void:
-	var caption := _label(text, 20, Color.WHITE)
-	caption.name = "OperationsCaption" if align_right else "TaskCaption"
-	caption.set_anchors_preset(Control.PRESET_TOP_RIGHT if align_right else Control.PRESET_TOP_LEFT)
-	caption.offset_left = -104 if align_right else -8
-	caption.offset_top = 0
-	caption.offset_right = 8 if align_right else 104
-	caption.offset_bottom = 28
-	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ThemeMaker.apply_text_role(caption, "world")
-	caption.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
-	caption.add_theme_constant_override("outline_size", 3)
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(caption)
-	# A second fill-only pass keeps the 20u Chinese interiors actually white. The
-	# outlined parent remains the contrast and geometry contract; making the fill a
-	# child avoids presenting two independent labels to layout/overlap gates.
-	var fill := _label(text, 20, Color.WHITE)
-	fill.name = "%sFill" % caption.name
-	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fill.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	fill.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ThemeMaker.apply_text_role(fill, "world")
-	fill.add_theme_color_override("font_outline_color", Color.WHITE)
-	fill.add_theme_constant_override("outline_size", 1)
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	caption.add_child(fill)
+func _set_world_action_content(button: Button, asset_id: String, text: String) -> void:
+	button.text = ""
+	button.icon = null
+	var center := CenterContainer.new()
+	center.name = "WorldActionContent"
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	button.add_child(center)
+	var column := VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 2)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(column)
+	var icon := _icon_view(asset_id, Vector2(42, 42))
+	icon.name = "WorldActionIcon"
+	column.add_child(icon)
+	var label := _label(text, 20, Color.WHITE)
+	label.name = "WorldActionLabel"
+	label.custom_minimum_size = Vector2(92, 28)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ThemeMaker.apply_text_role(label, "world")
+	label.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+	label.add_theme_constant_override("outline_size", 3)
+	column.add_child(label)
+
+func _set_world_action_label(button: Button, text: String) -> void:
+	if button == null:
+		return
+	var label := button.find_child("WorldActionLabel", true, false) as Label
+	if label != null:
+		label.text = text
 
 func _metric_chip(text: String, accent: Color) -> PanelContainer:
 	return Widgets.chip(text, accent.lightened(0.18))
@@ -3289,7 +3307,7 @@ func _safe_area_margins() -> Vector4:
 	# example when the game window is on a secondary monitor). Only mobile
 	# platforms should translate the display safe area into viewport margins.
 	if OS.get_name() not in ["iOS", "Android"]:
-		return Vector4(32, 116, 32, 68)
+		return Vector4(32, 24, 32, 24)
 	var screen := Vector2(DisplayServer.screen_get_size())
 	var safe := DisplayServer.get_display_safe_area()
 	var viewport := get_viewport_rect().size

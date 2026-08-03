@@ -2,6 +2,9 @@ class_name FxLayer
 extends Control
 
 const MAX_COINS := 8
+const MAX_EFFECT_TTL := 2.5
+
+var _pulse_targets: Array[Control] = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -22,8 +25,26 @@ func fly_coins(world_position: Vector2, target: Control, count: int = 3) -> void
 
 func clear() -> void:
 	for child: Node in get_children():
-		if bool(child.get_meta("flying_coin", false)):
-			child.queue_free()
+		child.queue_free()
+	for target: Control in _pulse_targets:
+		if is_instance_valid(target):
+			target.scale = Vector2.ONE
+	_pulse_targets.clear()
+
+func add_effect(effect: Control, ttl: float = MAX_EFFECT_TTL) -> void:
+	if effect == null:
+		return
+	effect.set_meta("managed_fx", true)
+	add_child(effect)
+	var lifetime := clampf(ttl, 0.05, MAX_EFFECT_TTL)
+	get_tree().create_timer(lifetime).timeout.connect(_expire_effect.bind(effect.get_instance_id()))
+
+func active_effect_count() -> int:
+	var count := 0
+	for child: Node in get_children():
+		if not child.is_queued_for_deletion():
+			count += 1
+	return count
 
 func active_coin_count() -> int:
 	var count := 0
@@ -36,9 +57,23 @@ func pulse_target(target: Control) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	target.pivot_offset = target.size * 0.5
+	if target not in _pulse_targets:
+		_pulse_targets.append(target)
 	var tween := target.create_tween()
 	tween.tween_property(target, "scale", Vector2.ONE * 1.06, 0.10).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(target, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.finished.connect(_finish_pulse.bind(target.get_instance_id()))
+
+func _expire_effect(instance_id: int) -> void:
+	var effect := instance_from_id(instance_id) as Node
+	if effect != null and not effect.is_queued_for_deletion():
+		effect.queue_free()
+
+func _finish_pulse(instance_id: int) -> void:
+	var target := instance_from_id(instance_id) as Control
+	if target != null:
+		target.scale = Vector2.ONE
+		_pulse_targets.erase(target)
 
 func _spawn_coin(texture: Texture2D, start: Vector2, destination: Vector2, index: int, amount: int, target: Control) -> void:
 	var coin := TextureRect.new()
@@ -53,7 +88,7 @@ func _spawn_coin(texture: Texture2D, start: Vector2, destination: Vector2, index
 	coin.position = start - coin.size * 0.5 + Vector2((index - amount * 0.5) * 10.0, sin(index * 2.1) * 12.0)
 	coin.scale = Vector2.ONE * 0.68
 	coin.modulate.a = 0.0
-	add_child(coin)
+	add_effect(coin)
 	var origin := coin.position
 	var finish := destination - coin.size * 0.5
 	var arc := Vector2((index - amount * 0.5) * 18.0, -120.0 - index % 3 * 18.0)
