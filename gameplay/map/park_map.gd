@@ -297,6 +297,15 @@ func building_rect(datacenter_id: String) -> Rect2:
 	var art := target.find_child("WorldArt", false, false) as Control
 	return art.get_global_rect() if art != null and art.is_visible_in_tree() else target.get_global_rect()
 
+func set_tutorial_sale_focus(enabled: bool) -> void:
+	var sale := target_buttons.get("sale") as Control
+	if sale == null:
+		return
+	for node_name: String in ["SalePriceBadge", "SalePriceTether"]:
+		var price_part := sale.find_child(node_name, true, false) as CanvasItem
+		if price_part != null:
+			price_part.visible = enabled
+
 func celebrate_target(target_id: String) -> void:
 	var target := target_buttons.get(target_id) as Control
 	if target == null:

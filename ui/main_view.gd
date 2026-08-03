@@ -25,6 +25,7 @@ var gems_label: Label
 var date_label: Label
 var news_label: Label
 var tutorial_overlay: TutorialOverlay
+var tutorial_hint_button: Button
 var world_host: Control
 var park_map: ParkMap
 var shell_header: PanelContainer
@@ -74,6 +75,9 @@ var _last_tutorial_step := -1
 var _tutorial_protocol_step := -1
 var _tutorial_visual_mode := "actionable"
 var _tutorial_world_focus_id := ""
+var _retire_tutorial_awake := false
+var _retire_notice_collapsed := false
+var _retire_notice_token := 0
 var _music_target := ""
 var _music_fade_tween: Tween
 var _night_amb_countdown := 0.0
@@ -345,6 +349,7 @@ func _build_shell() -> void:
 	tutorial_overlay = TutorialOverlayScene.new()
 	tutorial_overlay.target_activated.connect(_on_tutorial_target_activated)
 	add_child(tutorial_overlay)
+	_build_tutorial_dormant_hint()
 
 	toast_label = _label("", 25, Color.WHITE)
 	toast_label.visible = false
@@ -368,6 +373,7 @@ func _connect_events() -> void:
 	EventBus.construction_completed.connect(_on_construction_completed)
 	EventBus.rack_fault_occurred.connect(_on_rack_fault_occurred)
 	EventBus.contract_renewal_opened.connect(_on_contract_renewal_opened)
+	EventBus.datacenter_entered_aging.connect(_on_datacenter_entered_aging)
 	EventBus.market_event_started.connect(_on_market_event_started)
 	EventBus.market_event_ended.connect(_on_market_event_ended)
 	EventBus.reward_granted.connect(_on_reward_granted)
@@ -1554,6 +1560,35 @@ func _open_public_document(document_id: String) -> void:
 	var absolute_path := ProjectSettings.globalize_path(resource_path)
 	OS.shell_open("file://%s" % absolute_path.uri_encode())
 
+func _build_tutorial_dormant_hint() -> void:
+	tutorial_hint_button = Button.new()
+	tutorial_hint_button.name = "TutorialDormantHint"
+	tutorial_hint_button.visible = false
+	tutorial_hint_button.z_index = 97
+	tutorial_hint_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	tutorial_hint_button.offset_left = -148
+	tutorial_hint_button.offset_top = -184
+	tutorial_hint_button.offset_right = -36
+	tutorial_hint_button.offset_bottom = -72
+	tutorial_hint_button.tooltip_text = tr("TUTORIAL_RETIRE_WAIT")
+	tutorial_hint_button.pressed.connect(_expand_retire_dormant_notice)
+	ThemeMaker.apply_world_hud_button(tutorial_hint_button)
+	_wire_button_motion(tutorial_hint_button)
+	_set_button_asset(tutorial_hint_button, "guide_worried", 72)
+	var badge := PanelContainer.new()
+	badge.name = "TutorialDormantBadge"
+	badge.position = Vector2(76, -4)
+	badge.size = Vector2(40, 40)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var badge_style := ThemeMaker.panel(ThemeMaker.COLORS.red, Color.WHITE, 2, 20)
+	badge_style.content_margin_left = 0
+	badge_style.content_margin_right = 0
+	badge_style.content_margin_top = 0
+	badge_style.content_margin_bottom = 0
+	badge.add_theme_stylebox_override("panel", badge_style)
+	tutorial_hint_button.add_child(badge)
+	add_child(tutorial_hint_button)
+
 func _refresh_tutorial() -> void:
 	var tutorial: Dictionary = Game.state.get("tutorial", {})
 	var steps: Array = DataRepository.get_table("tutorial").get("steps", [])
@@ -1567,20 +1602,45 @@ func _refresh_tutorial() -> void:
 	var completed := bool(tutorial.get("completed", false)) or index >= steps.size()
 	if completed:
 		tutorial_overlay.dismiss()
+		tutorial_hint_button.visible = false
+		if park_map != null:
+			park_map.set_tutorial_sale_focus(true)
 		_set_tutorial_chrome_visibility(true, "")
 		_tutorial_visual_mode = "completed"
 		return
 	var step: Dictionary = steps[index]
-	_apply_tutorial_context(index, step)
+	var step_id := str(step.get("id", ""))
 	var focus := str(step.get("focus", ""))
-	var target := _resolve_tutorial_target(focus)
+	if park_map != null:
+		park_map.set_tutorial_sale_focus(focus == "buy_plot")
+	if step_id == "retire" and _retire_tutorial_is_ready():
+		_retire_tutorial_awake = true
+	if step_id != "retire":
+		tutorial_hint_button.visible = false
+	_apply_tutorial_context(index, step)
+	var context := _effective_tutorial_context(step)
+	var tutorial_drawer := find_child("DatacenterContext", true, false)
+	if tutorial_drawer != null:
+		tutorial_drawer.set_meta("tutorial_lock_close", context == "drawer")
+	if step_id == "retire" and context == "dormant" and _retire_notice_collapsed:
+		tutorial_overlay.set_meta("tutorial_step_id", step_id)
+		tutorial_overlay.set_meta("tutorial_context", context)
+		tutorial_overlay.set_meta("tutorial_mode", "dormant_hint")
+		tutorial_overlay.set_meta("target_source", "none")
+		tutorial_overlay.set_meta("resolved_target_rect", Rect2())
+		tutorial_overlay.dismiss()
+		tutorial_hint_button.visible = true
+		_set_tutorial_chrome_visibility(false, focus)
+		return
+	var target := _resolve_tutorial_target(focus) if context != "dormant" else {"rect": Rect2(), "action": Callable(), "source": "none", "mode": "dormant"}
 	var rect: Rect2 = target.get("rect", Rect2())
 	var action: Callable = target.get("action", Callable())
-	var context := str(step.get("context", "map"))
 	var copy := tr(step.get("message_key", ""))
 	_tutorial_visual_mode = str(target.get("mode", "dormant" if context == "dormant" else "actionable"))
 	if _tutorial_visual_mode == "waiting":
 		copy = _tutorial_waiting_copy()
+	elif step_id == "retire" and context == "dormant":
+		copy = tr("TUTORIAL_RETIRE_WAIT")
 	elif bool(target.get("world_stage", false)):
 		copy = tr("TUTORIAL_OPEN_DC_PREFIX") % copy
 	var guide_assets := ["guide_normal", "guide_thinking", "guide_happy", "guide_alert", "guide_worried", "guide_thinking", "guide_worried", "guide_happy"]
@@ -1590,6 +1650,7 @@ func _refresh_tutorial() -> void:
 	tutorial_overlay.set_meta("target_source", str(target.get("source", "none")))
 	tutorial_overlay.set_meta("resolved_target_rect", rect)
 	tutorial_overlay.present(rect, copy, guide_assets[mini(index, guide_assets.size() - 1)], action)
+	tutorial_hint_button.visible = false
 	_set_tutorial_chrome_visibility(false, focus)
 
 func _apply_tutorial_context(index: int, step: Dictionary) -> void:
@@ -1599,7 +1660,7 @@ func _apply_tutorial_context(index: int, step: Dictionary) -> void:
 	_tutorial_world_focus_id = ""
 	if fx_layer != null:
 		fx_layer.clear()
-	var context := str(step.get("context", "map"))
+	var context := _effective_tutorial_context(step)
 	match context:
 		"map", "dormant":
 			_close_tutorial_surfaces(false)
@@ -1616,6 +1677,39 @@ func _apply_tutorial_context(index: int, step: Dictionary) -> void:
 				_navigate("map")
 			elif active_page not in ["map", "detail"]:
 				_navigate("map")
+	if str(step.get("id", "")) == "retire" and context == "dormant":
+		_schedule_retire_notice_collapse()
+
+func _effective_tutorial_context(step: Dictionary) -> String:
+	if str(step.get("id", "")) == "retire" and _retire_tutorial_awake:
+		return "drawer"
+	return str(step.get("context", "map"))
+
+func _retire_tutorial_is_ready() -> bool:
+	var dc_id := _tutorial_datacenter_id()
+	var dc := Game.find_datacenter(dc_id)
+	if dc.is_empty():
+		return false
+	var progress := Rules.age_progress(dc, Game.simulation_time(), DataRepository.get_table("buildings"))
+	var threshold := float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6))
+	return progress >= threshold
+
+func _schedule_retire_notice_collapse() -> void:
+	_retire_notice_collapsed = false
+	_retire_notice_token += 1
+	get_tree().create_timer(3.0).timeout.connect(_collapse_retire_notice.bind(_retire_notice_token))
+
+func _collapse_retire_notice(token: int) -> void:
+	if token != _retire_notice_token or _retire_tutorial_awake:
+		return
+	_retire_notice_collapsed = true
+	_request_hud_refresh()
+
+func _expand_retire_dormant_notice() -> void:
+	_retire_notice_collapsed = false
+	_retire_notice_token += 1
+	get_tree().create_timer(3.0).timeout.connect(_collapse_retire_notice.bind(_retire_notice_token))
+	_refresh_tutorial()
 
 func _close_tutorial_surfaces(keep_datacenter_drawer: bool) -> void:
 	for surface_name: String in ["ActionSheetOverlay", "BuildingPicker", "OperationsHub", "DatacenterContext"]:
@@ -1684,7 +1778,7 @@ func _resolve_tutorial_target(focus: String) -> Dictionary:
 			if is_instance_valid(control) and control is Button:
 				(control as Button).pressed.emit()
 		return {"rect": control.get_global_rect(), "action": action, "source": "control", "mode": "actionable"}
-	if focus in ["install_power", "rack_slot_0", "contract_internet", "install_cooler"]:
+	if focus in ["install_power", "rack_slot_0", "contract_internet", "install_cooler", "retire_dc"]:
 		var dc_id := _tutorial_datacenter_id()
 		if dc_id.is_empty():
 			return {"rect": Rect2(), "action": Callable(), "source": "construction_wait", "mode": "waiting"}
@@ -2057,6 +2151,10 @@ func _wire_sheet_interactions(overlay: ColorRect, sheet: Control, handle_area: C
 	)
 	var drag := {"active": false, "start_y": 0.0, "base_y": 0.0, "last_y": 0.0, "last_ms": 0}
 	handle_area.gui_input.connect(func(event: InputEvent) -> void:
+		if bool(overlay.get_meta("tutorial_lock_close", false)):
+			drag["active"] = false
+			handle_area.accept_event()
+			return
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				_begin_sheet_drag(drag, sheet, _pointer_position(event).y)
@@ -2169,6 +2267,11 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 			_dismiss_world_sheet(overlay, _demolish.bind(datacenter_id))
 		, ThemeMaker.COLORS.red))
 		return
+	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
+		var refund := Rules.retirement_value(dc, Game.simulation_time(), Game.data)
+		var retire_button := _button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(datacenter_id), ThemeMaker.COLORS.orange)
+		retire_button.name = "RetireButton"
+		sheet_box.add_child(retire_button)
 	var board := _create_datacenter_board(datacenter_id)
 	sheet_box.add_child(board)
 	var powered := not str(dc.get("power_unit", "")).is_empty()
@@ -2176,23 +2279,18 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		if powered:
 			_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, "contracts"))
 		else:
-			_show_toast(tr("BOARD_NEED_POWER"))
+			_show_toast(tr("BOARD_INSTALL_POWER"))
 	var contract_button := _button(tr("SIGN_CONTRACT"), contract_action, ThemeMaker.COLORS.sky if powered else Color("6f7b88"))
 	contract_button.name = "ContractCTA"
 	_set_button_asset(contract_button, "ic_contract", 42)
 	sheet_box.add_child(contract_button)
 	if not powered:
-		var power_hint := _label(tr("BOARD_NEED_POWER"), 20, Color("b8c2cc"))
+		var power_hint := _label(tr("BOARD_INSTALL_POWER"), 20, Color("b8c2cc"))
 		power_hint.name = "ContractPowerHint"
 		power_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		power_hint.max_lines_visible = 1
 		power_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		sheet_box.add_child(power_hint)
-	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
-		var refund := Rules.retirement_value(dc, Game.simulation_time(), Game.data)
-		var retire_button := _button("%s · +$%s" % [tr("RETIRE"), Game.format_number(refund)], _retire.bind(datacenter_id), ThemeMaker.COLORS.orange)
-		retire_button.name = "RetireButton"
-		sheet_box.add_child(retire_button)
 
 func _datacenter_context_asset(dc: Dictionary, building: Dictionary) -> String:
 	if str(dc.get("status", "")) == "ruined":
@@ -2647,7 +2745,7 @@ func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 	if dc.is_empty():
 		return
 	if str(dc.get("power_unit", "")).is_empty():
-		_show_toast(tr("BOARD_NEED_POWER"))
+		_show_toast(tr("BOARD_INSTALL_POWER"))
 		return
 	var fee := Game.contract_switch_fee(datacenter_id, customer_id)
 	var current := Game.datacenter_monthly_income(dc)
@@ -2775,6 +2873,20 @@ func _on_rack_fault_occurred(datacenter_id: String, _slot: int) -> void:
 
 func _on_contract_renewal_opened(_datacenter_id: String, _customer_id: String, _window_end_at: float) -> void:
 	_show_toast(tr("TOAST_CONTRACT_RENEWAL"))
+	_request_full_refresh()
+
+func _on_datacenter_entered_aging(datacenter_id: String) -> void:
+	var tutorial: Dictionary = Game.state.get("tutorial", {})
+	var steps: Array = DataRepository.get_table("tutorial").get("steps", [])
+	var index := int(tutorial.get("step", 0))
+	if index < 0 or index >= steps.size() or str((steps[index] as Dictionary).get("id", "")) != "retire":
+		return
+	_retire_tutorial_awake = true
+	_retire_notice_collapsed = false
+	_retire_notice_token += 1
+	_tutorial_protocol_step = -1
+	selected_datacenter_id = datacenter_id
+	_show_toast(tr("TUTORIAL_RETIRE_READY"), "sfx_success_chime")
 	_request_full_refresh()
 
 func _on_market_event_started(event_id: String) -> void:
@@ -3088,6 +3200,8 @@ func _on_locale_changed(_locale: String) -> void:
 	var settings_button := find_child("SettingsButton", true, false) as Button
 	if settings_button != null:
 		settings_button.tooltip_text = tr("NAV_SETTINGS")
+	if tutorial_hint_button != null:
+		tutorial_hint_button.tooltip_text = tr("TUTORIAL_RETIRE_WAIT")
 	_set_world_action_label(task_button, tr("NAV_BUILD"))
 	_set_world_action_label(operations_button, tr("OPERATIONS_SHORT"))
 	_request_full_refresh()

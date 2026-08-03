@@ -20,6 +20,7 @@ func _ready() -> void:
 	add_child(main)
 	await _shot("s0_welcome_map")
 	_assert_batch_one_shell()
+	_assert_sale_focus(false)
 	main.call("_show_building_picker", "plot_1")
 	await _shot("s0_welcome_picker")
 	_assert_sheet_reward_uses_hud_pulse()
@@ -37,6 +38,7 @@ func _ready() -> void:
 	main.call("_open_datacenter", dc_id)
 	await _shot("s1_power_step_drawer_open")
 	_assert_tutorial_target("power", "drawer", "control")
+	_assert_unpowered_copy_and_drawer_lock()
 	main.call("_show_attachment_picker", dc_id, "power", "")
 	await _shot("s1_power_picker_sheet")
 	_assert_sheet_reward_uses_hud_pulse()
@@ -61,18 +63,29 @@ func _ready() -> void:
 	await _shot("s5_buy_plot_step")
 	_assert_tutorial_target("buy_land", "map", "control")
 	_expect(main.find_child("DatacenterContext", true, false) == null, "B1 map context must clear the previous data-center drawer")
+	_assert_sale_focus(true)
 	Game.buy_next_plot()
 	await _shot("s6_retire_step_too_new")
 	_assert_tutorial_target("retire", "dormant", "none", true)
+	var retire_message := main.find_child("TutorialMessage", true, false) as Label
+	_expect(retire_message != null and retire_message.text == tr("TUTORIAL_RETIRE_WAIT"), "B4 dormant retire step must explain why no action is available")
+	await get_tree().create_timer(3.1).timeout
+	await _shot("s6_retire_step_dormant_hint")
+	var dormant_hint := main.find_child("TutorialDormantHint", true, false) as Button
+	var dormant_overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
+	_expect(dormant_hint != null and dormant_hint.visible and dormant_overlay != null and not dormant_overlay.visible, "B4 dormant lesson must collapse to the corner coach hint")
 	Game.advance_time(0.7 * 86400.0, false)
 	await _shot("s6_retire_step_aged")
+	_assert_tutorial_target("retire", "drawer", "world_building")
 	main.call("_open_datacenter", dc_id)
 	await _shot("s6_retire_drawer")
+	_assert_tutorial_target("retire", "drawer", "control")
 	Game.retire_datacenter(dc_id)
 	await _shot("s7_standard_step")
 	Game.start_datacenter_construction("plot_1", "dc_t1")
 	Game.advance_time(3600.0, false)
 	await _shot("s8_tutorial_done_map")
+	_assert_sale_focus(true)
 	AudioService.stop_all()
 	if failures.is_empty():
 		print("FLOW_AUDIT: PASS -> %s*.png" % OUT)
@@ -139,6 +152,8 @@ func _assert_tutorial_target(step_id: String, context: String, source: String, a
 	else:
 		_expect(resolved.size.x > 1.0 and resolved.size.y > 1.0 and overlay.is_actionable(), "B2 %s must expose one actionable target" % step_id)
 		_expect(overlay.target_rect.intersects(resolved), "D2 %s spotlight must intersect its current resolved target" % step_id)
+		var callout := main.find_child("TutorialCallout", true, false) as Control
+		_expect(callout != null and not callout.get_global_rect().intersects(resolved), "E3 %s callout must not cover its tap target" % step_id)
 
 func _assert_world_target_matches_building(datacenter_id: String) -> void:
 	var overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
@@ -158,6 +173,19 @@ func _assert_datacenter_header(datacenter_id: String) -> void:
 	var expected_income := tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(dc))
 	_expect(status.text == expected_status, "D1 drawer status must match authoritative data (%s)" % expected_status)
 	_expect(income.text == expected_income, "D1 drawer income must match authoritative data (%s)" % expected_income)
+
+func _assert_unpowered_copy_and_drawer_lock() -> void:
+	var usage := main.find_child("BoardPowerUsage", true, false) as RichTextLabel
+	var hint := main.find_child("ContractPowerHint", true, false) as Label
+	var drawer := main.find_child("DatacenterContext", true, false)
+	_expect(usage != null and not bool(usage.get_meta("power_installed", true)) and str(usage.get_meta("display_copy", "")) == tr("UNPOWERED"), "B5 an unpowered board must say unpowered instead of 0 / 0")
+	_expect(hint != null and hint.text == tr("BOARD_INSTALL_POWER"), "B5 first power instruction must say install, not upgrade")
+	_expect(drawer != null and bool(drawer.get_meta("tutorial_lock_close", false)), "E2 tutorial drawer drag-dismiss must be locked")
+
+func _assert_sale_focus(expected: bool) -> void:
+	var sale_price := main.find_child("SalePriceBadge", true, false) as CanvasItem
+	var sale_tether := main.find_child("SalePriceTether", true, false) as CanvasItem
+	_expect(sale_price != null and sale_tether != null and sale_price.visible == expected and sale_tether.visible == expected, "E1 sale price tag visibility must follow the buy-land step (%s)" % expected)
 
 func _expect(condition: bool, message: String) -> void:
 	if condition:

@@ -219,9 +219,24 @@ func _position_callout() -> void:
 		bubble.position = Vector2((viewport.x - bubble_size.x) * 0.5, viewport.y - bubble_size.y - 210.0)
 		pointer.visible = false
 		return
-	var above_y := target_rect.position.y - bubble_size.y - 42.0
-	var below_y := target_rect.end.y + 42.0
-	var y := above_y if above_y >= 120.0 else minf(viewport.y - bubble_size.y - 80.0, below_y)
-	bubble.position = Vector2(clampf(target_rect.get_center().x - bubble_size.x * 0.5, 28.0, viewport.x - bubble_size.x - 28.0), y)
+	var gap := 42.0
+	var safe_top := 120.0
+	var safe_bottom := viewport.y - 80.0
+	var above_y := target_rect.position.y - bubble_size.y - gap
+	var below_y := target_rect.end.y + gap
+	var x := clampf(target_rect.get_center().x - bubble_size.x * 0.5, 28.0, viewport.x - bubble_size.x - 28.0)
+	var above_rect := Rect2(Vector2(x, above_y), bubble_size)
+	var below_rect := Rect2(Vector2(x, below_y), bubble_size)
+	var above_fits := above_y >= safe_top and not above_rect.intersects(target_rect)
+	var below_fits := below_rect.end.y <= safe_bottom and not below_rect.intersects(target_rect)
+	var y := above_y if above_fits else below_y
+	if not above_fits and not below_fits:
+		# Extremely large targets still get a deterministic non-overlapping edge
+		# placement. Prefer the side with more free space instead of covering the
+		# control the copy is asking the player to tap.
+		var top_space := target_rect.position.y - safe_top
+		var bottom_space := safe_bottom - target_rect.end.y
+		y = safe_top if top_space >= bottom_space else safe_bottom - bubble_size.y
+	bubble.position = Vector2(x, y)
 	_pointer_base = Vector2(target_rect.get_center().x - pointer.size.x * 0.5, target_rect.position.y - pointer.size.y - 24.0)
 	pointer.position = _pointer_base

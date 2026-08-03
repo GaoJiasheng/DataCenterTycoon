@@ -652,8 +652,12 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				push_error("VISUAL_SMOKE: S2 installing rack timer is not a contained white readout above its progress line")
 				valid = false
 			var power_usage := main.find_child("BoardPowerUsage", true, false) as RichTextLabel
-			if power_usage == null or not str(power_usage.get_meta("numeric_usage", "")).contains(" / ") or power_usage.get_meta("numeric_font", null) != ThemeFactory.font_numeric():
-				push_error("VISUAL_SMOKE: S3 board power usage does not separate its label from tabular spaced numbers")
+			var power_copy_valid := false
+			if power_usage != null:
+				var power_installed := bool(power_usage.get_meta("power_installed", false))
+				power_copy_valid = (str(power_usage.get_meta("numeric_usage", "")).contains(" / ") if power_installed else (str(power_usage.get_meta("display_copy", "")) == tr("UNPOWERED") and str(power_usage.get_meta("numeric_usage", "")).is_empty()))
+			if not power_copy_valid or power_usage.get_meta("numeric_font", null) != ThemeFactory.font_numeric():
+				push_error("VISUAL_SMOKE: B5 board power copy does not match its installed state")
 				valid = false
 		var installed_cooler := main.find_child("Cooler_north", true, false) as Button
 		if installed_cooler == null or installed_cooler.icon != null or installed_cooler.find_children("CoolerArt", "TextureRect", true, false).size() != 1:

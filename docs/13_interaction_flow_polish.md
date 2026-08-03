@@ -133,3 +133,13 @@ buy_plot 完成后 retire 步进入 `dormant`：气泡显示一次「集装箱�
 - [x] **D2**：overlay 记录当前 step/context/source/解析矩形；每个行动步骤断言聚光灯非零且与当前控件或世界建筑矩形相交。买地步骤另断言旧 `DatacenterContext` 已消失。
 
 门禁结果：`validate_data` 通过；`test_runner` 103/103；`visual_smoke` 中文 30/30、英文 30/30；`flow_audit` 的 B1/B2/D1/D2 全部断言通过。**B3 未实施，仍等待所有者在 ①30 秒教学工期 / ②施工过渡步骤之间确认。**
+
+### 批次③（跳过 B3）· B4/B5 + E1–E3（2026-08-03）
+
+- [x] **B4**：退役步骤先显示“机房还很新”的解释态：[休眠说明](ui_review/13_batch3/dct_flow_s6_retire_step_too_new.png)；3 秒后收为右下角教练头像 + 红点：[休眠角标](ui_review/13_batch3/dct_flow_s6_retire_step_dormant_hint.png)。订阅 `datacenter_entered_aging`，到期后自动恢复 drawer 场景协议并指向世界建筑：[事件唤醒](ui_review/13_batch3/dct_flow_s6_retire_step_aged.png)；退役 CTA 提到棋盘上方，确保在视口内可点：[退役目标](ui_review/13_batch3/dct_flow_s6_retire_drawer.png)。加载时若事件已错过，也会按权威寿命进度恢复。
+- [x] **B5**：未装变压器显示“未通电 / 先安装变压器”；已有供电但容量不足才显示“需要升级变压器”。供电按钮固定 88u 高，不再被 HBox 拉成长条：[供电目标与一致文案](ui_review/13_batch3/dct_flow_s1_power_step_drawer_open.png)。
+- [x] **E1**：非买地教学隐藏 `SalePriceBadge / SalePriceTether`，买地步骤及教学完成后恢复；流程首态、买地态、完成态均有断言。
+- [x] **E2**：drawer 教学上下文给机房抽屉加 `tutorial_lock_close`，拖拽把手不再误关；关闭按钮/外部关闭后仍由 B2 回到世界第一段。
+- [x] **E3**：气泡定位按目标上下真实可用空间选边；所有 actionable 步骤断言气泡矩形不得与目标矩形相交。
+
+门禁结果：`validate_data` 通过；`test_runner` 103/103；`visual_smoke` 中文 30/30、英文 30/30；`flow_audit` 新增休眠角标中间态并全绿。**B3 继续保持未实施。**

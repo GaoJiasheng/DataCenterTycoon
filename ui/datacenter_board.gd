@@ -88,7 +88,8 @@ func placement_state_for_slot(slot: int, rack_id: String = "") -> Dictionary:
 	simulated["racks"] = simulated_racks
 	var runtime := Rules.rack_runtime_status(simulated, slot, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
 	if not bool(runtime.get("powered", false)):
-		return {"state": "power", "symbol": "⚡", "hint": tr("BOARD_NEED_POWER"), "color": ThemeMaker.SEMANTIC.get("danger", ThemeMaker.COLORS.red)}
+		var power_hint := tr("BOARD_INSTALL_POWER") if str(dc.get("power_unit", "")).is_empty() else tr("BOARD_UPGRADE_POWER")
+		return {"state": "power", "symbol": "⚡", "hint": power_hint, "color": ThemeMaker.SEMANTIC.get("danger", ThemeMaker.COLORS.red)}
 	if bool(runtime.get("overheated", false)):
 		return {"state": "heat", "symbol": "heat", "hint": tr("BOARD_OVERHEAT_HINT"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
 	return {"state": "ok", "symbol": "✓", "hint": tr("BOARD_PLACE_OK"), "color": ThemeMaker.SEMANTIC.get("success", ThemeMaker.COLORS.green)}
@@ -399,6 +400,7 @@ func _add_power_meter(dc: Dictionary) -> void:
 	var power := Button.new()
 	power.name = "PowerSlot"
 	power.custom_minimum_size = Vector2(170, 88)
+	power.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	power.focus_mode = Control.FOCUS_NONE
 	ThemeMaker.apply_compact_button(power, ThemeMaker.COLORS.yellow)
 	var power_id := str(dc.get("power_unit", ""))
@@ -425,10 +427,16 @@ func _add_power_meter(dc: Dictionary) -> void:
 	usage.push_font(ThemeMaker.font_regular(), ThemeMaker.TYPE_SCALE.caption)
 	usage.add_text("%s  " % tr("BOARD_POWER_LABEL"))
 	usage.pop()
-	usage.push_font(ThemeMaker.font_numeric(), ThemeMaker.TYPE_SCALE.caption)
-	var numeric_usage := "%s / %s" % [Game.format_number(used), Game.format_number(capacity)]
-	usage.add_text(numeric_usage)
-	usage.pop()
+	var numeric_usage := ""
+	if power_id.is_empty():
+		usage.add_text(tr("UNPOWERED"))
+	else:
+		usage.push_font(ThemeMaker.font_numeric(), ThemeMaker.TYPE_SCALE.caption)
+		numeric_usage = "%s / %s" % [Game.format_number(used), Game.format_number(capacity)]
+		usage.add_text(numeric_usage)
+		usage.pop()
+	usage.set_meta("power_installed", not power_id.is_empty())
+	usage.set_meta("display_copy", tr("UNPOWERED") if power_id.is_empty() else numeric_usage)
 	usage.set_meta("numeric_usage", numeric_usage)
 	usage.set_meta("numeric_font", ThemeMaker.font_numeric())
 	meter_box.add_child(usage)
