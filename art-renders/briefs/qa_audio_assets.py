@@ -82,7 +82,12 @@ def main() -> None:
     manifest = json.loads(RUNTIME_MANIFEST.read_text(encoding="utf-8"))["items"]
     render_log = json.loads((BRIEFS / "audio_render_log.json").read_text(encoding="utf-8"))
     expected = {Path(spec["path"]).name for spec in manifest.values()}
-    actual = {path.name for path in DELIVERY.iterdir() if path.is_file() and not path.name.startswith(".")}
+    # Godot import sidecars are tracked beside the original delivery files for
+    # reproducible importer settings; only playable source files count as cues.
+    actual = {
+        path.name for path in DELIVERY.iterdir()
+        if path.is_file() and not path.name.startswith(".") and path.suffix != ".import"
+    }
     entries = []
     failures = []
     for cue_id, spec in manifest.items():

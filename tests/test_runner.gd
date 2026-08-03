@@ -48,10 +48,10 @@ func _run_asset_integration_tests() -> void:
 		art_loads = art_loads and ResourceLoader.exists(path) and load(path) is Texture2D
 	_expect(art_loads, "all 146 production textures import and load")
 	var audio_items: Dictionary = AudioService.manifest.get("items", {})
-	var audio_loads := audio_items.size() == 16
+	var audio_loads := audio_items.size() == 23
 	for cue_id: String in audio_items:
 		audio_loads = audio_loads and AudioService._load_stream(cue_id) != null
-	_expect(audio_loads, "all 16 production audio cues import and load")
+	_expect(audio_loads, "all 23 production audio cues import and load")
 	var regular_font := ThemeMaker.font_regular()
 	var glyphs_present := regular_font != null
 	for character: String in ["稳", "障", "购", "罄"]:

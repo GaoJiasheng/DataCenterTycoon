@@ -15,7 +15,14 @@
 | `music_main.ogg` | 循环音乐 | 80 s | D 大调，96 BPM；木质拨弦、柔和钟琴、圆润贝斯、刷奏节拍与空气 Pad，表现轻松建设和持续成长 |
 | `music_market.ogg` | 循环音乐 | 68.57 s | A Dorian，112 BPM；精密马林巴脉冲、玻璃音色与克制电子律动，表达行情变化与理性决策 |
 | `music_crisis.ogg` | 循环音乐 | 60 s | D 小调，128 BPM；紧迫低脉冲、滴答节拍和克制告警动机，保持可挽救感，不走恐怖路线 |
-| `sfx_tap.wav` | UI | 0.14 s | 柔软木质触感点击 |
+| `sfx_tap.wav` | UI | 0.08 s | 柔软温暖的木质触感点击；统一覆盖标准按钮按下反馈 |
+| `sfx_sheet_open.wav` | UI | 0.22 s | 向上的轻盈空气滑动，配合抽屉入场 |
+| `sfx_sheet_close.wav` | UI | 0.22 s | 向下收束的轻盈空气滑动，配合抽屉退场 |
+| `sfx_coin_tick.wav` | UI | 0.12 s | 极短双层金币亮点，用于大额数字滚动的分段节拍 |
+| `sfx_success_chime.wav` | UI | 0.44 s | 两音卡林巴上行，明确但不抢占玩法完成音效 |
+| `sfx_error_thud.wav` | UI | 0.18 s | 低频软木闷击，失败可识别但不惩罚玩家 |
+| `sfx_unlock_fanfare.wav` | 里程碑 | 1.30 s | 柔和和弦底座、短促钟琴上行与克制落点，用于时代/成就解锁 |
+| `sfx_night_amb.wav` | 环境 | 8.0 s | 极低电平草地空气与远处虫鸣片段，跟随夜间色调循环续播 |
 | `sfx_cash.wav` | 收益 | 0.65 s | 三枚金币递增亮响 |
 | `sfx_build_start.wav` | 建造 | 1.0 s | 工具扣合、短促电机启动和轻尘气流 |
 | `sfx_build_complete.wav` | 建造 | 1.45 s | 稳固落位 + 上行完成和弦 |
@@ -35,3 +42,4 @@
 - 音效：综合 RMS 约 -18 至 -13 dBFS，峰值不高于 -1 dBFS；瞬态清晰、移动端小扬声器可读。
 - 循环：首尾 10 ms 零交叉淡化；循环边界点击检测与首尾 RMS 差检查通过。
 - 交付：`audio/final/` 仅放运行时唯一文件名，24-bit 音乐母版保存在 `audio/work/masters/`。
+- UI 套件计数：表中的 8 个指定 cue 包含对既有 `sfx_tap` 的重制，因此净新增 7 个；运行时总量由 16 增至 23。

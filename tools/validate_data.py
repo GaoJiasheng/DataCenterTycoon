@@ -98,8 +98,8 @@ def validate_asset_references():
 def validate_audio_manifest():
     manifest = json.loads((ROOT / "assets/audio/manifest.json").read_text(encoding="utf-8"))
     cues = set(manifest.get("items", {}))
-    if len(cues) != 16:
-        ERRORS.append(f"audio manifest has {len(cues)} cues, expected 16")
+    if len(cues) != 23:
+        ERRORS.append(f"audio manifest has {len(cues)} cues, expected 23")
     pattern = re.compile(r'AudioService\.play_(?:music|sfx)\("([^"]+)"')
     referenced = set()
     for path in ROOT.rglob("*.gd"):

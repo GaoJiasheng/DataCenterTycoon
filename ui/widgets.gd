@@ -152,6 +152,16 @@ static func empty_state(title_text: String, body_text: String) -> VBoxContainer:
 	return box
 
 static func animate_number(label: Label, from_value: float, to_value: float, formatter: Callable, duration: float = 0.4) -> Tween:
+	if absf(to_value - from_value) >= 10.0 and duration >= 0.3 and label.is_inside_tree():
+		label.set_meta("number_roll_audio", "sfx_coin_tick")
+		AudioService.play_sfx("sfx_coin_tick")
+		var label_ref: WeakRef = weakref(label)
+		for ratio: float in [0.28, 0.56, 0.82]:
+			label.get_tree().create_timer(duration * ratio).timeout.connect(func() -> void:
+				var live_label: Label = label_ref.get_ref() as Label
+				if live_label != null and live_label.is_inside_tree():
+					AudioService.play_sfx("sfx_coin_tick")
+			)
 	var tween := label.create_tween()
 	tween.tween_method(func(value: float) -> void:
 		if is_instance_valid(label):
@@ -202,8 +212,13 @@ static func affordable_style(button: Button, cost: float) -> void:
 		button.set_meta("affordability_pulse", pulse)
 
 static func wire_button_motion(control: Button) -> void:
+	if bool(control.get_meta("button_motion_wired", false)):
+		return
+	control.set_meta("button_motion_wired", true)
+	control.set_meta("tap_audio", "sfx_tap")
 	control.resized.connect(func() -> void: control.pivot_offset = control.size * 0.5)
 	control.button_down.connect(func() -> void:
+		AudioService.play_sfx("sfx_tap")
 		control.create_tween().tween_property(control, "scale", Vector2.ONE * 0.96, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	)
 	control.button_up.connect(func() -> void:

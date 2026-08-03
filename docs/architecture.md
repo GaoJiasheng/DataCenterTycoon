@@ -46,7 +46,7 @@
 ## 视听交付接口
 
 - 美术：`assets/art/manifest.json` 固定 134 个 ID；成品源目录为 `art-renders/visual/final/`。
-- 音频：`assets/audio/manifest.json` 固定 16 个 cue；成品源目录为 `art-renders/audio/final/`。
+- 音频：`assets/audio/manifest.json` 固定 23 个 cue；成品源目录为 `art-renders/audio/final/`。标准按钮、Sheet、数字滚动、结果 toast、解锁演出与夜间环境层统一经 `AudioService` 调用，缺失 cue 静默跳过；页面/危机音乐使用 2 秒淡出淡入切换。
 - 导入：`python3 tools/import_assets.py --visual --audio`。
 - 验收：`python3 tools/check_assets.py --strict --audio`。
 

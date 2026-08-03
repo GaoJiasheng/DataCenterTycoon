@@ -67,13 +67,16 @@ var _last_observed_cash := NAN
 var _last_income_fly_at := -INF
 var _primary_pulse_tween: Tween
 var _last_tutorial_step := -1
+var _music_target := ""
+var _music_fade_tween: Tween
+var _night_amb_countdown := 0.0
 
 func _ready() -> void:
 	_fit_desktop_window()
 	theme = ThemeMaker.create()
 	_build_shell()
 	_connect_events()
-	AudioService.play_music("music_main")
+	_play_music("music_main", false)
 	call_deferred("_show_pending_offline_report")
 	call_deferred("_queue_unseen_era_overlays")
 	call_deferred("_show_pending_bankruptcy_state")
@@ -104,6 +107,16 @@ func _process(delta: float) -> void:
 		_refresh_hud()
 		if refresh_page:
 			_refresh_page()
+	_update_night_ambience(delta)
+
+func _update_night_ambience(delta: float) -> void:
+	if park_map == null or not is_instance_valid(park_map) or not park_map.is_night_grade():
+		_night_amb_countdown = 0.0
+		return
+	_night_amb_countdown -= delta
+	if _night_amb_countdown <= 0.0:
+		AudioService.play_sfx("sfx_night_amb")
+		_night_amb_countdown = 7.8
 
 func _input(event: InputEvent) -> void:
 	if park_map == null or event is InputEventMouseMotion:
@@ -1848,6 +1861,7 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	sheet.offset_right = -20
 	sheet.offset_bottom = -18
 	sheet.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
+	sheet.set_meta("open_audio", "sfx_sheet_open")
 	overlay.add_child(sheet)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 14)
@@ -1873,6 +1887,7 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	tween.tween_property(sheet, "modulate:a", 1.0, 0.18)
 	tween.tween_property(sheet, "position:y", sheet.position.y - 54, 0.28).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 	_wire_sheet_interactions(overlay, sheet, handle_center, true)
+	AudioService.play_sfx("sfx_sheet_open")
 	return {"overlay": overlay, "sheet": sheet, "box": box}
 
 func _dismiss_world_sheet(overlay: CanvasItem, after: Callable = Callable()) -> void:
@@ -1893,6 +1908,7 @@ func _animate_sheet_dismiss(overlay: CanvasItem, after: Callable, reset_world: b
 		if after.is_valid():
 			after.call()
 		return
+	AudioService.play_sfx("sfx_sheet_close")
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(sheet, "position:y", sheet.position.y + 80.0, 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_property(sheet, "modulate:a", 0.0, 0.16)
@@ -2143,6 +2159,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	sheet.offset_right = -32
 	sheet.offset_bottom = -24
 	sheet.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
+	sheet.set_meta("open_audio", "sfx_sheet_open")
 	overlay.add_child(sheet)
 
 	var sheet_box := VBoxContainer.new()
@@ -2230,6 +2247,9 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 func _finalize_action_sheet_layout(sheet: PanelContainer, sheet_box: VBoxContainer, scroll: ScrollContainer, choice_box: VBoxContainer) -> void:
 	if not is_instance_valid(sheet):
 		return
+	if not bool(sheet.get_meta("open_audio_played", false)):
+		sheet.set_meta("open_audio_played", true)
+		AudioService.play_sfx("sfx_sheet_open")
 	var max_sheet_height := get_viewport_rect().size.y * 0.88
 	var natural_choices_height := choice_box.get_combined_minimum_size().y
 	var fixed_content_height := float(sheet_box.get_theme_constant("separation")) * float(maxi(0, sheet_box.get_child_count() - 1))
@@ -2409,11 +2429,43 @@ func _navigate(page: String) -> void:
 	if page != "detail": selected_datacenter_id = ""
 	if page == "map" and park_map != null:
 		park_map.reset_camera()
-	AudioService.play_sfx("sfx_tap")
 	_haptic(HAPTIC_LIGHT)
 	if Game.state.get("bankruptcy", {}).get("status", "normal") == "normal":
-		AudioService.play_music("music_market" if page == "market" else "music_main")
+		_play_music("music_market" if page == "market" else "music_main")
 	_request_full_refresh()
+
+func _desired_music_cue() -> String:
+	if Game.state.get("bankruptcy", {}).get("status", "normal") == "arrears":
+		return "music_crisis"
+	return "music_market" if active_page == "market" else "music_main"
+
+func _play_music(cue_id: String, crossfade: bool = true) -> void:
+	if not AudioService.music_enabled or AudioService.music_player == null:
+		return
+	var items: Dictionary = AudioService.manifest.get("items", {})
+	var cue: Dictionary = items.get(cue_id, {})
+	var path := str(cue.get("path", ""))
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return
+	var player: AudioStreamPlayer = AudioService.music_player
+	if _music_target == cue_id and player.playing:
+		return
+	var target_db: float = float(cue.get("volume_db", -8.0))
+	if _music_fade_tween != null and _music_fade_tween.is_valid():
+		_music_fade_tween.kill()
+	if not crossfade or player.stream == null or not player.playing:
+		AudioService.play_music(cue_id)
+		_music_target = cue_id
+		return
+	_music_target = cue_id
+	_music_fade_tween = create_tween()
+	_music_fade_tween.tween_property(player, "volume_db", -40.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_music_fade_tween.tween_callback(func() -> void:
+		AudioService.play_music(cue_id)
+		if player.stream != null:
+			player.volume_db = -40.0
+	)
+	_music_fade_tween.tween_property(player, "volume_db", target_db, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 func _open_datacenter(datacenter_id: String) -> void:
 	_show_datacenter_context(datacenter_id)
@@ -2479,10 +2531,23 @@ func _upgrade_repair() -> void:
 	_handle_result(Game.upgrade_repair_team())
 
 func _purchase(product_id: String) -> void:
-	_handle_result(Game.purchase(product_id))
+	# StoreKit completion owns the final success/failure toast and its semantic
+	# sound. Avoid a second generic success chime while the transaction is pending.
+	var result := Game.purchase(product_id)
+	if not bool(result.get("ok", false)):
+		_handle_result(result)
+	else:
+		_request_hud_refresh()
 
 func _on_setting_toggled(enabled: bool, setting_key: String) -> void:
 	Game.set_audio_setting(setting_key, enabled)
+	if setting_key == "music_enabled":
+		if enabled:
+			_music_target = ""
+			_play_music(_desired_music_cue(), false)
+		elif _music_fade_tween != null and _music_fade_tween.is_valid():
+			_music_fade_tween.kill()
+			_music_target = ""
 
 func _run_action(action: Callable) -> void:
 	_handle_result(action.call())
@@ -2490,9 +2555,9 @@ func _run_action(action: Callable) -> void:
 func _handle_result(result: Dictionary) -> void:
 	if bool(result.get("ok", false)):
 		_haptic(HAPTIC_MEDIUM)
-		_show_toast(tr("TOAST_CONSTRUCTION_STARTED") if result.has("construction") or result.has("rack_installation") else tr("CONFIRM"))
+		_show_toast(tr("TOAST_CONSTRUCTION_STARTED") if result.has("construction") or result.has("rack_installation") else tr("CONFIRM"), "sfx_success_chime")
 	else:
-		_show_toast(_reason_text(str(result.get("reason", "unknown"))))
+		_show_toast(_reason_text(str(result.get("reason", "unknown"))), "sfx_error_thud")
 	_request_hud_refresh()
 
 func _reason_text(reason: String) -> String:
@@ -2654,11 +2719,11 @@ func _show_pending_bankruptcy_state() -> void:
 func _on_bankruptcy_state_changed(status: String) -> void:
 	if status == "arrears":
 		_show_toast(tr("BANKRUPTCY_WARNING"))
-		AudioService.play_music("music_crisis")
+		_play_music("music_crisis")
 		_show_arrears_hud()
 	elif status == "normal":
 		_clear_crisis_hud()
-		AudioService.play_music("music_main")
+		_play_music("music_main")
 	elif status == "game_over":
 		_show_game_over_overlay()
 
@@ -2861,12 +2926,14 @@ func _on_locale_changed(_locale: String) -> void:
 	_request_full_refresh()
 
 func _on_purchase_completed(_product_id: String, success: bool, _message: String) -> void:
-	_show_toast(tr("TOAST_PURCHASE_COMPLETE") if success else tr("TOAST_PURCHASE_FAILED"))
+	_show_toast(tr("TOAST_PURCHASE_COMPLETE") if success else tr("TOAST_PURCHASE_FAILED"), "sfx_success_chime" if success else "sfx_error_thud")
 	if success:
 		_play_fx("fx_coin")
 	_request_full_refresh()
 
-func _show_toast(message: String) -> void:
+func _show_toast(message: String, cue_id: String = "") -> void:
+	if not cue_id.is_empty():
+		AudioService.play_sfx(cue_id)
 	toast_label.text = message
 	toast_label.position.y = -352.0 if tutorial_overlay != null and tutorial_overlay.visible else -230.0
 	toast_label.modulate = Color.WHITE
@@ -2937,6 +3004,7 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	overlay.z_index = 100
 	add_child(overlay)
+	AudioService.play_sfx("sfx_unlock_fanfare")
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(center)
@@ -3393,8 +3461,13 @@ func _button(text: String, action: Callable, color: Color = Color("3aa7f0")) -> 
 	return Widgets.button(text, action, ThemeMaker.button_role_for_color(color))
 
 func _wire_button_motion(button: Button) -> void:
+	if bool(button.get_meta("button_motion_wired", false)):
+		return
+	button.set_meta("button_motion_wired", true)
+	button.set_meta("tap_audio", "sfx_tap")
 	button.resized.connect(func() -> void: button.pivot_offset = button.size * 0.5)
 	button.button_down.connect(func() -> void:
+		AudioService.play_sfx("sfx_tap")
 		var tween := button.create_tween()
 		tween.tween_property(button, "scale", Vector2.ONE * 0.975, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	)

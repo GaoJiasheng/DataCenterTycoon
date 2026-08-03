@@ -176,6 +176,16 @@ func color_grade_for_hour(hour: float) -> Dictionary:
 		return {"tint": EVENING_TINT.lerp(NIGHT_TINT, nightfall), "window_boost": lerpf(1.12, 1.30, nightfall)}
 	return {"tint": NIGHT_TINT, "window_boost": 1.30}
 
+func current_grade_hour() -> float:
+	if _preview_hour >= 0.0:
+		return _preview_hour
+	var clock := Time.get_time_dict_from_system()
+	return float(clock.get("hour", 12)) + float(clock.get("minute", 0)) / 60.0 + float(clock.get("second", 0)) / 3600.0
+
+func is_night_grade() -> bool:
+	var hour := current_grade_hour()
+	return hour < 6.0 or hour >= 22.0
+
 func set_preview_hour(hour: float) -> void:
 	_preview_hour = fposmod(hour, 24.0)
 	_refresh_day_grade(true)
@@ -185,10 +195,7 @@ func clear_preview_hour() -> void:
 	_refresh_day_grade(true)
 
 func _refresh_day_grade(immediate: bool = false) -> void:
-	var hour := _preview_hour
-	if hour < 0.0:
-		var clock := Time.get_time_dict_from_system()
-		hour = float(clock.get("hour", 12)) + float(clock.get("minute", 0)) / 60.0 + float(clock.get("second", 0)) / 3600.0
+	var hour := current_grade_hour()
 	var grade := color_grade_for_hour(hour)
 	var target_tint: Color = grade.get("tint", DAY_TINT)
 	_window_light_boost = float(grade.get("window_boost", 1.0))

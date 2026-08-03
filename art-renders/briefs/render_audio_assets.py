@@ -337,15 +337,49 @@ def tone_glide(start_hz: float, end_hz: float, duration: float, decay: float = 2
 
 def make_sfx(name: str) -> np.ndarray:
     durations = {
-        "sfx_tap": 0.14, "sfx_cash": 0.65, "sfx_build_start": 1.0,
+        "sfx_tap": 0.08, "sfx_sheet_open": 0.22, "sfx_sheet_close": 0.22,
+        "sfx_coin_tick": 0.12, "sfx_success_chime": 0.44, "sfx_error_thud": 0.18,
+        "sfx_unlock_fanfare": 1.30, "sfx_night_amb": 8.0,
+        "sfx_cash": 0.65, "sfx_build_start": 1.0,
         "sfx_build_complete": 1.45, "sfx_power_on": 1.65, "sfx_rack_install": 0.85,
         "sfx_fault": 1.2, "sfx_repair": 1.15, "sfx_retire": 1.25,
         "sfx_era": 1.7, "sfx_prestige": 2.2, "sfx_bankrupt": 2.3, "sfx_purchase": 1.15,
     }
     mix = np.zeros((int(durations[name] * SR), 2), dtype=np.float32)
     if name == "sfx_tap":
-        add_event(mix, rim(0.10), 0.0, 0.48, pan=-0.08)
-        add_event(mix, kalimba(79, 0.13, 0.35), 0.006, 0.20, pan=0.12)
+        add_event(mix, rim(0.065), 0.0, 0.42, pan=-0.08)
+        add_event(mix, kalimba(74, 0.070, 0.28), 0.003, 0.15, pan=0.10)
+    elif name == "sfx_sheet_open":
+        add_event(mix, noise_sweep(0.20, 640, 7200, 0.17), 0.0, 1.0, pan=0.08)
+        add_event(mix, tone_glide(230, 510, 0.18, 5.5), 0.015, 0.12, pan=-0.12)
+    elif name == "sfx_sheet_close":
+        add_event(mix, noise_sweep(0.20, 6800, 520, 0.15), 0.0, 1.0, pan=-0.08)
+        add_event(mix, tone_glide(470, 190, 0.18, 5.0), 0.012, 0.11, pan=0.10)
+    elif name == "sfx_coin_tick":
+        add_event(mix, bell(88, 0.115, 1.25), 0.0, 0.27, pan=-0.10)
+        add_event(mix, bell(95, 0.095, 1.35), 0.012, 0.15, pan=0.16)
+    elif name == "sfx_success_chime":
+        add_event(mix, kalimba(74, 0.40, 0.78), 0.0, 0.30, pan=-0.18)
+        add_event(mix, kalimba(81, 0.31, 0.92), 0.105, 0.34, pan=0.18)
+    elif name == "sfx_error_thud":
+        add_event(mix, kick(0.17, 0.72), 0.0, 0.50)
+        add_event(mix, tone_glide(96, 52, 0.16, 8.5), 0.0, 0.20)
+    elif name == "sfx_unlock_fanfare":
+        add_event(mix, noise_sweep(0.72, 420, 8800, 0.09), 0.0, 1.0)
+        for note in (62, 69, 74):
+            add_event(mix, pad(note, 0.95, 0.78), 0.02, 0.22)
+        for index, note in enumerate((74, 78, 81, 86)):
+            add_event(mix, bell(note, 0.72, 1.12), 0.12 + index * 0.13, 0.23, pan=-0.42 + index * 0.28)
+        add_event(mix, kick(0.30, 0.62), 0.50, 0.20)
+    elif name == "sfx_night_amb":
+        length = len(mix)
+        air = RNG.normal(0, 1, length).astype(np.float32)
+        air = highpass(lowpass(air, 6800), 1800) * 0.018
+        slow = 0.72 + 0.28 * np.sin(np.linspace(0, np.pi * 6, length, dtype=np.float32))
+        add_event(mix, air * slow, 0.0, 1.0)
+        for index, start in enumerate((0.65, 1.18, 2.74, 3.32, 5.08, 5.54, 7.16, 7.56)):
+            chirp = tone_glide(3900 + (index % 3) * 260, 5200 + (index % 2) * 380, 0.075, 7.0)
+            add_event(mix, chirp, start, 0.045, pan=-0.62 + (index % 4) * 0.40)
     elif name == "sfx_cash":
         for i, note in enumerate((76, 81, 88)):
             add_event(mix, bell(note, 0.46, 1.25), 0.08 * i, 0.34 - i * 0.025, pan=-0.38 + i * 0.38)
@@ -416,7 +450,10 @@ def make_sfx(name: str) -> np.ndarray:
         add_event(mix, kalimba(71, 0.65, 0.8), 0.22, 0.23, pan=-0.12)
         add_event(mix, kalimba(78, 0.65, 0.8), 0.24, 0.22, pan=0.18)
         add_event(mix, noise_sweep(0.55, 900, 8000, 0.10), 0.20, 1.0)
-    mix = tail_reverb(mix, 0.12 if name not in {"sfx_prestige", "sfx_era"} else 0.20)
+    if name == "sfx_night_amb":
+        mix = circular_reverb(mix, 0.08)
+        return master(mix, 0.055, loop=True)
+    mix = tail_reverb(mix, 0.12 if name not in {"sfx_prestige", "sfx_era", "sfx_unlock_fanfare"} else 0.20)
     return master(mix, 0.165, loop=False)
 
 
@@ -479,7 +516,9 @@ def main() -> None:
         }
         del audio
     for name in (
-        "sfx_tap", "sfx_cash", "sfx_build_start", "sfx_build_complete", "sfx_power_on",
+        "sfx_tap", "sfx_sheet_open", "sfx_sheet_close", "sfx_coin_tick",
+        "sfx_success_chime", "sfx_error_thud", "sfx_unlock_fanfare", "sfx_night_amb",
+        "sfx_cash", "sfx_build_start", "sfx_build_complete", "sfx_power_on",
         "sfx_rack_install", "sfx_fault", "sfx_repair", "sfx_retire", "sfx_era",
         "sfx_prestige", "sfx_bankrupt", "sfx_purchase",
     ):

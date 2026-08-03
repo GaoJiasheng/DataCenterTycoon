@@ -92,7 +92,7 @@
 
 ## 6. S · 音频套件（16 cues → 完整声景）
 
-**新增 UI 音效（生成交付 `art-renders/audio/final/`，manifest 增 8 个 cue）：**
+**8-cue UI 音效套件（重制既有 `sfx_tap` + 净新增 7 个，生成交付 `art-renders/audio/final/`，manifest 16→23）：**
 
 | cue | 描述（生成提示） |
 |---|---|
@@ -188,3 +188,13 @@
 - [x] L6：页面统一使用 0.18s alpha + 22u 上移，world/action sheet 统一使用 alpha + 54/64u 上移，dismiss 统一向下 80u + alpha；离线、时代、破产全屏卡继续使用既有 scale+alpha 演出，人工逐项无瞬移。
 - [x] 门禁：`test_runner` 103/103；英文 30/30、简中 30/30 Metal 实渲染通过；所有截图 660×1434。六机房 + 30 金币压力测试 average 5.83ms / p90 6.98ms / p95 7.57ms / remaining 0 / node_delta 0。
 - [x] 人工审片归档：`docs/ui_review/10_batch5_en_map_built.png`、`10_batch5_en_campus_dense.png`、`10_batch5_zh_map_built.png`、`10_batch5_zh_campus_dense.png`。
+
+### 2026-08-03 · 批次⑥（S · 完整声景）
+
+- [x] 按 §6 全部 8 个指定 cue 交付：重制 80ms 温暖木质 `sfx_tap`，新增 Sheet 开/合、数字金币 tick、成功/失败、解锁 fanfare 与 8s 夜间环境层；表内包含一个既有 cue 的替换，因此运行时总量按真实净值 16→23。
+- [x] `Widgets.wire_button_motion` 与 MainView 自建 Button 统一在 button-down 播放 tap，并用 metadata 防重复接线；导航层移除旧的第二次 tap，单次触控不再叠音。
+- [x] world/action Sheet 入场与 dismiss 分别接开/合音；大额 `animate_number` 按滚动时长分四拍播放 coin tick；成功/失败结果和购买反馈分别接 chime/thud；时代报纸演出接 unlock fanfare。
+- [x] 夜间环境音与 `ParkMap` 22:00–06:00 夜色档共用时钟判定，以 7.8s 周期低电平续播，日间立即停发新片段；所有调用均经 `AudioService`，素材缺失保持静默。
+- [x] 主园区 / 行情 / 欠费三套音乐改为 1s 淡出 + 1s 淡入，总计 2s crossfade；同 cue 不重启、缺失 cue 不打断当前音乐，未修改 `core/*.gd`。
+- [x] 原创确定性合成与 QA 脚本已更新；23/23 均为 48kHz 双声道，音乐为 Vorbis、音效为 24-bit PCM。新 UI cue 时长与峰值检查通过，夜间环境 RMS 为 -22.19dBFS，运行时再以 -18dB 混音。
+- [x] 门禁：数据与 146 art / 23 audio 资产通过；`test_runner` 103/103；英文 30/30、简中 30/30 Metal 实渲染通过；60 张输出逐文件确认为 660×1434。
