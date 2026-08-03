@@ -2,6 +2,7 @@ extends Node
 
 const MAIN_SCENE := preload("res://main.tscn")
 const OUTPUT_ROOT_PREFIX := "/tmp/data_center_tycoon_visual_"
+const PREVIEW_SIZE := Vector2i(402, 874)
 
 var output_root := OUTPUT_ROOT_PREFIX
 var capture_locale := "zh_CN"
@@ -10,7 +11,9 @@ func _ready() -> void:
 	capture_locale = _requested_locale()
 	TranslationServer.set_locale(capture_locale)
 	output_root = "%s%s_" % [OUTPUT_ROOT_PREFIX, capture_locale]
-	DisplayServer.window_set_size(Vector2i(440, 956))
+	# Desktop preview and regression captures use exactly half of the Godot
+	# 804x1748 design canvas, preserving the iPhone 17 Pro Max portrait ratio.
+	DisplayServer.window_set_size(PREVIEW_SIZE)
 	Game.reset_for_tests()
 	Game.last_offline_report = {}
 	var main := MAIN_SCENE.instantiate()
@@ -226,7 +229,7 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	var image := get_viewport().get_texture().get_image()
 	# macOS may report the drawable one physical pixel narrower than the requested
 	# client area. Keep a 2px platform tolerance, but always execute layout gates.
-	var image_valid := not image.is_empty() and image.get_width() >= 438 and image.get_height() >= 954
+	var image_valid := not image.is_empty() and image.get_width() >= PREVIEW_SIZE.x - 2 and image.get_height() >= PREVIEW_SIZE.y - 2
 	var layout_valid := _layout_is_safe(main, name)
 	var valid := image_valid and layout_valid
 	var output_path := "%s%s.png" % [output_root, name]
@@ -308,6 +311,19 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		var operations_button := main.find_child("OperationsButton", true, false) as Button
 		if task_caption == null or operations_caption == null or task_button == null or operations_button == null or task_caption.get_parent() == task_button or operations_caption.get_parent() == operations_button or not task_button.text.is_empty() or not operations_button.text.is_empty():
 			push_error("VISUAL_SMOKE: map circular entries do not keep their labels outside the icon buttons")
+			valid = false
+		for caption: Label in [task_caption, operations_caption]:
+			if caption != null:
+				var caption_rect := caption.get_global_rect()
+				var button_rect := task_button.get_global_rect() if caption == task_caption else operations_button.get_global_rect()
+				if not viewport_rect.grow(-4.0).encloses(caption_rect) or caption_rect.end.y > button_rect.position.y + 1.0:
+					push_error("VISUAL_SMOKE: map action caption is outside the safe strip or below its button %s caption=%s button=%s" % [caption.name, caption_rect, button_rect])
+					valid = false
+	if state_name == "store":
+		var best_value := main.find_child("BestValueRibbon", true, false) as PanelContainer
+		var best_value_label := main.find_child("BestValueLabel", true, false) as Label
+		if best_value == null or best_value_label == null or best_value.size.x + 1.0 < best_value_label.get_combined_minimum_size().x + 24.0 or best_value.size.y + 1.0 < best_value_label.get_combined_minimum_size().y + 12.0:
+			push_error("VISUAL_SMOKE: store best-value ribbon does not fit its localized label")
 			valid = false
 	if state_name == "ftue_spotlight":
 		var spotlight := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
@@ -700,6 +716,15 @@ func _button_text_contrast_is_safe(main: Node, state_name: String) -> bool:
 		if bool(button.get_meta("glossy_button", false)) and (button.get_theme_font_size("font_size") != 28 or not font_color.is_equal_approx(Color.WHITE) or outline_size < 4 or button.get_theme_constant("shadow_offset_y") < 2):
 			push_error("VISUAL_SMOKE: %s glossy CTA violates the 28u white/4px/shadow contract: %s" % [state_name, button.name])
 			valid = false
+		if bool(button.get_meta("glossy_button", false)):
+			for state_color: String in ["font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+				if not button.get_theme_color(state_color).is_equal_approx(Color.WHITE):
+					push_error("VISUAL_SMOKE: %s glossy CTA %s uses gray state text %s=%s" % [state_name, button.name, state_color, button.get_theme_color(state_color)])
+					valid = false
+			var normal_style := button.get_theme_stylebox("normal") as StyleBoxTexture
+			if normal_style == null or normal_style.region_rect != Rect2(16, 36, 480, 180) or not is_equal_approx(normal_style.texture_margin_left, 74.0) or not is_equal_approx(normal_style.texture_margin_top, 12.0) or not is_equal_approx(normal_style.texture_margin_right, 74.0) or not is_equal_approx(normal_style.texture_margin_bottom, 22.0):
+				push_error("VISUAL_SMOKE: %s glossy CTA %s uses stale A1 nine-slice geometry" % [state_name, button.name])
+				valid = false
 	return valid
 
 func _typography_and_touch_are_safe(main: Node, state_name: String) -> bool:

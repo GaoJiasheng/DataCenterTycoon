@@ -233,7 +233,10 @@ func _build_shell() -> void:
 	navigation_panel = PanelContainer.new()
 	navigation_panel.name = "WorldActions"
 	navigation_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	navigation_panel.offset_top = -144
+	# Include the two external captions in the bottom safe-area contract. Keeping
+	# them above their icon buttons makes the labels readable even on the dense
+	# campus framing and leaves an explicit 8u breathing strip below the CTA.
+	navigation_panel.offset_top = -168
 	navigation_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	stage.add_child(navigation_panel)
 	var action_layer := Control.new()
@@ -243,9 +246,9 @@ func _build_shell() -> void:
 	task_button.name = "TaskButton"
 	task_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
 	task_button.offset_left = 0
-	task_button.offset_top = -62
+	task_button.offset_top = -50
 	task_button.offset_right = 96
-	task_button.offset_bottom = 34
+	task_button.offset_bottom = 46
 	task_button.tooltip_text = tr("VIEW_QUEUE")
 	task_button.pressed.connect(_navigate.bind("build"))
 	ThemeMaker.apply_round_button(task_button, ThemeMaker.COLORS.orange)
@@ -276,9 +279,9 @@ func _build_shell() -> void:
 	operations_button.name = "OperationsButton"
 	operations_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
 	operations_button.offset_left = -96
-	operations_button.offset_top = -62
+	operations_button.offset_top = -50
 	operations_button.offset_right = 0
-	operations_button.offset_bottom = 34
+	operations_button.offset_bottom = 46
 	operations_button.tooltip_text = tr("OPERATIONS_CENTER")
 	operations_button.pressed.connect(_show_operations_hub)
 	ThemeMaker.apply_round_button(operations_button, ThemeMaker.COLORS.sky)
@@ -1330,6 +1333,7 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 	if product_id == "gems_m":
 		var ribbon := PanelContainer.new()
 		ribbon.name = "BestValueRibbon"
+		ribbon.size_flags_horizontal = Control.SIZE_SHRINK_END
 		var ribbon_style := ThemeMaker.panel(Color("b87917"), Color.WHITE, 1, 13)
 		ribbon_style.content_margin_left = 12
 		ribbon_style.content_margin_right = 12
@@ -1337,10 +1341,16 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 		ribbon_style.content_margin_bottom = 6
 		ribbon.add_theme_stylebox_override("panel", ribbon_style)
 		var ribbon_label := _label(tr("STORE_BEST_VALUE"), 18, Color.WHITE)
+		ribbon_label.name = "BestValueLabel"
 		ribbon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ribbon_label.max_lines_visible = 1
+		ribbon_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		ribbon_label.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
 		ribbon_label.add_theme_constant_override("outline_size", 3)
 		ribbon.add_child(ribbon_label)
+		# PanelContainer normally forwards this minimum, but making it explicit
+		# protects the longer English badge when the title row negotiates width.
+		ribbon.custom_minimum_size.x = maxf(128.0, ribbon_label.get_combined_minimum_size().x + 24.0)
 		title_row.add_child(ribbon)
 	var bonus := _store_bonus_percent(product_id)
 	if bonus > 0:
@@ -3077,11 +3087,11 @@ func _resource_chip(asset_id: String, accent: Color) -> PanelContainer:
 func _add_world_action_caption(parent: Control, text: String, align_right: bool) -> void:
 	var caption := _label(text, 18, Color.WHITE)
 	caption.name = "OperationsCaption" if align_right else "TaskCaption"
-	caption.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT if align_right else Control.PRESET_BOTTOM_LEFT)
+	caption.set_anchors_preset(Control.PRESET_TOP_RIGHT if align_right else Control.PRESET_TOP_LEFT)
 	caption.offset_left = -104 if align_right else -8
-	caption.offset_top = -36
+	caption.offset_top = 0
 	caption.offset_right = 8 if align_right else 104
-	caption.offset_bottom = -8
+	caption.offset_bottom = 28
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caption.add_theme_font_override("font", ThemeMaker.font_bold())

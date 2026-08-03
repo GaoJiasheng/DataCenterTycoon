@@ -31,8 +31,8 @@ Game="*res://core/game.gd"
 
 window/size/viewport_width=804
 window/size/viewport_height=1748
-window/size/window_width_override=440
-window/size/window_height_override=956
+window/size/window_width_override=402
+window/size/window_height_override=874
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1

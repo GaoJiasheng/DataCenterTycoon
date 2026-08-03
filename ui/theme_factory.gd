@@ -270,12 +270,15 @@ static func dialog_box() -> StyleBox:
 
 static func art_button_box(asset_id: String, tint: Color = Color.WHITE) -> StyleBox:
 	# A1 matte pill geometry (512x256 source): opaque 19..494 x 41..207.
-	# Side slices clear the rounded caps; content margins clear the rim and bevel.
-	var box := texture_box(asset_id, Vector4(80, 22, 80, 34), Vector4(56, 16, 56, 26), tint)
-	# Retain a small transparent gutter while removing export padding, so the
-	# painted silhouette scales to the full control without clipping its rim.
+	# The cap tangent is 70-72px in from the painted edge, the top rim is 6px,
+	# and the lower rim + bevel is 20-21px. Crop the export gutter first, then
+	# slice outside those features. The previous 80/22/80/34 margins cut inside
+	# the cap and over-preserved the lower bevel, producing leaf-like ends and a
+	# stretched dark seam on short controls.
+	var box := texture_box(asset_id, Vector4(74, 12, 74, 22), Vector4(56, 16, 56, 24), tint)
+	# Keep 3-7px of transparent breathing room around the measured alpha bounds.
 	if box is StyleBoxTexture:
-		(box as StyleBoxTexture).region_rect = Rect2(0, 36, 512, 180)
+		(box as StyleBoxTexture).region_rect = Rect2(16, 36, 480, 180)
 	return box
 
 static func world_badge(accent: Color, compact: bool = false) -> StyleBox:
@@ -316,6 +319,10 @@ static func apply_button_role(button: Button, role: String) -> void:
 	button.add_theme_stylebox_override("disabled", flat_button_box("disabled"))
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	button.add_theme_color_override("font_color", Color.WHITE)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	button.add_theme_color_override("font_focus_color", Color.WHITE)
+	button.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
 	button.add_theme_color_override("font_disabled_color", Color("9aa9ba"))
 	button.add_theme_color_override("font_outline_color", COLORS.ink)
 	# 4px outlines swallow CJK stroke interiors below 26u; keep the heavy outline
