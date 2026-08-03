@@ -198,3 +198,12 @@
 - [x] 主园区 / 行情 / 欠费三套音乐改为 1s 淡出 + 1s 淡入，总计 2s crossfade；同 cue 不重启、缺失 cue 不打断当前音乐，未修改 `core/*.gd`。
 - [x] 原创确定性合成与 QA 脚本已更新；23/23 均为 48kHz 双声道，音乐为 Vorbis、音效为 24-bit PCM。新 UI cue 时长与峰值检查通过，夜间环境 RMS 为 -22.19dBFS，运行时再以 -18dB 混音。
 - [x] 门禁：数据与 146 art / 23 audio 资产通过；`test_runner` 103/103；英文 30/30、简中 30/30 Metal 实渲染通过；60 张输出逐文件确认为 660×1434。
+
+### 2026-08-03 · 批次⑦（B · 品牌面与终检）
+
+- [x] App Icon 由内置 `imagegen` 按 §7 重绘为单主体蓝色机房、奶油金粗圆框和深天蓝全幅底色；首稿因四角黑色外露被拒绝，返修成品为 1024×1024 RGB、不透明、无黑角，60px 缩略仍可识别。
+- [x] 启动屏改为 `#8FBF5A` 草绿留白 + 单一蓝色机房主体，1536×2732 RGB、不透明；`project.godot` 的 boot splash 底色同步，加载前后不再闪旧深蓝。
+- [x] 图标与启动屏生成原稿、完整 prompt、标准化构建和 QA 均已落库；视觉资产仍为 146/146，无清单漂移，品牌面成品同步到 `art-renders/visual/final/store/` 与 `assets/art/store/`。
+- [x] 园区 / 机房棋盘 / 行情 / 时代演出 / 离线奖励 / 商店六个终检屏完成英文与简中真实 Metal 回放；12 张归档均为 660×1434，位于 `docs/ui_review/10_final_{en,zh_CN}_*.png`。
+- [x] 最终自动门禁：数据与 146 art / 23 audio 资产通过；`test_runner` 103/103；英文 30/30、简中 30/30 视觉回归通过。
+- [ ] 真机双语与正式 App Store 截图不能由桌面回归替代：已实际触发 `iOS Release Candidate` 导出，Godot 因 preset 的 Team ID、Bundle ID 与签名仍为所有者占位输入而在配置检查阶段拒绝导出；本机也没有可用 iOS Simulator。保持为 `docs/release_checklist.md` 的外部发行门禁，不虚报完成。

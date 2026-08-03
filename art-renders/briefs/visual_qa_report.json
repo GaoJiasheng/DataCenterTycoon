@@ -4317,7 +4317,7 @@
     "transparent_required": false,
     "alpha_bbox": null,
     "corner_alpha": [],
-    "bytes": 1409956,
+    "bytes": 1314260,
     "pass": true
   },
   {
@@ -4338,7 +4338,7 @@
     "transparent_required": false,
     "alpha_bbox": null,
     "corner_alpha": [],
-    "bytes": 1465083,
+    "bytes": 1204101,
     "pass": true
   },
   {

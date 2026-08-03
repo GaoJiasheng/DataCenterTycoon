@@ -106,3 +106,25 @@ Avoid: thin lines, flat vector art, emoji style, clip art, photorealism, gritty 
 - 通用图标使用技能随附 `remove_chroma_key.py --key-color '#ff00ff' --soft-matte --transparent-threshold 18 --opaque-threshold 80 --edge-feather 0.6 --edge-contract 1 --spill-cleanup`；紫色宝石为保护主体紫色，单独使用硬阈值 `--tolerance 14`。`ic_server` 源图的键色场在 `#ef0cd6` 周围轻微漂移，单独使用 `transparent=70 / opaque=180` 的宽软阈值，消除浅色底可见的全画布半透明 veil。
 - `finish_transparent_asset.py --size 512 --margin 0.045 --no-shadow` 统一画布、体量和安全边距；`build_final_visuals.py` 复现全部成品。
 - 30 枚缩至 48px 的人工检查联系表：`docs/ui_review/10_batch4_icons_48px_contact.png`；全尺寸联系表：`docs/ui_review/10_batch4_icons_full_contact.png`。
+
+## §10 批次⑦ · 品牌面生成提示
+
+品牌面以既有 `app_icon.png` 为风格参考，由内置 `imagegen` 重绘；生成原稿替换
+`visual/work/app_icon_source_v1.png` 与 `visual/work/splash_bg_source_v1.png`，再经
+`build_final_visuals.py --only store/...` 标准化为 App Store 规格。
+
+### App Icon
+
+```text
+Edit this into a premium iOS game app icon for Data Center Tycoon. Keep the same charming blue-and-cream cartoon data-center building design language and warm glowing gold windows, but simplify radically to ONE single compact blue data-center building centered and filling roughly 68% of the square. Place it on a clean sky-blue background with only a subtle soft grass base and warm halo. Add a bold thick rounded cream-and-gold border frame inset from the square edge, with an inner deep-blue keyline, designed to remain readable at 60px. Use strong silhouette, large simple shapes, clean hand-painted 3D mobile-game rendering, top-left warm light, high contrast. No coin, no extra buildings, no trees, no clouds, no text, no letters, no logos, no tiny details, no transparency, no mockup, no device frame. Square 1:1 icon composition; artwork must fill the entire square to all edges.
+```
+
+首稿四角出现黑色外露区，未接入；二次编辑保持主体不变，将奶油金圆框内缩约 3.5%，四角补为完整不透明的深天蓝品牌底色。最终 1024² 成品四角 RGB 均为蓝色，无透明或黑角。
+
+### 启动屏
+
+```text
+Create a minimalist portrait mobile game launch-screen artwork derived from this exact Data Center Tycoon app-icon design. Tall 9:16 composition. Use a perfectly clean, nearly solid grass-green background (#8FBF5A visual target) with only a very subtle lighter radial glow behind the center. Place one small centered blue data-center building emblem, matching the reference building's blue, cream, and warm-gold windows, occupying about 32% of the canvas width and positioned slightly above vertical center. No landscape, no sky, no clouds, no paths, no trees, no coins, no extra buildings, no text, no letters, no wordmark, no gradient bands, no noise, no transparency, no device mockup. Quiet premium loading screen with generous empty green breathing room; full-bleed portrait artwork.
+```
+
+Godot `boot_splash/bg_color` 同步为 `#8FBF5A`，避免载入前后边缘闪过旧的深蓝底色。
