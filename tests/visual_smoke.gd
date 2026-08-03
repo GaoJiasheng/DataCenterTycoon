@@ -50,6 +50,31 @@ func _ready() -> void:
 	valid = (await _capture(main, "map_built")) and valid
 	await get_tree().create_timer(0.9).timeout
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	var completion_nodes_clean: bool = main.park_map.find_child("ConstructionGhost", true, false) == null and main.park_map.find_children("CompletionDust*", "TextureRect", true, false).is_empty()
+	var fx_layer: Node = main.find_child("FxLayer", true, false)
+	completion_nodes_clean = completion_nodes_clean and fx_layer != null and int(fx_layer.call("active_coin_count")) == 0
+	if not completion_nodes_clean:
+		push_error("VISUAL_SMOKE: construction or coin FX did not self-clean")
+		valid = false
+	var power_result: Dictionary = Game.install_power(str(dc.get("id", "")), "power_t1")
+	if not bool(power_result.get("ok", false)):
+		push_error("VISUAL_SMOKE: unable to stage the power-on transition")
+		valid = false
+	else:
+		Game.advance_time(300.0, false)
+		await get_tree().create_timer(0.40).timeout
+		var power_transition_live: bool = main.park_map.find_child("PowerOnDarkGhost", true, false) != null and main.park_map.find_child("PowerOnGlow", true, false) != null
+		if not power_transition_live:
+			push_error("VISUAL_SMOKE: dark-to-active power-on transition did not start")
+			valid = false
+		await get_tree().create_timer(0.72).timeout
+		var power_transition_clean: bool = main.park_map.find_child("PowerOnDarkGhost", true, false) == null and main.park_map.find_child("PowerOnGlow", true, false) == null and int(fx_layer.call("active_coin_count")) == 0
+		if not power_transition_clean:
+			push_error("VISUAL_SMOKE: power-on transition or coin FX did not self-clean")
+			valid = false
+	# Restore the canonical unpowered fixture expected by the later context and
+	# board states; the transition probe above is intentionally presentation-only.
+	dc["power_unit"] = ""
 	var mixed_powered := dc.duplicate(true)
 	mixed_powered["id"] = "visual_mixed_powered"
 	mixed_powered["power_unit"] = "power_t1"

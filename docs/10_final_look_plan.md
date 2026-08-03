@@ -177,3 +177,14 @@
 - [x] 48px 与全尺寸联系表存为 `docs/ui_review/10_batch4_icons_48px_contact.png`、`10_batch4_icons_full_contact.png`。
 - [x] `test_runner` 103/103；英文 30/30、简中 30/30 Metal 实渲染回归通过；30 态输出全部精确为 660×1434。
 - [x] 人工放大检查 HUD、FTUE、运营、科技与商店；归档真实运行截图 `10_batch4_en_operations.png`、`10_batch4_en_tech.png`、`10_batch4_en_store.png`、`10_batch4_zh_ftue_spotlight.png`，无白底、裁边、文字互压或图标体量漂移。
+
+### 2026-08-03 · 批次⑤（L · 生命感动效）
+
+- [x] L1：移除 active 建筑逐帧整体缩放；改为 `1.00↔1.06` 窗光亮度呼吸，按 plot index 固定错相，夜间亮度乘数继续生效，完成 tween 不再被 ambient process 抢写 scale。
+- [x] L2：供电完成后强制刷新一次展示树，并在目标机房上执行 0.60s `dark→active` 交叉淡化、`fx_glow_ring` 扩散；继续复用玩法层已有 `sfx_power_on`，未修改 EventBus 或规则层。
+- [x] L3：机房建成执行脚手架淡出、最终建筑 `scale 0.90→1.00` 的 `TRANS_BACK` 弹入和三团错时 `fx_dust_puff`；缺素材时各层静默跳过。
+- [x] L4：金币飞行继续从建筑屋顶到 HUD 钱包；`FxLayer.active_coin_count()` 与双语 visual smoke 均断言飞行/建成/通电演出结束后节点为 0。
+- [x] L5：园区静置 8 秒后开始最多 2% 的缓慢居中放大与 ≤5u 漂移；鼠标按键、触控、键盘、拖拽、缩放或任何 UI 输入立即复位，不与手势 tween 竞争。
+- [x] L6：页面统一使用 0.18s alpha + 22u 上移，world/action sheet 统一使用 alpha + 54/64u 上移，dismiss 统一向下 80u + alpha；离线、时代、破产全屏卡继续使用既有 scale+alpha 演出，人工逐项无瞬移。
+- [x] 门禁：`test_runner` 103/103；英文 30/30、简中 30/30 Metal 实渲染通过；所有截图 660×1434。六机房 + 30 金币压力测试 average 5.83ms / p90 6.98ms / p95 7.57ms / remaining 0 / node_delta 0。
+- [x] 人工审片归档：`docs/ui_review/10_batch5_en_map_built.png`、`10_batch5_en_campus_dense.png`、`10_batch5_zh_map_built.png`、`10_batch5_zh_campus_dense.png`。

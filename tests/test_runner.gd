@@ -76,7 +76,41 @@ func _run_asset_integration_tests() -> void:
 	var right_bottom: Vector2 = park_map.call("_plot_position", 3, 4)
 	var next_sale: Vector2 = park_map.call("_sale_position", 4)
 	var campus_grid_ok := is_equal_approx(left_top.y, right_top.y) and is_equal_approx(left_bottom.y, right_bottom.y) and right_top.x - left_top.x >= ParkMap.PLOT_SIZE.x and is_equal_approx(next_sale.x, (804.0 - ParkMap.PLOT_SIZE.x) * 0.5) and next_sale.y > left_bottom.y
-	_expect(campus_grid_ok, "campus parcels share row baselines and the expansion parcel stays centered")
+	# The cinematic polish stays presentation-only and must clean up after itself.
+	Game.reset_for_tests()
+	Game.start_datacenter_construction("plot_1", "dc_t0")
+	Game.advance_time(300.0, false)
+	park_map.setup(Game.state.get("plots", []))
+	await get_tree().process_frame
+	park_map.play_construction_completion("plot_1")
+	var construction_stage_ok := park_map.find_child("ConstructionGhost", true, false) != null and park_map.find_children("CompletionDust*", "TextureRect", true, false).size() == 3
+	await get_tree().create_timer(0.82).timeout
+	construction_stage_ok = construction_stage_ok and park_map.find_child("ConstructionGhost", true, false) == null and park_map.find_children("CompletionDust*", "TextureRect", true, false).is_empty()
+	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	Game.install_power(str(dc.get("id", "")), "power_t1")
+	Game.advance_time(300.0, false)
+	park_map.set_preview_hour(12.0)
+	park_map.setup(Game.state.get("plots", []))
+	await get_tree().process_frame
+	var active_art := park_map.get("_active_art") as Array
+	park_map.set("_ambient_time", 0.0)
+	park_map.call("_process", 0.0)
+	var window_breath_ok := not active_art.is_empty()
+	if window_breath_ok:
+		var powered_art := active_art[0] as TextureRect
+		window_breath_ok = powered_art.scale.is_equal_approx(Vector2.ONE) and powered_art.self_modulate.r >= 1.0 and powered_art.self_modulate.r <= 1.06
+	park_map.play_power_on(str(dc.get("id", "")))
+	var power_stage_ok := park_map.find_child("PowerOnDarkGhost", true, false) != null and park_map.find_child("PowerOnGlow", true, false) != null
+	await get_tree().create_timer(0.72).timeout
+	power_stage_ok = power_stage_ok and park_map.find_child("PowerOnDarkGhost", true, false) == null and park_map.find_child("PowerOnGlow", true, false) == null
+	park_map.set("_idle_seconds", ParkMap.CAMERA_BREATH_DELAY + 2.0)
+	park_map.set("_camera_breath_phase", PI / 0.24)
+	park_map.call("_update_camera_breath", 0.0)
+	var camera_breath_ok := bool(park_map.get("_camera_breathing")) and park_map.content.scale.x > park_map.zoom and park_map.content.scale.x <= park_map.zoom * 1.021
+	park_map.notify_user_input()
+	camera_breath_ok = camera_breath_ok and park_map.content.scale.is_equal_approx(Vector2.ONE * park_map.zoom)
+	campus_grid_ok = campus_grid_ok and construction_stage_ok and power_stage_ok and window_breath_ok and camera_breath_ok
+	_expect(campus_grid_ok, "campus grid and presentation-only world transitions stay deterministic and self-cleaning")
 	park_map.queue_free()
 	await get_tree().process_frame
 
@@ -133,9 +167,9 @@ func _run_ui_refresh_test() -> void:
 	main.call("_fly_cash_reward", Vector2(220, 520), 12)
 	await get_tree().process_frame
 	var fx_layer := main.find_child("FxLayer", true, false)
-	_expect(fx_layer != null and fx_layer.get_child_count() == 8, "coin feedback caps a reward burst at eight particles")
+	_expect(fx_layer != null and int(fx_layer.call("active_coin_count")) == 8, "coin feedback caps a reward burst at eight particles")
 	await get_tree().create_timer(1.1).timeout
-	_expect(fx_layer != null and fx_layer.get_child_count() == 0, "coin feedback releases all particles after wallet arrival")
+	_expect(fx_layer != null and int(fx_layer.call("active_coin_count")) == 0, "coin feedback releases all particles after wallet arrival")
 	Game.state["player"]["cash"] = float(Game.state["player"].get("cash", 0.0)) + 100.0
 	main.call("_refresh_hud")
 	_expect(is_equal_approx(float(main.get("_cash_target")), float(Game.state["player"]["cash"])), "cash HUD animates toward the authoritative balance")

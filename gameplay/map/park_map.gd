@@ -21,6 +21,8 @@ const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
 const DAY_TINT := Color(1.0, 0.97, 0.90)
 const EVENING_TINT := Color(1.0, 0.88, 0.78)
 const NIGHT_TINT := Color(0.72, 0.78, 0.95)
+const CAMERA_BREATH_DELAY := 8.0
+const CAMERA_BREATH_ZOOM := 0.02
 const CAMPUS_PROP_IDS := [
 	"prop_flagpole",
 	"prop_lamp",
@@ -66,6 +68,9 @@ var _grade_refresh_accumulator := 0.0
 var _window_light_boost := 1.0
 var _preview_hour := -1.0
 var _edge_fog: TextureRect
+var _idle_seconds := 0.0
+var _camera_breath_phase := 0.0
+var _camera_breathing := false
 
 func _ready() -> void:
 	clip_contents = true
@@ -133,9 +138,12 @@ func _process(delta: float) -> void:
 	for index: int in range(_active_art.size()):
 		var art := _active_art[index]
 		if is_instance_valid(art):
-			var pulse := 1.0 + sin(_ambient_time * 1.45 + index * 1.7) * 0.009
-			art.scale = Vector2.ONE * pulse
-			art.self_modulate = Color(_window_light_boost, _window_light_boost, _window_light_boost, 1.0)
+			# Only the powered window light breathes. Scaling the full building every
+			# frame fights completion tweens and reads as layout jank.
+			var phase := float(art.get_meta("ambient_phase", float(index) * 1.7))
+			var light_pulse := 1.03 + sin(_ambient_time * 0.82 + phase) * 0.03
+			var brightness := _window_light_boost * light_pulse
+			art.self_modulate = Color(brightness, brightness, brightness, 1.0)
 	for index: int in range(_sway_art.size()):
 		var art := _sway_art[index]
 		if is_instance_valid(art):
@@ -149,6 +157,7 @@ func _process(delta: float) -> void:
 	if _countdown_accumulator >= 1.0:
 		_countdown_accumulator = 0.0
 		_refresh_construction_labels()
+	_update_camera_breath(delta)
 
 func color_grade_for_hour(hour: float) -> Dictionary:
 	var wrapped := fposmod(hour, 24.0)
@@ -200,6 +209,7 @@ func setup(plots: Array) -> void:
 	_sway_art.clear()
 	_glow_art.clear()
 	_construction_labels.clear()
+	notify_user_input()
 	var owned_count := plots.size()
 	var rows := int(ceil(float(owned_count) / 2.0)) + 1
 	_campus_bounds = Rect2()
@@ -234,11 +244,13 @@ func setup(plots: Array) -> void:
 	queue_redraw()
 
 func reset_camera() -> void:
+	notify_user_input()
 	zoom = _default_zoom
 	camera_offset = _default_camera_offset
 	_animate_camera()
 
 func focus_target(target_id: String) -> void:
+	notify_user_input()
 	var target := target_buttons.get(target_id) as Control
 	if target == null:
 		return
@@ -273,6 +285,98 @@ func celebrate_target(target_id: String) -> void:
 	var tween := target.create_tween()
 	tween.tween_property(target, "scale", Vector2(1.04, 1.08), 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(target, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+func play_construction_completion(plot_id: String) -> void:
+	var target := target_buttons.get(plot_id) as Control
+	if target == null or not is_instance_valid(target):
+		return
+	var art := target.find_child("WorldArt", false, false) as TextureRect
+	var plot := Game.find_plot(plot_id)
+	var dc: Variant = plot.get("datacenter", {})
+	if art == null or not dc is Dictionary:
+		return
+	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
+	var scaffold_texture := AssetCatalog.texture(str(building.get("asset_prefix", "")) + "_construction")
+	var scaffold := _world_art_overlay(target, art, scaffold_texture, "ConstructionGhost")
+	art.modulate.a = 0.0
+	art.scale = Vector2.ONE * 0.90
+	for index: int in range(3):
+		_spawn_local_fx(
+			target,
+			"fx_dust_puff",
+			Vector2(-78.0 + float(index) * 78.0, 74.0 + absf(1.0 - float(index)) * 10.0),
+			Vector2(96, 96),
+			float(index) * 0.07,
+			"CompletionDust%d" % index
+		)
+	var tween := target.create_tween().set_parallel(true)
+	tween.tween_property(art, "modulate:a", 1.0, 0.20)
+	tween.tween_property(art, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if scaffold != null:
+		tween.tween_property(scaffold, "modulate:a", 0.0, 0.30)
+		tween.tween_property(scaffold, "scale", Vector2.ONE * 1.03, 0.34).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.finished.connect(scaffold.queue_free)
+
+func play_power_on(datacenter_id: String) -> void:
+	var target := target_buttons.get(datacenter_id) as Control
+	if target == null or not is_instance_valid(target):
+		return
+	var art := target.find_child("WorldArt", false, false) as TextureRect
+	var dc := Game.find_datacenter(datacenter_id)
+	if art == null or dc.is_empty():
+		return
+	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
+	var dark_texture := AssetCatalog.texture(str(building.get("asset_prefix", "")) + "_dark")
+	var dark_art := _world_art_overlay(target, art, dark_texture, "PowerOnDarkGhost")
+	art.modulate.a = 0.0
+	var ring := _spawn_local_fx(target, "fx_glow_ring", Vector2.ZERO, Vector2(264, 264), 0.0, "PowerOnGlow")
+	if ring != null:
+		ring.position = target.size * 0.5 - ring.size * 0.5 + Vector2(0, 10)
+	var tween := target.create_tween().set_parallel(true)
+	tween.tween_property(art, "modulate:a", 1.0, 0.60).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if dark_art != null:
+		tween.tween_property(dark_art, "modulate:a", 0.0, 0.60).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.finished.connect(dark_art.queue_free)
+
+func _world_art_overlay(target: Control, art: TextureRect, texture: Texture2D, node_name: String) -> TextureRect:
+	if texture == null:
+		return null
+	var overlay := TextureRect.new()
+	overlay.name = node_name
+	overlay.texture = _visible_world_texture(texture)
+	overlay.expand_mode = art.expand_mode
+	overlay.stretch_mode = art.stretch_mode
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.position = art.position
+	overlay.size = art.size
+	overlay.pivot_offset = art.pivot_offset
+	target.add_child(overlay)
+	target.move_child(overlay, mini(art.get_index() + 1, target.get_child_count() - 1))
+	return overlay
+
+func _spawn_local_fx(parent: Control, asset_id: String, offset: Vector2, dimensions: Vector2, delay: float = 0.0, node_name: String = "CompletionFx") -> TextureRect:
+	var texture := AssetCatalog.texture(asset_id)
+	if texture == null:
+		return null
+	var view := TextureRect.new()
+	view.name = node_name
+	view.texture = texture
+	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.z_index = 4
+	view.size = dimensions
+	view.position = parent.size * 0.5 - dimensions * 0.5 + offset
+	view.pivot_offset = dimensions * 0.5
+	view.scale = Vector2.ONE * 0.35
+	view.modulate.a = 0.0
+	parent.add_child(view)
+	var tween := view.create_tween().set_parallel(true)
+	tween.tween_property(view, "scale", Vector2.ONE * 1.10, 0.58).set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(view, "modulate:a", 0.92, 0.10).set_delay(delay)
+	tween.tween_property(view, "modulate:a", 0.0, 0.24).set_delay(delay + 0.34)
+	tween.finished.connect(view.queue_free)
+	return view
 
 func blackout_sequence() -> void:
 	var index := 0
@@ -475,6 +579,9 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 				badge_mode = "icon"
 	var button := _world_button(asset_id, caption, accent, caption_asset, badge_mode)
 	button.position = at
+	var world_art := button.find_child("WorldArt", false, false) as TextureRect
+	if world_art != null:
+		world_art.set_meta("ambient_phase", float(int(plot.get("index", 0))) * 1.73)
 	if status == "building":
 		var countdown := button.find_child("StatusText", true, false) as Label
 		if countdown != null:
@@ -763,6 +870,8 @@ func _animate_button(button: Button, target_scale: float) -> void:
 	tween.tween_property(button, "scale", Vector2.ONE * target_scale, 0.10).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func _gui_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseMotion) or dragging:
+		notify_user_input()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			_zoom_at(event.position, zoom + 0.1)
@@ -814,6 +923,33 @@ func _apply_camera() -> void:
 	_clamp_camera_offset()
 	content.position = camera_offset
 	content.scale = Vector2.ONE * zoom
+
+func notify_user_input() -> void:
+	_idle_seconds = 0.0
+	_camera_breath_phase = 0.0
+	if not _camera_breathing or content == null:
+		return
+	_camera_breathing = false
+	# Input must feel immediate; do not leave a slow cinematic tween fighting
+	# the user's drag, pinch or button press.
+	content.position = camera_offset
+	content.scale = Vector2.ONE * zoom
+
+func _update_camera_breath(delta: float) -> void:
+	if content == null or dragging or not touch_points.is_empty():
+		return
+	_idle_seconds += delta
+	if _idle_seconds < CAMERA_BREATH_DELAY:
+		return
+	_camera_breathing = true
+	_camera_breath_phase += delta
+	var entrance := smoothstep(CAMERA_BREATH_DELAY, CAMERA_BREATH_DELAY + 2.0, _idle_seconds)
+	var cycle := (sin(_camera_breath_phase * 0.24 - PI * 0.5) + 1.0) * 0.5
+	var factor := 1.0 + CAMERA_BREATH_ZOOM * cycle * entrance
+	var viewport_center := size * 0.5
+	var drift := Vector2(sin(_camera_breath_phase * 0.17) * 5.0, cos(_camera_breath_phase * 0.13) * 4.0) * entrance
+	content.scale = Vector2.ONE * zoom * factor
+	content.position = camera_offset + (viewport_center - camera_offset) * (1.0 - factor) + drift
 
 func _clamp_camera_offset() -> void:
 	var scaled := world_size * zoom

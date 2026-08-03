@@ -105,6 +105,13 @@ func _process(delta: float) -> void:
 		if refresh_page:
 			_refresh_page()
 
+func _input(event: InputEvent) -> void:
+	if park_map == null or event is InputEventMouseMotion:
+		return
+	if event is InputEventKey and not event.pressed:
+		return
+	park_map.notify_user_input()
+
 func _build_shell() -> void:
 	var background := ColorRect.new()
 	background.color = ThemeMaker.SURFACE
@@ -2523,14 +2530,26 @@ func _on_offline_settled(report: Dictionary) -> void:
 
 func _on_construction_completed(item: Dictionary) -> void:
 	_show_toast(tr("TOAST_CONSTRUCTION_COMPLETE"))
-	_play_fx_at_world("fx_dust_puff", str(item.get("plot_id", "")), 190)
 	var target_id := str(item.get("plot_id", item.get("datacenter_id", "")))
 	_fly_cash_reward(park_map.world_position_of(target_id) if park_map != null else Vector2.ZERO, 8)
 	_haptic(HAPTIC_MEDIUM)
-	get_tree().create_timer(0.38).timeout.connect(func() -> void:
-		if is_instance_valid(park_map):
+	# Tick-only refreshes intentionally preserve the world tree. Completion is
+	# the exception: rebuild once, then stage the transition against the new art.
+	_request_full_refresh()
+	var completed := item.duplicate(true)
+	get_tree().create_timer(0.30).timeout.connect(_present_construction_completion.bind(completed))
+
+func _present_construction_completion(item: Dictionary) -> void:
+	if park_map == null or not is_instance_valid(park_map):
+		return
+	var item_type := str(item.get("type", ""))
+	var target_id := str(item.get("plot_id", item.get("datacenter_id", "")))
+	match item_type:
+		"datacenter": park_map.play_construction_completion(target_id)
+		"power": park_map.play_power_on(target_id)
+		_:
+			_play_fx_at_world("fx_dust_puff", target_id, 190)
 			park_map.celebrate_target(target_id)
-	)
 
 func _on_rack_fault_occurred(datacenter_id: String, _slot: int) -> void:
 	_play_fx_at_world("fx_spark", datacenter_id, 170)

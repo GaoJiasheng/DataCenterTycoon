@@ -22,8 +22,15 @@ func fly_coins(world_position: Vector2, target: Control, count: int = 3) -> void
 
 func clear() -> void:
 	for child: Node in get_children():
-		if child.name == "FlyingCoin":
+		if bool(child.get_meta("flying_coin", false)):
 			child.queue_free()
+
+func active_coin_count() -> int:
+	var count := 0
+	for child: Node in get_children():
+		if bool(child.get_meta("flying_coin", false)) and not child.is_queued_for_deletion():
+			count += 1
+	return count
 
 func pulse_target(target: Control) -> void:
 	if target == null or not is_instance_valid(target):
@@ -36,6 +43,7 @@ func pulse_target(target: Control) -> void:
 func _spawn_coin(texture: Texture2D, start: Vector2, destination: Vector2, index: int, amount: int, target: Control) -> void:
 	var coin := TextureRect.new()
 	coin.name = "FlyingCoin"
+	coin.set_meta("flying_coin", true)
 	coin.texture = texture
 	coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
