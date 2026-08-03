@@ -161,3 +161,12 @@
   | 修复前（同位置放大） | 修复后（同位置放大） |
   |---|---|
   | ![S5 锁定卡修复前](ui_review/12_s5_before_zh_zoom.png) | ![S5 锁定卡修复后](ui_review/12_s5_after_zh_zoom.png) |
+
+### 批次④ · 最终门禁（2026-08-03）
+
+- [x] `python3 tools/validate_data.py`：11 张数据表、localization 与 152 个 art ID 通过。
+- [x] `python3 tools/check_assets.py --strict --audio`：152/152 美术、6/6 字体（含 ui.csv cmap 全字符覆盖）、23/23 音频通过。
+- [x] `godot --headless --path . --scene res://tests/test_runner.tscn`：103/103；棋盘仍满足 60 节点移动端预算。
+- [x] `visual_smoke --locale=zh_CN`：30/30，990×2151 Metal 实际渲染通过。
+- [x] `visual_smoke --locale=en`：30/30，英文长文案、商店 96u 锁定条、电力混排与滚动保持通过。
+- [x] `git diff --check`：通过；玩法层 `core/*.gd`、`gameplay/game_rules.gd`、`gameplay/market_system.gd`、`data/*.json` 未修改。
