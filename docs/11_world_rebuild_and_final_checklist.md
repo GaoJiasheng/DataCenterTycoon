@@ -107,3 +107,15 @@
   | 修复前 | 修复后 |
   |---|---|
   | ![F10 修复前，同位置放大](ui_review/11_f10_before_zh_zoom.png) | ![F10 修复后，同位置放大](ui_review/11_f10_after_zh_zoom.png) |
+
+### 批次② · 世界网格代码骨架（未提前关闭 F2/F3/F5）
+
+- [x] 地块、建筑与待售地统一通过显式 `grid_slot` 排布：地块宽 344u、车道 40u、相邻槽位位移固定为 384×192（2:1 等距轴），删除奇数末项居中的破格路径。
+- [x] 车道按相邻槽位自动生成六条连续连接，并以 `lane_axis=a|b` 锁定两条等距方向；visual smoke 要求 6 links / 2 axes / 7 unique slots，单元测试同时锁定坐标公式。
+- [x] 四个地块角锚点落库；普通装饰每地块最多 0–2 个，供电塔只绑定已安装供电的机房后侧锚点；树与灌木只留在园区外围。
+- [x] 此批严格使用既有 `plot_owned` / `ground_path_straight` 作为占位验证空间系统。旧道路仍为旋转后的正交贴图、待售地仍是农场素材，因此 **F2/F3/F5 暂不勾选关闭**，避免再次出现假完成。
+
+  | 状态 | `campus_dense` 全图 | `map_built` 全图 |
+  |---|---|---|
+  | 改造前 | ![批次② 前 campus_dense](ui_review/11_batch2_before_zh_campus_dense.png) | ![批次② 前 map_built](ui_review/11_batch2_before_zh_map_built.png) |
+  | 现有素材网格骨架 | ![批次② 后 campus_dense](ui_review/11_batch2_after_zh_campus_dense.png) | ![批次② 后 map_built](ui_review/11_batch2_after_zh_map_built.png) |

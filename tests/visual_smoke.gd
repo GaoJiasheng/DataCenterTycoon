@@ -481,18 +481,30 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: %s retains a duplicate procedural shadow over A2 baked shadows" % state_name)
 			valid = false
 	if state_name == "campus_dense":
-		var path_segments := main.find_children("CampusPathStraight_*", "TextureRect", true, false)
-		var path_junctions := main.find_children("CampusPathCross_*", "TextureRect", true, false)
+		var path_segments := main.find_children("CampusLane_*", "TextureRect", true, false)
+		var lane_axes: Dictionary = {}
+		for lane_node: Node in path_segments:
+			var lane := lane_node as TextureRect
+			lane_axes[str(lane.get_meta("lane_axis", ""))] = true
+			if not bool(lane.get_meta("world_lane", false)) or not is_equal_approx(absf(tan(lane.rotation)), 0.5):
+				push_error("VISUAL_SMOKE: dense campus lane left the shared 2:1 axis: %s rotation=%f" % [lane.name, lane.rotation])
+				valid = false
 		var prop_types: Dictionary = {}
 		var environment_count := 0
+		var grid_slots: Dictionary = {}
 		for node: Node in main.find_children("*", "", true, false):
 			if node.has_meta("world_environment"):
 				environment_count += 1
 			var prop_type := str(node.get_meta("world_prop_type", ""))
 			if not prop_type.is_empty():
 				prop_types[prop_type] = true
-		if path_segments.size() < 4 or path_junctions.size() < 2:
-			push_error("VISUAL_SMOKE: dense campus lacks a connected path graph: %d/%d" % [path_segments.size(), path_junctions.size()])
+			if node is Button and node.has_meta("grid_slot"):
+				grid_slots[int(node.get_meta("grid_slot"))] = true
+		if path_segments.size() != 6 or lane_axes.size() != 2:
+			push_error("VISUAL_SMOKE: dense campus lacks the six-link two-axis lane graph: links=%d axes=%d" % [path_segments.size(), lane_axes.size()])
+			valid = false
+		if grid_slots.size() != 7:
+			push_error("VISUAL_SMOKE: dense campus plots and sale pad do not share seven explicit grid slots: %d" % grid_slots.size())
 			valid = false
 		if prop_types.size() < 4:
 			push_error("VISUAL_SMOKE: dense campus exposes fewer than four environment prop types: %d" % prop_types.size())

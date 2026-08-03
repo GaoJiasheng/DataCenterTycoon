@@ -12,9 +12,12 @@ signal alert_selected(datacenter_id: String, alert_type: String, slot: int)
 const MIN_ZOOM := 0.7
 const MAX_ZOOM := 1.45
 const PLOT_SIZE := Vector2(344, 260)
-const CAMPUS_LEFT := 42.0
-const COLUMN_STEP := 400.0
-const ROW_STEP := 284.0
+const PLOT_LANE := 40.0
+const CAMPUS_LEFT := 38.0
+const CAMPUS_TOP := 18.0
+const COLUMN_STEP := 384.0 # PLOT_SIZE.x + PLOT_LANE
+const ISO_RISE := 192.0 # 2:1 axis rise for one column step
+const ROW_STEP := 384.0
 const CAMPUS_SAFE_TOP := 360.0
 const CAMPUS_SAFE_BOTTOM := 420.0
 const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
@@ -36,13 +39,6 @@ const CAMPUS_PROP_SIZES := [
 	Vector2(142, 90),
 	Vector2(160, 132),
 	Vector2(156, 140),
-]
-const CAMPUS_PROP_OFFSETS := [
-	Vector2(-48, 132),
-	Vector2(292, 116),
-	Vector2(36, 192),
-	Vector2(220, 184),
-	Vector2(248, 22),
 ]
 
 var content: Control
@@ -218,15 +214,16 @@ func setup(plots: Array) -> void:
 	_construction_labels.clear()
 	notify_user_input()
 	var owned_count := plots.size()
-	var rows := int(ceil(float(owned_count) / 2.0)) + 1
+	var slot_count := owned_count + 1 # Include the next purchasable parcel.
 	_campus_bounds = Rect2()
 	_add_campus_paths(plots)
 	_add_environment_props(plots)
-	_add_decorations(rows)
+	_add_decorations(slot_count)
 	for index: int in range(plots.size()):
 		var plot: Dictionary = plots[index]
 		var position := _plot_position(index, owned_count)
 		var plot_button := _plot_button(plot, position)
+		_configure_grid_slot(plot_button, index, position)
 		content.add_child(plot_button)
 		_include_campus_rect(Rect2(position, PLOT_SIZE))
 		target_buttons[str(plot.get("id", ""))] = plot_button
@@ -242,11 +239,12 @@ func setup(plots: Array) -> void:
 		"price"
 	)
 	sale.position = _sale_position(owned_count)
+	_configure_grid_slot(sale, owned_count, sale.position)
 	sale.pressed.connect(func() -> void: buy_plot_requested.emit())
 	content.add_child(sale)
 	_include_campus_rect(Rect2(sale.position, PLOT_SIZE))
 	target_buttons["sale"] = sale
-	world_size = Vector2(804, maxf(1748.0, rows * ROW_STEP + 680.0))
+	world_size = Vector2(804, maxf(1748.0, _campus_bounds.end.y + 560.0))
 	_frame_campus(false)
 	queue_redraw()
 
@@ -395,13 +393,12 @@ func blackout_sequence() -> void:
 			tween.tween_property(control, "modulate", Color(0.14, 0.18, 0.24, 0.42), 0.34).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 			index += 1
 
-func _add_decorations(rows: int) -> void:
-	# The grass is deliberately direction-neutral. Until the art kit contains a
-	# true isometric road set, a rotated top-down road would introduce a second,
-	# incompatible projection. The buildings and all motion follow one 2:1 axis.
+func _add_decorations(slot_count: int) -> void:
+	# Ambient motion follows the same two 2:1 axes as the explicit parcel grid.
 	_add_wind_streak(Vector2(-180, 560), 0.0, 1.0)
 	_add_wind_streak(Vector2(820, 910), 4.5, -1.0)
-	var campus_bottom := maxf(690.0, rows * ROW_STEP + 160.0)
+	var last_slot := _plot_position(maxi(0, slot_count - 1), slot_count)
+	var campus_bottom := maxf(690.0, last_slot.y + PLOT_SIZE.y)
 	var trees: Array[TextureRect] = []
 	# Decorations live in reserved outer gutters. They never occupy a parcel slot
 	# or become a third column competing with the interactive campus.
@@ -413,74 +410,88 @@ func _add_decorations(rows: int) -> void:
 			_sway_art.append(tree)
 	_add_decoration("deco_bush", Vector2(724, 210), Vector2(80, 80))
 	_add_decoration("deco_bush", Vector2(4, campus_bottom + 170), Vector2(86, 86))
-	_add_decoration("deco_pylon", Vector2(658, campus_bottom + 246), Vector2(132, 132))
 	# Repeated bush rows visually close the campus without competing with plots.
 	_add_world_prop("prop_bush_row", Vector2(-34, campus_bottom + 68), Vector2(142, 90), "outer_left")
 	_add_world_prop("prop_bush_row", Vector2(696, campus_bottom + 132), Vector2(142, 90), "outer_right")
 
 func _add_campus_paths(plots: Array) -> void:
 	var straight_texture := AssetCatalog.texture("ground_path_straight")
-	var cross_texture := AssetCatalog.texture("ground_path_cross")
-	if straight_texture == null or cross_texture == null or plots.size() < 2:
+	var slot_count := plots.size() + 1
+	if straight_texture == null or slot_count < 2:
 		return
-	var row_hubs: Dictionary = {}
-	for array_index: int in range(plots.size()):
-		var row := array_index / 2
-		var center := _plot_position(array_index, plots.size()) + PLOT_SIZE * 0.5
-		var hub := Vector2(402.0, center.y)
-		row_hubs[row] = hub
-		_add_path_segment(hub, center, straight_texture)
-	var sorted_rows: Array = row_hubs.keys()
-	sorted_rows.sort()
-	for order_index: int in range(sorted_rows.size()):
-		var row: Variant = sorted_rows[order_index]
-		var hub: Vector2 = row_hubs[row]
-		_add_path_cross(hub, cross_texture, order_index)
-		if order_index > 0:
-			var prior: Vector2 = row_hubs[sorted_rows[order_index - 1]]
-			_add_path_segment(prior, hub, straight_texture)
+	for slot: int in range(slot_count - 1):
+		var from := _plot_position(slot, plots.size()) + PLOT_SIZE * 0.5
+		var to := _plot_position(slot + 1, plots.size()) + PLOT_SIZE * 0.5
+		_add_path_segment(from, to, straight_texture, slot)
 
-func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D) -> void:
+func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D, slot: int) -> void:
 	var distance := from.distance_to(to)
 	if distance < 32.0:
 		return
 	var view := TextureRect.new()
-	view.name = "CampusPathStraight_%d" % content.get_child_count()
+	var direction := to - from
+	var axis := "a" if direction.x > 0.0 else "b"
+	view.name = "CampusLane_%s_%d" % [axis, slot]
 	view.texture = texture
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	view.stretch_mode = TextureRect.STRETCH_SCALE
-	view.size = Vector2(distance + 70.0, 126.0)
+	view.size = Vector2(distance + 40.0, 96.0)
 	view.position = (from + to) * 0.5 - view.size * 0.5
 	view.pivot_offset = view.size * 0.5
-	view.rotation = (to - from).angle()
+	view.rotation = direction.angle()
+	view.modulate = Color(1, 1, 1, 0.94)
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.set_meta("world_environment", true)
-	content.add_child(view)
-
-func _add_path_cross(at: Vector2, texture: Texture2D, index: int) -> void:
-	var view := TextureRect.new()
-	view.name = "CampusPathCross_%d" % index
-	view.texture = texture
-	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	view.stretch_mode = TextureRect.STRETCH_SCALE
-	view.size = Vector2(156, 156)
-	view.position = at - view.size * 0.5
-	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	view.set_meta("world_environment", true)
+	view.set_meta("world_lane", true)
+	view.set_meta("lane_axis", axis)
+	view.set_meta("lane_from_slot", slot)
+	view.set_meta("lane_to_slot", slot + 1)
 	content.add_child(view)
 
 func _add_environment_props(plots: Array) -> void:
 	for array_index: int in range(plots.size()):
 		var plot: Dictionary = plots[array_index]
 		var plot_index := int(plot.get("index", array_index + 1))
-		var prop_count := (plot_index * 7 + 3) % 3
 		var plot_origin := _plot_position(array_index, plots.size())
+		var raw_dc: Variant = plot.get("datacenter", {})
+		var powered: bool = false
+		if raw_dc is Dictionary:
+			var dc_data: Dictionary = raw_dc
+			powered = not dc_data.is_empty() and not str(dc_data.get("power_unit", "")).is_empty()
+		var used_anchors: Array[int] = []
+		if powered:
+			var pylon_dimensions := Vector2(132, 132)
+			var pylon := _add_world_prop("deco_pylon", _plot_deco_position(plot_origin, 1, pylon_dimensions), pylon_dimensions, "%d_power" % plot_index)
+			if pylon != null:
+				pylon.set_meta("grid_slot", array_index)
+				pylon.set_meta("deco_anchor", 1)
+				used_anchors.append(1)
+		var prop_count := 0 if plot_index % 3 == 0 else (1 if powered else plot_index % 3)
 		for slot: int in range(prop_count):
-			var prop_type := (plot_index * 2 + slot) % CAMPUS_PROP_IDS.size()
-			var offset_index := (plot_index + slot * 2) % CAMPUS_PROP_OFFSETS.size()
+			var prop_type := (plot_index - 1 + slot) % 4
+			var anchor := (plot_index - 1 + slot * 2) % 4
+			while anchor in used_anchors:
+				anchor = (anchor + 1) % 4
 			var asset_id: String = CAMPUS_PROP_IDS[prop_type]
 			var dimensions: Vector2 = CAMPUS_PROP_SIZES[prop_type]
-			_add_world_prop(asset_id, plot_origin + CAMPUS_PROP_OFFSETS[offset_index], dimensions, "%d_%d" % [plot_index, slot])
+			var prop := _add_world_prop(asset_id, _plot_deco_position(plot_origin, anchor, dimensions), dimensions, "%d_%d" % [plot_index, slot])
+			if prop != null:
+				prop.set_meta("grid_slot", array_index)
+				prop.set_meta("deco_anchor", anchor)
+				used_anchors.append(anchor)
+
+func _plot_deco_position(plot_origin: Vector2, anchor: int, dimensions: Vector2) -> Vector2:
+	# Four explicit anchors sit just outside the pad corners. The rear pair are
+	# used by powered-campus fixtures; front anchors remain available for future
+	# low-profile props without ever entering a 40u vehicle lane.
+	var anchor_points := [
+		Vector2(-14, 46),
+		Vector2(PLOT_SIZE.x + 14, 46),
+		Vector2(-14, PLOT_SIZE.y - 36),
+		Vector2(PLOT_SIZE.x + 14, PLOT_SIZE.y - 36),
+	]
+	var point: Vector2 = anchor_points[clampi(anchor, 0, anchor_points.size() - 1)]
+	return plot_origin + point - dimensions * Vector2(0.5, 0.72)
 
 func _add_world_prop(asset_id: String, at: Vector2, dimensions: Vector2, suffix: String) -> TextureRect:
 	var texture := AssetCatalog.texture(asset_id)
@@ -678,18 +689,24 @@ func _configure_construction_timer(button: Button, label: Label, construction: D
 	progress.value = clampf(Game.simulation_time() - started, 0.0, progress.max_value)
 	_construction_labels.append({"label": label, "progress": progress, "construction_id": str(construction.get("id", "")), "started_at": started, "complete_at": completed})
 
-func _plot_position(index: int, owned_count: int) -> Vector2:
+func _plot_position(index: int, _owned_count: int) -> Vector2:
 	var column := index % 2
 	var row := index / 2
-	if owned_count % 2 == 1 and index == owned_count - 1:
-		return Vector2((804.0 - PLOT_SIZE.x) * 0.5, row * ROW_STEP + 18.0)
-	# Both bays in a campus row share one ground baseline. Perspective is carried
-	# by the isometric art itself rather than by a screen-space staircase.
-	return Vector2(CAMPUS_LEFT + column * COLUMN_STEP, row * ROW_STEP + 18.0)
+	# The second bay rises by exactly half its horizontal step, so consecutive
+	# slots alternate across the two 2:1 isometric axes instead of forming a
+	# screen-space rectangle. No odd-row centering exception may break this grid.
+	return Vector2(CAMPUS_LEFT + column * COLUMN_STEP, CAMPUS_TOP + row * ROW_STEP + column * ISO_RISE)
 
 func _sale_position(owned_count: int) -> Vector2:
-	var sale_row := int(ceil(float(owned_count) / 2.0))
-	return Vector2((804.0 - PLOT_SIZE.x) * 0.5, sale_row * ROW_STEP + 18.0)
+	return _plot_position(owned_count, owned_count + 1)
+
+func _configure_grid_slot(button: Button, slot: int, at: Vector2) -> void:
+	button.z_index = 10 + int(at.y)
+	button.set_meta("grid_slot", slot)
+	button.set_meta("grid_column", slot % 2)
+	button.set_meta("grid_row", slot / 2)
+	button.set_meta("grid_origin", at)
+	button.set_meta("grid_center", at + PLOT_SIZE * 0.5)
 
 func _datacenter_asset_id(dc: Dictionary, building: Dictionary) -> String:
 	var suffix := "_dark"
@@ -721,7 +738,7 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	button.add_theme_stylebox_override("pressed", pressed)
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	if asset_id.begins_with("dc_"):
-		_add_owned_plot_base(button)
+		_add_owned_plot_base(button, asset_id)
 	var view := TextureRect.new()
 	view.name = "WorldArt"
 	var texture := AssetCatalog.texture(asset_id)
@@ -803,16 +820,18 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	button.button_up.connect(_animate_button.bind(button, 1.0))
 	return button
 
-func _add_owned_plot_base(button: Button) -> void:
+func _add_owned_plot_base(button: Button, building_asset_id: String) -> void:
 	var base := TextureRect.new()
 	base.name = "PlotFoundation"
 	base.texture = AssetCatalog.texture("plot_owned")
 	base.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	base.stretch_mode = TextureRect.STRETCH_SCALE
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	base.position = Vector2(7, 28)
-	base.size = Vector2(PLOT_SIZE.x - 14, 226)
+	var large := building_asset_id.begins_with("dc_t2") or building_asset_id.begins_with("dc_t3")
+	base.position = Vector2(-13, 18) if large else Vector2(7, 28)
+	base.size = Vector2(PLOT_SIZE.x + 26, 244) if large else Vector2(PLOT_SIZE.x - 14, 226)
 	base.modulate = Color(1, 1, 1, 0.86)
+	base.set_meta("plot_pad_class", "large" if large else "standard")
 	button.add_child(base)
 
 func _visible_world_texture(texture: Texture2D) -> Texture2D:

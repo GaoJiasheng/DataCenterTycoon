@@ -75,7 +75,8 @@ func _run_asset_integration_tests() -> void:
 	var left_bottom: Vector2 = park_map.call("_plot_position", 2, 4)
 	var right_bottom: Vector2 = park_map.call("_plot_position", 3, 4)
 	var next_sale: Vector2 = park_map.call("_sale_position", 4)
-	var campus_grid_ok := is_equal_approx(left_top.y, right_top.y) and is_equal_approx(left_bottom.y, right_bottom.y) and right_top.x - left_top.x >= ParkMap.PLOT_SIZE.x and is_equal_approx(next_sale.x, (804.0 - ParkMap.PLOT_SIZE.x) * 0.5) and next_sale.y > left_bottom.y
+	var first_axis := right_top - left_top
+	var campus_grid_ok := first_axis.is_equal_approx(Vector2(ParkMap.COLUMN_STEP, ParkMap.ISO_RISE)) and (left_bottom - left_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and (right_bottom - right_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and is_equal_approx(absf(first_axis.y / first_axis.x), 0.5) and next_sale.is_equal_approx(park_map.call("_plot_position", 4, 5)) and bool(plot_button.get_meta("grid_slot", -1) == 0)
 	# The cinematic polish stays presentation-only and must clean up after itself.
 	Game.reset_for_tests()
 	Game.start_datacenter_construction("plot_1", "dc_t0")
