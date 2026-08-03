@@ -141,7 +141,11 @@
   | ![F5 修复前，同位置放大](ui_review/11_f5_before_zh_zoom.png) | ![F5 修复后，同位置放大](ui_review/11_f5_after_zh_zoom.png) |
 
 - [x] 六件素材均通过正式 `import_assets.py --visual` 管线进入 `assets/art/map/`；manifest 从 146 扩展至 152，尺寸、RGBA、透明边界和残余洋红均通过严格资产检查。完整生成 prompt、源图与交付路径见 [11_world_asset_prompts.md](11_world_asset_prompts.md)。
-- [ ] **F4 尚未关闭。** 本批已将 `world_edge_fog` 呼吸范围从 0.50–0.65 降至 0.225–0.275，但草地 v2 尚未替换，须等无方向条纹的新 tile 接入并补同位置截图后一起关闭。
+- [x] **F4 · 草地平铺与世界雾完成收敛。** 草地 v2 使用随机方向细草笔触与约 3% 小型三叶草，通过 48px 对边 cosine blend 后左右/上下边界像素误差均为 0；调色板压缩后 1024² 成品 775,855 bytes。`world_edge_fog` 呼吸范围从 0.50–0.65 降至 0.225–0.275，中央保持透明，并由视觉门禁锁定。以下两图均取 `campus_dense` 的 `(x=0, y=180, w=990, h=620)`：
+
+  | 修复前 | 修复后 |
+  |---|---|
+  | ![F4 修复前，同位置放大](ui_review/11_f4_before_zh_zoom.png) | ![F4 修复后，同位置放大](ui_review/11_f4_after_zh_zoom.png) |
 
   | 批次③完整运行态 | `campus_dense` | `map_built` |
   |---|---|---|

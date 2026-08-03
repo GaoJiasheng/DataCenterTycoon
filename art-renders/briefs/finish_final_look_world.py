@@ -11,6 +11,7 @@ from PIL import Image, ImageFilter, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "visual" / "work" / "final_look_10"
+WORLD_REBUILD_WORK = ROOT / "visual" / "work" / "final_look_11"
 FINAL = ROOT / "visual" / "final" / "map"
 
 
@@ -58,12 +59,14 @@ def blend_opposite_edges(image: Image.Image, band: int) -> Image.Image:
 
 
 def finish_grass() -> None:
-    source = Image.open(WORK / "ground_tile_grass_source.png").convert("RGB")
+    grass_v2 = WORLD_REBUILD_WORK / "ground_tile_grass_v2_source.png"
+    grass_source = grass_v2 if grass_v2.is_file() else WORK / "ground_tile_grass_source.png"
+    source = Image.open(grass_source).convert("RGB")
     source = center_crop_ratio(source, 1.0).resize((1024, 1024), Image.Resampling.LANCZOS)
     source = blend_opposite_edges(source, 48)
     # A restrained palette is invisible at runtime scale and keeps the full
     # seamless tile below the repository's 1.5 MB mobile-texture budget.
-    source = source.quantize(colors=96, method=Image.Quantize.MEDIANCUT).convert("RGB")
+    source = source.quantize(colors=64, method=Image.Quantize.MEDIANCUT)
     source.save(FINAL / "ground_tile_grass.png", optimize=True)
 
 

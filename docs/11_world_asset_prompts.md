@@ -133,3 +133,13 @@ Avoid: screen-horizontal roads, screen-vertical roads, orthographic plus-sign ro
 | `road_iso_cross` | 1024×1024 | RGBA | 0 | 0 px |
 
 道路主轴复核：`road_iso_a=-31.19°`、`road_iso_b=+30.74°`；最终 `python3 tools/check_assets.py --strict` 验证 152/152 资产全部通过。
+
+## 7. `ground_tile_grass` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-3aba5355-7589-416e-9d14-c825fdd7e432.png`
+
+```text
+Use case: stylized-concept. Create a production-ready seamless square tileable cartoon lawn texture for the world map of Data Center Tycoon. Match the friendly polished hand-painted mobile-game rendering, yellow-green color family, brightness, and fine detail scale of the first reference, but remove its visible directional diagonal bands and any vignette. The output must be a perfectly full-bleed opaque square lawn texture with seamless wrap on all four edges. Uniform calm yellow-green grass, fine short hand-painted blades and strokes pointing in randomized directions, tiny clover accents at about 3% sparse density, extremely subtle hue variation only at micro scale, flat even lighting. It must read as quiet ground at 25% zoom so buildings and roads remain dominant. NO directional stripes, NO diagonal streak bands, NO vignette, NO center glow, NO edge darkening, NO large repeating motifs, NO paths, NO soil, NO flowers larger than tiny specks, NO objects, buildings, shadows, text, border, frame, transparency, logos, or watermark. Camera is flat texture view rather than a scene. Exact square composition with texture continuing naturally through every edge.
+```
+
+收尾：`finish_final_look_world.py` 对边 48px cosine blend、64 色移动端调色板；最终 1024×1024 P-mode PNG，775,855 bytes，左右/上下边界平均像素误差均为 0。
