@@ -21,6 +21,27 @@ const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
 const DAY_TINT := Color(1.0, 0.97, 0.90)
 const EVENING_TINT := Color(1.0, 0.88, 0.78)
 const NIGHT_TINT := Color(0.72, 0.78, 0.95)
+const CAMPUS_PROP_IDS := [
+	"prop_flagpole",
+	"prop_lamp",
+	"prop_bush_row",
+	"prop_parking",
+	"prop_transformer_yard",
+]
+const CAMPUS_PROP_SIZES := [
+	Vector2(96, 126),
+	Vector2(78, 118),
+	Vector2(142, 90),
+	Vector2(160, 132),
+	Vector2(156, 140),
+]
+const CAMPUS_PROP_OFFSETS := [
+	Vector2(-48, 132),
+	Vector2(292, 116),
+	Vector2(36, 192),
+	Vector2(220, 184),
+	Vector2(248, 22),
+]
 
 var content: Control
 var zoom := 1.02
@@ -44,6 +65,7 @@ var _world_texture_cache: Dictionary = {}
 var _grade_refresh_accumulator := 0.0
 var _window_light_boost := 1.0
 var _preview_hour := -1.0
+var _edge_fog: TextureRect
 
 func _ready() -> void:
 	clip_contents = true
@@ -54,12 +76,16 @@ func _ready() -> void:
 	ground_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ground_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(ground_fill)
-	var ground_texture := AssetCatalog.texture("ground_tile")
+	var ground_texture := AssetCatalog.texture("ground_tile_grass")
+	if ground_texture == null:
+		ground_texture = AssetCatalog.texture("ground_tile")
 	if ground_texture != null:
 		var ground_view := TextureRect.new()
+		ground_view.name = "CampusGroundTexture"
 		ground_view.texture = ground_texture
 		ground_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ground_view.stretch_mode = TextureRect.STRETCH_SCALE
+		ground_view.stretch_mode = TextureRect.STRETCH_TILE
+		ground_view.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 		ground_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ground_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		add_child(ground_view)
@@ -81,12 +107,25 @@ func _ready() -> void:
 	content = Control.new()
 	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(content)
+	var fog_texture := AssetCatalog.texture("world_edge_fog")
+	if fog_texture != null:
+		_edge_fog = TextureRect.new()
+		_edge_fog.name = "WorldEdgeFog"
+		_edge_fog.texture = fog_texture
+		_edge_fog.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_edge_fog.stretch_mode = TextureRect.STRETCH_SCALE
+		_edge_fog.modulate = Color(1, 1, 1, 0.575)
+		_edge_fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_edge_fog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(_edge_fog)
 	_refresh_day_grade(true)
 	_apply_camera()
 	set_process(true)
 
 func _process(delta: float) -> void:
 	_ambient_time += delta
+	if _edge_fog != null and is_instance_valid(_edge_fog):
+		_edge_fog.modulate.a = 0.575 + sin(_ambient_time * 0.23) * 0.075
 	_grade_refresh_accumulator += delta
 	if _grade_refresh_accumulator >= 30.0:
 		_grade_refresh_accumulator = 0.0
@@ -164,6 +203,8 @@ func setup(plots: Array) -> void:
 	var owned_count := plots.size()
 	var rows := int(ceil(float(owned_count) / 2.0)) + 1
 	_campus_bounds = Rect2()
+	_add_campus_paths(plots)
+	_add_environment_props(plots)
 	_add_decorations(rows)
 	for index: int in range(plots.size()):
 		var plot: Dictionary = plots[index]
@@ -262,6 +303,90 @@ func _add_decorations(rows: int) -> void:
 	_add_decoration("deco_bush", Vector2(724, 210), Vector2(80, 80))
 	_add_decoration("deco_bush", Vector2(4, campus_bottom + 170), Vector2(86, 86))
 	_add_decoration("deco_pylon", Vector2(658, campus_bottom + 246), Vector2(132, 132))
+	# Repeated bush rows visually close the campus without competing with plots.
+	_add_world_prop("prop_bush_row", Vector2(-34, campus_bottom + 68), Vector2(142, 90), "outer_left")
+	_add_world_prop("prop_bush_row", Vector2(696, campus_bottom + 132), Vector2(142, 90), "outer_right")
+
+func _add_campus_paths(plots: Array) -> void:
+	var straight_texture := AssetCatalog.texture("ground_path_straight")
+	var cross_texture := AssetCatalog.texture("ground_path_cross")
+	if straight_texture == null or cross_texture == null or plots.size() < 2:
+		return
+	var row_hubs: Dictionary = {}
+	for array_index: int in range(plots.size()):
+		var row := array_index / 2
+		var center := _plot_position(array_index, plots.size()) + PLOT_SIZE * 0.5
+		var hub := Vector2(402.0, center.y)
+		row_hubs[row] = hub
+		_add_path_segment(hub, center, straight_texture)
+	var sorted_rows: Array = row_hubs.keys()
+	sorted_rows.sort()
+	for order_index: int in range(sorted_rows.size()):
+		var row: Variant = sorted_rows[order_index]
+		var hub: Vector2 = row_hubs[row]
+		_add_path_cross(hub, cross_texture, order_index)
+		if order_index > 0:
+			var prior: Vector2 = row_hubs[sorted_rows[order_index - 1]]
+			_add_path_segment(prior, hub, straight_texture)
+
+func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D) -> void:
+	var distance := from.distance_to(to)
+	if distance < 32.0:
+		return
+	var view := TextureRect.new()
+	view.name = "CampusPathStraight_%d" % content.get_child_count()
+	view.texture = texture
+	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	view.stretch_mode = TextureRect.STRETCH_SCALE
+	view.size = Vector2(distance + 70.0, 126.0)
+	view.position = (from + to) * 0.5 - view.size * 0.5
+	view.pivot_offset = view.size * 0.5
+	view.rotation = (to - from).angle()
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.set_meta("world_environment", true)
+	content.add_child(view)
+
+func _add_path_cross(at: Vector2, texture: Texture2D, index: int) -> void:
+	var view := TextureRect.new()
+	view.name = "CampusPathCross_%d" % index
+	view.texture = texture
+	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	view.stretch_mode = TextureRect.STRETCH_SCALE
+	view.size = Vector2(156, 156)
+	view.position = at - view.size * 0.5
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.set_meta("world_environment", true)
+	content.add_child(view)
+
+func _add_environment_props(plots: Array) -> void:
+	for array_index: int in range(plots.size()):
+		var plot: Dictionary = plots[array_index]
+		var plot_index := int(plot.get("index", array_index + 1))
+		var prop_count := (plot_index * 7 + 3) % 3
+		var plot_origin := _plot_position(array_index, plots.size())
+		for slot: int in range(prop_count):
+			var prop_type := (plot_index * 2 + slot) % CAMPUS_PROP_IDS.size()
+			var offset_index := (plot_index + slot * 2) % CAMPUS_PROP_OFFSETS.size()
+			var asset_id: String = CAMPUS_PROP_IDS[prop_type]
+			var dimensions: Vector2 = CAMPUS_PROP_SIZES[prop_type]
+			_add_world_prop(asset_id, plot_origin + CAMPUS_PROP_OFFSETS[offset_index], dimensions, "%d_%d" % [plot_index, slot])
+
+func _add_world_prop(asset_id: String, at: Vector2, dimensions: Vector2, suffix: String) -> TextureRect:
+	var texture := AssetCatalog.texture(asset_id)
+	if texture == null:
+		return null
+	var view := TextureRect.new()
+	view.name = "CampusProp_%s_%s" % [asset_id, suffix]
+	view.texture = texture
+	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	view.position = at
+	view.size = dimensions
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.set_meta("world_environment", true)
+	view.set_meta("world_prop_type", asset_id)
+	content.add_child(view)
+	return view
 
 func _add_decoration(asset_id: String, at: Vector2, dimensions: Vector2, preserve_aspect: bool = true) -> TextureRect:
 	var texture := AssetCatalog.texture(asset_id)

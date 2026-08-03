@@ -2,7 +2,7 @@ extends Node
 
 const MAIN_SCENE := preload("res://main.tscn")
 const OUTPUT_ROOT_PREFIX := "/tmp/data_center_tycoon_visual_"
-const PREVIEW_SIZE := Vector2i(402, 874)
+const PREVIEW_SIZE := Vector2i(660, 1434)
 
 var output_root := OUTPUT_ROOT_PREFIX
 var capture_locale := "zh_CN"
@@ -11,8 +11,8 @@ func _ready() -> void:
 	capture_locale = _requested_locale()
 	TranslationServer.set_locale(capture_locale)
 	output_root = "%s%s_" % [OUTPUT_ROOT_PREFIX, capture_locale]
-	# Desktop preview and regression captures use exactly half of the Godot
-	# 804x1748 design canvas, preserving the iPhone 17 Pro Max portrait ratio.
+	# Desktop preview and regression captures use half of the iPhone 17 Pro Max
+	# physical 1320x2868 resolution. The 804x1748 design canvas stays unchanged.
 	DisplayServer.window_set_size(PREVIEW_SIZE)
 	Game.reset_for_tests()
 	Game.last_offline_report = {}
@@ -242,6 +242,11 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	var layout_valid := _layout_is_safe(main, name)
 	var valid := image_valid and layout_valid
 	var output_path := "%s%s.png" % [output_root, name]
+	# `aspect=keep` can make the macOS Metal drawable one pixel narrower because
+	# 804:1748 and 1320:2868 differ by 0.06%. Normalize only that platform pixel
+	# so every delivered review image has the promised exact 660x1434 contract.
+	if image_valid and image.get_size() != PREVIEW_SIZE:
+		image.resize(PREVIEW_SIZE.x, PREVIEW_SIZE.y, Image.INTERPOLATE_BILINEAR)
 	var save_error := image.save_png(output_path) if not image.is_empty() else ERR_CANT_CREATE
 	if not valid or save_error != OK:
 		push_error("VISUAL_SMOKE: %s failed size=%dx%d save_error=%d" % [name, image.get_width(), image.get_height(), save_error])
@@ -419,6 +424,30 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			valid = false
 		if not main.find_children("BuildingGroundShadow", "Polygon2D", true, false).is_empty():
 			push_error("VISUAL_SMOKE: %s retains a duplicate procedural shadow over A2 baked shadows" % state_name)
+			valid = false
+	if state_name == "campus_dense":
+		var path_segments := main.find_children("CampusPathStraight_*", "TextureRect", true, false)
+		var path_junctions := main.find_children("CampusPathCross_*", "TextureRect", true, false)
+		var prop_types: Dictionary = {}
+		var environment_count := 0
+		for node: Node in main.find_children("*", "", true, false):
+			if node.has_meta("world_environment"):
+				environment_count += 1
+			var prop_type := str(node.get_meta("world_prop_type", ""))
+			if not prop_type.is_empty():
+				prop_types[prop_type] = true
+		if path_segments.size() < 4 or path_junctions.size() < 2:
+			push_error("VISUAL_SMOKE: dense campus lacks a connected path graph: %d/%d" % [path_segments.size(), path_junctions.size()])
+			valid = false
+		if prop_types.size() < 4:
+			push_error("VISUAL_SMOKE: dense campus exposes fewer than four environment prop types: %d" % prop_types.size())
+			valid = false
+		if environment_count > 60:
+			push_error("VISUAL_SMOKE: dense campus decoration budget exceeded: %d" % environment_count)
+			valid = false
+		var edge_fog := main.find_child("WorldEdgeFog", true, false) as TextureRect
+		if edge_fog == null or edge_fog.modulate.a < 0.49 or edge_fog.modulate.a > 0.66:
+			push_error("VISUAL_SMOKE: world edge fog is missing or outside its breathing range")
 			valid = false
 	if state_name == "dc_context":
 		var contract_hint := main.find_child("ContractPowerHint", true, false) as Label

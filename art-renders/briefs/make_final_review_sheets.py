@@ -60,7 +60,7 @@ def main() -> None:
     for category in order:
         category_items = [item for item in items if item["category"] == category]
         draw_sheet(category_items, REVIEW / f"{category}_contact.png", f"{category.upper()} · {len(category_items)} assets")
-    draw_sheet(items, REVIEW / "all_assets_contact.png", "DATA CENTER TYCOON · COMPLETE VISUAL DELIVERY · 134 ASSETS", columns=8, cell=(210, 235))
+    draw_sheet(items, REVIEW / "all_assets_contact.png", f"DATA CENTER TYCOON · COMPLETE VISUAL DELIVERY · {len(items)} ASSETS", columns=8, cell=(210, 235))
     icon_items = [item for item in items if item["category"] == "ui" and item["name"].startswith("ic_")]
     draw_sheet(icon_items, REVIEW / "ui_icons_48px_contact.png", "UI ICONS · ACTUAL 48px READABILITY CHECK", columns=9, cell=(120, 135), icon_size=48)
 

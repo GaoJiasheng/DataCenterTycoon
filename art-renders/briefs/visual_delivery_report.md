@@ -1,7 +1,7 @@
 # 全量视觉素材交付报告
 
-- 总数：134
-- 自动 QA 通过：134
+- 总数：143
+- 自动 QA 通过：143
 - 自动 QA 失败：0
 - 交付目录：`../visual/final/`
 - 源图目录：`../visual/work/`
@@ -13,7 +13,7 @@
 - `characters`：5
 - `customers`：4
 - `fx`：9
-- `map`：8
+- `map`：17
 - `racks`：26
 - `store`：6
 - `ui`：38

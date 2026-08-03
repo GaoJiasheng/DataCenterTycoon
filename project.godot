@@ -31,10 +31,10 @@ Game="*res://core/game.gd"
 
 window/size/viewport_width=804
 window/size/viewport_height=1748
-window/size/window_width_override=402
-window/size/window_height_override=874
+window/size/window_width_override=660
+window/size/window_height_override=1434
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
+window/stretch/aspect="keep"
 window/handheld/orientation=1
 window/ios/hide_home_indicator=true
 window/ios/hide_status_bar=true

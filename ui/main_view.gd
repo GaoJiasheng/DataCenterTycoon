@@ -78,18 +78,21 @@ func _ready() -> void:
 	call_deferred("_queue_unseen_era_overlays")
 	call_deferred("_show_pending_bankruptcy_state")
 
-# Desktop preview only: size the window to the screen instead of the fixed
-# 440x956 override, keeping the iPhone 17 Pro Max logical aspect. iOS ignores this.
+# Desktop preview only: use half of the iPhone 17 Pro Max physical 1320x2868
+# resolution. The 804x1748 layout canvas remains the device-independent design
+# space and Godot scales it with aspect=keep. iOS ignores this desktop override.
 func _fit_desktop_window() -> void:
 	if not OS.has_feature("pc"):
 		return
 	if not Game.persistence_enabled:
-		return  # test harness owns the window size (visual_smoke snapshots at 440x956)
+		return  # The visual harness owns the same 660x1434 capture size.
 	var usable := DisplayServer.screen_get_usable_rect()
-	var height := int(usable.size.y * 0.92)
-	var width := int(round(height * 440.0 / 956.0))
-	DisplayServer.window_set_size(Vector2i(width, height))
-	DisplayServer.window_set_position(usable.position + (usable.size - Vector2i(width, height)) / 2)
+	var preview_size := Vector2i(660, 1434)
+	if preview_size.y > int(usable.size.y * 0.96):
+		var scale := float(usable.size.y) * 0.96 / float(preview_size.y)
+		preview_size = Vector2i(roundi(preview_size.x * scale), roundi(preview_size.y * scale))
+	DisplayServer.window_set_size(preview_size)
+	DisplayServer.window_set_position(usable.position + (usable.size - preview_size) / 2)
 
 func _process(delta: float) -> void:
 	_refresh_cooldown -= delta

@@ -24,7 +24,9 @@ FINAL = ROOT / "visual" / "final"
 ALPHA_WORK = WORK / "_alpha_final"
 REMOVE_KEY = Path("/Users/gavin/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py")
 FINISH = ROOT / "briefs" / "finish_transparent_asset.py"
+FINISH_FINAL_LOOK_WORLD = ROOT / "briefs" / "finish_final_look_world.py"
 LIMIT_BYTES = 1_500_000
+SPECIAL_FINAL_LOOK_TEXTURES = {"ground_tile_grass", "ground_path_straight", "ground_path_cross", "world_edge_fog"}
 
 
 @dataclass(frozen=True)
@@ -77,9 +79,18 @@ def build_manifest() -> list[Asset]:
                 name = f"rack_{family}_t{tier}_{state}"
                 assets.append(Asset("racks", name, f"{name}_chroma_v1.png", 512, 512, shadow=True, margin=0.06))
 
-    # 8 map assets.
+    # 17 map assets: original production set + §10 campus environment layer.
     assets.extend([
         Asset("map", "ground_tile", "ground_tile_source_v1.png", 1024, 1024, transparent=False, margin=0),
+        Asset("map", "ground_tile_grass", "final_look_10/ground_tile_grass_source.png", 1024, 1024, transparent=False, margin=0),
+        Asset("map", "ground_path_straight", "final_look_10/ground_path_straight_source.png", 512, 512, transparent=True, margin=0),
+        Asset("map", "ground_path_cross", "final_look_10/ground_path_cross_source.png", 512, 512, transparent=True, margin=0),
+        Asset("map", "prop_flagpole", "final_look_10/prop_flagpole_chroma.png", 512, 512, shadow=False, margin=0.06),
+        Asset("map", "prop_lamp", "final_look_10/prop_lamp_chroma.png", 512, 512, shadow=False, margin=0.06),
+        Asset("map", "prop_bush_row", "final_look_10/prop_bush_row_chroma.png", 512, 512, shadow=False, margin=0.06),
+        Asset("map", "prop_parking", "final_look_10/prop_parking_chroma.png", 512, 512, shadow=False, margin=0.06),
+        Asset("map", "prop_transformer_yard", "final_look_10/prop_transformer_yard_chroma.png", 512, 512, shadow=False, margin=0.06),
+        Asset("map", "world_edge_fog", "final_look_10/world_edge_fog_source.png", 1024, 512, shadow=False, margin=0),
         Asset("map", "plot_forsale", "plot_forsale_source_v1.png", 768, 768, shadow=False, margin=0.03),
         Asset("map", "plot_owned", "plot_owned_source_v1.png", 768, 768, shadow=False, margin=0.03),
         Asset("map", "deco_road", "deco_road_source_v1.png", 512, 512, transparent=False, margin=0),
@@ -147,7 +158,7 @@ def build_manifest() -> list[Asset]:
         Asset("store", "noads_badge", "noads_badge_source_v1.png", 512, 512, shadow=False, margin=0.04),
     ])
 
-    assert len(assets) == 134, f"expected 134 assets, got {len(assets)}"
+    assert len(assets) == 143, f"expected 143 assets, got {len(assets)}"
     assert len({(a.category, a.name) for a in assets}) == len(assets)
     return assets
 
@@ -224,11 +235,19 @@ def png_color_type(path: Path) -> int:
 
 
 def qa_asset(asset: Asset) -> dict[str, object]:
-    image = Image.open(asset.output)
+    source_image = Image.open(asset.output)
+    # Accepted alpha PNGs may be palette-encoded with a tRNS chunk after size
+    # optimization. Normalize them for semantic alpha inspection.
+    image = source_image.convert("RGBA") if asset.transparent else source_image.convert("RGB")
     alpha = image.getchannel("A") if "A" in image.getbands() else None
     corners = []
     if alpha is not None:
         corners = [alpha.getpixel((0, 0)), alpha.getpixel((asset.width - 1, 0)), alpha.getpixel((0, asset.height - 1)), alpha.getpixel((asset.width - 1, asset.height - 1))]
+    alpha_contract_passes = False
+    if asset.transparent and alpha is not None:
+        alpha_contract_passes = corners == [0, 0, 0, 0]
+        if asset.name == "world_edge_fog":
+            alpha_contract_passes = alpha.getpixel((asset.width // 2, asset.height // 2)) <= 8 and min(corners) >= 128
     return {
         "category": asset.category,
         "name": asset.name,
@@ -236,7 +255,7 @@ def qa_asset(asset: Asset) -> dict[str, object]:
         "output": str(asset.output.relative_to(ROOT)),
         "expected_size": [asset.width, asset.height],
         "actual_size": list(image.size),
-        "mode": image.mode,
+        "mode": source_image.mode,
         "png_color_type": png_color_type(asset.output),
         "transparent_required": asset.transparent,
         "alpha_bbox": list(alpha.getbbox()) if alpha and alpha.getbbox() else None,
@@ -244,7 +263,7 @@ def qa_asset(asset: Asset) -> dict[str, object]:
         "bytes": asset.output.stat().st_size,
         "pass": image.size == (asset.width, asset.height)
         and asset.output.stat().st_size <= LIMIT_BYTES
-        and ((asset.transparent and alpha is not None and corners == [0, 0, 0, 0]) or (not asset.transparent and alpha is None)),
+        and (alpha_contract_passes or (not asset.transparent and alpha is None)),
     }
 
 
@@ -287,9 +306,14 @@ def main() -> None:
             selected = [asset for asset in assets if f"{asset.category}/{asset.name}" == args.only]
             if not selected:
                 raise SystemExit(f"unknown asset: {args.only}")
+        final_look_world_finished = False
         for index, asset in enumerate(selected, 1):
             print(f"[{index:03d}/{len(assets)}] {asset.category}/{asset.name}", flush=True)
-            if asset.transparent:
+            if asset.name in SPECIAL_FINAL_LOOK_TEXTURES:
+                if not final_look_world_finished:
+                    run(["python3", str(FINISH_FINAL_LOOK_WORLD)])
+                    final_look_world_finished = True
+            elif asset.transparent:
                 finish_transparent(asset, chroma_to_alpha(asset))
             else:
                 finish_opaque(asset)

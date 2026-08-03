@@ -48,6 +48,10 @@
       ]
     },
     {"directory": "map", "size": [1024, 1024], "alpha": false, "ids": ["ground_tile"]},
+    {"directory": "map", "size": [1024, 1024], "alpha": false, "ids": ["ground_tile_grass"]},
+    {"directory": "map", "size": [512, 512], "alpha": true, "ids": ["ground_path_straight", "ground_path_cross"]},
+    {"directory": "map", "size": [512, 512], "alpha": true, "ids": ["prop_flagpole", "prop_lamp", "prop_bush_row", "prop_parking", "prop_transformer_yard"]},
+    {"directory": "map", "size": [1024, 512], "alpha": true, "ids": ["world_edge_fog"]},
     {"directory": "map", "size": [768, 768], "alpha": true, "ids": ["plot_forsale", "plot_owned"]},
     {"directory": "map", "size": [512, 512], "alpha": false, "ids": ["deco_road"]},
     {"directory": "map", "size": [512, 512], "alpha": true, "ids": ["deco_pylon"]},

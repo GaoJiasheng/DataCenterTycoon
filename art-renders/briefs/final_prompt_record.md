@@ -46,3 +46,31 @@ shadow; opaque background art is full-bleed.
 ## 后处理
 
 色键背景先由 imagegen 技能随附的 `remove_chroma_key.py` 移除，再由 `finish_transparent_asset.py` 做一像素 matte 收缩、局部中值去色溢、精确画布缩放和按类别控制的接触阴影。最终构建与尺寸/透明/体积 QA 由 `build_final_visuals.py` 复现。
+
+## §10 批次③ · 园区环境生成提示
+
+以下 9 件素材均由内置 `imagegen` 独立生成，源稿保存于 `visual/work/final_look_10/`，成品保存于 `visual/final/map/`。
+
+### 草地
+
+```text
+Use case: stylized-concept. Asset type: seamless tileable game texture for a premium mobile idle/tycoon game. A seamless square cartoon grass texture for a growing technology campus: soft yellow-green grass using #8fbf5a as the base, subtle diagonal mowing stripes, sparse tiny clover patches and restrained short grass blades. Polished chunky 3D-cartoon mobile-game texture with warm friendly farm-game charm, evenly distributed micro-detail, no central focal point, soft diffuse daytime light, very low contrast so buildings remain the focus. All four edges must tile seamlessly. No objects, paths, stones, flowers, shadows, text, logos, border, vignette, gradient, watermark, or high-contrast patches.
+```
+
+### 道路（straight / cross 分别生成）
+
+```text
+Use case: stylized-concept. Asset type: game environment path tile. A light-gray concrete pedestrian path for a cartoon technology campus, with cream-light-gray concrete, rounded grass-blended shoulders and restrained expansion joints. Polished chunky 3D-cartoon mobile-game art matching cream foundations and blue data-center buildings, soft diffuse top light, low contrast, no perspective vanishing point. Straight: path reaches exact left/right edges through center. Cross: equal-width paths reach the center of all four edges in a perfectly symmetrical junction. Square tile; no buildings, props, signs, people, text, logos, border, vignette, or watermark.
+```
+
+### 园区道具（flagpole / lamp / bush row / parking / transformer yard 分别生成）
+
+```text
+Use case: stylized-concept. Asset type: isometric game environment prop. Exactly one premium technology-campus prop: [a slim flagpole with sky-blue pennant and cream-gold base / a compact navy campus lamp with warm gold light / three neat rounded ornamental bushes with cream edging stones / a tiny clean parking bay with two blue-cream EVs / a fenced yard with two navy-cream transformers]. Polished chunky rounded 3D-cartoon mobile-game art in the same visual family as the cream-and-blue data-center buildings, consistent 30-degree isometric view facing lower-left, blue-cream-gold accents, crisp silhouette at 64px, generous padding, soft top light and restrained baked elliptical contact shadow. Perfectly flat solid #ff00ff chroma-key background with no gradient, texture, floor plane, reflections, or lighting variation. Do not use #ff00ff in the subject. No scenery, people, text, logo, border, or watermark.
+```
+
+### 边缘雾
+
+```text
+Use case: stylized-concept. Asset type: game environment edge-fog mask texture. A clean wide soft radial edge haze mask: pure black center fading smoothly toward pale warm ivory #fff4d8 at outer edges and corners. Extremely smooth low-frequency airbrush gradient, wide 2:1 landscape, central 55 percent pure black and clear, corners slightly strongest. No objects, clouds, wisps, noise, texture, banding, border line, vignette ring, text, logo, or watermark; smooth enough to convert luminance into alpha.
+```

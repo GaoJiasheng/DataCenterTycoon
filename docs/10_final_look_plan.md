@@ -116,7 +116,7 @@
 |---|---|
 | App Icon 1024² | Prompt：App icon, single cartoon blue data-center building with glowing gold windows on grass, thick rounded border frame, sky-blue background, bold and readable at 60px, no text, Hay Day-like charm |
 | 启动屏 | 纯色 `#8fbf5a` + 居中 logo 字标（P01 定名后补字标，先用建筑 icon） |
-| 商店截图模板 | 按所有者最终预览约定，30 态桌面截图统一为 Godot 804×1748 设计画布的一半（402×874，保持 iPhone 17 Pro Max 纵向比例）；选 6 张（园区/棋盘/行情/时代演出/离线/商店）加文案条即可——留给上架阶段，本轮只确保这 6 屏无瑕疵 |
+| 商店截图模板 | 按所有者最终预览约定，30 态桌面截图统一为 iPhone 17 Pro Max 物理分辨率 1320×2868 的一半（660×1434）；选 6 张（园区/棋盘/行情/时代演出/离线/商店）加文案条即可——留给上架阶段，本轮只确保这 6 屏无瑕疵 |
 
 ---
 
@@ -148,12 +148,22 @@
 - [x] R3：`WorldActions` 高度增加 24u，左右圆钮标签移到按钮上方并加入 4u 视口安全区断言。
 - [x] R4：`BestValueRibbon` 按本地化 Label 的 minimum size + 24u 自适应，单行不裁剪；中英双语门禁覆盖。
 - [x] R5：英文 30/30 与简中 30/30 Metal 实渲染回归通过；`test_runner` 103/103，数据 11 表 / 双语 / 134 art IDs 通过。
-- [x] 按所有者最终约定，桌面预览与自动截图统一为 402×874；原 440×956 批次截图作废。
+- [x] 按所有者最终约定，桌面预览与自动截图统一为 660×1434（iPhone 17 Pro Max 物理分辨率的一半）；原 440×956 与误用的 402×874 批次截图作废。
 
 ### 2026-08-03 · 批次②（C · 全局色调统一）
 
 - [x] 园区层增加按本地时间连续插值的白天 / 黄昏 / 夜晚三档色调；色值严格为 `DAY(1,0.97,0.90)`、`EVENING(1,0.88,0.78)`、`NIGHT(0.72,0.78,0.95)`，只调制 ParkMap，不污染 HUD。
 - [x] 夜间 active 建筑亮度提升到 1.30；视觉回归支持 `--preview-hour`，23:00 人工截图存档。
 - [x] UI 深色工作面收敛为 `ThemeMaker.SURFACE #122438`，内部分组收敛为 `SURFACE_GROUP rgba(0,0,0,0.22)`；辅助青色降为 `TEXT_SECONDARY #9fb8cc`。
-- [x] map 前后对比与夜间图已存 `docs/ui_review/10_batch2_*_en_map.png`，全部为 402×874 原始截图。
+- [x] map 前后对比与夜间图已按批次①/②对应提交真实回放，重新存为 `docs/ui_review/10_batch2_*_en_map.png`；三张原图均为修正后的 660×1434。
 - [x] `test_runner` 103/103；英文 30/30、简中 30/30 Metal 实渲染回归通过；数据门禁通过。
+
+### 2026-08-03 · 批次③（W · 世界地面与园区肌理）
+
+- [x] 内置 `imagegen` 生成并交付 9 件世界素材：无缝草地 1、正交道路 2、园区道具 5、边缘雾 1；manifest 134→143，构建与技术 QA 143/143。
+- [x] `ParkMap` 优先平铺 `ground_tile_grass`，缺失时回退原 `ground_tile`；道路与道具素材缺失均静默跳过，不影响玩法。
+- [x] 已购地块按现有两列网格生成确定性正交路网；道具只以 plot index 决定 0–2 件，禁用随机数；dense 状态至少出现 4 种道具。
+- [x] 道路草色区转为软 alpha，只保留混凝土与边缘，消除缩放后方形拼贴；边缘雾固定在视口层并以 0.50↔0.65 缓慢呼吸。
+- [x] 新增 dense-campus 门禁：路段、交叉口、道具种类、环境节点预算 ≤60、雾层 alpha 范围；`test_runner` 103/103，数据与资产门禁通过。
+- [x] 英文 30/30、简中 30/30 Metal 实渲染回归通过；所有输出截图精确 660×1434。
+- [x] 同尺寸真实基线与结果已存 `docs/ui_review/10_batch3_before_en_map.png`、`10_batch3_after_en_map.png`、`10_batch3_compare_en_map.png`；资产联系表为 `10_batch3_world_assets_contact.png`。

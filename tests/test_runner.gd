@@ -42,11 +42,11 @@ func _run_data_tests() -> void:
 
 func _run_asset_integration_tests() -> void:
 	var art_items: Dictionary = AssetCatalog.manifest.get("items", {})
-	var art_loads := art_items.size() == 134
+	var art_loads := art_items.size() == 143
 	for item: Dictionary in art_items.values():
 		var path := str(item.get("path", ""))
 		art_loads = art_loads and ResourceLoader.exists(path) and load(path) is Texture2D
-	_expect(art_loads, "all 134 production textures import and load")
+	_expect(art_loads, "all 143 production textures import and load")
 	var audio_items: Dictionary = AudioService.manifest.get("items", {})
 	var audio_loads := audio_items.size() == 16
 	for cue_id: String in audio_items:

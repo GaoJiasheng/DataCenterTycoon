@@ -2,7 +2,7 @@
 
 ## 风格锚：`dc_t1_active`
 
-- 状态：已由项目所有者确认，并作为全套 134 件视觉素材的风格锚
+- 状态：已由项目所有者确认，并作为当前 143 件视觉素材的风格锚
 - 当前候选：`../visual/work/dc_t1_active_v1.png`
 - 输出规格：768×768，RGBA PNG，548,292 bytes
 - 主体 alpha 边界：`(38, 143)–(729, 664)`
@@ -45,3 +45,11 @@ Avoid: pixel art, photorealistic photo, gritty realism, dystopian cyberpunk, hor
 - 128 px 缩小可读：通过
 - 尺寸与单文件大小：通过
 - 全项目风格锚：通过；最终文件已写入 `visual/final/buildings/dc_t1_active.png`
+
+## §10 批次③：园区环境层
+
+- 生成工具：内置 `imagegen`，9 个独立生成调用。
+- 新增：1 张无缝草地、2 张道路、5 个园区道具、1 张边缘雾，共 9 件；视觉总数 134→143。
+- 透明处理：5 个道具用技能随附 `remove_chroma_key.py` 去色键；道路按绿色优势值生成软 alpha，只保留混凝土主体，避免与权威草地形成方形拼缝；边缘雾以亮度转换为 alpha。
+- 可复现构建：`finish_final_look_world.py` + `build_final_visuals.py`；最终自动 QA 143/143。
+- 人工审片：`docs/ui_review/10_batch3_world_assets_contact.png`、`docs/ui_review/10_batch3_compare_en_map.png`。

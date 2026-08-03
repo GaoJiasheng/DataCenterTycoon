@@ -16,10 +16,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      32,
-      27,
-      735,
-      741
+      90,
+      44,
+      708,
+      712
     ],
     "corner_alpha": [
       0,
@@ -27,7 +27,7 @@
       0,
       0
     ],
-    "bytes": 568958,
+    "bytes": 494450,
     "pass": true
   },
   {
@@ -47,10 +47,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      27,
-      77,
-      741,
-      690
+      37,
+      44,
+      731,
+      726
     ],
     "corner_alpha": [
       0,
@@ -58,7 +58,7 @@
       0,
       0
     ],
-    "bytes": 648935,
+    "bytes": 620459,
     "pass": true
   },
   {
@@ -78,10 +78,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      32,
-      27,
-      736,
-      741
+      90,
+      45,
+      708,
+      712
     ],
     "corner_alpha": [
       0,
@@ -89,7 +89,7 @@
       0,
       0
     ],
-    "bytes": 559070,
+    "bytes": 488843,
     "pass": true
   },
   {
@@ -109,10 +109,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      32,
-      27,
-      735,
-      741
+      90,
+      45,
+      708,
+      713
     ],
     "corner_alpha": [
       0,
@@ -120,7 +120,7 @@
       0,
       0
     ],
-    "bytes": 673617,
+    "bytes": 595268,
     "pass": true
   },
   {
@@ -140,10 +140,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      53,
-      27,
-      715,
-      741
+      89,
+      41,
+      710,
+      715
     ],
     "corner_alpha": [
       0,
@@ -151,7 +151,7 @@
       0,
       0
     ],
-    "bytes": 714260,
+    "bytes": 641508,
     "pass": true
   },
   {
@@ -171,10 +171,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      27,
-      75,
-      741,
-      693
+      88,
+      41,
+      707,
+      713
     ],
     "corner_alpha": [
       0,
@@ -182,7 +182,7 @@
       0,
       0
     ],
-    "bytes": 742488,
+    "bytes": 642764,
     "pass": true
   },
   {
@@ -202,10 +202,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      27,
-      135,
-      741,
-      634
+      40,
+      99,
+      730,
+      655
     ],
     "corner_alpha": [
       0,
@@ -213,7 +213,7 @@
       0,
       0
     ],
-    "bytes": 573881,
+    "bytes": 571789,
     "pass": true
   },
   {
@@ -233,10 +233,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      27,
-      157,
-      741,
-      614
+      40,
+      94,
+      729,
+      674
     ],
     "corner_alpha": [
       0,
@@ -244,7 +244,7 @@
       0,
       0
     ],
-    "bytes": 537603,
+    "bytes": 655492,
     "pass": true
   },
   {
@@ -264,10 +264,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      27,
-      135,
-      741,
-      633
+      41,
+      99,
+      730,
+      655
     ],
     "corner_alpha": [
       0,
@@ -275,7 +275,7 @@
       0,
       0
     ],
-    "bytes": 554445,
+    "bytes": 523815,
     "pass": true
   },
   {
@@ -295,10 +295,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      27,
-      136,
-      741,
-      632
+      40,
+      99,
+      730,
+      655
     ],
     "corner_alpha": [
       0,
@@ -306,7 +306,7 @@
       0,
       0
     ],
-    "bytes": 662039,
+    "bytes": 645005,
     "pass": true
   },
   {
@@ -326,10 +326,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      27,
-      120,
-      741,
-      647
+      40,
+      99,
+      730,
+      656
     ],
     "corner_alpha": [
       0,
@@ -337,7 +337,7 @@
       0,
       0
     ],
-    "bytes": 712801,
+    "bytes": 701048,
     "pass": true
   },
   {
@@ -357,10 +357,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      27,
-      140,
-      741,
-      629
+      37,
+      98,
+      731,
+      656
     ],
     "corner_alpha": [
       0,
@@ -368,7 +368,7 @@
       0,
       0
     ],
-    "bytes": 668814,
+    "bytes": 695831,
     "pass": true
   },
   {
@@ -388,10 +388,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      36,
-      120,
-      988,
-      904
+      84,
+      109,
+      940,
+      963
     ],
     "corner_alpha": [
       0,
@@ -399,7 +399,7 @@
       0,
       0
     ],
-    "bytes": 1194532,
+    "bytes": 1082273,
     "pass": true
   },
   {
@@ -419,10 +419,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      36,
-      115,
-      988,
-      909
+      85,
+      50,
+      937,
+      973
     ],
     "corner_alpha": [
       0,
@@ -430,7 +430,7 @@
       0,
       0
     ],
-    "bytes": 1306438,
+    "bytes": 1204129,
     "pass": true
   },
   {
@@ -450,10 +450,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      36,
-      120,
-      988,
-      904
+      84,
+      109,
+      939,
+      962
     ],
     "corner_alpha": [
       0,
@@ -461,7 +461,7 @@
       0,
       0
     ],
-    "bytes": 1038058,
+    "bytes": 999289,
     "pass": true
   },
   {
@@ -481,10 +481,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      36,
-      119,
-      988,
-      904
+      82,
+      109,
+      942,
+      966
     ],
     "corner_alpha": [
       0,
@@ -492,7 +492,7 @@
       0,
       0
     ],
-    "bytes": 1355789,
+    "bytes": 1219558,
     "pass": true
   },
   {
@@ -512,10 +512,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      36,
-      36,
-      987,
-      988
+      85,
+      110,
+      940,
+      962
     ],
     "corner_alpha": [
       0,
@@ -523,7 +523,7 @@
       0,
       0
     ],
-    "bytes": 1032173,
+    "bytes": 1335273,
     "pass": true
   },
   {
@@ -543,10 +543,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      36,
-      133,
-      988,
-      890
+      83,
+      112,
+      940,
+      965
     ],
     "corner_alpha": [
       0,
@@ -554,7 +554,7 @@
       0,
       0
     ],
-    "bytes": 1393884,
+    "bytes": 1328869,
     "pass": true
   },
   {
@@ -570,14 +570,14 @@
       1280,
       1280
     ],
-    "mode": "RGBA",
-    "png_color_type": 6,
+    "mode": "P",
+    "png_color_type": 3,
     "transparent_required": true,
     "alpha_bbox": [
-      45,
-      144,
-      1235,
-      1135
+      65,
+      176,
+      1215,
+      1128
     ],
     "corner_alpha": [
       0,
@@ -585,7 +585,7 @@
       0,
       0
     ],
-    "bytes": 728529,
+    "bytes": 428354,
     "pass": true
   },
   {
@@ -601,14 +601,14 @@
       1280,
       1280
     ],
-    "mode": "RGBA",
-    "png_color_type": 6,
+    "mode": "P",
+    "png_color_type": 3,
     "transparent_required": true,
     "alpha_bbox": [
-      45,
-      149,
-      1235,
-      1131
+      65,
+      151,
+      1215,
+      1127
     ],
     "corner_alpha": [
       0,
@@ -616,7 +616,7 @@
       0,
       0
     ],
-    "bytes": 993412,
+    "bytes": 567259,
     "pass": true
   },
   {
@@ -632,14 +632,14 @@
       1280,
       1280
     ],
-    "mode": "RGBA",
-    "png_color_type": 6,
+    "mode": "P",
+    "png_color_type": 3,
     "transparent_required": true,
     "alpha_bbox": [
-      45,
-      144,
-      1235,
-      1135
+      64,
+      174,
+      1215,
+      1128
     ],
     "corner_alpha": [
       0,
@@ -647,7 +647,7 @@
       0,
       0
     ],
-    "bytes": 1407545,
+    "bytes": 456222,
     "pass": true
   },
   {
@@ -663,14 +663,14 @@
       1280,
       1280
     ],
-    "mode": "RGBA",
-    "png_color_type": 6,
+    "mode": "P",
+    "png_color_type": 3,
     "transparent_required": true,
     "alpha_bbox": [
-      45,
-      144,
-      1235,
-      1136
+      65,
+      175,
+      1215,
+      1128
     ],
     "corner_alpha": [
       0,
@@ -678,7 +678,7 @@
       0,
       0
     ],
-    "bytes": 979276,
+    "bytes": 527506,
     "pass": true
   },
   {
@@ -694,14 +694,14 @@
       1280,
       1280
     ],
-    "mode": "RGBA",
-    "png_color_type": 6,
+    "mode": "P",
+    "png_color_type": 3,
     "transparent_required": true,
     "alpha_bbox": [
-      45,
-      143,
-      1235,
-      1137
+      64,
+      174,
+      1216,
+      1128
     ],
     "corner_alpha": [
       0,
@@ -709,7 +709,7 @@
       0,
       0
     ],
-    "bytes": 1239109,
+    "bytes": 604048,
     "pass": true
   },
   {
@@ -725,14 +725,14 @@
       1280,
       1280
     ],
-    "mode": "RGBA",
-    "png_color_type": 6,
+    "mode": "P",
+    "png_color_type": 3,
     "transparent_required": true,
     "alpha_bbox": [
-      45,
-      141,
-      1235,
-      1139
+      64,
+      174,
+      1212,
+      1129
     ],
     "corner_alpha": [
       0,
@@ -740,7 +740,7 @@
       0,
       0
     ],
-    "bytes": 1281087,
+    "bytes": 605677,
     "pass": true
   },
   {
@@ -2006,6 +2006,275 @@
   },
   {
     "category": "map",
+    "name": "ground_tile_grass",
+    "source": "final_look_10/ground_tile_grass_source.png",
+    "output": "visual/final/map/ground_tile_grass.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGB",
+    "png_color_type": 2,
+    "transparent_required": false,
+    "alpha_bbox": null,
+    "corner_alpha": [],
+    "bytes": 1490212,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "ground_path_straight",
+    "source": "final_look_10/ground_path_straight_source.png",
+    "output": "visual/final/map/ground_path_straight.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      0,
+      157,
+      512,
+      356
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 406635,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "ground_path_cross",
+    "source": "final_look_10/ground_path_cross_source.png",
+    "output": "visual/final/map/ground_path_cross.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      0,
+      0,
+      512,
+      512
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 439227,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "prop_flagpole",
+    "source": "final_look_10/prop_flagpole_chroma.png",
+    "output": "visual/final/map/prop_flagpole.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      144,
+      30,
+      368,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 77881,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "prop_lamp",
+    "source": "final_look_10/prop_lamp_chroma.png",
+    "output": "visual/final/map/prop_lamp.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      172,
+      30,
+      339,
+      481
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 84906,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "prop_bush_row",
+    "source": "final_look_10/prop_bush_row_chroma.png",
+    "output": "visual/final/map/prop_bush_row.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      30,
+      138,
+      481,
+      373
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 157806,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "prop_parking",
+    "source": "final_look_10/prop_parking_chroma.png",
+    "output": "visual/final/map/prop_parking.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      30,
+      70,
+      481,
+      441
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 217065,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "prop_transformer_yard",
+    "source": "final_look_10/prop_transformer_yard_chroma.png",
+    "output": "visual/final/map/prop_transformer_yard.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      30,
+      46,
+      481,
+      465
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 249353,
+    "pass": true
+  },
+  {
+    "category": "map",
+    "name": "world_edge_fog",
+    "source": "final_look_10/world_edge_fog_source.png",
+    "output": "visual/final/map/world_edge_fog.png",
+    "expected_size": [
+      1024,
+      512
+    ],
+    "actual_size": [
+      1024,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      0,
+      0,
+      1024,
+      512
+    ],
+    "corner_alpha": [
+      253,
+      252,
+      252,
+      252
+    ],
+    "bytes": 182669,
+    "pass": true
+  },
+  {
+    "category": "map",
     "name": "plot_forsale",
     "source": "plot_forsale_source_v1.png",
     "output": "visual/final/map/plot_forsale.png",
@@ -2838,10 +3107,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      10,
-      58,
-      502,
-      198
+      19,
+      42,
+      493,
+      207
     ],
     "corner_alpha": [
       0,
@@ -2849,7 +3118,7 @@
       0,
       0
     ],
-    "bytes": 69104,
+    "bytes": 64662,
     "pass": true
   },
   {
@@ -2869,10 +3138,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      10,
-      59,
-      502,
-      197
+      19,
+      42,
+      493,
+      207
     ],
     "corner_alpha": [
       0,
@@ -2880,7 +3149,7 @@
       0,
       0
     ],
-    "bytes": 65949,
+    "bytes": 65198,
     "pass": true
   },
   {
@@ -2900,10 +3169,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      10,
-      55,
-      502,
-      201
+      19,
+      41,
+      494,
+      207
     ],
     "corner_alpha": [
       0,
@@ -2911,7 +3180,7 @@
       0,
       0
     ],
-    "bytes": 79266,
+    "bytes": 64692,
     "pass": true
   },
   {
@@ -2931,10 +3200,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      10,
-      59,
-      502,
-      196
+      19,
+      41,
+      493,
+      207
     ],
     "corner_alpha": [
       0,
@@ -2942,7 +3211,7 @@
       0,
       0
     ],
-    "bytes": 66829,
+    "bytes": 65219,
     "pass": true
   },
   {
@@ -2962,10 +3231,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      10,
-      62,
-      502,
-      194
+      19,
+      42,
+      493,
+      207
     ],
     "corner_alpha": [
       0,
@@ -2973,7 +3242,7 @@
       0,
       0
     ],
-    "bytes": 63826,
+    "bytes": 63358,
     "pass": true
   },
   {
@@ -2993,10 +3262,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      10,
-      47,
-      502,
-      208
+      19,
+      42,
+      493,
+      207
     ],
     "corner_alpha": [
       0,
@@ -3004,7 +3273,7 @@
       0,
       0
     ],
-    "bytes": 103064,
+    "bytes": 65369,
     "pass": true
   },
   {

@@ -3,7 +3,7 @@ extends Node
 const MAIN_SCENE := preload("res://main.tscn")
 
 func _ready() -> void:
-	DisplayServer.window_set_size(Vector2i(402, 874))
+	DisplayServer.window_set_size(Vector2i(660, 1434))
 	Game.reset_for_tests()
 	Game.last_offline_report = {}
 	Game.state["tutorial"]["completed"] = true
