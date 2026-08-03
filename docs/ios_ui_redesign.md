@@ -2,12 +2,12 @@
 
 ## Reference device
 
-- Reference: 6.3-inch iPhone 17 / iPhone 17 Pro, portrait.
-- Native pixels: 1206×2622 at 3× scale.
+- Reference: 6.9-inch iPhone 17 Pro Max, portrait.
+- Native pixels: 1320×2868 at 3× scale (440×956 logical points).
 - Device-independent Godot design canvas: 804×1748.
 - Godot design viewport: 804×1748 units (2 units per point).
-- Automated reference capture: 660×1434 pixels (half of iPhone 17 Pro Max native 1320×2868).
-- Interactive desktop preview: 880×1912 pixels, a 2× iPhone 17 Pro Max logical preview that fills most of a 4K desktop display without exceeding its height.
+- Desktop interactive preview: 660×1434 pixels (half of iPhone 17 Pro Max native 1320×2868).
+- Automated reference capture: 990×2151 pixels (150% of the desktop preview, with the same phone aspect ratio).
 
 The runtime uses `canvas_items` stretch, so the layout scales to other portrait phones while retaining the reference aspect and safe-area behavior.
 
@@ -63,7 +63,7 @@ The runtime uses `canvas_items` stretch, so the layout scales to other portrait 
 
 ## Visual acceptance gate
 
-`tests/visual_smoke.tscn` renders 30 portrait states through Metal at 660×1434 in both English and Simplified Chinese. It covers Park/FTUE/action sheets/building/campus/world alerts, the board and placement states, contract comparison, rack actions, Operations, three market history densities, Tech/Achievements, Store/Settings, offline reward, arrears, era unlock and game over.
+`tests/visual_smoke.tscn` renders 30 portrait states through Metal at 990×2151 in both English and Simplified Chinese. It covers Park/FTUE/action sheets/building/campus/world alerts, the board and placement states, contract comparison, rack actions, Operations, three market history densities, Tech/Achievements, Store/Settings, offline reward, arrears, era unlock and game over.
 
 The gate rejects clipped typography, unsafe single-line overflow, touch targets below 44pt, missing glyphs, locked `×0.00`, broken scroll preservation, absent board overlays and missing presentation/merchandising structure. Run it with:
 

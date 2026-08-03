@@ -20,6 +20,6 @@ docs/store/screenshots/
 
 `iphone_69` 接受 Apple 当前列出的任一竖屏最高档尺寸：1260×2736、1290×2796 或 1320×2868；`ipad_13` 接受 2064×2752 或 2048×2732。同一组五张必须使用同一尺寸。工程导出为 iPhone/iPad 通用包，因此 iPad 截图也是发布必需项。
 
-§10 final-look 的桌面审片归档位于 `docs/ui_review/10_final_{en,zh_CN}_*.png`，固定 660×1434，只用于游戏内 UI 验收；它们不是本目录要求的正式 App Store Connect 尺寸，也不冒充真机截图。
+§10 final-look 的自动审片归档位于 `docs/ui_review/10_final_{en,zh_CN}_*.png`，固定 990×2151，只用于游戏内 UI 验收；桌面交互预览仍为 660×1434。它们不是本目录要求的正式 App Store Connect 尺寸，也不冒充真机截图。
 
 运行 `python3 tools/check_app_store_assets.py` 做机器验收。规格来源：[Apple App Store Connect Screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)，发布前仍需重新核对 Apple 的最新要求。

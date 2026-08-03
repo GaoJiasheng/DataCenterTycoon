@@ -2,7 +2,7 @@ extends Node
 
 const MAIN_SCENE := preload("res://main.tscn")
 const OUTPUT_ROOT_PREFIX := "/tmp/data_center_tycoon_visual_"
-const PREVIEW_SIZE := Vector2i(660, 1434)
+const PREVIEW_SIZE := Vector2i(990, 2151)
 
 var output_root := OUTPUT_ROOT_PREFIX
 var capture_locale := "zh_CN"
@@ -11,8 +11,10 @@ func _ready() -> void:
 	capture_locale = _requested_locale()
 	TranslationServer.set_locale(capture_locale)
 	output_root = "%s%s_" % [OUTPUT_ROOT_PREFIX, capture_locale]
-	# Desktop preview and regression captures use half of the iPhone 17 Pro Max
-	# physical 1320x2868 resolution. The 804x1748 design canvas stays unchanged.
+	# Regression captures use 75% of the iPhone 17 Pro Max physical 1320x2868
+	# resolution (150% of the 660x1434 desktop preview). The design canvas stays unchanged.
+	# Borderless mode prevents macOS from shrinking the tall capture to reserve title-bar space.
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
 	DisplayServer.window_set_size(PREVIEW_SIZE)
 	Game.reset_for_tests()
 	Game.last_offline_report = {}
@@ -222,7 +224,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 30 iPhone 17 portrait states locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", capture_locale, output_root])
+	print("VISUAL_SMOKE: %s 30 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:
@@ -269,7 +271,7 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	var output_path := "%s%s.png" % [output_root, name]
 	# `aspect=keep` can make the macOS Metal drawable one pixel narrower because
 	# 804:1748 and 1320:2868 differ by 0.06%. Normalize only that platform pixel
-	# so every delivered review image has the promised exact 660x1434 contract.
+	# so every delivered review image has the promised exact 990x2151 contract.
 	if image_valid and image.get_size() != PREVIEW_SIZE:
 		image.resize(PREVIEW_SIZE.x, PREVIEW_SIZE.y, Image.INTERPOLATE_BILINEAR)
 	var save_error := image.save_png(output_path) if not image.is_empty() else ERR_CANT_CREATE

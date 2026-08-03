@@ -88,7 +88,7 @@ func _fit_desktop_window() -> void:
 	if not OS.has_feature("pc"):
 		return
 	if not Game.persistence_enabled:
-		return  # The visual harness owns the same 660x1434 capture size.
+		return  # The visual harness owns its larger 990x2151 capture size.
 	var usable := DisplayServer.screen_get_usable_rect()
 	var preview_size := Vector2i(660, 1434)
 	DisplayServer.window_set_size(preview_size)

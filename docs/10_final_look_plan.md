@@ -116,7 +116,7 @@
 |---|---|
 | App Icon 1024² | Prompt：App icon, single cartoon blue data-center building with glowing gold windows on grass, thick rounded border frame, sky-blue background, bold and readable at 60px, no text, Hay Day-like charm |
 | 启动屏 | 纯色 `#8fbf5a` + 居中 logo 字标（P01 定名后补字标，先用建筑 icon） |
-| 商店截图模板 | 按所有者最终预览约定，30 态桌面截图统一为 iPhone 17 Pro Max 物理分辨率 1320×2868 的一半（660×1434）；选 6 张（园区/棋盘/行情/时代演出/离线/商店）加文案条即可——留给上架阶段，本轮只确保这 6 屏无瑕疵 |
+| 商店截图模板 | 按所有者最终审片约定，30 态自动截图统一为 990×2151（660×1434 桌面预览的 150%，保持 iPhone 17 Pro Max 比例）；选 6 张（园区/棋盘/行情/时代演出/离线/商店）加文案条即可——留给上架阶段，本轮只确保这 6 屏无瑕疵 |
 
 ---
 
@@ -204,7 +204,12 @@
 - [x] App Icon 由内置 `imagegen` 按 §7 重绘为单主体蓝色机房、奶油金粗圆框和深天蓝全幅底色；首稿因四角黑色外露被拒绝，返修成品为 1024×1024 RGB、不透明、无黑角，60px 缩略仍可识别。
 - [x] 启动屏改为 `#8FBF5A` 草绿留白 + 单一蓝色机房主体，1536×2732 RGB、不透明；`project.godot` 的 boot splash 底色同步，加载前后不再闪旧深蓝。
 - [x] 图标与启动屏生成原稿、完整 prompt、标准化构建和 QA 均已落库；视觉资产仍为 146/146，无清单漂移，品牌面成品同步到 `art-renders/visual/final/store/` 与 `assets/art/store/`。
-- [x] 园区 / 机房棋盘 / 行情 / 时代演出 / 离线奖励 / 商店六个终检屏完成英文与简中真实 Metal 回放；12 张归档均为 660×1434，位于 `docs/ui_review/10_final_{en,zh_CN}_*.png`。
+- [x] 园区 / 机房棋盘 / 行情 / 时代演出 / 离线奖励 / 商店六个终检屏完成英文与简中真实 Metal 回放；12 张归档已按最新审片要求升级为 990×2151，位于 `docs/ui_review/10_final_{en,zh_CN}_*.png`。
 - [x] 桌面交互预览无条件锁定 660×1434；移除按系统 usable-height 自动缩小的旧分支，屏幕空间不足时只把窗口贴顶，不再改变客户区尺寸。
 - [x] 最终自动门禁：数据与 146 art / 23 audio 资产通过；`test_runner` 103/103；英文 30/30、简中 30/30 视觉回归通过。
 - [ ] 真机双语与正式 App Store 截图不能由桌面回归替代：已实际触发 `iOS Release Candidate` 导出，Godot 因 preset 的 Team ID、Bundle ID 与签名仍为所有者占位输入而在配置检查阶段拒绝导出；本机也没有可用 iOS Simulator。保持为 `docs/release_checklist.md` 的外部发行门禁，不虚报完成。
+
+### 2026-08-03 · 自动审片尺寸升级
+
+- [x] 按所有者最新要求，只将自动截图由 660×1434 放大 50% 至 990×2151；桌面交互预览继续固定为 660×1434，两套尺寸不再混用。
+- [x] 英文与简中各 30 态重新真实渲染，全部输出逐文件核验为 990×2151；终检 12 屏同步覆盖更新。
