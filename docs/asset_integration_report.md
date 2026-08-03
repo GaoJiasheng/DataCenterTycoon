@@ -7,7 +7,7 @@
 - 美术：134/134 已从 `art-renders/visual/final/` 原样复制到 `assets/art/`。
 - 音频：23/23 已从 `art-renders/audio/final/` 原样复制到 `assets/audio/`。
 - 源文件与运行时文件 SHA-256 对比：150/150 一致。
-- Godot 4.7 导入与运行时加载：146 张 `Texture2D`、23 个 `AudioStream` 全部成功。
+- Godot 4.7 导入与运行时加载：152 张 `Texture2D`、23 个 `AudioStream` 全部成功。
 - `app_icon` 和 `splash_bg` 已启用；iOS 导出仍由发布门禁要求正式签名参数。
 
 ## 运行时接入

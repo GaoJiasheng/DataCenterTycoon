@@ -483,10 +483,14 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 	if state_name == "campus_dense":
 		var path_segments := main.find_children("CampusLane_*", "TextureRect", true, false)
 		var lane_axes: Dictionary = {}
+		var production_lane_count := 0
 		for lane_node: Node in path_segments:
 			var lane := lane_node as TextureRect
 			lane_axes[str(lane.get_meta("lane_axis", ""))] = true
-			if not bool(lane.get_meta("world_lane", false)) or not is_equal_approx(absf(tan(lane.rotation)), 0.5):
+			var using_iso_asset := bool(lane.get_meta("using_iso_asset", false))
+			if using_iso_asset:
+				production_lane_count += 1
+			if not bool(lane.get_meta("world_lane", false)) or (using_iso_asset and not is_zero_approx(lane.rotation)) or (not using_iso_asset and not is_equal_approx(absf(tan(lane.rotation)), 0.5)):
 				push_error("VISUAL_SMOKE: dense campus lane left the shared 2:1 axis: %s rotation=%f" % [lane.name, lane.rotation])
 				valid = false
 		var prop_types: Dictionary = {}
@@ -503,6 +507,15 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if path_segments.size() != 6 or lane_axes.size() != 2:
 			push_error("VISUAL_SMOKE: dense campus lacks the six-link two-axis lane graph: links=%d axes=%d" % [path_segments.size(), lane_axes.size()])
 			valid = false
+		if production_lane_count != path_segments.size():
+			push_error("VISUAL_SMOKE: dense campus still uses fallback orthographic roads: production=%d/%d" % [production_lane_count, path_segments.size()])
+			valid = false
+		var foundation_assets: Dictionary = {}
+		for foundation_node: Node in main.find_children("PlotFoundation", "TextureRect", true, false):
+			foundation_assets[str(foundation_node.get_meta("plot_pad_asset_id", ""))] = true
+		if not foundation_assets.has("plot_pad_std") or not foundation_assets.has("plot_pad_large"):
+			push_error("VISUAL_SMOKE: dense campus is not using both production foundation classes: %s" % str(foundation_assets.keys()))
+			valid = false
 		if grid_slots.size() != 7:
 			push_error("VISUAL_SMOKE: dense campus plots and sale pad do not share seven explicit grid slots: %d" % grid_slots.size())
 			valid = false
@@ -513,7 +526,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: dense campus decoration budget exceeded: %d" % environment_count)
 			valid = false
 		var edge_fog := main.find_child("WorldEdgeFog", true, false) as TextureRect
-		if edge_fog == null or edge_fog.modulate.a < 0.49 or edge_fog.modulate.a > 0.66:
+		if edge_fog == null or edge_fog.modulate.a < 0.22 or edge_fog.modulate.a > 0.28:
 			push_error("VISUAL_SMOKE: world edge fog is missing or outside its breathing range")
 			valid = false
 	if state_name == "dc_context":

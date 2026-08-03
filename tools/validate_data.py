@@ -69,8 +69,8 @@ def validate_manifest():
     manifest = json.loads((ROOT / "assets/art/manifest.json").read_text(encoding="utf-8"))
     ids = [asset_id for group in manifest["groups"] for asset_id in group["ids"]]
     ART_IDS = set(ids) | set(manifest.get("items", {}))
-    if len(ids) != 146:
-        ERRORS.append(f"art manifest has {len(ids)} IDs, expected 146")
+    if len(ids) != 152:
+        ERRORS.append(f"art manifest has {len(ids)} IDs, expected 152")
     if len(ids) != len(set(ids)):
         ERRORS.append("art manifest contains duplicate IDs")
 
@@ -79,7 +79,8 @@ def validate_asset_references():
     expected = {
         "ground_tile", "ground_tile_grass", "ground_path_straight", "ground_path_cross",
         "prop_flagpole", "prop_lamp", "prop_bush_row", "prop_parking", "prop_transformer_yard", "world_edge_fog",
-        "plot_forsale", "plot_owned", "dc_interior_bg", "slot_empty", "slot_locked",
+        "plot_forsale", "plot_owned", "plot_pad_std", "plot_pad_large", "plot_pad_sale",
+        "road_iso_a", "road_iso_b", "road_iso_cross", "dc_interior_bg", "slot_empty", "slot_locked",
         "ic_operations", "ic_pointer_hand", "ic_server",
         "guide_normal", "guide_happy", "guide_worried", "guide_alert", "guide_thinking",
     }
@@ -120,7 +121,7 @@ def main():
         for error in ERRORS:
             print("ERROR:", error)
         return 1
-    print(f"Validated {len(DATA)} data tables, localization, and 146 art IDs.")
+    print(f"Validated {len(DATA)} data tables, localization, and 152 art IDs.")
     return 0
 
 

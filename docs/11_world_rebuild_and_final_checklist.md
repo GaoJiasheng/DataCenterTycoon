@@ -119,3 +119,30 @@
   |---|---|---|
   | 改造前 | ![批次② 前 campus_dense](ui_review/11_batch2_before_zh_campus_dense.png) | ![批次② 前 map_built](ui_review/11_batch2_before_zh_map_built.png) |
   | 现有素材网格骨架 | ![批次② 后 campus_dense](ui_review/11_batch2_after_zh_campus_dense.png) | ![批次② 后 map_built](ui_review/11_batch2_after_zh_map_built.png) |
+
+### 批次③ · 六件世界素材接入
+
+- [x] **F2 · 道路透视与建筑统一。** `road_iso_a` / `road_iso_b` 已接入六段车道，运行时不再旋转正交贴图；每段必须以 `using_iso_asset=true` 通过视觉门禁，旧 `ground_path_straight` 只保留为缺失资产回退。`road_iso_cross` 已进入 manifest 与 import 管线，当前连续折线图没有真实交叉点，因此不伪造无出口路口。以下两图均取 `campus_dense` 的 `(x=75, y=280, w=840, h=1180)`：
+
+  | 修复前 | 修复后 |
+  |---|---|
+  | ![F2 修复前，同位置放大](ui_review/11_f2_before_zh_zoom.png) | ![F2 修复后，同位置放大](ui_review/11_f2_after_zh_zoom.png) |
+
+- [x] **F3 · 标准/大型统一地垫落地。** T0/T1 强制使用 `plot_pad_std`，T2/T3 强制使用独立比例的 `plot_pad_large`；地垫先按 alpha used-rect 裁切再等比装入，保证四角、承载面和建筑基脚都可见。视觉门禁点名要求 dense 状态同时出现两种生产地垫，禁止回退到旧 `plot_owned`。以下两图均取 `campus_dense` 的 `(x=75, y=300, w=840, h=980)`：
+
+  | 修复前 | 修复后 |
+  |---|---|
+  | ![F3 修复前，同位置放大](ui_review/11_f3_before_zh_zoom.png) | ![F3 修复后，同位置放大](ui_review/11_f3_after_zh_zoom.png) |
+
+- [x] **F5 · 待售地块改为科技园语义。** `plot_pad_sale` 使用暖灰混凝土、两段蓝白围挡与金币/价签图形立牌，彻底移除农田、木栅栏和木牌；资产缺失时仍可回退旧素材。以下两图均取 `map_built` 的 `(x=430, y=720, w=510, h=620)`：
+
+  | 修复前 | 修复后 |
+  |---|---|
+  | ![F5 修复前，同位置放大](ui_review/11_f5_before_zh_zoom.png) | ![F5 修复后，同位置放大](ui_review/11_f5_after_zh_zoom.png) |
+
+- [x] 六件素材均通过正式 `import_assets.py --visual` 管线进入 `assets/art/map/`；manifest 从 146 扩展至 152，尺寸、RGBA、透明边界和残余洋红均通过严格资产检查。完整生成 prompt、源图与交付路径见 [11_world_asset_prompts.md](11_world_asset_prompts.md)。
+- [ ] **F4 尚未关闭。** 本批已将 `world_edge_fog` 呼吸范围从 0.50–0.65 降至 0.225–0.275，但草地 v2 尚未替换，须等无方向条纹的新 tile 接入并补同位置截图后一起关闭。
+
+  | 批次③完整运行态 | `campus_dense` | `map_built` |
+  |---|---|---|
+  | 生产素材接入后 | ![批次③ campus_dense](ui_review/11_batch3_after_zh_campus_dense.png) | ![批次③ map_built](ui_review/11_batch3_after_zh_map_built.png) |

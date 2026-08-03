@@ -115,7 +115,7 @@ func _ready() -> void:
 		_edge_fog.texture = fog_texture
 		_edge_fog.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		_edge_fog.stretch_mode = TextureRect.STRETCH_SCALE
-		_edge_fog.modulate = Color(1, 1, 1, 0.575)
+		_edge_fog.modulate = Color(1, 1, 1, 0.25)
 		_edge_fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_edge_fog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		add_child(_edge_fog)
@@ -126,7 +126,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_ambient_time += delta
 	if _edge_fog != null and is_instance_valid(_edge_fog):
-		_edge_fog.modulate.a = 0.575 + sin(_ambient_time * 0.23) * 0.075
+		_edge_fog.modulate.a = 0.25 + sin(_ambient_time * 0.23) * 0.025
 	_grade_refresh_accumulator += delta
 	if _grade_refresh_accumulator >= 30.0:
 		_grade_refresh_accumulator = 0.0
@@ -232,7 +232,7 @@ func setup(plots: Array) -> void:
 			var dc: Dictionary = raw_dc
 			target_buttons[str(dc.get("id", ""))] = plot_button
 	var sale := _world_button(
-		"plot_forsale",
+		"plot_pad_sale" if AssetCatalog.has_asset("plot_pad_sale") else "plot_forsale",
 		"$%s" % Game.format_number(Game.next_plot_price()),
 		ThemeMaker.COLORS.yellow,
 		"ic_cash",
@@ -415,16 +415,25 @@ func _add_decorations(slot_count: int) -> void:
 	_add_world_prop("prop_bush_row", Vector2(696, campus_bottom + 132), Vector2(142, 90), "outer_right")
 
 func _add_campus_paths(plots: Array) -> void:
-	var straight_texture := AssetCatalog.texture("ground_path_straight")
+	var fallback_texture := AssetCatalog.texture("ground_path_straight")
 	var slot_count := plots.size() + 1
-	if straight_texture == null or slot_count < 2:
+	if slot_count < 2:
 		return
 	for slot: int in range(slot_count - 1):
 		var from := _plot_position(slot, plots.size()) + PLOT_SIZE * 0.5
 		var to := _plot_position(slot + 1, plots.size()) + PLOT_SIZE * 0.5
-		_add_path_segment(from, to, straight_texture, slot)
+		var direction := to - from
+		# road_iso_a is the / axis, road_iso_b is the \\ axis. A road is
+		# undirected, so the X sign selects the sprite matching this grid edge.
+		var asset_id := "road_iso_b" if direction.x > 0.0 else "road_iso_a"
+		var texture := AssetCatalog.texture(asset_id)
+		var uses_iso_asset := texture != null
+		if texture == null:
+			texture = fallback_texture
+		if texture != null:
+			_add_path_segment(from, to, texture, slot, asset_id, uses_iso_asset)
 
-func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D, slot: int) -> void:
+func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D, slot: int, asset_id: String = "ground_path_straight", uses_iso_asset: bool = false) -> void:
 	var distance := from.distance_to(to)
 	if distance < 32.0:
 		return
@@ -434,11 +443,18 @@ func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D, slot: int
 	view.name = "CampusLane_%s_%d" % [axis, slot]
 	view.texture = texture
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	view.stretch_mode = TextureRect.STRETCH_SCALE
-	view.size = Vector2(distance + 40.0, 96.0)
-	view.position = (from + to) * 0.5 - view.size * 0.5
+	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	if uses_iso_asset:
+		# The final road art is already rendered on the shared 2:1 axes. Its
+		# transparent square preserves that projection without runtime rotation.
+		view.size = Vector2.ONE * (distance + 56.0)
+		view.position = (from + to) * 0.5 - view.size * 0.5
+		view.rotation = 0.0
+	else:
+		view.size = Vector2(distance + 40.0, 96.0)
+		view.position = (from + to) * 0.5 - view.size * 0.5
+		view.rotation = direction.angle()
 	view.pivot_offset = view.size * 0.5
-	view.rotation = direction.angle()
 	view.modulate = Color(1, 1, 1, 0.94)
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.set_meta("world_environment", true)
@@ -446,6 +462,8 @@ func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D, slot: int
 	view.set_meta("lane_axis", axis)
 	view.set_meta("lane_from_slot", slot)
 	view.set_meta("lane_to_slot", slot + 1)
+	view.set_meta("lane_asset_id", asset_id if uses_iso_asset else "ground_path_straight")
+	view.set_meta("using_iso_asset", uses_iso_asset)
 	content.add_child(view)
 
 func _add_environment_props(plots: Array) -> void:
@@ -548,7 +566,7 @@ func _add_wind_streak(at: Vector2, delay: float, direction: float) -> void:
 
 func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 	var status := str(plot.get("status", "empty"))
-	var asset_id := "plot_owned"
+	var asset_id := "plot_pad_std" if AssetCatalog.has_asset("plot_pad_std") else "plot_owned"
 	var caption := ""
 	var caption_asset := ""
 	var accent := ThemeMaker.COLORS.green
@@ -823,15 +841,21 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 func _add_owned_plot_base(button: Button, building_asset_id: String) -> void:
 	var base := TextureRect.new()
 	base.name = "PlotFoundation"
-	base.texture = AssetCatalog.texture("plot_owned")
-	base.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	base.stretch_mode = TextureRect.STRETCH_SCALE
-	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var large := building_asset_id.begins_with("dc_t2") or building_asset_id.begins_with("dc_t3")
+	var pad_asset_id := "plot_pad_large" if large else "plot_pad_std"
+	var pad_texture := AssetCatalog.texture(pad_asset_id)
+	if pad_texture == null:
+		pad_asset_id = "plot_owned"
+		pad_texture = AssetCatalog.texture(pad_asset_id)
+	base.texture = _visible_world_texture(pad_texture)
+	base.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	base.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	base.position = Vector2(-13, 18) if large else Vector2(7, 28)
 	base.size = Vector2(PLOT_SIZE.x + 26, 244) if large else Vector2(PLOT_SIZE.x - 14, 226)
-	base.modulate = Color(1, 1, 1, 0.86)
+	base.modulate = Color.WHITE
 	base.set_meta("plot_pad_class", "large" if large else "standard")
+	base.set_meta("plot_pad_asset_id", pad_asset_id)
 	button.add_child(base)
 
 func _visible_world_texture(texture: Texture2D) -> Texture2D:

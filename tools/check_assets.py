@@ -56,8 +56,8 @@ def validate_art(strict):
     failures = []
     missing = []
     items = expanded_art_items()
-    if len(items) != 146:
-        failures.append(f"manifest contains {len(items)} assets; expected 146")
+    if len(items) != 152:
+        failures.append(f"manifest contains {len(items)} assets; expected 152")
     for asset_id, spec in sorted(items.items()):
         path = Path(spec["path"])
         if not path.exists():
