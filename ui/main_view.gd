@@ -134,12 +134,20 @@ func _input(event: InputEvent) -> void:
 func _build_shell() -> void:
 	var background := ColorRect.new()
 	background.color = ThemeMaker.SURFACE
+	# Reserve the lowest canvas band for the solid fallback, then keep the
+	# depth-sorted world between it and every HUD/page/overlay layer.
+	background.z_index = -4096
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 
 	world_host = Control.new()
 	world_host.name = "WorldHost"
+	# Plot buttons use a local depth sort based on their world Y coordinate. Keep
+	# that entire sorted canvas behind system pages: without a parent offset, a
+	# late/southern plot can overdraw the page frame even though PageHost is a
+	# later sibling in the scene tree.
+	world_host.z_index = -2048
 	world_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(world_host)
 	park_map = ParkMapScene.new()

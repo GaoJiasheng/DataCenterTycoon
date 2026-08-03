@@ -150,3 +150,41 @@
   | 批次③完整运行态 | `campus_dense` | `map_built` |
   |---|---|---|
   | 生产素材接入后 | ![批次③ campus_dense](ui_review/11_batch3_after_zh_campus_dense.png) | ![批次③ map_built](ui_review/11_batch3_after_zh_map_built.png) |
+
+### 批次④ · 光影与小尺寸识别收敛
+
+- [x] **F6 · 建筑光影方向统一复核。** 对 T0–T3 的 active / dark / aged / decayed / installing / scaffold 共 24 件运行态建筑 PNG 做 Alpha 连通域审计，24/24 均不存在可分离的第二块地面投影；原截图里被判断为“反向影子”的区域实际来自旧地垫、旧道路与建筑自带基脚混合。统一标准/大型地垫后，所有建筑均保持左上受光、右下自阴影，地面接触关系由同一套地垫承载，因此无需破坏已经统一的建筑套装重生单档。以下两图均取 `campus_dense` 的 `(x=85, y=270, w=820, h=540)`：
+
+  | 修复前 | 修复后 |
+  |---|---|
+  | ![F6 修复前，同位置放大](ui_review/11_f6_before_zh_zoom.png) | ![F6 修复后，同位置放大](ui_review/11_f6_after_zh_zoom.png) |
+
+- [x] **F8 · 计算机柜从深蓝黑块改为亮银白机身。** T1/T2 的 active 与 dark 四个实际显示分支全部重生并接入；active 使用银白/暖象牙机身、炭黑托盘与青蓝 LED，dark 只关闭 LED 并轻微降亮，不再把整个外壳染成 navy。视觉门禁逐件锁定亮色中性像素占比，Godot 强制重导入后再以运行态截图验收。以下两图均取 `dc_board` 的 `(x=230, y=830, w=380, h=330)`：
+
+  | 修复前 | 修复后 |
+  |---|---|
+  | ![F8 修复前，同位置放大](ui_review/11_f8_before_zh_zoom.png) | ![F8 修复后，同位置放大](ui_review/11_f8_after_zh_zoom.png) |
+
+- [x] **F9 · 电力与时代图标重建。** `ic_power` 删除篮子/插座容器，只保留占画布主体的粗金色闪电；`ic_era1-3` 改为同一套深蓝珐琅、金边与巨大 I/II/III 的圆形奖章，HUD 44u 和科技路线卡均可一眼识别。视觉门禁锁定闪电的金色占比与细长轮廓，并锁定奖章的 navy 底、亮色字面和外接框。电力图以下两图均取 `map_built` 的 `(x=245, y=670, w=260, h=260)`；时代图以下两图均取科技页缩放至 990×2151 后的 `(x=135, y=780, w=720, h=360)`：
+
+  | 电力修复前 | 电力修复后 |
+  |---|---|
+  | ![F9 电力修复前，同位置放大](ui_review/11_f9_power_before_zh_zoom.png) | ![F9 电力修复后，同位置放大](ui_review/11_f9_power_after_zh_zoom.png) |
+
+  | 时代修复前 | 时代修复后 |
+  |---|---|
+  | ![F9 时代修复前，同位置放大](ui_review/11_f9_era_before_zoom.png) | ![F9 时代修复后，同位置放大](ui_review/11_f9_era_after_zoom.png) |
+
+- [x] **附带修复 · 世界深度排序不得穿透系统页。** 网格重构后的地块曾直接把世界 Y 像素值写入 `z_index`，使南侧地块越过页面框；现在背景固定在 -4096、整个世界排序带固定在 -2048，地块改用与 Y 同序但封顶 1024 的 slot 排序，HUD/页面/弹层恒定处于上层。视觉门禁在每个非地图状态逐块校验世界有效 Z 必须小于 0，机房与科技页不再被世界地块盖住。
+
+完整生成 prompt、源图、透明化过程与运行交付路径见 [11_world_asset_prompts.md](11_world_asset_prompts.md)。
+
+### 批次⑤ · 双语终检
+
+- [x] **F11 · 双语 30 态恢复全绿。** Godot Metal 实渲染在 990×2151（iPhone 17 Pro Max 物理分辨率的 75%）下完成简中 30/30 与英文 30/30；每态均执行裁剪、兄弟文本叠印、内容压缩、按钮字色、触控区、F1/F7/F8/F9/F10 专属断言和世界/系统页深度契约。功能回归 `103 passed / 0 failed`，数据门禁通过 11 表 / 双语 / 152 art IDs，资产门禁通过 152 art / 4 fonts / 23 audio。以下两图均取 `campus_dense` 的 `(x=70, y=270, w=850, h=1400)`，用于复核同一运行态在双语下的世界构图一致性：
+
+  | 简中终检 | 英文终检 |
+  |---|---|
+  | ![F11 简中终检，同位置放大](ui_review/11_f11_zh_campus_dense_zoom.png) | ![F11 英文终检，同位置放大](ui_review/11_f11_en_campus_dense_zoom.png) |
+
+至此 F1–F11 均已用运行态证据关闭；未修改 `core/*.gd`、`gameplay/game_rules.gd`、`gameplay/market_system.gd` 或 `data/*.json` 的玩法与数值逻辑。

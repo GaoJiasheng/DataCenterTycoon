@@ -719,7 +719,10 @@ func _sale_position(owned_count: int) -> Vector2:
 	return _plot_position(owned_count, owned_count + 1)
 
 func _configure_grid_slot(button: Button, slot: int, at: Vector2) -> void:
-	button.z_index = 10 + int(at.y)
+	# Slot order follows increasing world Y, so it provides the same stable
+	# painter's order without leaking unbounded pixel coordinates into the root
+	# canvas Z range. The cap guarantees even very large parks stay below pages.
+	button.z_index = 10 + mini(slot, 1024)
 	button.set_meta("grid_slot", slot)
 	button.set_meta("grid_column", slot % 2)
 	button.set_meta("grid_row", slot / 2)

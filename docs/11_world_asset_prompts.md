@@ -143,3 +143,71 @@ Use case: stylized-concept. Create a production-ready seamless square tileable c
 ```
 
 收尾：`finish_final_look_world.py` 对边 48px cosine blend、64 色移动端调色板；最终 1024×1024 P-mode PNG，775,855 bytes，左右/上下边界平均像素误差均为 0。
+
+## 8. `rack_compute_t1_active` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-bef15121-3790-40f8-941e-88ff5946fbe5.png`
+
+```text
+Use case: image edit, production game asset. Edit the first referenced asset rack_compute_t1_active only. Preserve its exact single-rack silhouette, 3/4 isometric camera, dimensions, proportions, twelve front server trays, premium friendly Data Center Tycoon rendering, upper-left lighting, lower-right self shading, and crisp phone-scale readability. Refinish the exterior chassis from saturated blue/navy into a bright silver-white and warm ivory metal body with a clear pale-cyan accent panel. Make the outer frame, side casing, top casing, and corner guards visibly light and high-contrast. Keep the server-tray faces dark charcoal so they remain recognizable, but add thick bright silver tray handles/rails and strong cyan-blue LED bars so the front never collapses into a black rectangle at 44u. It must read immediately as a powered compute rack against a dark navy UI cell. Background must be perfectly uniform solid #ff00ff chroma key, no floor or background gradient; contain no magenta in subject. Exactly one isolated rack, centered with generous padding. No text, labels, logos, watermark, extra props, smoke, faults, cardboard, tools, people, room background, cast shadow outside the subject, or cropping.
+```
+
+## 9. `rack_compute_t2_active` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-7e1fddd9-9db9-425f-bd36-382f391b93eb.png`
+
+```text
+Use case: image edit, production game asset. Edit the first referenced asset rack_compute_t2_active only into the tier-2 sibling of the second reference's new bright compute-rack family. Preserve the first asset's exact taller premium tier-2 silhouette, 3/4 isometric camera, proportions, twin top cooling fans, dense front server trays, right-side vent/fan and cable details, upper-left lighting, and crisp phone-scale readability. Refinish its exterior chassis from blue/navy into bright silver-white and warm ivory metal with restrained gold tier-2 rails and a clear pale-cyan accent strip. Make the outer frame, side casing, top casing and corner guards visibly light and high-contrast. Keep tray faces charcoal for recognition, but add thick bright silver handles/rails and strong cyan-blue LED bars so the front never collapses into black at 44u. Match the second reference's silver-white material and cyan glow while retaining the tier-2 sophistication of the first. Background must be perfectly uniform solid #ff00ff chroma key, no floor/background gradient and no magenta in subject. Exactly one isolated rack, centered with generous padding. No text, labels, logos, watermark, extra props, smoke, faults, cardboard, tools, people, room background, detached cast shadow, or cropping.
+```
+
+## 10. `rack_compute_t1_dark` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-721bc51a-437d-49d2-980f-b0eefb7ed95a.png`
+
+```text
+Use case: image edit, production game asset. Edit the first reference rack_compute_t1_dark into the powered-off sibling of the second reference's new bright silver compute-rack family. Preserve the second reference's exact bright silver-white and warm ivory exterior chassis, pale-cyan unlit accent strips, silhouette, 3/4 isometric camera, dimensions, twelve trays, silver handles and phone-scale clarity. State difference: every cyan LED must be OFF or a very faint desaturated gray-blue glass; tray faces remain charcoal; overall rack may be slightly cooler and 12% dimmer but the exterior silver chassis must stay clearly visible against a dark navy UI cell. No blue/navy outer body. Exactly one isolated rack centered on a perfectly uniform solid #ff00ff chroma-key background. No text, logo, watermark, smoke, red fault lights, cardboard, tools, people, room background, detached shadow, crop, extra props or magenta in subject.
+```
+
+## 11. `rack_compute_t2_dark` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-d229b80d-e821-4317-af1b-a06ebc86207a.png`
+
+```text
+Use case: image edit, production game asset. Edit the first reference rack_compute_t2_dark into the powered-off tier-2 sibling of the second reference's new bright silver rack and the third reference's off-state logic. Preserve the second reference's bright silver-white/ivory tall tier-2 chassis, restrained gold rails, twin top fans, right-side vents and cables, silhouette, 3/4 camera, proportions, dense trays and phone-scale clarity. State difference: every cyan LED is OFF or only faint desaturated gray-blue glass; tray faces stay charcoal; overall may be slightly cooler/dimmer, but the silver exterior remains clearly visible on dark navy UI. No navy outer body. Exactly one isolated rack centered on perfectly uniform #ff00ff chroma background. No text, logo, watermark, smoke, red fault lights, cardboard, tools, people, room, detached shadow, crop, extra props or magenta in subject.
+```
+
+## 12. `ic_power` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-812b7c04-994e-4e21-848e-2613762ba0ba.png`
+
+```text
+Use case: image edit, production game UI icon. Replace the referenced ic_power artwork with one unmistakable standalone bold lightning bolt for a premium friendly Data Center Tycoon mobile game. Preserve the polished rounded 3D icon rendering, upper-left light, warm gold material and strong phone-scale silhouette, but remove every container, basket, socket, cable, pedestal, badge, circle and secondary object. The bolt must occupy most of the canvas, have a compact thick zig-zag silhouette, bright yellow-gold face, warm orange-gold side bevel, thin ivory highlight and restrained deep navy contact rim. It must read as electrical power instantly at 44u on both grass and dark navy. Exactly one centered isolated bolt with generous safety padding on a perfectly uniform solid #ff00ff chroma-key background. No text, letters, numerals, logo, watermark, detached cast shadow, sparks, glow cloud, extra props, cropping, or magenta in the subject.
+```
+
+## 13. `ic_era1` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-a990c3a2-fa23-4715-bfae-ae086c53ec19.png`
+
+```text
+Use case: image edit, production game UI icon. Rebuild the referenced first-era icon as a single compact prestige medal for Data Center Tycoon. The medal must use a round deep-navy enamel field, a thick segmented warm-gold outer rim, and one enormous embossed Roman numeral I in bright readable gold. The numeral is the primary symbol and must remain unmistakable at 44u. Add only a very subtle low-contrast silhouette of the era's compact colocation data-center equipment behind the numeral; it may never compete with the I. Premium friendly rounded 3D mobile-game rendering, upper-left light, crisp silhouette, no tiny decorative clutter. Exactly one centered medal, optically square, generous transparent safety padding, perfectly uniform solid #ff00ff chroma-key background. No blue cube container, no words, labels, logos, watermark, extra objects, ribbons, stars, detached shadow, crop, or magenta in the subject.
+```
+
+## 14. `ic_era2` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-1a116223-94d2-43a3-b02f-d26788d3bee0.png`
+
+```text
+Use case: image edit, production game UI icon. Rebuild the referenced second-era icon as the exact sibling of the supplied era-I medal: same round deep-navy enamel field, same thick segmented warm-gold outer rim, same camera, materials, lighting, scale and padding. Replace the center with one enormous embossed Roman numeral II in bright readable gold. The II must be the primary symbol and remain unmistakable at 44u. Add only a very subtle low-contrast cloud-era data-center silhouette behind the numeral, never competing with it. Premium friendly rounded 3D mobile-game rendering, upper-left light, crisp silhouette. Exactly one centered optically square medal on a perfectly uniform solid #ff00ff chroma-key background. No blue cube container, no words, labels, logos, watermark, extra objects, ribbons, stars, detached shadow, crop, or magenta in the subject.
+```
+
+## 15. `ic_era3` v2
+
+源生成图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-547204ee-5036-44c2-8966-f9890e386335.png`
+
+```text
+Use case: image edit, production game UI icon. Rebuild the referenced third-era icon as the exact sibling of the supplied era-I and era-II medals: same round deep-navy enamel field, same thick segmented warm-gold outer rim, same camera, materials, lighting, scale and padding. Replace the center with one enormous embossed Roman numeral III in bright readable gold. The III must be the primary symbol and remain unmistakable at 44u. Add only a very subtle low-contrast AI-era server silhouette behind the numeral, never competing with it. Premium friendly rounded 3D mobile-game rendering, upper-left light, crisp silhouette. Exactly one centered optically square medal on a perfectly uniform solid #ff00ff chroma-key background. No blue cube container, no words, labels, logos, watermark, extra objects, ribbons, stars, detached shadow, crop, or magenta in the subject.
+```
+
+## 小尺寸素材 QA
+
+上述八件素材均通过 `remove_chroma_key.py` 的 soft matte、despill 与 edge contract，再规格化为 512×512 RGBA；四角 Alpha 均为 0、可见洋红残余均为 0。运行态还强制执行 Godot 资源重导入，避免源 PNG 已替换而 `.ctex` 仍读取旧图。视觉门禁分别锁定计算机柜的亮色中性机身占比、闪电的金色主体与细长轮廓，以及三枚时代奖章的深蓝底、亮色字面和近方形外接框。

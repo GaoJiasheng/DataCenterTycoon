@@ -318,6 +318,28 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if node != null and node.is_visible_in_tree():
 			controls.append(node)
 	var valid := true
+	if state_name == "map":
+		var power_metrics := _asset_palette_metrics("ic_power")
+		if float(power_metrics.get("gold_ratio", 0.0)) < 0.30 or float(power_metrics.get("used_aspect", 1.0)) > 0.78:
+			push_error("VISUAL_SMOKE: F9 power icon is not a dominant standalone gold bolt")
+			valid = false
+		var era_neutral_floor := {"ic_era1": 0.20, "ic_era2": 0.16, "ic_era3": 0.14}
+		for era_asset: String in era_neutral_floor:
+			var era_metrics := _asset_palette_metrics(era_asset)
+			var era_aspect := float(era_metrics.get("used_aspect", 0.0))
+			if float(era_metrics.get("blue_ratio", 0.0)) < 0.30 or float(era_metrics.get("bright_neutral_ratio", 0.0)) < float(era_neutral_floor[era_asset]) or era_aspect < 0.90 or era_aspect > 1.10:
+				push_error("VISUAL_SMOKE: F9 era medal lacks its navy field or readable gold numeral: %s metrics=%s" % [era_asset, str(era_metrics)])
+				valid = false
+	if state_name != "map":
+		var world_host := main.find_child("WorldHost", true, false) as Control
+		if world_host == null or world_host.z_index > -1800:
+			push_error("VISUAL_SMOKE: depth-sorted world can overdraw the active system page")
+			valid = false
+		elif main.park_map != null:
+			for grid_plot: Node in main.park_map.find_children("GridPlot_*", "Button", true, false):
+				if world_host.z_index + (grid_plot as CanvasItem).z_index >= 0:
+					push_error("VISUAL_SMOKE: grid plot escapes the bounded world canvas band")
+					valid = false
 	var font_probe := Label.new()
 	font_probe.name = "GlyphProbe"
 	font_probe.text = "稳障购罄"
@@ -563,6 +585,11 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: non-placement board retains placement badges")
 			valid = false
 		if state_name == "dc_board":
+			var compute_neutral_floor := {"rack_compute_t1_active": 0.14, "rack_compute_t1_dark": 0.08, "rack_compute_t2_active": 0.17, "rack_compute_t2_dark": 0.12}
+			for compute_asset: String in compute_neutral_floor:
+				if float(_asset_palette_metrics(compute_asset).get("bright_neutral_ratio", 0.0)) < float(compute_neutral_floor[compute_asset]):
+					push_error("VISUAL_SMOKE: F8 compute rack chassis is too dark for the navy board: %s" % compute_asset)
+					valid = false
 			var install_timer := main.find_child("RackInstallTimer", true, false) as Control
 			var install_progress := main.find_child("TimerProgress", true, false) as ProgressBar
 			var install_remaining := main.find_child("TimerRemaining", true, false) as Label
@@ -745,6 +772,40 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 	valid = _panel_content_is_not_compressed(main, state_name) and valid
 	valid = _button_text_contrast_is_safe(main, state_name) and valid
 	return valid
+
+func _asset_palette_metrics(asset_id: String) -> Dictionary:
+	var texture := AssetCatalog.texture(asset_id)
+	if texture == null:
+		return {}
+	var image := texture.get_image()
+	if image == null or image.is_empty():
+		return {}
+	var visible := 0
+	var bright_neutral := 0
+	var blue := 0
+	var gold := 0
+	for y: int in range(0, image.get_height(), 4):
+		for x: int in range(0, image.get_width(), 4):
+			var color := image.get_pixel(x, y).linear_to_srgb()
+			if color.a <= 0.5:
+				continue
+			visible += 1
+			var high := maxf(color.r, maxf(color.g, color.b))
+			var low := minf(color.r, minf(color.g, color.b))
+			if high > 0.68 and high - low < 0.25:
+				bright_neutral += 1
+			if color.b > color.r * 1.15 and color.b > color.g * 0.85:
+				blue += 1
+			if color.r > 0.70 and color.g > 0.35 and color.b < color.r * 0.65:
+				gold += 1
+	if visible == 0:
+		return {}
+	return {
+		"bright_neutral_ratio": float(bright_neutral) / float(visible),
+		"blue_ratio": float(blue) / float(visible),
+		"gold_ratio": float(gold) / float(visible),
+		"used_aspect": float(image.get_used_rect().size.x) / maxf(1.0, float(image.get_used_rect().size.y)),
+	}
 
 func _text_is_within_clipping_ancestors(main: Node, state_name: String) -> bool:
 	var valid := true
