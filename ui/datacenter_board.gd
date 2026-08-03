@@ -255,35 +255,47 @@ func _add_slot_art(button: Button, open: bool, installed: Variant, runtime: Dict
 		var complete_at := float(installed.get("install_complete_at", Game.simulation_time()))
 		var rack_data := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
 		var duration := maxf(1.0, float(rack_data.get("install_seconds", complete_at - float(installed.get("started_at", Game.simulation_time())))))
-		# F7: keep the countdown wholly inside the clipped slot. A compact top strip
-		# communicates progress without the old bottom capsule losing half its text.
+		# S2/F7: keep the countdown wholly inside the clipped slot. A small, opaque
+		# readout sits above the progress line so the rack illustration never changes
+		# the timer's contrast.
 		var timer := Control.new()
 		timer.name = "RackInstallTimer"
 		timer.position = Vector2(8, 6)
-		timer.size = Vector2(CELL_SIZE.x - 16, 46)
+		timer.size = Vector2(CELL_SIZE.x - 16, 50)
 		timer.z_index = 4
 		timer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var progress := ProgressBar.new()
 		progress.name = "TimerProgress"
 		progress.show_percentage = false
 		progress.max_value = duration
-		progress.position = Vector2.ZERO
-		progress.size = Vector2(timer.size.x, 12)
+		progress.position = Vector2(0, 34)
+		progress.size = Vector2(timer.size.x, 10)
 		progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		timer.add_child(progress)
+		var readout := PanelContainer.new()
+		readout.name = "TimerReadout"
+		readout.position = Vector2(timer.size.x - 82, 0)
+		readout.size = Vector2(82, 30)
+		var readout_style := ThemeMaker.panel(Color("142438"), Color(1, 1, 1, 0.22), 1, 8)
+		readout_style.content_margin_left = 6
+		readout_style.content_margin_right = 6
+		readout_style.content_margin_top = 0
+		readout_style.content_margin_bottom = 0
+		readout.add_theme_stylebox_override("panel", readout_style)
+		readout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		timer.add_child(readout)
 		var remaining := Label.new()
 		remaining.name = "TimerRemaining"
-		remaining.position = Vector2(0, 12)
-		remaining.size = Vector2(timer.size.x - 4, 30)
+		remaining.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		remaining.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		remaining.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		remaining.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		ThemeMaker.apply_text_role(remaining, "world")
 		remaining.add_theme_font_size_override("font_size", 18)
 		remaining.add_theme_color_override("font_color", Color.WHITE)
 		remaining.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
 		remaining.add_theme_constant_override("outline_size", 3)
 		remaining.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		timer.add_child(remaining)
+		readout.add_child(remaining)
 		var update_timer := func() -> void:
 			var left := maxf(0.0, complete_at - Game.simulation_time())
 			progress.value = clampf(duration - left, 0.0, duration)
@@ -402,11 +414,24 @@ func _add_power_meter(dc: Dictionary) -> void:
 	row.add_child(meter_box)
 	var capacity := float(DataRepository.get_entry("attachments", power_id).get("capacity", 0.0))
 	var used := _power_demand(dc)
-	var label := Label.new()
-	label.text = tr("BOARD_POWER_USAGE") % [Game.format_number(used), Game.format_number(capacity)]
-	label.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
-	label.add_theme_color_override("font_color", ThemeMaker.COLORS.cream)
-	meter_box.add_child(label)
+	# One rich-text node keeps the board inside its 60-node mobile budget while
+	# still assigning the label and tabular values to different font roles.
+	var usage := RichTextLabel.new()
+	usage.name = "BoardPowerUsage"
+	usage.fit_content = true
+	usage.scroll_active = false
+	usage.custom_minimum_size.y = 32
+	usage.add_theme_color_override("default_color", ThemeMaker.COLORS.cream)
+	usage.push_font(ThemeMaker.font_regular(), ThemeMaker.TYPE_SCALE.caption)
+	usage.add_text("%s  " % tr("BOARD_POWER_LABEL"))
+	usage.pop()
+	usage.push_font(ThemeMaker.font_numeric(), ThemeMaker.TYPE_SCALE.caption)
+	var numeric_usage := "%s / %s" % [Game.format_number(used), Game.format_number(capacity)]
+	usage.add_text(numeric_usage)
+	usage.pop()
+	usage.set_meta("numeric_usage", numeric_usage)
+	usage.set_meta("numeric_font", ThemeMaker.font_numeric())
+	meter_box.add_child(usage)
 	var progress := ProgressBar.new()
 	progress.name = "BoardPowerMeter"
 	progress.show_percentage = false

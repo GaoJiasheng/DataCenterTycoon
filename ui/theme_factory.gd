@@ -319,6 +319,20 @@ static func world_badge(accent: Color, compact: bool = false) -> StyleBox:
 	box.shadow_offset = Vector2(0, 2)
 	return box
 
+static func sale_price_badge() -> StyleBoxFlat:
+	# A compact sign plate belongs to the parcel instead of reading as a second
+	# floating CTA. The warm rim connects it to the physical sale sign while the
+	# deep fill preserves world-layer text contrast.
+	var box := panel(Color("17344a"), Color(COLORS.yellow, 0.92), 2, 14)
+	box.content_margin_left = 10
+	box.content_margin_right = 10
+	box.content_margin_top = 4
+	box.content_margin_bottom = 4
+	box.shadow_color = Color(0, 0, 0, 0.16)
+	box.shadow_size = 2
+	box.shadow_offset = Vector2(0, 1)
+	return box
+
 static func apply_button_color(button: Button, color: Color) -> void:
 	apply_button_role(button, button_role_for_color(color))
 
@@ -406,6 +420,43 @@ static func apply_round_button(button: Button, color: Color) -> void:
 	button.add_theme_stylebox_override("pressed", round_button_box(color.darkened(0.13), true))
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	button.add_theme_color_override("font_color", COLORS.cream)
+
+static func apply_world_hud_button(button: Button) -> void:
+	# Persistent map entries are controls, not event CTAs. Keep them in the same
+	# deep HUD material and let their colored production icons provide identity.
+	button.set_meta("world_hud_entry", true)
+	var normal := panel(Color("1c2c40"), Color(1, 1, 1, 0.48), 2, 26)
+	var hover := panel(Color("263d55"), Color(1, 1, 1, 0.62), 2, 26)
+	var pressed := panel(Color("142234"), Color(1, 1, 1, 0.42), 2, 26)
+	for style: StyleBoxFlat in [normal, hover, pressed]:
+		style.shadow_color = Color(0, 0, 0, 0.24)
+		style.shadow_size = 3
+		style.shadow_offset = Vector2(0, 1)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	button.add_theme_color_override("font_color", Color.WHITE)
+
+static func apply_system_scrollbar(scroll: ScrollContainer) -> void:
+	var bar := scroll.get_v_scroll_bar()
+	bar.name = "PageScrollBar"
+	bar.custom_minimum_size.x = 6
+	bar.set_meta("system_scrollbar", true)
+	bar.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
+	bar.add_theme_stylebox_override("scroll_focus", StyleBoxEmpty.new())
+	var grabber := panel(Color(1, 1, 1, 0.18), Color.TRANSPARENT, 0, 3)
+	grabber.content_margin_left = 0
+	grabber.content_margin_right = 0
+	grabber.content_margin_top = 0
+	grabber.content_margin_bottom = 0
+	var highlighted := grabber.duplicate() as StyleBoxFlat
+	highlighted.bg_color = Color(1, 1, 1, 0.28)
+	var pressed := grabber.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color(1, 1, 1, 0.36)
+	bar.add_theme_stylebox_override("grabber", grabber)
+	bar.add_theme_stylebox_override("grabber_highlight", highlighted)
+	bar.add_theme_stylebox_override("grabber_pressed", pressed)
 
 static func round_button_box(color: Color, pressed: bool = false) -> StyleBoxFlat:
 	var box := panel(color.darkened(0.16), Color(1, 1, 1, 0.42), 2, 26)

@@ -424,11 +424,33 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			if world_caption == null or world_caption_fill == null or world_caption_fill.get_parent() != world_caption or not world_caption.get_theme_color("font_color").is_equal_approx(Color.WHITE) or world_caption.get_theme_font_size("font_size") != 20 or world_caption.get_theme_constant("outline_size") != 3 or not world_caption.get_theme_color("font_outline_color").is_equal_approx(ThemeFactory.COLORS.ink) or world_caption.get_theme_font("font") != ThemeFactory.font_world_heavy() or not world_caption_fill.get_theme_color("font_color").is_equal_approx(Color.WHITE) or not world_caption_fill.get_theme_color("font_outline_color").is_equal_approx(Color.WHITE) or world_caption_fill.get_theme_constant("outline_size") != 1:
 				push_error("VISUAL_SMOKE: F10 world action caption violates the 20u white/heavy/3px contract: %s" % caption_name)
 				valid = false
+		var sale_price := main.find_child("SalePriceBadge", true, false) as PanelContainer
+		var sale_tether := main.find_child("SalePriceTether", true, false) as ColorRect
+		if sale_price == null or sale_tether == null or not bool(sale_price.get_meta("sale_sign_attached", false)) or not is_equal_approx(float(sale_price.get_meta("sale_price_gap", -1.0)), 12.0) or sale_price.size.x > 132.0 or sale_price.size.y > 44.0:
+			push_error("VISUAL_SMOKE: W3 sale price is not a compact plate tethered 12u below the parcel art")
+			valid = false
+		for hud_name: String in ["TaskButton", "OperationsButton"]:
+			var hud_entry := main.find_child(hud_name, true, false) as Button
+			var hud_style := hud_entry.get_theme_stylebox("normal") as StyleBoxFlat if hud_entry != null else null
+			if hud_entry == null or not bool(hud_entry.get_meta("world_hud_entry", false)) or hud_style == null or not hud_style.bg_color.is_equal_approx(Color("1c2c40")) or hud_style.get_border_width(SIDE_TOP) < 2:
+				push_error("VISUAL_SMOKE: S4 map entry is not using the shared deep HUD material: %s" % hud_name)
+				valid = false
 	if state_name == "store":
 		var best_value := main.find_child("BestValueRibbon", true, false) as PanelContainer
 		var best_value_label := main.find_child("BestValueLabel", true, false) as Label
 		if best_value == null or best_value_label == null or best_value.size.x + 1.0 < best_value_label.get_combined_minimum_size().x + 24.0 or best_value.size.y + 1.0 < best_value_label.get_combined_minimum_size().y + 12.0:
 			push_error("VISUAL_SMOKE: store best-value ribbon does not fit its localized label")
+			valid = false
+		var page_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+		var page_bar := page_scroll.get_v_scroll_bar() if page_scroll != null else null
+		var page_grabber := page_bar.get_theme_stylebox("grabber") as StyleBoxFlat if page_bar != null else null
+		if page_bar == null or not bool(page_bar.get_meta("system_scrollbar", false)) or page_bar.custom_minimum_size.x > 6.0 or page_grabber == null or not is_equal_approx(page_grabber.bg_color.a, 0.18):
+			push_error("VISUAL_SMOKE: W5 system scrollbar is not the 6u translucent HUD rail")
+			valid = false
+		var locked_offer := main.find_child("StoreLockedOffer", true, false) as PanelContainer
+		var locked_copy := main.find_child("CompactStatusText", true, false) as Label
+		if locked_offer == null or locked_copy == null or locked_offer.custom_minimum_size.y > 96.0 or locked_copy.max_lines_visible != 1:
+			push_error("VISUAL_SMOKE: S5 locked store offer is not a compact 96u single-line rail")
 			valid = false
 	if state_name == "ftue_spotlight":
 		var spotlight := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
@@ -504,6 +526,12 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if not main.find_children("BuildingGroundShadow", "Polygon2D", true, false).is_empty():
 			push_error("VISUAL_SMOKE: %s retains a duplicate procedural shadow over A2 baked shadows" % state_name)
 			valid = false
+		for building_node: Node in main.find_children("WorldArt", "TextureRect", true, false):
+			var building_art := building_node as TextureRect
+			var asset_id := str(building_art.get_meta("world_asset_id", ""))
+			if asset_id.begins_with("dc_") and str(building_art.get_meta("shadow_policy", "")) != "foundation_only":
+				push_error("VISUAL_SMOKE: W4 building tier escaped the shared foundation-only shadow policy: %s" % asset_id)
+				valid = false
 	if state_name == "campus_dense":
 		var path_segments := main.find_children("CampusLane_*", "TextureRect", true, false)
 		var lane_axes: Dictionary = {}
@@ -618,8 +646,14 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			var install_remaining := main.find_child("TimerRemaining", true, false) as Label
 			var timer_parent := install_timer.get_parent() as Control if install_timer != null else null
 			var timer_inside := install_timer != null and timer_parent != null and timer_parent.get_global_rect().grow(-4.0).encloses(install_timer.get_global_rect())
-			if not timer_inside or install_progress == null or install_progress.position.y > 6.0 or install_progress.size.y > 14.0 or install_remaining == null or install_remaining.horizontal_alignment != HORIZONTAL_ALIGNMENT_RIGHT or not install_remaining.get_theme_color("font_color").is_equal_approx(Color.WHITE) or install_remaining.get_theme_constant("outline_size") < 3:
-				push_error("VISUAL_SMOKE: F7 installing rack timer is not a fully contained top strip with right-aligned white time")
+			var timer_readout := main.find_child("TimerReadout", true, false) as PanelContainer
+			var readout_style := timer_readout.get_theme_stylebox("panel") as StyleBoxFlat if timer_readout != null else null
+			if not timer_inside or install_progress == null or install_progress.position.y < 30.0 or install_progress.size.y > 12.0 or install_remaining == null or timer_readout == null or install_remaining.get_parent() != timer_readout or install_remaining.horizontal_alignment != HORIZONTAL_ALIGNMENT_RIGHT or not install_remaining.get_theme_color("font_color").is_equal_approx(Color.WHITE) or install_remaining.get_theme_constant("outline_size") < 3 or readout_style == null or readout_style.bg_color.get_luminance() > 0.18:
+				push_error("VISUAL_SMOKE: S2 installing rack timer is not a contained white readout above its progress line")
+				valid = false
+			var power_usage := main.find_child("BoardPowerUsage", true, false) as RichTextLabel
+			if power_usage == null or not str(power_usage.get_meta("numeric_usage", "")).contains(" / ") or power_usage.get_meta("numeric_font", null) != ThemeFactory.font_numeric():
+				push_error("VISUAL_SMOKE: S3 board power usage does not separate its label from tabular spaced numbers")
 				valid = false
 		var installed_cooler := main.find_child("Cooler_north", true, false) as Button
 		if installed_cooler == null or installed_cooler.icon != null or installed_cooler.find_children("CoolerArt", "TextureRect", true, false).size() != 1:

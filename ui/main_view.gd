@@ -288,7 +288,7 @@ func _build_shell() -> void:
 	task_button.offset_bottom = 46
 	task_button.tooltip_text = tr("VIEW_QUEUE")
 	task_button.pressed.connect(_navigate.bind("build"))
-	ThemeMaker.apply_round_button(task_button, ThemeMaker.COLORS.orange)
+	ThemeMaker.apply_world_hud_button(task_button)
 	_wire_button_motion(task_button)
 	_set_button_asset(task_button, "ic_build", 42)
 	action_layer.add_child(task_button)
@@ -322,7 +322,7 @@ func _build_shell() -> void:
 	operations_button.offset_bottom = 46
 	operations_button.tooltip_text = tr("OPERATIONS_CENTER")
 	operations_button.pressed.connect(_show_operations_hub)
-	ThemeMaker.apply_round_button(operations_button, ThemeMaker.COLORS.sky)
+	ThemeMaker.apply_world_hud_button(operations_button)
 	_wire_button_motion(operations_button)
 	operations_button.text = ""
 	var operations_asset := "ic_operations" if AssetCatalog.texture("ic_operations") != null else "ic_network"
@@ -1333,7 +1333,9 @@ func _build_store_page() -> Control:
 		section_header.name = "StoreSection_%s" % section_id
 		box.add_child(section_header)
 		if sections[section_id].is_empty():
-			box.add_child(_status_card("ic_lock", tr("STORE_DEALS_LATER"), Color("8a97a8")))
+			var locked_offer := _status_card("ic_lock", tr("STORE_DEALS_LATER"), Color("8a97a8"), true)
+			locked_offer.name = "StoreLockedOffer"
+			box.add_child(locked_offer)
 		else:
 			for product_id: String in sections[section_id]:
 				box.add_child(_store_product_card(product_id, DataRepository.get_entry("store", product_id)))
@@ -3310,6 +3312,7 @@ func _wrap_scroll(content: Control) -> Control:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	ThemeMaker.apply_system_scrollbar(scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
 	var margin := MarginContainer.new()
@@ -3414,17 +3417,23 @@ func _empty_action_state(asset_id: String, title_text: String, body_text: String
 	box.add_child(action_button)
 	return card
 
-func _status_card(asset_id: String, text: String, accent: Color) -> Control:
+func _status_card(asset_id: String, text: String, accent: Color, compact: bool = false) -> Control:
 	var card := PanelContainer.new()
-	card.custom_minimum_size.y = 144
-	card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(ThemeMaker.SURFACE, 0.96, 24))
+	card.custom_minimum_size.y = 96 if compact else 144
+	card.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(ThemeMaker.SURFACE, 0.96, 18 if compact else 24))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 18)
+	row.add_theme_constant_override("separation", 14 if compact else 18)
 	card.add_child(row)
-	row.add_child(_icon_view(asset_id, Vector2(76, 76)))
-	var status := _label(text, 27, accent.lightened(0.16))
+	row.add_child(_icon_view(asset_id, Vector2(48, 48) if compact else Vector2(76, 76)))
+	var status := _label(text, 24 if compact else 27, accent.lightened(0.16))
+	status.name = "CompactStatusText" if compact else "StatusText"
 	status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	status.max_lines_visible = 1
+	status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	if compact:
+		status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	row.add_child(status)
 	return card
 

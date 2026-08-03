@@ -24,6 +24,9 @@ const ROAD_PAD_ANCHOR_REACH_X := 112.0
 const ROAD_ISO_A_SOURCE_ANGLE := deg_to_rad(-31.1913)
 const ROAD_ISO_B_SOURCE_ANGLE := deg_to_rad(30.7479)
 const DECO_LANE_CLEARANCE := 20.0
+const SALE_PRICE_GAP := 12.0
+const SALE_ART_VISIBLE_BOTTOM := 190.0
+const SALE_PRICE_SIZE := Vector2(132, 44)
 const CAMPUS_SAFE_TOP := 360.0
 const CAMPUS_SAFE_BOTTOM := 420.0
 const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
@@ -830,6 +833,11 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 		_add_owned_plot_base(button, asset_id)
 	var view := TextureRect.new()
 	view.name = "WorldArt"
+	view.set_meta("world_asset_id", asset_id)
+	if asset_id.begins_with("dc_"):
+		# Building exports carry no directional cast shadow. Every tier inherits the
+		# same contact shadow from PlotFoundation, preventing per-tier light drift.
+		view.set_meta("shadow_policy", "foundation_only")
 	var texture := AssetCatalog.texture(asset_id)
 	view.texture = _visible_world_texture(texture)
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -856,21 +864,36 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 			button.move_child(glow, 0)
 			_glow_art.append(glow)
 	var status_badge := PanelContainer.new()
-	status_badge.name = "StatusBadge"
-	status_badge.add_theme_stylebox_override("panel", ThemeMaker.world_badge(accent, badge_mode in ["add", "icon"]))
+	status_badge.name = "SalePriceBadge" if badge_mode == "price" else "StatusBadge"
+	status_badge.add_theme_stylebox_override("panel", ThemeMaker.sale_price_badge() if badge_mode == "price" else ThemeMaker.world_badge(accent, badge_mode in ["add", "icon"]))
 	status_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if badge_mode in ["add", "icon"]:
 		status_badge.position = Vector2(PLOT_SIZE.x - 92, 24)
 		status_badge.size = Vector2(64, 64)
+	elif badge_mode == "price":
+		# The art's cropped alpha ends at y=190. Place the compact price plate 12u
+		# below it and visually tether it to the built-in sale sign.
+		status_badge.position = Vector2((PLOT_SIZE.x - SALE_PRICE_SIZE.x) * 0.5, SALE_ART_VISIBLE_BOTTOM + SALE_PRICE_GAP)
+		status_badge.size = SALE_PRICE_SIZE
+		status_badge.set_meta("sale_sign_attached", true)
+		status_badge.set_meta("sale_art_visible_bottom", SALE_ART_VISIBLE_BOTTOM)
+		status_badge.set_meta("sale_price_gap", SALE_PRICE_GAP)
+		var tether := ColorRect.new()
+		tether.name = "SalePriceTether"
+		tether.color = Color(ThemeMaker.COLORS.yellow, 0.78)
+		tether.position = Vector2(PLOT_SIZE.x * 0.5 - 2, 182)
+		tether.size = Vector2(4, status_badge.position.y - 182)
+		tether.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(tether)
 	else:
-		var badge_width := 190.0 if badge_mode == "price" else 176.0
+		var badge_width := 176.0
 		status_badge.position = Vector2((PLOT_SIZE.x - badge_width) * 0.5, PLOT_SIZE.y - 58)
 		status_badge.size = Vector2(badge_width, 54)
 	button.add_child(status_badge)
 	var status_row := HBoxContainer.new()
 	status_row.name = "StatusRow"
 	status_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	status_row.add_theme_constant_override("separation", 8)
+	status_row.add_theme_constant_override("separation", 6 if badge_mode == "price" else 8)
 	status_badge.add_child(status_row)
 	if badge_mode == "add":
 		var add_label := Label.new()
@@ -886,7 +909,7 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	elif not caption_asset.is_empty():
 		var status_icon := TextureRect.new()
 		status_icon.texture = AssetCatalog.texture(caption_asset)
-		status_icon.custom_minimum_size = Vector2(36, 36) if badge_mode == "icon" else Vector2(30, 30)
+		status_icon.custom_minimum_size = Vector2(36, 36) if badge_mode == "icon" else (Vector2(24, 24) if badge_mode == "price" else Vector2(30, 30))
 		status_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		status_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		status_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -898,9 +921,12 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 		caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		caption_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		caption_label.custom_minimum_size.x = 94
+		caption_label.custom_minimum_size.x = 58 if badge_mode == "price" else 94
 		caption_label.add_theme_font_size_override("font_size", 20)
 		caption_label.add_theme_color_override("font_color", Color.WHITE)
+		caption_label.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+		caption_label.add_theme_constant_override("outline_size", 3)
+		ThemeMaker.apply_text_role(caption_label, "world" if badge_mode == "price" else "body")
 		caption_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		status_row.add_child(caption_label)
 	status_badge.visible = badge_mode != "hidden"
