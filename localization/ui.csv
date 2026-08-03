@@ -248,6 +248,8 @@ TUTORIAL_COOLING,Install air cooling before adding more heat.,继续上架前，
 TUTORIAL_BUY_LAND,Expansion starts with land. Buy the next plot.,扩张从土地开始，购买下一块地。
 TUTORIAL_RETIRE,This building has aged. Retire it before it becomes a ruin.,机房已经老化，在报废前主动退役。
 TUTORIAL_STANDARD,Build a standard data center to complete the basics.,建造标准机房，完成基础教学。
+TUTORIAL_OPEN_DC_PREFIX,Tap the data center — %s,点开机房——%s
+TUTORIAL_BUILDING_WAIT,Construction is underway · %s remaining. The transformer lesson begins when the building is ready.,机房正在施工 · 还剩 %s。建成后再开始变压器教学。
 TOAST_CONSTRUCTION_STARTED,Construction started,建设已开始
 TOAST_CONSTRUCTION_COMPLETE,Construction complete,建设完成
 TOAST_PURCHASE_COMPLETE,Purchase complete,购买成功

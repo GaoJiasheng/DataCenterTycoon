@@ -290,6 +290,13 @@ func world_position_of(target_id: String) -> Vector2:
 func target_control_of(target_id: String) -> Control:
 	return target_buttons.get(target_id) as Control
 
+func building_rect(datacenter_id: String) -> Rect2:
+	var target := target_buttons.get(datacenter_id) as Control
+	if target == null or not target.is_visible_in_tree():
+		return Rect2()
+	var art := target.find_child("WorldArt", false, false) as Control
+	return art.get_global_rect() if art != null and art.is_visible_in_tree() else target.get_global_rect()
+
 func celebrate_target(target_id: String) -> void:
 	var target := target_buttons.get(target_id) as Control
 	if target == null:

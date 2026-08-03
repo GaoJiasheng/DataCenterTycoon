@@ -27,12 +27,16 @@ func _ready() -> void:
 	Game.start_datacenter_construction("plot_1", "dc_t0")
 	await _shot("s1_power_step_during_construction")
 	_assert_no_started_celebration("construction start")
+	_assert_tutorial_target("power", "drawer", "construction_wait", true)
 	Game.advance_time(300.0, false)
 	await _shot("s1_power_step_dc_built_map")
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
 	var dc_id := str(dc.get("id", ""))
+	_assert_tutorial_target("power", "drawer", "world_building")
+	_assert_world_target_matches_building(dc_id)
 	main.call("_open_datacenter", dc_id)
 	await _shot("s1_power_step_drawer_open")
+	_assert_tutorial_target("power", "drawer", "control")
 	main.call("_show_attachment_picker", dc_id, "power", "")
 	await _shot("s1_power_picker_sheet")
 	_assert_sheet_reward_uses_hud_pulse()
@@ -40,6 +44,8 @@ func _ready() -> void:
 	Game.install_power(dc_id, "power_t1")
 	Game.advance_time(300.0, false)
 	await _shot("s2_rack_step_after_power")
+	_assert_tutorial_target("first_rack", "drawer", "control")
+	_assert_datacenter_header(dc_id)
 	main.call("_show_rack_picker", dc_id, 0)
 	await _shot("s2_rack_picker_sheet")
 	_close("ActionSheetOverlay")
@@ -48,11 +54,16 @@ func _ready() -> void:
 	await _shot("s3_contract_step")
 	Game.sign_contract(dc_id, "internet")
 	await _shot("s4_cooling_step")
+	_assert_tutorial_target("cooling", "drawer", "control")
+	_assert_datacenter_header(dc_id)
 	Game.install_cooler(dc_id, "north", "cool_air_t1")
 	Game.advance_time(300.0, false)
 	await _shot("s5_buy_plot_step")
+	_assert_tutorial_target("buy_land", "map", "control")
+	_expect(main.find_child("DatacenterContext", true, false) == null, "B1 map context must clear the previous data-center drawer")
 	Game.buy_next_plot()
 	await _shot("s6_retire_step_too_new")
+	_assert_tutorial_target("retire", "dormant", "none", true)
 	Game.advance_time(0.7 * 86400.0, false)
 	await _shot("s6_retire_step_aged")
 	main.call("_open_datacenter", dc_id)
@@ -114,6 +125,40 @@ func _assert_sheet_reward_uses_hud_pulse() -> void:
 	main.call("_fly_cash_reward", Vector2(220, 520), 3)
 	_expect(layer.active_coin_count() == before, "C3 open sheets must pulse the HUD instead of spawning world coins")
 
+func _assert_tutorial_target(step_id: String, context: String, source: String, allow_zero: bool = false) -> void:
+	var overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
+	_expect(overlay != null and overlay.visible, "B1 tutorial overlay must be visible for %s" % step_id)
+	if overlay == null:
+		return
+	_expect(str(overlay.get_meta("tutorial_step_id", "")) == step_id, "B1 active step must be %s" % step_id)
+	_expect(str(overlay.get_meta("tutorial_context", "")) == context, "B1 %s context must be %s" % [step_id, context])
+	_expect(str(overlay.get_meta("target_source", "")) == source, "B2 %s target source must be %s" % [step_id, source])
+	var resolved: Rect2 = overlay.get_meta("resolved_target_rect", Rect2())
+	if allow_zero:
+		_expect(resolved.size == Vector2.ZERO and not overlay.is_actionable(), "B1 %s must be a non-actionable explained state" % step_id)
+	else:
+		_expect(resolved.size.x > 1.0 and resolved.size.y > 1.0 and overlay.is_actionable(), "B2 %s must expose one actionable target" % step_id)
+		_expect(overlay.target_rect.intersects(resolved), "D2 %s spotlight must intersect its current resolved target" % step_id)
+
+func _assert_world_target_matches_building(datacenter_id: String) -> void:
+	var overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
+	var park_map := main.get("park_map") as ParkMap
+	var expected: Rect2 = park_map.building_rect(datacenter_id) if park_map != null else Rect2()
+	var resolved: Rect2 = overlay.get_meta("resolved_target_rect", Rect2()) if overlay != null else Rect2()
+	_expect(expected.size != Vector2.ZERO and resolved.intersects(expected), "B2 first-stage target must overlap the visible world building")
+
+func _assert_datacenter_header(datacenter_id: String) -> void:
+	var dc := Game.find_datacenter(datacenter_id)
+	var status := main.find_child("DatacenterStatus", true, false) as Label
+	var income := main.find_child("DatacenterIncomeValue", true, false) as Label
+	_expect(status != null and income != null, "D1 live data-center header fields must exist")
+	if status == null or income == null or dc.is_empty():
+		return
+	var expected_status := str(main.call("_datacenter_status_text", dc))
+	var expected_income := tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(dc))
+	_expect(status.text == expected_status, "D1 drawer status must match authoritative data (%s)" % expected_status)
+	_expect(income.text == expected_income, "D1 drawer income must match authoritative data (%s)" % expected_income)
+
 func _expect(condition: bool, message: String) -> void:
 	if condition:
 		print("FLOW_ASSERT: PASS %s" % message)
@@ -125,7 +170,7 @@ func _shot(shot_name: String) -> bool:
 	main.call("_refresh")
 	for _i in range(4):
 		await get_tree().process_frame
-	await get_tree().create_timer(0.3).timeout
+	await get_tree().create_timer(0.38).timeout
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()

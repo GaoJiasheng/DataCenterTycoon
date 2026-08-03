@@ -124,3 +124,12 @@ buy_plot 完成后 retire 步进入 `dormant`：气泡显示一次「集装箱�
 - [x] **C3**：只有 `map`、无 sheet/overlay、且有有效世界起点时才播放金币动线；抽屉/页面/弹层上下文只脉冲现金 HUD。截图：[供电选择 Sheet 上下文](ui_review/13_batch1/dct_flow_s1_power_picker_sheet.png)。
 
 门禁结果：`validate_data` 通过；`test_runner` 103/103；`visual_smoke` 中文 30/30、英文 30/30；`flow_audit` 全流程通过。批次②将处理截图中仍可见的“建设中却提前要求安装变压器”场景协议矛盾；B3 尚未实施。
+
+### 批次② · B1/B2 + D1/D2（2026-08-03）
+
+- [x] **B1**：8 个步骤写入 `context`；步骤激活时统一清理错误 sheet/抽屉、回到所需页面并清空 FX。T0 尚未建成时不显示行动指令，改为剩余工期说明：[施工等待态](ui_review/13_batch2/dct_flow_s1_power_step_during_construction.png)。买地步骤会先关闭旧机房抽屉：[清场后的买地目标](ui_review/13_batch2/dct_flow_s5_buy_plot_step.png)。
+- [x] **B2**：`ParkMap.building_rect(dc_id)` 提供可见建筑矩形；drawer 目标控件不存在时先聚光世界建筑并使用“点开机房——”文案：[世界第一段](ui_review/13_batch2/dct_flow_s1_power_step_dc_built_map.png)；打开后自动重解析为抽屉内槽位：[控件第二段](ui_review/13_batch2/dct_flow_s1_power_step_drawer_open.png)。
+- [x] **D1**：机房抽屉图标、状态、月收入、寿命全部挂入 `live_update`，每次 HUD refresh 从 `Game.find_datacenter` 重取，不再持有陈旧头部数据：[通电后的实时抽屉](ui_review/13_batch2/dct_flow_s2_rack_step_after_power.png)。流程断言对比 UI 文本与权威状态/月收入。
+- [x] **D2**：overlay 记录当前 step/context/source/解析矩形；每个行动步骤断言聚光灯非零且与当前控件或世界建筑矩形相交。买地步骤另断言旧 `DatacenterContext` 已消失。
+
+门禁结果：`validate_data` 通过；`test_runner` 103/103；`visual_smoke` 中文 30/30、英文 30/30；`flow_audit` 的 B1/B2/D1/D2 全部断言通过。**B3 未实施，仍等待所有者在 ①30 秒教学工期 / ②施工过渡步骤之间确认。**

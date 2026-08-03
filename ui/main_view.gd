@@ -71,6 +71,9 @@ var _last_observed_cash := NAN
 var _last_income_fly_at := -INF
 var _primary_pulse_tween: Tween
 var _last_tutorial_step := -1
+var _tutorial_protocol_step := -1
+var _tutorial_visual_mode := "actionable"
+var _tutorial_world_focus_id := ""
 var _music_target := ""
 var _music_fade_tween: Tween
 var _night_amb_countdown := 0.0
@@ -417,6 +420,10 @@ func _refresh_page() -> void:
 	var on_map := active_page == "map"
 	if on_map:
 		_refresh_park_world()
+		# The world target dictionary is rebuilt here, after the HUD/tutorial pass.
+		# Re-resolve on the next frame so a just-completed data center can become
+		# the first stage of a drawer tutorial immediately.
+		call_deferred("_refresh_tutorial")
 		_cache_page_scroll(_rendered_page)
 		_clear_page_host()
 		_rendered_page = "map"
@@ -452,11 +459,15 @@ func _request_full_refresh() -> void:
 	_needs_page_refresh = true
 
 func _refresh_live_page() -> void:
-	if page_host == null or page_host.get_child_count() == 0:
-		return
-	var page := page_host.get_child(0)
-	var live_nodes: Array[Node] = [page]
-	live_nodes.append_array(page.find_children("*", "", true, false))
+	if page_host != null and page_host.get_child_count() > 0:
+		_refresh_live_region(page_host.get_child(0))
+	var context := find_child("DatacenterContext", true, false)
+	if context != null and context is CanvasItem and (context as CanvasItem).is_visible_in_tree():
+		_refresh_live_region(context)
+
+func _refresh_live_region(root: Node) -> void:
+	var live_nodes: Array[Node] = [root]
+	live_nodes.append_array(root.find_children("*", "", true, false))
 	for node: Node in live_nodes:
 		if node.has_meta("live_update"):
 			var update: Callable = node.get_meta("live_update")
@@ -1557,15 +1568,80 @@ func _refresh_tutorial() -> void:
 	if completed:
 		tutorial_overlay.dismiss()
 		_set_tutorial_chrome_visibility(true, "")
+		_tutorial_visual_mode = "completed"
 		return
 	var step: Dictionary = steps[index]
+	_apply_tutorial_context(index, step)
 	var focus := str(step.get("focus", ""))
 	var target := _resolve_tutorial_target(focus)
 	var rect: Rect2 = target.get("rect", Rect2())
 	var action: Callable = target.get("action", Callable())
+	var context := str(step.get("context", "map"))
+	var copy := tr(step.get("message_key", ""))
+	_tutorial_visual_mode = str(target.get("mode", "dormant" if context == "dormant" else "actionable"))
+	if _tutorial_visual_mode == "waiting":
+		copy = _tutorial_waiting_copy()
+	elif bool(target.get("world_stage", false)):
+		copy = tr("TUTORIAL_OPEN_DC_PREFIX") % copy
 	var guide_assets := ["guide_normal", "guide_thinking", "guide_happy", "guide_alert", "guide_worried", "guide_thinking", "guide_worried", "guide_happy"]
-	tutorial_overlay.present(rect, tr(step.get("message_key", "")), guide_assets[mini(index, guide_assets.size() - 1)], action)
+	tutorial_overlay.set_meta("tutorial_step_id", str(step.get("id", "")))
+	tutorial_overlay.set_meta("tutorial_context", context)
+	tutorial_overlay.set_meta("tutorial_mode", _tutorial_visual_mode)
+	tutorial_overlay.set_meta("target_source", str(target.get("source", "none")))
+	tutorial_overlay.set_meta("resolved_target_rect", rect)
+	tutorial_overlay.present(rect, copy, guide_assets[mini(index, guide_assets.size() - 1)], action)
 	_set_tutorial_chrome_visibility(false, focus)
+
+func _apply_tutorial_context(index: int, step: Dictionary) -> void:
+	if _tutorial_protocol_step == index:
+		return
+	_tutorial_protocol_step = index
+	_tutorial_world_focus_id = ""
+	if fx_layer != null:
+		fx_layer.clear()
+	var context := str(step.get("context", "map"))
+	match context:
+		"map", "dormant":
+			_close_tutorial_surfaces(false)
+			if active_page != "map":
+				_navigate("map")
+		"drawer":
+			_close_tutorial_surfaces(true)
+			var dc_id := _tutorial_datacenter_id()
+			var drawer := find_child("DatacenterContext", true, false) as CanvasItem
+			if drawer != null and str(drawer.get_meta("datacenter_id", "")) != dc_id:
+				drawer.visible = false
+				drawer.queue_free()
+			if active_page == "detail" and selected_datacenter_id != dc_id:
+				_navigate("map")
+			elif active_page not in ["map", "detail"]:
+				_navigate("map")
+
+func _close_tutorial_surfaces(keep_datacenter_drawer: bool) -> void:
+	for surface_name: String in ["ActionSheetOverlay", "BuildingPicker", "OperationsHub", "DatacenterContext"]:
+		if keep_datacenter_drawer and surface_name == "DatacenterContext":
+			continue
+		for surface: Node in find_children(surface_name, "", true, false):
+			if surface is CanvasItem:
+				(surface as CanvasItem).visible = false
+			surface.queue_free()
+
+func _tutorial_datacenter_id() -> String:
+	if not selected_datacenter_id.is_empty() and not Game.find_datacenter(selected_datacenter_id).is_empty():
+		return selected_datacenter_id
+	for plot: Dictionary in Game.state.get("plots", []):
+		var value: Variant = plot.get("datacenter")
+		if value is Dictionary and not (value as Dictionary).is_empty():
+			return str((value as Dictionary).get("id", ""))
+	return ""
+
+func _tutorial_waiting_copy() -> String:
+	var remaining := 0.0
+	for item: Dictionary in Game.state.get("construction_queue", []):
+		if str(item.get("type", "")) == "datacenter" and str(item.get("building_id", "")) == "dc_t0":
+			remaining = maxf(0.0, float(item.get("complete_at", 0.0)) - Game.simulation_time())
+			break
+	return tr("TUTORIAL_BUILDING_WAIT") % Game.format_duration(remaining)
 
 func _set_tutorial_chrome_visibility(restored: bool, focus: String) -> void:
 	if task_button != null:
@@ -1592,7 +1668,7 @@ func _resolve_tutorial_target(focus: String) -> Dictionary:
 			if control != null:
 				var board := _visible_datacenter_board(selected_datacenter_id)
 				if board != null:
-					return {"rect": control.get_global_rect(), "action": _on_board_rack_slot_selected.bind(board.datacenter_id, 0)}
+					return {"rect": control.get_global_rect(), "action": _on_board_rack_slot_selected.bind(board.datacenter_id, 0), "source": "control", "mode": "actionable"}
 		"contract_internet":
 			control = _visible_control_named("Contract_internet")
 			if control == null: control = _visible_control_named("ContractCTA")
@@ -1603,12 +1679,32 @@ func _resolve_tutorial_target(focus: String) -> Dictionary:
 		"buy_plot":
 			control = park_map.target_control_of("sale") if park_map != null else null
 		"retire_dc": control = _visible_control_named("RetireButton")
-	if control == null or not control.is_visible_in_tree():
-		return {"rect": Rect2(), "action": Callable()}
-	var action := func() -> void:
-		if is_instance_valid(control) and control is Button:
-			(control as Button).pressed.emit()
-	return {"rect": control.get_global_rect(), "action": action}
+	if control != null and control.is_visible_in_tree():
+		var action := func() -> void:
+			if is_instance_valid(control) and control is Button:
+				(control as Button).pressed.emit()
+		return {"rect": control.get_global_rect(), "action": action, "source": "control", "mode": "actionable"}
+	if focus in ["install_power", "rack_slot_0", "contract_internet", "install_cooler"]:
+		var dc_id := _tutorial_datacenter_id()
+		if dc_id.is_empty():
+			return {"rect": Rect2(), "action": Callable(), "source": "construction_wait", "mode": "waiting"}
+		if park_map != null:
+			_focus_tutorial_world_target(dc_id)
+			var building_target := park_map.building_rect(dc_id)
+			if building_target.size != Vector2.ZERO:
+				return {"rect": building_target, "action": _open_datacenter.bind(dc_id), "source": "world_building", "mode": "actionable", "world_stage": true}
+	return {"rect": Rect2(), "action": Callable(), "source": "none", "mode": "dormant"}
+
+func _focus_tutorial_world_target(datacenter_id: String) -> void:
+	if _tutorial_world_focus_id == datacenter_id or park_map == null:
+		return
+	_tutorial_world_focus_id = datacenter_id
+	park_map.focus_target(datacenter_id)
+	get_tree().create_timer(0.32).timeout.connect(_refresh_tutorial_after_focus.bind(datacenter_id))
+
+func _refresh_tutorial_after_focus(datacenter_id: String) -> void:
+	if is_instance_valid(tutorial_overlay) and _tutorial_world_focus_id == datacenter_id:
+		_refresh_tutorial()
 
 func _visible_control_named(node_name: String) -> Control:
 	for node: Node in find_children(node_name, "", true, false):
@@ -2024,27 +2120,50 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	park_map.focus_target(datacenter_id)
 	var parts := _create_world_sheet("DatacenterContext", 1380)
 	var overlay := parts["overlay"] as ColorRect
+	overlay.set_meta("datacenter_id", datacenter_id)
 	var sheet_box := parts["box"] as VBoxContainer
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 14)
 	sheet_box.add_child(header)
-	header.add_child(_icon_view(_datacenter_context_asset(dc, building), Vector2(124, 124)))
+	var context_icon := _icon_view(_datacenter_context_asset(dc, building), Vector2(124, 124))
+	context_icon.name = "DatacenterContextIcon"
+	header.add_child(context_icon)
 	var copy := VBoxContainer.new()
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(copy)
 	var context_title := _label(tr(building.get("name_key", "")), 34, ThemeMaker.COLORS.cream)
 	ThemeMaker.apply_text_role(context_title, "display")
 	copy.add_child(context_title)
-	copy.add_child(_label(_datacenter_status_text(dc), 23, _datacenter_status_color(dc)))
+	var context_status := _label(_datacenter_status_text(dc), 23, _datacenter_status_color(dc))
+	context_status.name = "DatacenterStatus"
+	copy.add_child(context_status)
 	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	header.add_child(close_button)
 	var metrics := HBoxContainer.new()
 	metrics.add_theme_constant_override("separation", 10)
 	sheet_box.add_child(metrics)
-	metrics.add_child(_metric_chip(tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(dc)), ThemeMaker.COLORS.green))
+	var income_chip := _metric_chip(tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(dc)), ThemeMaker.COLORS.green)
+	var income_value := income_chip.find_child("Value", true, false) as Label
+	income_value.name = "DatacenterIncomeValue"
+	metrics.add_child(income_chip)
 	var progress := Rules.age_progress(dc, Game.simulation_time(), DataRepository.get_table("buildings"))
-	metrics.add_child(_metric_chip("%s  %d%%" % [tr("LIFESPAN"), int(progress * 100.0)], ThemeMaker.COLORS.yellow))
+	var lifespan_chip := _metric_chip("%s  %d%%" % [tr("LIFESPAN"), int(progress * 100.0)], ThemeMaker.COLORS.yellow)
+	var lifespan_value := lifespan_chip.find_child("Value", true, false) as Label
+	lifespan_value.name = "DatacenterLifespanValue"
+	metrics.add_child(lifespan_chip)
+	overlay.set_meta("live_update", func() -> void:
+		var live_dc := Game.find_datacenter(datacenter_id)
+		if live_dc.is_empty():
+			return
+		var live_building := DataRepository.get_entry("buildings", str(live_dc.get("building_id", "")))
+		context_icon.texture = AssetCatalog.texture(_datacenter_context_asset(live_dc, live_building))
+		context_status.text = _datacenter_status_text(live_dc)
+		context_status.add_theme_color_override("font_color", _datacenter_status_color(live_dc))
+		income_value.text = tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(live_dc))
+		var live_progress := Rules.age_progress(live_dc, Game.simulation_time(), DataRepository.get_table("buildings"))
+		lifespan_value.text = "%s  %d%%" % [tr("LIFESPAN"), int(live_progress * 100.0)]
+	)
 	if str(dc.get("status", "")) == "ruined":
 		sheet_box.add_child(_button(tr("DEMOLISH"), func() -> void:
 			_dismiss_world_sheet(overlay, _demolish.bind(datacenter_id))

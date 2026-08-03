@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "steps": [
-    {"id": "welcome", "message_key": "TUTORIAL_WELCOME", "focus": "build_dc_t0", "completion_event": "dc_t0_started"},
-    {"id": "power", "message_key": "TUTORIAL_POWER", "focus": "install_power", "completion_event": "power_installed"},
-    {"id": "first_rack", "message_key": "TUTORIAL_FIRST_RACK", "focus": "rack_slot_0", "completion_event": "rack_installed"},
-    {"id": "contract", "message_key": "TUTORIAL_CONTRACT", "focus": "contract_internet", "completion_event": "contract_signed"},
-    {"id": "cooling", "message_key": "TUTORIAL_COOLING", "focus": "install_cooler", "completion_event": "cooler_installed"},
-    {"id": "buy_land", "message_key": "TUTORIAL_BUY_LAND", "focus": "buy_plot", "completion_event": "plot_bought"},
-    {"id": "retire", "message_key": "TUTORIAL_RETIRE", "focus": "retire_dc", "completion_event": "dc_retired"},
-    {"id": "standard", "message_key": "TUTORIAL_STANDARD", "focus": "build_dc_t1", "completion_event": "dc_t1_started"}
+    {"id": "welcome", "context": "map", "message_key": "TUTORIAL_WELCOME", "focus": "build_dc_t0", "completion_event": "dc_t0_started"},
+    {"id": "power", "context": "drawer", "message_key": "TUTORIAL_POWER", "focus": "install_power", "completion_event": "power_installed"},
+    {"id": "first_rack", "context": "drawer", "message_key": "TUTORIAL_FIRST_RACK", "focus": "rack_slot_0", "completion_event": "rack_installed"},
+    {"id": "contract", "context": "drawer", "message_key": "TUTORIAL_CONTRACT", "focus": "contract_internet", "completion_event": "contract_signed"},
+    {"id": "cooling", "context": "drawer", "message_key": "TUTORIAL_COOLING", "focus": "install_cooler", "completion_event": "cooler_installed"},
+    {"id": "buy_land", "context": "map", "message_key": "TUTORIAL_BUY_LAND", "focus": "buy_plot", "completion_event": "plot_bought"},
+    {"id": "retire", "context": "dormant", "message_key": "TUTORIAL_RETIRE", "focus": "retire_dc", "completion_event": "dc_retired"},
+    {"id": "standard", "context": "map", "message_key": "TUTORIAL_STANDARD", "focus": "build_dc_t1", "completion_event": "dc_t1_started"}
   ]
 }
