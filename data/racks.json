@@ -12,7 +12,8 @@
       "income_per_month": 90,
       "market_sensitivity": 1.0,
       "unlock_era": 1,
-      "asset_prefix": "rack_compute_t1"
+      "asset_prefix": "rack_compute_t1",
+      "tutorial_install_seconds": 20
     },
     "rack_storage_t1": {
       "kind": "storage",

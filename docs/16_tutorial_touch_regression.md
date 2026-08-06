@@ -114,3 +114,28 @@ if dc_id.is_empty():
 同时更新 `test_runner` 中一条旧断言 —— 它原本要求「目标缺失时退化为非阻塞气泡」，正是这次卡死的行为。改为要求路由回重建。
 
 全量门禁：`test_runner` 103/103（连跑两次）、`flow_audit`、`midgame_audit`、`visual_smoke` zh/en 各 31/31、`tutorial_playthrough` 全部通过。
+
+---
+
+## 6. 教学期时长收敛（2026-08-06，所有者拍板）
+
+§3.1 测得的 12 分钟静等已按所有者决定一并缩短。沿用 15 号文档 FT4 为 `dc_t0` 建立的模式，把覆盖值扩展到教学实际走到的三件安装物：
+
+| 物件 | 正常时长 | 教学期 |
+|---|---:|---:|
+| 集装箱机房 `dc_t0` | 300s | 30s（既有） |
+| 变压器 `power_t1` | 300s | **20s** |
+| 计算机柜 `rack_compute_t1` | 120s | **20s** |
+| 风冷 `cool_air_t1` | 300s | **20s** |
+
+首日总等待 **12 分钟 → 90 秒**，落在放置类「90 秒内点亮第一座机房」的节奏区间内。
+
+### 作用域与防泄漏
+
+新增 `Game._tutorial_duration(entry, override_key, fallback)`：教学完成后一律返回原值，且**只有教学实际引导的那几个 id 带覆盖字段**——玩家在教学期购买 T2 变电站等更高阶物件不会获得加速。
+
+`tutorial_playthrough` 增加 `_verify_shortened_timings_are_tutorial_only()`：断言 ① 出厂 `install_seconds` 仍为 300/300/120 未被改写；② 覆盖值必须小于正常值；③ `completed=true` 时权威接口交还完整时长、`false` 时用缩短值。这防止缩短值日后悄悄泄漏进正常玩法、改写经济模型赖以平衡的节奏。
+
+### 回归
+
+`simulate_economy` 三策略 30 天曲线与调平前一致（idle 4 座 / active 12 座 era3 / aggressive 12 座，破产率 0%，两条既有 TUNE 提示不变，见 `balance_report.md`）；`test_runner` 103/103；`flow_audit`、`midgame_audit`、`check_assets` 全绿；`tutorial_playthrough` 实测三处等待各 20s。

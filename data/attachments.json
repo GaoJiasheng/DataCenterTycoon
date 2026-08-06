@@ -9,7 +9,8 @@
       "capacity": 8,
       "install_seconds": 300,
       "unlock_era": 1,
-      "asset_prefix": "power_t1"
+      "asset_prefix": "power_t1",
+      "tutorial_install_seconds": 20
     },
     "power_t2": {
       "kind": "power",
@@ -40,7 +41,8 @@
       "install_seconds": 300,
       "unlock_era": 1,
       "requires_building_tier": 0,
-      "asset_prefix": "cool_air_t1"
+      "asset_prefix": "cool_air_t1",
+      "tutorial_install_seconds": 20
     },
     "cool_air_t2": {
       "kind": "cooler",

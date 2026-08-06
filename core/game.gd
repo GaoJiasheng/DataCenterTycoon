@@ -173,10 +173,7 @@ func start_datacenter_construction(plot_id: String, building_id: String) -> Dict
 	var cost := float(building.get("cost", 0.0))
 	if not _spend_cash(cost):
 		return _failure("not_enough_cash")
-	var build_seconds := float(building.get("build_seconds", 0.0))
-	var tutorial: Dictionary = state.get("tutorial", {})
-	if building_id == "dc_t0" and not bool(tutorial.get("completed", false)):
-		build_seconds = float(building.get("tutorial_build_seconds", build_seconds))
+	var build_seconds := _tutorial_duration(building, "tutorial_build_seconds", float(building.get("build_seconds", 0.0)))
 	var item := _queue_item("datacenter", build_seconds)
 	item.merge({"plot_id": plot_id, "building_id": building_id, "cost": cost})
 	state["construction_queue"].append(item)
@@ -186,6 +183,14 @@ func start_datacenter_construction(plot_id: String, building_id: String) -> Dict
 	AudioService.play_sfx("sfx_build_start")
 	_commit_action("datacenter_started")
 	return _success({"construction": item})
+
+# Shortened first-run timings. Only the specific items the tutorial walks the
+# player through carry an override, and only until the tutorial completes, so
+# ordinary pacing and the balance model are untouched afterwards.
+func _tutorial_duration(entry: Dictionary, override_key: String, fallback: float) -> float:
+	if bool(state.get("tutorial", {}).get("completed", false)):
+		return fallback
+	return float(entry.get(override_key, fallback))
 
 func install_rack(datacenter_id: String, slot: int, rack_id: String) -> Dictionary:
 	var dc := find_datacenter(datacenter_id)
@@ -219,7 +224,7 @@ func install_rack(datacenter_id: String, slot: int, rack_id: String) -> Dictiona
 		"status": "installing",
 		"enabled": true,
 		"started_at": started,
-		"install_complete_at": started + float(rack.get("install_seconds", 0.0)),
+		"install_complete_at": started + _tutorial_duration(rack, "tutorial_install_seconds", float(rack.get("install_seconds", 0.0))),
 		"ad_uses": 0,
 		"cost": cost,
 	}
@@ -917,7 +922,7 @@ func _install_attachment(datacenter_id: String, attachment_id: String, kind: Str
 	var net_cost := maxf(0.0, float(attachment.get("cost", 0.0)) - refund)
 	if not _spend_cash(net_cost):
 		return _failure("not_enough_cash")
-	var item := _queue_item(kind, float(attachment.get("install_seconds", 0.0)))
+	var item := _queue_item(kind, _tutorial_duration(attachment, "tutorial_install_seconds", float(attachment.get("install_seconds", 0.0))))
 	item.merge({"datacenter_id": datacenter_id, "attachment_id": attachment_id, "edge": edge, "old_id": old_id, "cost": net_cost})
 	state["construction_queue"].append(item)
 	_commit_action("attachment_started")

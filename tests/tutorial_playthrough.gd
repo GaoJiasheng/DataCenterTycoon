@@ -26,6 +26,7 @@ func _ready() -> void:
 	add_child(main)
 	await _settle()
 	await _play_tutorial()
+	_verify_shortened_timings_are_tutorial_only()
 	await _verify_orphaned_step_recovers()
 	AudioService.stop_all()
 	for wait: String in waits:
@@ -232,3 +233,21 @@ func _verify_orphaned_step_recovers() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_fail(message)
+
+# The shortened first-run timings must not leak into normal play, or they would
+# quietly rewrite the pacing the economy model was balanced against.
+func _verify_shortened_timings_are_tutorial_only() -> void:
+	var power := DataRepository.get_entry("attachments", "power_t1")
+	var rack := DataRepository.get_entry("racks", "rack_compute_t1")
+	var cooler := DataRepository.get_entry("attachments", "cool_air_t1")
+	var building := DataRepository.get_entry("buildings", "dc_t0")
+	for pair: Array in [[power, 300.0], [cooler, 300.0], [rack, 120.0]]:
+		var entry: Dictionary = pair[0]
+		_expect(float(entry.get("install_seconds", 0.0)) == float(pair[1]), "shipped install_seconds must stay at its balanced value (got %s)" % str(entry.get("install_seconds")))
+		_expect(float(entry.get("tutorial_install_seconds", 0.0)) > 0.0 and float(entry.get("tutorial_install_seconds", 0.0)) < float(entry.get("install_seconds", 0.0)), "tutorial override must be shorter than the real duration")
+	_expect(float(building.get("build_seconds", 0.0)) == 300.0 and float(building.get("tutorial_build_seconds", 0.0)) == 30.0, "container build override must remain tutorial-only")
+	# With the tutorial finished, the authority must hand back the full duration.
+	Game.state["tutorial"]["completed"] = true
+	_expect(is_equal_approx(Game.call("_tutorial_duration", power, "tutorial_install_seconds", 300.0), 300.0), "completed tutorial must restore the full install duration")
+	Game.state["tutorial"]["completed"] = false
+	_expect(is_equal_approx(Game.call("_tutorial_duration", power, "tutorial_install_seconds", 300.0), 20.0), "an active tutorial must use the shortened duration")
