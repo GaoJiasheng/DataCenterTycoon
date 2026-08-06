@@ -26,6 +26,7 @@ func _ready() -> void:
 	add_child(main)
 	await _settle()
 	await _play_tutorial()
+	await _verify_orphaned_step_recovers()
 	AudioService.stop_all()
 	for wait: String in waits:
 		print("PLAYTHROUGH: wait  %s" % wait)
@@ -207,3 +208,27 @@ func _shot(shot_name: String) -> void:
 	_shot_index += 1
 	image.save_png("%s%02d_%s.png" % [OUT, _shot_index, shot_name])
 	print("PLAYTHROUGH: %02d_%s" % [_shot_index, shot_name])
+
+# Reproduces the owner's broken save: the tutorial sat on the power step while
+# its data center had aged out, and the coach insisted construction was in
+# progress with 0s remaining — pointing at nothing the player could act on.
+func _verify_orphaned_step_recovers() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"] = {"step": 1, "completed": false, "dismissed_messages": []}
+	Game.state["construction_queue"] = []
+	main.call("_refresh")
+	await _settle()
+	var overlay := _overlay()
+	if overlay == null:
+		_fail("orphan check: overlay missing")
+		return
+	var message := main.find_child("TutorialMessage", true, false) as Label
+	var copy := message.text if message != null else ""
+	_expect(not copy.contains(tr("TUTORIAL_BUILDING_WAIT") % "0s"), "orphaned step must not claim construction is in progress (copy=%s)" % copy)
+	_expect(str(overlay.get_meta("target_source", "")) == "rebuild", "orphaned step must route the player back to building a site (source=%s)" % str(overlay.get_meta("target_source", "")))
+	_expect(overlay.is_actionable(), "orphaned step must offer a tappable recovery")
+	await _shot("orphan_recovered")
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_fail(message)

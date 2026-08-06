@@ -69,3 +69,48 @@ godot --disable-vsync --max-fps 60 --path . tests/tutorial_playthrough.tscn   # 
 ```
 
 本轮全部通过：数据 11 表 / 资产 152+6+23 / 逻辑 103 / flow / midgame / **touch playthrough**。
+
+---
+
+## 5. 追加缺陷 T4 · 教学步骤与其依赖对象脱节（2026-08-06，所有者实测）
+
+所有者在桌面窗口截到：教练气泡说「施工中 · 剩 0s。建成后安装变压器。」，但世界上**没有任何工地或建筑**，三块地垫全空，气泡也没有指向任何目标。
+
+### 现场存档
+
+`save_v1.json` 实测：
+
+```
+tutorial.step      = 1        (供电步)
+construction_queue = []       ← 队列为空
+plot_1.status      = empty    ← 没有机房
+sim_seconds        = 298549   ≈ 3.45 游戏天
+```
+
+机房早已因老化消失（T0 寿命仅 1 游戏天），而教学仍停在依赖它的那一步。
+
+### 根因
+
+`_resolve_tutorial_target()` 的 waiting 分支只判断「有没有机房」，**不判断「是不是真的在建」**：
+
+```gdscript
+var dc_id := _tutorial_datacenter_id()
+if dc_id.is_empty():
+    return {... "source": "construction_wait", "mode": "waiting"}   # 无条件
+```
+
+而 `_tutorial_waiting_copy()` 在队列里找不到施工项时 `remaining` 保持 0.0，仍然无条件套用「施工中 · 剩 %s」文案 —— 于是「剩 0s」。三种完全不同的状态（正在建 / 已老化消失 / 从未建成）被压进同一个分支，后两种就此**永久卡死且文案撒谎**。
+
+### 修复
+
+- 新增 `_tutorial_site_under_construction()`：只有队列中真有 datacenter 项、或有地块处于 `building` 状态时才算在建；
+- 目标解析区分三态：**在建** → waiting（文案属实）；**不存在** → 指向主 CTA 的可点「重建」引导，文案「机房不在了，先重新建一座。」；**连 CTA 都不可用** → 非阻塞气泡；
+- `_set_tutorial_chrome_visibility` 在 rebuild 场景放行主 CTA（该 focus 平时会隐藏它）。
+
+### 门禁
+
+`tutorial_playthrough` 增加 `_verify_orphaned_step_recovers()`：直接构造所有者那个存档形态（step=1、空队列、无机房），断言 ① 文案不得声称施工中 ② 目标来源为 `rebuild` ③ 可点。
+
+同时更新 `test_runner` 中一条旧断言 —— 它原本要求「目标缺失时退化为非阻塞气泡」，正是这次卡死的行为。改为要求路由回重建。
+
+全量门禁：`test_runner` 103/103（连跑两次）、`flow_audit`、`midgame_audit`、`visual_smoke` zh/en 各 31/31、`tutorial_playthrough` 全部通过。

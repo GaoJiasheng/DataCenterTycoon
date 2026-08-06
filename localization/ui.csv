@@ -325,3 +325,4 @@ STAT_HEAT_OUTPUT,Heat,发热
 STAT_COOLED,Cooled,受冷
 ERA_LOCKED,Locked,未解锁
 ERA_DONE,Done,已完成
+TUTORIAL_REBUILD_SITE,Your site is gone — build a data center first.,机房不在了，先重新建一座。

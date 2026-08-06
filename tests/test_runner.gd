@@ -133,7 +133,11 @@ func _run_ui_refresh_test() -> void:
 	_expect(spotlight != null and spotlight.visible and bool(spotlight.call("is_actionable")) and primary != null and spotlight_rect.intersects(primary.get_global_rect()), "FTUE spotlight resolves and gates input to the primary build action")
 	Game.state["tutorial"]["step"] = 1
 	main.call("_refresh_hud")
-	_expect(spotlight.visible and not bool(spotlight.call("is_actionable")) and spotlight.mouse_filter == Control.MOUSE_FILTER_IGNORE, "FTUE degrades to a non-blocking coach bubble when its target is absent")
+	# A step whose data center is gone must hand the player a way back rather than
+	# fading to an inert bubble: the old behaviour left a save stranded on "under
+	# construction, 0s left" with nothing on screen to tap.
+	var rebuild_rect: Rect2 = spotlight.get("target_rect")
+	_expect(spotlight.visible and bool(spotlight.call("is_actionable")) and primary != null and primary.visible and rebuild_rect.intersects(primary.get_global_rect()), "FTUE routes back to rebuilding when its data center is absent")
 	Game.state["tutorial"]["step"] = 0
 	main.call("_refresh_hud")
 	main.call("_navigate", "store")

@@ -1921,8 +1921,11 @@ func _refresh_tutorial() -> void:
 	var rect: Rect2 = target.get("rect", Rect2())
 	var action: Callable = target.get("action", Callable())
 	var copy := tr(step.get("message_key", ""))
-	_tutorial_visual_mode = str(target.get("mode", "dormant" if context == "dormant" else "actionable"))
-	if _tutorial_visual_mode == "waiting":
+	_tutorial_visual_mode = "rebuild" if str(target.get("source", "")) in ["rebuild", "rebuild_unavailable"] else str(target.get("mode", "dormant" if context == "dormant" else "actionable"))
+	var copy_key := str(target.get("copy_key", ""))
+	if not copy_key.is_empty():
+		copy = tr(copy_key)
+	elif _tutorial_visual_mode == "waiting":
 		copy = _tutorial_waiting_copy()
 	elif step_id == "retire" and context == "dormant":
 		copy = tr("TUTORIAL_RETIRE_WAIT")
@@ -2015,10 +2018,21 @@ func _tutorial_datacenter_id() -> String:
 			return str((value as Dictionary).get("id", ""))
 	return ""
 
+# True only while a tutorial data center is genuinely queued. Everything else —
+# aged out, demolished, never started — must not be described as "building".
+func _tutorial_site_under_construction() -> bool:
+	for item: Dictionary in Game.state.get("construction_queue", []):
+		if str(item.get("type", "")) == "datacenter":
+			return true
+	for plot: Dictionary in Game.state.get("plots", []):
+		if str(plot.get("status", "")) == "building":
+			return true
+	return false
+
 func _tutorial_waiting_copy() -> String:
 	var remaining := 0.0
 	for item: Dictionary in Game.state.get("construction_queue", []):
-		if str(item.get("type", "")) == "datacenter" and str(item.get("building_id", "")) == "dc_t0":
+		if str(item.get("type", "")) == "datacenter":
 			remaining = maxf(0.0, float(item.get("complete_at", 0.0)) - Game.simulation_time())
 			break
 	return tr("TUTORIAL_BUILDING_WAIT") % Game.format_duration(remaining)
@@ -2031,7 +2045,10 @@ func _set_tutorial_chrome_visibility(restored: bool, focus: String) -> void:
 	if news_panel != null and not restored:
 		news_panel.visible = false
 	if primary_action_button != null:
-		primary_action_button.visible = restored or focus in ["build_dc_t0", "buy_plot", "build_dc_t1"]
+		# A lesson whose site vanished routes the player back to the build CTA, so
+		# that button has to be visible even though this focus normally hides it.
+		var needs_rebuild := _tutorial_visual_mode == "rebuild"
+		primary_action_button.visible = restored or needs_rebuild or focus in ["build_dc_t0", "buy_plot", "build_dc_t1"]
 
 # Stage three of the coaching target chain: world building -> drawer control ->
 # open sheet option. A picker covers the drawer control that spawned it, so the
@@ -2160,6 +2177,19 @@ func _resolve_tutorial_target(focus: String) -> Dictionary:
 	if focus in ["install_power", "rack_slot_0", "contract_internet", "install_cooler", "retire_dc"]:
 		var dc_id := _tutorial_datacenter_id()
 		if dc_id.is_empty():
+			# Distinguish "still building" from "there is no data center at all".
+			# A site that aged out, was demolished, or never got built used to fall
+			# into the same waiting branch and claim construction was in progress
+			# with 0s left, leaving the lesson stranded on a step whose subject no
+			# longer exists. Point the player at rebuilding instead.
+			if not _tutorial_site_under_construction():
+				var rebuild_target := primary_action_button
+				if rebuild_target != null:
+					var rebuild := func() -> void:
+						if is_instance_valid(primary_action_button):
+							primary_action_button.pressed.emit()
+					return {"rect": rebuild_target.get_global_rect(), "action": rebuild, "source": "rebuild", "mode": "actionable", "target_node": rebuild_target.name, "copy_key": "TUTORIAL_REBUILD_SITE"}
+				return {"rect": Rect2(), "action": Callable(), "source": "rebuild_unavailable", "mode": "dormant", "copy_key": "TUTORIAL_REBUILD_SITE"}
 			return {"rect": Rect2(), "action": Callable(), "source": "construction_wait", "mode": "waiting"}
 		if park_map != null:
 			_focus_tutorial_world_target(dc_id)
