@@ -1926,7 +1926,7 @@ func _refresh_tutorial() -> void:
 	if not copy_key.is_empty():
 		copy = tr(copy_key)
 	elif _tutorial_visual_mode == "waiting":
-		copy = _tutorial_waiting_copy()
+		copy = tr("TUTORIAL_INSTALL_WAIT") % Game.format_duration(float(target.get("install_remaining", 0.0))) if str(target.get("source", "")) == "install_wait" else _tutorial_waiting_copy()
 	elif step_id == "retire" and context == "dormant":
 		copy = tr("TUTORIAL_RETIRE_WAIT")
 	elif bool(target.get("world_stage", false)):
@@ -2077,10 +2077,18 @@ func _tutorial_sheet_target(focus: String) -> Dictionary:
 		# An unmapped sheet is still the player's foreground. Never leave the
 		# spotlight behind it — fall back to copy only.
 		return {"rect": Rect2(), "action": Callable(), "source": "sheet_unmapped", "mode": "dormant", "foreground": _sheet_foreground_rect(sheet_overlay)}
+	# Resolve by name at tap time. Capturing the button meant a sheet that had
+	# been re-laid-out since the resolve left the guided tap pointing at a freed
+	# node, so the highlight stayed lit while nothing happened.
+	var option_name := option.name
 	var action := func() -> void:
-		if is_instance_valid(option) and option is Button and not (option as Button).disabled:
-			(option as Button).pressed.emit()
-	return {"rect": option.get_global_rect(), "action": action, "source": "sheet_option", "mode": "actionable", "foreground": _sheet_foreground_rect(sheet_overlay), "target_node": option.name}
+		var sheet := _topmost_action_sheet()
+		if sheet == null:
+			return
+		var live := sheet.find_child(option_name, true, false) as Button
+		if live != null and not live.disabled:
+			live.pressed.emit()
+	return {"rect": option.get_global_rect(), "action": action, "source": "sheet_option", "mode": "actionable", "foreground": _sheet_foreground_rect(sheet_overlay), "target_node": option_name}
 
 # Sheets can overlap: dismissing one plays a 0.2s exit while its replacement is
 # already on screen (choosing a rack opens a confirm sheet). find_child returns
@@ -2133,7 +2141,33 @@ func _ensure_tutorial_drawer_tab(focus: String) -> void:
 	_detail_focus = wanted
 	_request_full_refresh()
 
+# A guided install that is already under way must say so. Without this the coach
+# kept repeating its instruction through the whole 20s timer while the site
+# stayed dark, so the natural read was "that did nothing" and players tapped
+# again — only to be refused because the work was already queued.
+func _tutorial_install_wait(focus: String) -> float:
+	var dc_id := _tutorial_datacenter_id()
+	if dc_id.is_empty():
+		return -1.0
+	if focus == "rack_slot_0":
+		var dc := Game.find_datacenter(dc_id)
+		var racks: Array = dc.get("racks", [])
+		for installed: Variant in racks:
+			if installed is Dictionary and str((installed as Dictionary).get("status", "")) == "installing":
+				return maxf(0.0, float((installed as Dictionary).get("install_complete_at", 0.0)) - Game.simulation_time())
+		return -1.0
+	var wanted := str({"install_power": "power", "install_cooler": "cooler"}.get(focus, ""))
+	if wanted == "":
+		return -1.0
+	for item: Dictionary in Game.state.get("construction_queue", []):
+		if str(item.get("type", "")) == wanted and str(item.get("datacenter_id", "")) == dc_id:
+			return maxf(0.0, float(item.get("complete_at", 0.0)) - Game.simulation_time())
+	return -1.0
+
 func _resolve_tutorial_target(focus: String) -> Dictionary:
+	var install_remaining := _tutorial_install_wait(focus)
+	if install_remaining >= 0.0:
+		return {"rect": Rect2(), "action": Callable(), "source": "install_wait", "mode": "waiting", "install_remaining": install_remaining}
 	var sheet_target := _tutorial_sheet_target(focus)
 	if not sheet_target.is_empty():
 		return sheet_target

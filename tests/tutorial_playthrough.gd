@@ -27,6 +27,7 @@ func _ready() -> void:
 	await _settle()
 	await _play_tutorial()
 	_verify_shortened_timings_are_tutorial_only()
+	await _verify_install_in_progress_is_announced()
 	await _verify_orphaned_step_recovers()
 	AudioService.stop_all()
 	for wait: String in waits:
@@ -251,3 +252,33 @@ func _verify_shortened_timings_are_tutorial_only() -> void:
 	_expect(is_equal_approx(Game.call("_tutorial_duration", power, "tutorial_install_seconds", 300.0), 300.0), "completed tutorial must restore the full install duration")
 	Game.state["tutorial"]["completed"] = false
 	_expect(is_equal_approx(Game.call("_tutorial_duration", power, "tutorial_install_seconds", 300.0), 20.0), "an active tutorial must use the shortened duration")
+
+# The owner tapped the transformer repeatedly because nothing on screen changed
+# during its 20s install: the coach kept issuing the same instruction while the
+# site stayed dark. An install already under way must present as a wait, never
+# as a fresh action to repeat.
+func _verify_install_in_progress_is_announced() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"] = {"step": 0, "completed": false, "dismissed_messages": []}
+	Game.start_datacenter_construction("plot_1", "dc_t0")
+	Game.advance_time(40.0, false)
+	var dc_id := str(Game.state["plots"][0]["datacenter"].get("id", ""))
+	Game.state["tutorial"]["step"] = 1
+	Game.install_power(dc_id, "power_t1")
+	main.call("_refresh")
+	await _settle()
+	var overlay := _overlay()
+	if overlay == null:
+		_fail("install-wait check: overlay missing")
+		return
+	_expect(str(overlay.get_meta("target_source", "")) == "install_wait", "an in-flight install must present as a wait (source=%s)" % str(overlay.get_meta("target_source", "")))
+	_expect(not overlay.is_actionable(), "an in-flight install must not invite another tap")
+	var message := main.find_child("TutorialMessage", true, false) as Label
+	var copy := message.text if message != null else ""
+	_expect(copy != tr("TUTORIAL_POWER"), "coach must stop repeating the install instruction while it runs (copy=%s)" % copy)
+	await _shot("install_in_progress")
+	# And once it lands, the lesson moves on by itself.
+	Game.advance_time(60.0, false)
+	main.call("_refresh")
+	await _settle()
+	_expect(int(Game.state.get("tutorial", {}).get("step", 0)) != 1, "finished install must advance the lesson")

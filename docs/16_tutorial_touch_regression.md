@@ -139,3 +139,36 @@ if dc_id.is_empty():
 ### 回归
 
 `simulate_economy` 三策略 30 天曲线与调平前一致（idle 4 座 / active 12 座 era3 / aggressive 12 座，破产率 0%，两条既有 TUNE 提示不变，见 `balance_report.md`）；`test_runner` 103/103；`flow_audit`、`midgame_audit`、`check_assets` 全绿；`tutorial_playthrough` 实测三处等待各 20s。
+
+---
+
+## 7. 追加缺陷 T5 · 安装进行中没有任何反馈（2026-08-06，所有者实测）
+
+所有者报告：「变压器怎么装都装不上，一直点一直点」。
+
+### 实测结论：点击其实是生效的
+
+用窗口坐标走完整输入管线（`Input.parse_input_event`，即真人手指走的那条路）点击变压器选项：
+
+```
+A)  power 项进入队列   queue_types=["power"]
+A2) 等待后 power_unit = power_t1
+```
+
+安装成功。**首次探针误判为失败，是因为判据用了 `power_unit`——该字段只在安装完成时才写入**，安装中一直为空。此处记录以免后续复查再被同一陷阱误导。
+
+### 真正的缺陷
+
+安装需要 20 秒，而这 20 秒里：弹层已关闭、机房仍是暗的、**教练继续显示「安装变压器，让机房亮起来」**。玩家没有任何依据判断动作已经生效，自然重复点击；再次提交时 `install_power` 因已在队列中而被拒，看起来更像坏了。
+
+13 号文档的 B1 场景协议为**机房建设**建立了等待态（「施工中·剩 Xs」），但**附件与机柜的安装期从未纳入**——三处引导（供电 / 首台机柜 / 冷却）都存在同一空窗。
+
+### 修复
+
+新增 `_tutorial_install_wait(focus)`：查询该步骤对应物件是否在建设队列中（供电 / 冷却）或机柜是否处于 `installing`，返回剩余秒数。命中时目标解析**先于一切返回 waiting 态**，文案改为「安装中 · 剩 %s。」，且不可点——从根上消除「重复点击」的诱因。
+
+### 门禁
+
+`tutorial_playthrough` 增加 `_verify_install_in_progress_is_announced()`：构造「供电已提交、尚未完成」的状态，断言 ① 目标来源为 `install_wait` ② 不可点 ③ 文案不再是原指令；随后推进时钟，断言安装完成后教学自行前进。
+
+全量门禁：`validate_data`、`check_assets`、`test_runner` 103/103、`flow_audit`、`midgame_audit`、`visual_smoke` zh 31/31、`tutorial_playthrough` 全部通过。
