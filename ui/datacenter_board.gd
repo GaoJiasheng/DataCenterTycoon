@@ -89,10 +89,10 @@ func placement_state_for_slot(slot: int, rack_id: String = "") -> Dictionary:
 	var runtime := Rules.rack_runtime_status(simulated, slot, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
 	if not bool(runtime.get("powered", false)):
 		var power_hint := tr("BOARD_INSTALL_POWER") if str(dc.get("power_unit", "")).is_empty() else tr("BOARD_UPGRADE_POWER")
-		return {"state": "power", "symbol": "⚡", "hint": power_hint, "color": ThemeMaker.SEMANTIC.get("danger", ThemeMaker.COLORS.red)}
+		return {"state": "power", "symbol": "power", "hint": power_hint, "color": ThemeMaker.SEMANTIC.get("danger", ThemeMaker.COLORS.red)}
 	if bool(runtime.get("overheated", false)):
 		return {"state": "heat", "symbol": "heat", "hint": tr("BOARD_OVERHEAT_HINT"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
-	return {"state": "ok", "symbol": "✓", "hint": tr("BOARD_PLACE_OK"), "color": ThemeMaker.SEMANTIC.get("success", ThemeMaker.COLORS.green)}
+	return {"state": "ok", "symbol": "ok", "hint": tr("BOARD_PLACE_OK"), "color": ThemeMaker.SEMANTIC.get("success", ThemeMaker.COLORS.green)}
 
 func tutorial_target_rect(focus: String) -> Rect2:
 	if focus == "rack_slot_0":
@@ -335,14 +335,27 @@ func _add_preview_badge(button: Button, state: Dictionary) -> void:
 	badge_style.content_margin_right = 0
 	badge_style.content_margin_bottom = 0
 	badge.add_theme_stylebox_override("panel", badge_style)
-	var label := Label.new()
-	label.name = "PlacementSymbol"
-	label.text = "♨" if symbol == "heat" else symbol
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 28)
-	label.add_theme_color_override("font_color", Color.WHITE)
-	badge.add_child(label)
+	# Placement verdicts read as art icons rather than glyphs. The shipped font
+	# subsets have no ⚡/♨ coverage, so on device the badges came up empty.
+	var icon_id := {"power": "ic_power", "heat": "ic_heat", "ok": "ic_check"}.get(symbol, "") as String
+	var texture := AssetCatalog.texture(icon_id) if not icon_id.is_empty() else null
+	if texture != null:
+		var view := TextureRect.new()
+		view.name = "PlacementSymbol"
+		view.texture = texture
+		view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.add_child(view)
+	else:
+		var label := Label.new()
+		label.name = "PlacementSymbol"
+		label.text = {"power": "!", "heat": "!", "ok": "V"}.get(symbol, "?")
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", 28)
+		label.add_theme_color_override("font_color", Color.WHITE)
+		badge.add_child(label)
 
 func _add_coolers(stage: Control, dc: Dictionary) -> void:
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
@@ -507,7 +520,13 @@ func _show_rack_tooltip(slot: int, anchor: Control) -> void:
 	_tooltip.z_index = 20
 	_tooltip.add_theme_stylebox_override("panel", ThemeMaker.flat_group_box(ThemeMaker.COLORS.cyan))
 	var label := Label.new()
-	label.text = "%s\n⚡%s  ♨%s  ❄%s  $%s" % [tr(rack.get("name_key", "")), Game.format_number(float(rack.get("power", 0.0))), Game.format_number(float(rack.get("heat", 0.0))), Game.format_number(float(runtime.get("cooling", 0.0))), Game.format_number(float(rack.get("income_per_month", 0.0)))]
+	label.text = "%s\n%s %s · %s %s · %s %s\n$%s" % [
+		tr(rack.get("name_key", "")),
+		tr("STAT_POWER_DRAW"), Game.format_number(float(rack.get("power", 0.0))),
+		tr("STAT_HEAT_OUTPUT"), Game.format_number(float(rack.get("heat", 0.0))),
+		tr("STAT_COOLED"), Game.format_number(float(runtime.get("cooling", 0.0))),
+		Game.format_number(float(rack.get("income_per_month", 0.0))),
+	]
 	label.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
 	label.add_theme_constant_override("line_spacing", ThemeMaker.TEXT_LINE_SPACING)
 	_tooltip.add_child(label)

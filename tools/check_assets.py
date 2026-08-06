@@ -4,6 +4,7 @@
 import argparse
 import csv
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -115,6 +116,10 @@ def validate_fonts():
         elif path.stat().st_size == 0:
             failures.append(f"{label}: empty file")
     required_characters = localization_characters(LOCALIZATION)
+    # Player-visible text is not only ui.csv. Symbols hardcoded in GDScript
+    # string literals shipped with no glyph coverage and rendered blank on
+    # device while macOS quietly substituted a system font on the desktop.
+    required_characters |= script_literal_characters()
     for path in RHR_FONT_FILES:
         if not path.is_file() or path.stat().st_size == 0:
             continue
@@ -126,9 +131,23 @@ def validate_fonts():
         missing = sorted(required_characters - codepoints)
         if missing:
             preview = "".join(chr(codepoint) for codepoint in missing[:24])
-            failures.append(f"{path.name}: missing {len(missing)} ui.csv characters ({preview})")
-    print(f"FONTS: {len(FONT_FILES) - sum(1 for label, path in FONT_FILES.items() if not path.exists() or path.stat().st_size == 0)}/{len(FONT_FILES)} present; Resource Han Rounded coverage checked against ui.csv")
+            failures.append(f"{path.name}: missing {len(missing)} player-visible characters ({preview})")
+    print(f"FONTS: {len(FONT_FILES) - sum(1 for label, path in FONT_FILES.items() if not path.exists() or path.stat().st_size == 0)}/{len(FONT_FILES)} present; Resource Han Rounded coverage checked against ui.csv + GDScript literals")
     return failures
+
+
+def script_literal_characters():
+    """Non-ASCII characters that appear in GDScript string literals."""
+    characters = set()
+    literal = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
+    for path in sorted((ROOT / "ui").rglob("*.gd")) + sorted((ROOT / "gameplay").rglob("*.gd")) + sorted((ROOT / "core").rglob("*.gd")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            for match in literal.finditer(line):
+                characters.update(ord(character) for character in match.group(1) if ord(character) > 0x7F)
+    return characters
 
 
 def localization_characters(path):

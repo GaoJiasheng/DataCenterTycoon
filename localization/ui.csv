@@ -317,3 +317,11 @@ RACK_STAT_POWER,Power,耗电
 RACK_STAT_HEAT,Heat,发热
 RACK_STAT_OUTPUT,Base output,基础产出
 MONTH_SHORT,mo,月
+STAT_CAPACITY,Capacity,容量
+STAT_COOLING_OUTPUT,Cooling,制冷
+STAT_COVERAGE,covers %d cells,覆盖 %d 格
+STAT_POWER_DRAW,Power,耗电
+STAT_HEAT_OUTPUT,Heat,发热
+STAT_COOLED,Cooled,受冷
+ERA_LOCKED,Locked,未解锁
+ERA_DONE,Done,已完成

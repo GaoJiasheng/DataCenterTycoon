@@ -7,6 +7,7 @@ signal target_activated
 
 var target_rect := Rect2()
 var target_action := Callable()
+var foreground_rect := Rect2()
 var mask_panes: Array[ColorRect] = []
 var hole_border: PanelContainer
 var pointer: Control
@@ -26,10 +27,15 @@ func _ready() -> void:
 	_build_mask()
 	_build_callout()
 
-func present(rect: Rect2, copy: String, guide_asset: String, action: Callable) -> void:
+# `foreground` is the rect of the topmost interactive surface (an open action
+# sheet). Dimming and the callout must both stay clear of it: the sheet is the
+# only thing the player can reach, so shading it — as the full-screen mask used
+# to — hides the very control the coach is pointing at.
+func present(rect: Rect2, copy: String, guide_asset: String, action: Callable, foreground: Rect2 = Rect2()) -> void:
 	visible = true
 	target_rect = rect.grow(20.0).intersection(get_viewport_rect()) if rect.size != Vector2.ZERO else Rect2()
 	target_action = action
+	foreground_rect = foreground
 	message.text = copy
 	guide.texture = AssetCatalog.texture(guide_asset)
 	_resize_callout()
@@ -162,15 +168,27 @@ func _layout_mask(actionable: bool) -> void:
 	hole_border.visible = actionable
 	if not actionable:
 		return
-	var viewport := size
-	mask_panes[0].position = Vector2.ZERO
-	mask_panes[0].size = Vector2(viewport.x, maxf(0.0, target_rect.position.y))
-	mask_panes[1].position = Vector2(0, target_rect.end.y)
-	mask_panes[1].size = Vector2(viewport.x, maxf(0.0, viewport.y - target_rect.end.y))
-	mask_panes[2].position = Vector2(0, target_rect.position.y)
-	mask_panes[2].size = Vector2(maxf(0.0, target_rect.position.x), target_rect.size.y)
-	mask_panes[3].position = Vector2(target_rect.end.x, target_rect.position.y)
-	mask_panes[3].size = Vector2(maxf(0.0, viewport.x - target_rect.end.x), target_rect.size.y)
+	# The shaded region stops at the top of any open sheet, so the sheet keeps its
+	# own contrast while the world behind it still recedes.
+	var dim := Rect2(Vector2.ZERO, size)
+	if foreground_rect.size != Vector2.ZERO:
+		dim.size.y = maxf(0.0, foreground_rect.position.y)
+	if not dim.intersects(target_rect):
+		# The target lives on the foreground surface: shade everything behind it
+		# and let the border alone mark the tap point.
+		mask_panes[0].position = dim.position
+		mask_panes[0].size = dim.size
+		for index: int in range(1, mask_panes.size()):
+			mask_panes[index].size = Vector2.ZERO
+	else:
+		mask_panes[0].position = dim.position
+		mask_panes[0].size = Vector2(dim.size.x, maxf(0.0, target_rect.position.y - dim.position.y))
+		mask_panes[1].position = Vector2(dim.position.x, target_rect.end.y)
+		mask_panes[1].size = Vector2(dim.size.x, maxf(0.0, dim.end.y - target_rect.end.y))
+		mask_panes[2].position = Vector2(dim.position.x, target_rect.position.y)
+		mask_panes[2].size = Vector2(maxf(0.0, target_rect.position.x - dim.position.x), target_rect.size.y)
+		mask_panes[3].position = Vector2(target_rect.end.x, target_rect.position.y)
+		mask_panes[3].size = Vector2(maxf(0.0, dim.end.x - target_rect.end.x), target_rect.size.y)
 	hole_border.position = target_rect.position
 	hole_border.size = target_rect.size
 
@@ -224,20 +242,24 @@ func _position_callout() -> void:
 	var gap := 42.0
 	var safe_top := 120.0
 	var safe_bottom := viewport.y - 80.0
-	var above_y := target_rect.position.y - bubble_size.y - gap
-	var below_y := target_rect.end.y + gap
+	# A target inside an open sheet is bounded by that sheet: the bubble has to
+	# sit above the whole panel, otherwise it hides the sheet's own heading and
+	# the sibling options the player is choosing between.
+	var blocker := foreground_rect if foreground_rect.size != Vector2.ZERO and foreground_rect.intersects(target_rect) else target_rect
+	var above_y := blocker.position.y - bubble_size.y - gap
+	var below_y := blocker.end.y + gap
 	var x := clampf(target_rect.get_center().x - bubble_size.x * 0.5, 28.0, viewport.x - bubble_size.x - 28.0)
 	var above_rect := Rect2(Vector2(x, above_y), bubble_size)
 	var below_rect := Rect2(Vector2(x, below_y), bubble_size)
-	var above_fits := above_y >= safe_top and not above_rect.intersects(target_rect)
-	var below_fits := below_rect.end.y <= safe_bottom and not below_rect.intersects(target_rect)
+	var above_fits := above_y >= safe_top and not above_rect.intersects(blocker)
+	var below_fits := below_rect.end.y <= safe_bottom and not below_rect.intersects(blocker)
 	var y := above_y if above_fits else below_y
 	if not above_fits and not below_fits:
 		# Extremely large targets still get a deterministic non-overlapping edge
 		# placement. Prefer the side with more free space instead of covering the
 		# control the copy is asking the player to tap.
-		var top_space := target_rect.position.y - safe_top
-		var bottom_space := safe_bottom - target_rect.end.y
+		var top_space := blocker.position.y - safe_top
+		var bottom_space := safe_bottom - blocker.end.y
 		y = safe_top if top_space >= bottom_space else safe_bottom - bubble_size.y
 	bubble.position = Vector2(x, y)
 	_pointer_base = Vector2(target_rect.get_center().x - pointer.size.x * 0.5, target_rect.position.y - pointer.size.y - 24.0)

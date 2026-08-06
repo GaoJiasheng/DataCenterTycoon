@@ -49,6 +49,7 @@ func _ready() -> void:
 	main.call("_show_attachment_picker", dc_id, "power", "")
 	await _shot("s1_power_picker_sheet")
 	_assert_sheet_reward_uses_hud_pulse()
+	_assert_sheet_spotlight("power", "Choice_power_t1")
 	_close("ActionSheetOverlay")
 	Game.install_power(dc_id, "power_t1")
 	Game.advance_time(301.0, false)
@@ -57,6 +58,8 @@ func _ready() -> void:
 	_assert_datacenter_header(dc_id)
 	main.call("_show_rack_picker", dc_id, 0)
 	await _shot("s2_rack_picker_sheet")
+	_assert_sheet_spotlight("first_rack", "Choice_rack_compute_t1")
+	_assert_no_repeat_open_loop("first_rack")
 	_close("ActionSheetOverlay")
 	Game.install_rack(dc_id, 0, "rack_compute_t1")
 	Game.advance_time(150.0, false)
@@ -144,6 +147,56 @@ func _assert_no_started_celebration(context: String) -> void:
 	_expect(layer != null, "C1 FxLayer must exist")
 	if layer != null:
 		_expect(layer.active_effect_count() == 0, "C1 %s must not create celebration FX" % context)
+
+# G1: an open picker is the only surface the player can reach, so the coaching
+# spotlight must move into it. Before this guard the resolver kept pointing at
+# the drawer control the sheet had just covered, and the dimming panes — drawn
+# above the sheet — blacked out the one panel that was actually tappable.
+func _assert_sheet_spotlight(step_id: String, expected_choice: String) -> void:
+	var overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
+	var sheet_overlay := main.find_child("ActionSheetOverlay", true, false) as Control
+	if overlay == null or sheet_overlay == null:
+		_expect(false, "G1 %s needs both the tutorial overlay and an open sheet" % step_id)
+		return
+	var sheet := sheet_overlay.find_child("ContextSheet", true, false) as Control
+	if sheet == null:
+		_expect(false, "G1 %s open sheet must expose its ContextSheet panel" % step_id)
+		return
+	var sheet_rect := sheet.get_global_rect()
+	_expect(str(overlay.get_meta("target_source", "")) == "sheet_option", "F1 %s must retarget to a sheet option while a picker is open" % step_id)
+	var resolved: Rect2 = overlay.get_meta("resolved_target_rect", Rect2())
+	_expect(resolved.size.x > 1.0 and sheet_rect.grow(2.0).encloses(resolved), "G1 %s spotlight target must sit inside the open sheet (target=%s sheet=%s)" % [step_id, resolved, sheet_rect])
+	var choice := sheet_overlay.find_child(expected_choice, true, false) as Control
+	_expect(choice != null and choice.get_global_rect().intersects(resolved), "G1 %s spotlight must land on %s" % [step_id, expected_choice])
+	# F3: dimming may darken the world behind the sheet but never the sheet itself.
+	var sheet_area := sheet_rect.get_area()
+	for pane_name: String in ["TutorialMask0", "TutorialMask1", "TutorialMask2", "TutorialMask3"]:
+		var pane := overlay.find_child(pane_name, true, false) as ColorRect
+		if pane == null or not pane.is_visible_in_tree():
+			continue
+		var covered := pane.get_global_rect().intersection(sheet_rect).get_area()
+		_expect(covered <= sheet_area * 0.02, "F3 %s dim pane %s must not cover the open sheet (%.0f%% covered)" % [step_id, pane_name, covered / maxf(1.0, sheet_area) * 100.0])
+	# F5: the bubble must clear the sheet heading it would otherwise hide.
+	var heading := sheet_overlay.find_child("SheetHeading", true, false) as Control
+	var callout := main.find_child("TutorialCallout", true, false) as Control
+	if heading != null and callout != null:
+		_expect(not callout.get_global_rect().intersects(heading.get_global_rect()), "F5 %s callout must not cover the sheet heading" % step_id)
+
+# G3: the spotlight action must not be the same call that opened the sheet, or
+# every guided tap stacks another picker and the tutorial cannot be completed.
+func _assert_no_repeat_open_loop(step_id: String) -> void:
+	var before := _count_nodes_named("ActionSheetOverlay")
+	var overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
+	if overlay == null or not overlay.is_actionable():
+		_expect(false, "G3 %s spotlight must stay actionable over the sheet" % step_id)
+		return
+	if overlay.target_action.is_valid():
+		overlay.target_action.call()
+	var after := _count_nodes_named("ActionSheetOverlay")
+	_expect(after <= before, "G3 %s guided tap must act on the sheet instead of opening another one (%d -> %d)" % [step_id, before, after])
+
+func _count_nodes_named(node_name: String) -> int:
+	return main.find_children(node_name, "", true, false).size()
 
 func _assert_sheet_reward_uses_hud_pulse() -> void:
 	var layer := main.find_child("FxLayer", true, false) as FxLayer

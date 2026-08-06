@@ -396,7 +396,7 @@ func _build_campus_switcher(stage: Control) -> void:
 	campus_switcher.add_child(row)
 	campus_previous_button = Button.new()
 	campus_previous_button.name = "CampusPrevious"
-	campus_previous_button.text = "‹"
+	campus_previous_button.text = "<"
 	campus_previous_button.custom_minimum_size = Vector2(88, 88)
 	campus_previous_button.tooltip_text = tr("CAMPUS_PREVIOUS")
 	campus_previous_button.pressed.connect(_step_campus.bind(-1))
@@ -423,7 +423,7 @@ func _build_campus_switcher(stage: Control) -> void:
 	overview_button.add_child(campus_switch_label)
 	campus_next_button = Button.new()
 	campus_next_button.name = "CampusNext"
-	campus_next_button.text = "›"
+	campus_next_button.text = ">"
 	campus_next_button.custom_minimum_size = Vector2(88, 88)
 	campus_next_button.tooltip_text = tr("CAMPUS_NEXT")
 	campus_next_button.pressed.connect(_step_campus.bind(1))
@@ -1247,7 +1247,7 @@ func _contract_customer_card(dc: Dictionary, customer_id: String, customer: Dict
 		if not current_customer.is_empty() and not serving:
 			card.tooltip_text += "\n" + (tr("CONTRACT_FREE_SWITCH") if fee <= 0.0 else tr("CONTRACT_BREACH_FEE") % Game.format_number(fee))
 	else:
-		var locked := _label("🔒 %s" % _customer_unlock_text(customer), ThemeMaker.TYPE_SCALE.body, Color("aeb8c4"))
+		var locked := _label(_customer_unlock_text(customer), ThemeMaker.TYPE_SCALE.body, Color("aeb8c4"))
 		locked.max_lines_visible = 1
 		locked.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		copy.add_child(locked)
@@ -1425,7 +1425,7 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 	box.add_child(route)
 	for node_era: int in range(1, 4):
 		if node_era > 1:
-			var connector := _label("›", 34, ThemeMaker.COLORS.yellow if node_era <= era_id + 1 else Color("718096"))
+			var connector := _label(">", 34, ThemeMaker.COLORS.yellow if node_era <= era_id + 1 else Color("718096"))
 			connector.custom_minimum_size.x = 22
 			connector.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			route.add_child(connector)
@@ -1444,7 +1444,7 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 		node_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		node_label.max_lines_visible = 2
 		node_box.add_child(node_label)
-		var state_label := _label("✓" if node_era < era_id else (tr("ERA_CURRENT") if node_era == era_id else "🔒"), 18, ThemeMaker.COLORS.green if node_era <= era_id else Color("8a97a8"))
+		var state_label := _label(tr("ERA_DONE") if node_era < era_id else (tr("ERA_CURRENT") if node_era == era_id else tr("ERA_LOCKED")), 18, ThemeMaker.COLORS.green if node_era <= era_id else Color("8a97a8"))
 		state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		node_box.add_child(state_label)
 	if next_era.is_empty():
@@ -1718,7 +1718,7 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 	var gems := int(product.get("gems", 0))
 	if gems > 0:
 		var price_per_gem := float(product.get("price_usd", 0.0)) / float(gems)
-		var value_text := "$%.4f / 💎" % price_per_gem
+		var value_text := "$%.4f / %s" % [price_per_gem, tr("GEMS_REWARD_SHORT")]
 		copy.add_child(_label(value_text, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.green))
 	var fallback_price := "US$ %.2f" % float(product.get("price_usd", 0.0))
 	var buy_button := Widgets.button(Monetization.localized_price(product_id, fallback_price), _purchase.bind(product_id), "primary")
@@ -1824,7 +1824,7 @@ func _settings_row_button(text: String, action: Callable) -> Button:
 	button.add_theme_stylebox_override("pressed", hover)
 	var chevron := Label.new()
 	chevron.name = "SettingsChevron"
-	chevron.text = "›"
+	chevron.text = ">"
 	chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chevron.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
 	chevron.offset_left = -48
@@ -1934,7 +1934,7 @@ func _refresh_tutorial() -> void:
 	tutorial_overlay.set_meta("tutorial_mode", _tutorial_visual_mode)
 	tutorial_overlay.set_meta("target_source", str(target.get("source", "none")))
 	tutorial_overlay.set_meta("resolved_target_rect", rect)
-	tutorial_overlay.present(rect, copy, guide_assets[mini(index, guide_assets.size() - 1)], action)
+	tutorial_overlay.present(rect, copy, guide_assets[mini(index, guide_assets.size() - 1)], action, target.get("foreground", Rect2()))
 	tutorial_hint_button.visible = false
 	_set_tutorial_chrome_visibility(false, focus)
 
@@ -2032,7 +2032,55 @@ func _set_tutorial_chrome_visibility(restored: bool, focus: String) -> void:
 	if primary_action_button != null:
 		primary_action_button.visible = restored or focus in ["build_dc_t0", "buy_plot", "build_dc_t1"]
 
+# Stage three of the coaching target chain: world building -> drawer control ->
+# open sheet option. A picker covers the drawer control that spawned it, so the
+# resolver has to follow the player onto the sheet; otherwise it keeps returning
+# a control that is occluded and, worse, an action that re-opens the same sheet.
+const TUTORIAL_SHEET_CHOICES := {
+	"install_power": "Choice_power_t1",
+	"rack_slot_0": "Choice_rack_compute_t1",
+	"install_cooler": "Choice_cool_air_t1",
+}
+
+func _tutorial_sheet_target(focus: String) -> Dictionary:
+	var sheet_overlay := find_child("ActionSheetOverlay", true, false) as Control
+	if sheet_overlay == null or not sheet_overlay.is_visible_in_tree():
+		return {}
+	var option: Control = null
+	var preferred := str(TUTORIAL_SHEET_CHOICES.get(focus, ""))
+	if not preferred.is_empty():
+		option = sheet_overlay.find_child(preferred, true, false) as Control
+	if option == null or not option.is_visible_in_tree() or (option is Button and (option as Button).disabled):
+		option = _first_enabled_choice(sheet_overlay)
+	if option == null:
+		# An unmapped sheet is still the player's foreground. Never leave the
+		# spotlight behind it — fall back to copy only.
+		return {"rect": Rect2(), "action": Callable(), "source": "sheet_unmapped", "mode": "dormant", "foreground": _sheet_foreground_rect(sheet_overlay)}
+	var action := func() -> void:
+		if is_instance_valid(option) and option is Button and not (option as Button).disabled:
+			(option as Button).pressed.emit()
+	return {"rect": option.get_global_rect(), "action": action, "source": "sheet_option", "mode": "actionable", "foreground": _sheet_foreground_rect(sheet_overlay)}
+
+func _first_enabled_choice(sheet_overlay: Control) -> Control:
+	for node: Node in sheet_overlay.find_children("Choice_*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.is_visible_in_tree() and not button.disabled:
+			return button
+	return null
+
+func _sheet_foreground_rect(sheet_overlay: Control) -> Rect2:
+	var sheet := sheet_overlay.find_child("ContextSheet", true, false) as Control
+	if sheet == null:
+		return Rect2()
+	# Prefer the settled geometry: during the slide-in the live rect sits lower
+	# than where the panel ends up, which would let the shade creep over it.
+	var settled: Rect2 = sheet.get_meta("settled_rect", Rect2())
+	return settled if settled.size != Vector2.ZERO else sheet.get_global_rect()
+
 func _resolve_tutorial_target(focus: String) -> Dictionary:
+	var sheet_target := _tutorial_sheet_target(focus)
+	if not sheet_target.is_empty():
+		return sheet_target
 	var control: Control = null
 	match focus:
 		"build_dc_t0":
@@ -2229,9 +2277,10 @@ func _show_rack_picker(datacenter_id: String, slot: int) -> void:
 				"height": 132,
 				"cost": rack_cost,
 				"asset": str(rack.get("asset_prefix", "")) + "_active",
-				"text": "%s · $%s\n⚡ %s   ♨ %s   $ %s/%s\n%s" % [
+				"text": "%s · $%s\n%s %s · %s %s · $%s/%s\n%s" % [
 					tr(rack.get("name_key", "")), Game.format_number(rack_cost),
-					Game.format_number(float(rack.get("power", 0.0))), Game.format_number(float(rack.get("heat", 0.0))),
+					tr("STAT_POWER_DRAW"), Game.format_number(float(rack.get("power", 0.0))),
+					tr("STAT_HEAT_OUTPUT"), Game.format_number(float(rack.get("heat", 0.0))),
 					Game.format_number(float(rack.get("income_per_month", 0.0))), tr("MONTH_SHORT"),
 					_rack_trait_label(float(rack.get("market_sensitivity", 1.0))),
 				],
@@ -2693,7 +2742,10 @@ func _show_attachment_picker(datacenter_id: String, kind: String, edge: String) 
 	for attachment_id: String in DataRepository.get_table("attachments").get("items", {}):
 		var item := DataRepository.get_entry("attachments", attachment_id)
 		if item.get("kind", "") == kind and Game.is_unlocked(item):
-			var stat := "⚡ %s" % Game.format_number(float(item.get("capacity", 0.0))) if kind == "power" else "❄ %s · ▦ 3" % Game.format_number(float(item.get("cooling", 0.0)))
+			# Stat rows spell their units out: the packaged font subsets carry no
+			# glyphs for ⚡ ❄ ▦, so on device those symbols rendered as blanks and
+			# left bare numbers with no way to tell capacity from cooling.
+			var stat := "%s %s" % [tr("STAT_CAPACITY"), Game.format_number(float(item.get("capacity", 0.0)))] if kind == "power" else "%s %s · %s" % [tr("STAT_COOLING_OUTPUT"), Game.format_number(float(item.get("cooling", 0.0))), tr("STAT_COVERAGE") % 3]
 			choices.append({"id": attachment_id, "height": 108, "cost": float(item.get("cost", 0.0)), "text": "%s · $%s\n%s" % [tr(item.get("name_key", "")), Game.format_number(float(item.get("cost", 0.0))), stat]})
 	_show_choice(tr("INSTALL"), choices, func(attachment_id: String) -> void:
 		var result: Dictionary = Game.install_power(datacenter_id, attachment_id) if kind == "power" else Game.install_cooler(datacenter_id, edge, attachment_id)
@@ -2714,7 +2766,7 @@ func _show_rack_actions(datacenter_id: String, slot: int) -> void:
 		status_color = ThemeMaker.COLORS.orange
 		var gem_cost := maxi(1, int(ceil(remaining / 600.0)) * int(DataRepository.get_table("economy").get("construction", {}).get("gems_per_600_seconds", 1)))
 		var ad_reduction := minf(remaining, float(DataRepository.get_table("economy").get("construction", {}).get("ad_reduction_seconds", 1800.0)))
-		choices.append({"id": "install_ad", "text": "%s · −%s" % [tr("WATCH_AD"), Game.format_duration(ad_reduction)]})
+		choices.append({"id": "install_ad", "text": "%s · -%s" % [tr("WATCH_AD"), Game.format_duration(ad_reduction)]})
 		choices.append({"id": "install_gems", "text": "%s · %d %s" % [tr("SPEED_UP"), gem_cost, tr("GEMS_REWARD_SHORT")]})
 	elif installed.get("status", "") == "faulted":
 		body = tr("FAULTED")
@@ -2790,6 +2842,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 
 	var heading := HBoxContainer.new()
 	heading.add_theme_constant_override("separation", 12)
+	heading.name = "SheetHeading"
 	sheet_box.add_child(heading)
 	var title_label := _label(title_text, 36, ThemeMaker.COLORS.cream)
 	ThemeMaker.apply_text_role(title_label, "display")
@@ -2876,10 +2929,21 @@ func _finalize_action_sheet_layout(sheet: PanelContainer, sheet_box: VBoxContain
 	scroll.custom_minimum_size.y = minf(natural_choices_height, available_choices_height)
 	var desired_sheet_height := minf(max_sheet_height, fixed_content_height + scroll.custom_minimum_size.y + frame_insets)
 	sheet.offset_top = sheet.offset_bottom - desired_sheet_height
+	# Record where the panel comes to rest. The coaching overlay sizes its dimming
+	# against this rect, and reading the live one mid-slide leaves the shade
+	# sitting over the settled sheet.
+	var viewport_size := get_viewport_rect().size
+	sheet.set_meta("settled_rect", Rect2(
+		Vector2(sheet.offset_left, viewport_size.y + sheet.offset_top),
+		Vector2(viewport_size.x + sheet.offset_right - sheet.offset_left, desired_sheet_height)
+	))
 	sheet.position.y += 64
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(sheet, "modulate:a", 1.0, 0.2)
 	tween.tween_property(sheet, "position:y", sheet.position.y - 64, 0.28).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	# Re-resolve once the panel has settled. Resolving mid-slide leaves the
+	# spotlight 64u low — straddling two options instead of framing one.
+	tween.chain().tween_callback(_refresh_tutorial)
 
 func _show_pending_offline_report() -> void:
 	if _offline_report_is_material(Game.last_offline_report):
@@ -2969,7 +3033,7 @@ func _show_offline_dialog(report: Dictionary) -> void:
 			event_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			event_copy.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			event_content.add_child(event_copy)
-			var chevron := _label("›", 28, Color("725a36"))
+			var chevron := _label(">", 28, Color("725a36"))
 			chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			event_content.add_child(chevron)
 			event_row.add_child(event_content)
@@ -3053,10 +3117,10 @@ func _dismiss_full_overlay(overlay: CanvasItem, after: Callable = Callable()) ->
 
 func _offline_events_summary(report: Dictionary) -> String:
 	var lines: Array[String] = []
-	if not report.get("completed", []).is_empty(): lines.append("✓ %d %s" % [report["completed"].size(), tr("TOAST_CONSTRUCTION_COMPLETE")])
-	if not report.get("faults", []).is_empty(): lines.append("⚠ %d %s" % [report["faults"].size(), tr("FAULTED")])
-	if not report.get("events", []).is_empty(): lines.append("● %d %s" % [report["events"].size(), tr("NAV_MARKET")])
-	if not report.get("contracts", []).is_empty(): lines.append("◆ %d %s" % [report["contracts"].size(), tr("SIGN_CONTRACT")])
+	if not report.get("completed", []).is_empty(): lines.append("%d %s" % [report["completed"].size(), tr("TOAST_CONSTRUCTION_COMPLETE")])
+	if not report.get("faults", []).is_empty(): lines.append("%d %s" % [report["faults"].size(), tr("FAULTED")])
+	if not report.get("events", []).is_empty(): lines.append("%d %s" % [report["events"].size(), tr("NAV_MARKET")])
+	if not report.get("contracts", []).is_empty(): lines.append("%d %s" % [report["contracts"].size(), tr("SIGN_CONTRACT")])
 	return "\n".join(lines)
 
 func _confirm_prestige() -> void:

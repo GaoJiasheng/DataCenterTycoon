@@ -29,7 +29,10 @@ UPSTREAM_URL = (
 UPSTREAM_ARCHIVE_SHA256 = "4ad7b141535a1f11831287b0a6f71ddcec8daa92dc1d82c59892068f8ae5df09"
 SOURCE_FILENAME = "ResourceHanRoundedCN-VF.otf"
 SOURCE_SHA256 = "ee3f276c9f9ee77c726d4e9c88350a3de73fb297633c54d510971ee636dceb1e"
-COMMON_HAN_BUFFER_SIZE = 3500
+# GB2312 level 1 holds 3,755 characters. Capping the buffer below that silently
+# dropped the tail of the block — which is how 总 (D7DC), used by 园区总览, shipped
+# without a glyph and rendered as a blank box on device.
+COMMON_HAN_BUFFER_SIZE = 3755
 FONT_SPECS = {
     "Medium": {
         "filename": "ResourceHanRoundedCN-Medium.otf",
