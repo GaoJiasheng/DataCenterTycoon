@@ -1934,6 +1934,7 @@ func _refresh_tutorial() -> void:
 	tutorial_overlay.set_meta("tutorial_mode", _tutorial_visual_mode)
 	tutorial_overlay.set_meta("target_source", str(target.get("source", "none")))
 	tutorial_overlay.set_meta("resolved_target_rect", rect)
+	tutorial_overlay.set_meta("target_node", str(target.get("target_node", "")))
 	tutorial_overlay.present(rect, copy, guide_assets[mini(index, guide_assets.size() - 1)], action, target.get("foreground", Rect2()))
 	tutorial_hint_button.visible = false
 	_set_tutorial_chrome_visibility(false, focus)
@@ -2043,12 +2044,15 @@ const TUTORIAL_SHEET_CHOICES := {
 }
 
 func _tutorial_sheet_target(focus: String) -> Dictionary:
-	var sheet_overlay := find_child("ActionSheetOverlay", true, false) as Control
-	if sheet_overlay == null or not sheet_overlay.is_visible_in_tree():
+	var sheet_overlay := _topmost_action_sheet()
+	if sheet_overlay == null:
 		return {}
 	var option: Control = null
+	# A confirm sheet is the terminal step of any pick, so it outranks the
+	# per-focus mapping: once it is up, "confirm" is the only way forward.
+	option = sheet_overlay.find_child("Choice_confirm", true, false) as Control
 	var preferred := str(TUTORIAL_SHEET_CHOICES.get(focus, ""))
-	if not preferred.is_empty():
+	if option == null and not preferred.is_empty():
 		option = sheet_overlay.find_child(preferred, true, false) as Control
 	if option == null or not option.is_visible_in_tree() or (option is Button and (option as Button).disabled):
 		option = _first_enabled_choice(sheet_overlay)
@@ -2059,7 +2063,22 @@ func _tutorial_sheet_target(focus: String) -> Dictionary:
 	var action := func() -> void:
 		if is_instance_valid(option) and option is Button and not (option as Button).disabled:
 			(option as Button).pressed.emit()
-	return {"rect": option.get_global_rect(), "action": action, "source": "sheet_option", "mode": "actionable", "foreground": _sheet_foreground_rect(sheet_overlay)}
+	return {"rect": option.get_global_rect(), "action": action, "source": "sheet_option", "mode": "actionable", "foreground": _sheet_foreground_rect(sheet_overlay), "target_node": option.name}
+
+# Sheets can overlap: dismissing one plays a 0.2s exit while its replacement is
+# already on screen (choosing a rack opens a confirm sheet). find_child returns
+# the *first* match, i.e. the sheet on its way out, which pinned the spotlight
+# to a panel the player can no longer use. Always take the newest live sheet.
+func _topmost_action_sheet() -> Control:
+	var newest: Control = null
+	for node: Node in find_children("ActionSheetOverlay", "", true, false):
+		var overlay := node as Control
+		if overlay == null or not overlay.is_visible_in_tree():
+			continue
+		if bool(overlay.get_meta("dismissing", false)):
+			continue
+		newest = overlay
+	return newest
 
 func _first_enabled_choice(sheet_overlay: Control) -> Control:
 	for node: Node in sheet_overlay.find_children("Choice_*", "Button", true, false):
@@ -2077,10 +2096,31 @@ func _sheet_foreground_rect(sheet_overlay: Control) -> Rect2:
 	var settled: Rect2 = sheet.get_meta("settled_rect", Rect2())
 	return settled if settled.size != Vector2.ZERO else sheet.get_global_rect()
 
+# Each drawer step lives on a specific tab. Without this the cooling lesson
+# inherited the contracts tab left over from the previous step, so the slot it
+# asked for was not even on screen and the spotlight silently went dormant.
+const TUTORIAL_DRAWER_TABS := {
+	"install_power": "board",
+	"rack_slot_0": "board",
+	"install_cooler": "board",
+	"retire_dc": "board",
+	"contract_internet": "contracts",
+}
+
+func _ensure_tutorial_drawer_tab(focus: String) -> void:
+	var wanted := str(TUTORIAL_DRAWER_TABS.get(focus, ""))
+	if wanted.is_empty() or _detail_focus == wanted:
+		return
+	# The tab belongs to whichever detail surface is up — the world drawer or the
+	# full page — so switch it unconditionally; the value is inert elsewhere.
+	_detail_focus = wanted
+	_request_full_refresh()
+
 func _resolve_tutorial_target(focus: String) -> Dictionary:
 	var sheet_target := _tutorial_sheet_target(focus)
 	if not sheet_target.is_empty():
 		return sheet_target
+	_ensure_tutorial_drawer_tab(focus)
 	var control: Control = null
 	match focus:
 		"build_dc_t0":
@@ -2107,10 +2147,16 @@ func _resolve_tutorial_target(focus: String) -> Dictionary:
 			control = park_map.target_control_of("sale") if park_map != null else null
 		"retire_dc": control = _visible_control_named("RetireButton")
 	if control != null and control.is_visible_in_tree():
+		# Look the control up again at tap time instead of capturing it. Pages and
+		# drawers rebuild between the resolve and the tap, and a captured node that
+		# has since been freed makes the guided tap do nothing at all — the player
+		# just sees an unresponsive highlight.
+		var control_name := control.name
 		var action := func() -> void:
-			if is_instance_valid(control) and control is Button:
-				(control as Button).pressed.emit()
-		return {"rect": control.get_global_rect(), "action": action, "source": "control", "mode": "actionable"}
+			var live := _visible_control_named(control_name)
+			if live is Button and not (live as Button).disabled:
+				(live as Button).pressed.emit()
+		return {"rect": control.get_global_rect(), "action": action, "source": "control", "mode": "actionable", "target_node": control_name}
 	if focus in ["install_power", "rack_slot_0", "contract_internet", "install_cooler", "retire_dc"]:
 		var dc_id := _tutorial_datacenter_id()
 		if dc_id.is_empty():
@@ -2454,6 +2500,13 @@ func _animate_sheet_dismiss(overlay: CanvasItem, after: Callable, reset_world: b
 	if not is_instance_valid(overlay) or bool(overlay.get_meta("dismissing", false)):
 		return
 	overlay.set_meta("dismissing", true)
+	# Yield the name immediately. A replacement sheet (picking a rack opens a
+	# confirm sheet) is added while this one is still animating out, and Godot
+	# silently renames the newcomer on a name collision — which made every
+	# lookup by name, the tutorial's target resolution included, keep finding
+	# the sheet on its way out instead of the live one.
+	if overlay is Node:
+		(overlay as Node).name = "Dismissed%s" % (overlay as Node).name
 	var sheet := overlay.find_child("ContextSheet", true, false) as Control
 	if sheet == null:
 		overlay.queue_free()
@@ -3107,6 +3160,13 @@ func _dismiss_full_overlay(overlay: CanvasItem, after: Callable = Callable()) ->
 	if not is_instance_valid(overlay) or bool(overlay.get_meta("dismissing", false)):
 		return
 	overlay.set_meta("dismissing", true)
+	# Yield the name immediately. A replacement sheet (picking a rack opens a
+	# confirm sheet) is added while this one is still animating out, and Godot
+	# silently renames the newcomer on a name collision — which made every
+	# lookup by name, the tutorial's target resolution included, keep finding
+	# the sheet on its way out instead of the live one.
+	if overlay is Node:
+		(overlay as Node).name = "Dismissed%s" % (overlay as Node).name
 	var tween := create_tween()
 	tween.tween_property(overlay, "modulate:a", 0.0, 0.20)
 	tween.tween_callback(func() -> void:
