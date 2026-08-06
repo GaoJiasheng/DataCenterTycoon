@@ -97,6 +97,12 @@ func _ready() -> void:
 		dense_plots.append({"id": "visual_plot_%d" % index, "index": index + 1, "status": "operational", "datacenter": dense_dc})
 	main.park_map.setup(dense_plots)
 	valid = (await _capture(main, "campus_dense")) and valid
+	main.call("_show_campus_overview")
+	valid = (await _capture(main, "campus_overview", false)) and valid
+	var campus_overview := main.find_child("ActionSheetOverlay", true, false)
+	if campus_overview != null:
+		campus_overview.queue_free()
+		await get_tree().process_frame
 	var alert_fault := dc.duplicate(true)
 	alert_fault["id"] = "visual_alert_fault"
 	alert_fault["power_unit"] = "power_t1"
@@ -224,7 +230,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 30 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
+	print("VISUAL_SMOKE: %s 31 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:
@@ -452,6 +458,13 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if locked_offer == null or locked_copy == null or locked_offer.custom_minimum_size.y > 96.0 or locked_copy.max_lines_visible != 1:
 			push_error("VISUAL_SMOKE: S5 locked store offer is not a compact 96u single-line rail")
 			valid = false
+	if state_name == "campus_overview":
+		var overview_sheet := main.find_child("ActionSheetOverlay", true, false) as Control
+		var first_campus := main.find_child("Choice_campus_0", true, false) as Button
+		var second_campus := main.find_child("Choice_campus_1", true, false) as Button
+		if overview_sheet == null or first_campus == null or second_campus == null or first_campus.size.y < 88.0 or second_campus.size.y < 88.0:
+			push_error("VISUAL_SMOKE: campus overview does not expose a scrollable touch-safe route for every district")
+			valid = false
 	if state_name == "ftue_spotlight":
 		var spotlight := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
 		var primary := main.find_child("PrimaryWorldAction", true, false) as Control
@@ -538,29 +551,23 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				push_error("VISUAL_SMOKE: W4 building tier escaped the shared foundation-only shadow policy: %s" % asset_id)
 				valid = false
 	if state_name == "campus_dense":
-		var path_segments := main.find_children("CampusLane_*", "TextureRect", true, false)
-		var lane_axes: Dictionary = {}
-		var production_lane_count := 0
-		for lane_node: Node in path_segments:
-			var lane := lane_node as TextureRect
-			lane_axes[str(lane.get_meta("lane_axis", ""))] = true
-			var using_iso_asset := bool(lane.get_meta("using_iso_asset", false))
-			if using_iso_asset:
-				production_lane_count += 1
-			var source_axis_angle := float(lane.get_meta("source_axis_angle", 0.0))
-			var target_axis_angle := float(lane.get_meta("target_axis_angle", 0.0))
-			var rendered_axis_angle := source_axis_angle + lane.rotation
-			if not bool(lane.get_meta("world_lane", false)) or (using_iso_asset and absf(angle_difference(rendered_axis_angle, target_axis_angle)) > 0.005) or (not using_iso_asset and not is_equal_approx(absf(tan(lane.rotation)), 0.5)):
-				push_error("VISUAL_SMOKE: dense campus lane left the shared 2:1 axis: %s rotation=%f" % [lane.name, lane.rotation])
+		var junctions := main.find_children("CampusJunction_*", "TextureRect", true, false)
+		var production_junction_count := 0
+		for junction_node: Node in junctions:
+			var junction := junction_node as TextureRect
+			var campus_index := int(junction.get_meta("campus_index", -1))
+			var row := int(junction.get_meta("junction_row", -1))
+			var expected_center: Vector2 = main.park_map.call("campus_junction_center_for_row", campus_index, row)
+			var actual_center: Vector2 = junction.get_meta("junction_center", Vector2.ZERO)
+			if bool(junction.get_meta("using_iso_asset", false)):
+				production_junction_count += 1
+			if not bool(junction.get_meta("world_lane", false)) or campus_index < 0 or row < 0 or actual_center.distance_to(expected_center) > 0.5 or not junction.size.is_equal_approx(Vector2.ONE * ParkMap.ROAD_JUNCTION_SIZE) or not is_zero_approx(junction.rotation):
+				push_error("VISUAL_SMOKE: dense campus junction escaped its centered 2:1 grid anchor: %s" % junction.name)
 				valid = false
-			var from_slot := int(lane.get_meta("lane_from_slot", -1))
-			var to_slot := int(lane.get_meta("lane_to_slot", -1))
-			var expected_from: Vector2 = main.park_map.call("road_edge_anchor_for_slots", from_slot, to_slot, 6, 8.0)
-			var expected_to: Vector2 = main.park_map.call("road_edge_anchor_for_slots", to_slot, from_slot, 6, 8.0)
-			var actual_from: Vector2 = lane.get_meta("edge_from", Vector2.ZERO)
-			var actual_to: Vector2 = lane.get_meta("edge_to", Vector2.ZERO)
-			if actual_from.distance_to(expected_from) > 0.5 or actual_to.distance_to(expected_to) > 0.5 or not is_equal_approx(float(lane.get_meta("edge_overlap", 0.0)), 8.0) or maxf(lane.size.x, lane.size.y) > 240.0:
-				push_error("VISUAL_SMOKE: W1 lane does not terminate on two 8u-overlapped pad-edge anchors: %s" % lane.name)
+			var axis_a: Vector2 = Vector2(junction.get_meta("axis_a_to", Vector2.ZERO)) - Vector2(junction.get_meta("axis_a_from", Vector2.ZERO))
+			var axis_b: Vector2 = Vector2(junction.get_meta("axis_b_to", Vector2.ZERO)) - Vector2(junction.get_meta("axis_b_from", Vector2.ZERO))
+			if not is_equal_approx(absf(axis_a.y / axis_a.x), 0.5) or not is_equal_approx(absf(axis_b.y / axis_b.x), 0.5):
+				push_error("VISUAL_SMOKE: dense campus junction axes are not 2:1: %s" % junction.name)
 				valid = false
 		var prop_types: Dictionary = {}
 		var environment_count := 0
@@ -574,16 +581,40 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				if node.has_meta("grid_slot") and float(node.get_meta("lane_clearance", 0.0)) < 20.0:
 					push_error("VISUAL_SMOKE: W2 campus prop occupies the protected road band: %s clearance=%.1f" % [node.name, float(node.get_meta("lane_clearance", 0.0))])
 					valid = false
-				if prop_type == "deco_pylon" and str(node.get_meta("deco_anchor_name", "")) != "right_rear":
-					push_error("VISUAL_SMOKE: W2 pylon is not bound to the dedicated right-rear anchor")
-					valid = false
+				if prop_type == "deco_pylon":
+					var pylon_slot := int(node.get_meta("grid_slot", -1))
+					var expected_anchor := "left_rear" if pylon_slot % 2 == 0 else "right_rear"
+					if str(node.get_meta("deco_anchor_name", "")) != expected_anchor:
+						push_error("VISUAL_SMOKE: W2 pylon is not mirrored to its column's outer-rear anchor")
+						valid = false
 			if node is Button and node.has_meta("grid_slot"):
 				grid_slots[int(node.get_meta("grid_slot"))] = true
-		if path_segments.size() != 6 or lane_axes.size() != 2:
-			push_error("VISUAL_SMOKE: dense campus lacks the six-link two-axis lane graph: links=%d axes=%d" % [path_segments.size(), lane_axes.size()])
+		var row_slots: Dictionary = {}
+		for node: Node in main.find_children("*", "Button", true, false):
+			if not node.has_meta("grid_slot"):
+				continue
+			var row := int(node.get_meta("grid_row", -1))
+			if not row_slots.has(row):
+				row_slots[row] = []
+			(row_slots[row] as Array).append(node)
+		for row: int in row_slots:
+			var row_nodes: Array = row_slots[row]
+			if row_nodes.size() == 2:
+				var first := row_nodes[0] as Control
+				var second := row_nodes[1] as Control
+				if not is_equal_approx(first.position.y, second.position.y) or not is_equal_approx(absf(first.position.x - second.position.x), ParkMap.COLUMN_STEP):
+					push_error("VISUAL_SMOKE: campus row %d is not on one strict two-column baseline" % row)
+					valid = false
+			elif row_nodes.size() == 1:
+				var only := row_nodes[0] as Control
+				if not bool(only.get_meta("grid_centered", false)) or not is_equal_approx(only.position.x + only.size.x * 0.5, main.park_map.world_size.x * 0.5):
+					push_error("VISUAL_SMOKE: lone campus row %d is not centered" % row)
+					valid = false
+		if junctions.size() != 2:
+			push_error("VISUAL_SMOKE: dense campus lacks one centered junction per row gap: %d" % junctions.size())
 			valid = false
-		if production_lane_count != path_segments.size():
-			push_error("VISUAL_SMOKE: dense campus still uses fallback orthographic roads: production=%d/%d" % [production_lane_count, path_segments.size()])
+		if production_junction_count != junctions.size():
+			push_error("VISUAL_SMOKE: dense campus still uses fallback orthographic junctions: production=%d/%d" % [production_junction_count, junctions.size()])
 			valid = false
 		var foundation_assets: Dictionary = {}
 		for foundation_node: Node in main.find_children("PlotFoundation", "TextureRect", true, false):
@@ -593,6 +624,15 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			valid = false
 		if grid_slots.size() != 7:
 			push_error("VISUAL_SMOKE: dense campus plots and sale pad do not share seven explicit grid slots: %d" % grid_slots.size())
+			valid = false
+		var campus_switcher := main.find_child("CampusSwitcher", true, false) as Control
+		var campus_markers := main.find_children("CampusMarker_*", "PanelContainer", true, false)
+		var visible_plot_count := 0
+		for plot_node: Node in main.park_map.content.get_children():
+			if plot_node is Button and plot_node.has_meta("grid_slot") and (plot_node as Control).visible:
+				visible_plot_count += 1
+		if campus_switcher == null or not campus_switcher.visible or campus_markers.size() != 2 or visible_plot_count != 6:
+			push_error("VISUAL_SMOKE: scalable campus paging is not exposing one six-plot district and its overview control switcher=%s markers=%d plots=%d" % [str(campus_switcher != null and campus_switcher.visible), campus_markers.size(), visible_plot_count])
 			valid = false
 		if prop_types.size() < 4:
 			push_error("VISUAL_SMOKE: dense campus exposes fewer than four environment prop types: %d" % prop_types.size())

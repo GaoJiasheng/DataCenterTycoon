@@ -76,7 +76,11 @@ func _run_asset_integration_tests() -> void:
 	var right_bottom: Vector2 = park_map.call("_plot_position", 3, 4)
 	var next_sale: Vector2 = park_map.call("_sale_position", 4)
 	var first_axis := right_top - left_top
-	var campus_grid_ok := first_axis.is_equal_approx(Vector2(ParkMap.COLUMN_STEP, ParkMap.ISO_RISE)) and (left_bottom - left_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and (right_bottom - right_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and is_equal_approx(absf(first_axis.y / first_axis.x), 0.5) and next_sale.is_equal_approx(park_map.call("_plot_position", 4, 5)) and bool(plot_button.get_meta("grid_slot", -1) == 0)
+	var paired_sale: Vector2 = park_map.call("_sale_position", 3)
+	var next_campus_sale: Vector2 = park_map.call("_sale_position", 6)
+	var next_campus_first: Vector2 = park_map.call("_plot_position", 6, 12)
+	var campus_center_x := park_map.world_size.x * 0.5 - ParkMap.PLOT_SIZE.x * 0.5
+	var campus_grid_ok := first_axis.is_equal_approx(Vector2(ParkMap.COLUMN_STEP, 0.0)) and is_equal_approx(left_top.y, right_top.y) and is_equal_approx(left_bottom.y, right_bottom.y) and (left_bottom - left_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and (right_bottom - right_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and is_equal_approx(next_sale.x, campus_center_x) and is_equal_approx(next_sale.y, ParkMap.CAMPUS_TOP + ParkMap.ROW_STEP * 2.0) and paired_sale.is_equal_approx(Vector2(ParkMap.CAMPUS_LEFT + ParkMap.COLUMN_STEP, ParkMap.CAMPUS_TOP + ParkMap.ROW_STEP)) and next_campus_sale.is_equal_approx(Vector2(campus_center_x, ParkMap.CAMPUS_TOP + ParkMap.CAMPUS_BLOCK_STEP)) and next_campus_first.is_equal_approx(Vector2(ParkMap.CAMPUS_LEFT, ParkMap.CAMPUS_TOP + ParkMap.CAMPUS_BLOCK_STEP)) and bool(plot_button.get_meta("grid_slot", -1) == 0)
 	# The cinematic polish stays presentation-only and must clean up after itself.
 	Game.reset_for_tests()
 	Game.start_datacenter_construction("plot_1", "dc_t0")

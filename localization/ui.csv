@@ -7,6 +7,14 @@ NAV_MARKET,Market,行情
 NAV_TECH,Tech,科技
 NAV_STORE,Store,商店
 NAV_SETTINGS,Settings,设置
+CAMPUS_OVERVIEW,Campus overview,园区总览
+CAMPUS_OVERVIEW_SUBTITLE,Choose a campus to inspect its buildings and pending work,选择园区查看机房与待办事项
+CAMPUS_OVERVIEW_CARD,Campus %02d · %d centers · $%s/mo · %d alerts,园区 %02d · %d 座机房 · $%s/月 · %d 项待办
+CAMPUS_SWITCH_FORMAT,Campus %d / %d,园区 %d / %d
+CAMPUS_PREVIOUS,Previous campus,上一园区
+CAMPUS_NEXT,Next campus,下一园区
+CAMPUS_WORLD_SUMMARY,Campus %02d · %d centers · $%s/mo,园区 %02d · %d 座 · $%s/月
+CAMPUS_WORLD_EMPTY,Campus %02d · Expansion site,园区 %02d · 待扩建
 OPERATIONS_CENTER,Task center,待办中心
 OPERATIONS_SUBTITLE,Run the company without leaving the park,不离开园区即可管理公司
 OPERATIONS_SHORT,Ops,运营

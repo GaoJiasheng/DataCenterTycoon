@@ -43,6 +43,10 @@ var park_map: ParkMap
 var shell_header: PanelContainer
 var news_panel: PanelContainer
 var navigation_panel: PanelContainer
+var campus_switcher: PanelContainer
+var campus_switch_label: Label
+var campus_previous_button: Button
+var campus_next_button: Button
 var era_icon: TextureRect
 var company_label: Label
 var primary_action_button: Button
@@ -177,6 +181,7 @@ func _build_shell() -> void:
 	park_map.buy_plot_requested.connect(_show_plot_purchase)
 	world_host.add_child(park_map)
 	park_map.alert_selected.connect(_on_world_alert_selected)
+	park_map.campus_changed.connect(_on_campus_changed)
 
 	# Keep the safe-area shell as a plain Control. A MarginContainer propagates
 	# the minimum height of long scroll pages back into the entire shell, which
@@ -292,6 +297,7 @@ func _build_shell() -> void:
 	news_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	news_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	news_panel.add_child(news_label)
+	_build_campus_switcher(stage)
 
 	navigation_panel = PanelContainer.new()
 	navigation_panel.name = "WorldActions"
@@ -373,6 +379,104 @@ func _build_shell() -> void:
 	toast_label.add_theme_stylebox_override("normal", ThemeMaker.panel(Color(0.05, 0.08, 0.13, 0.94), ThemeMaker.COLORS.sky, 2, 20))
 	add_child(toast_label)
 
+func _build_campus_switcher(stage: Control) -> void:
+	campus_switcher = PanelContainer.new()
+	campus_switcher.name = "CampusSwitcher"
+	campus_switcher.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	campus_switcher.offset_left = 210
+	campus_switcher.offset_top = 166
+	campus_switcher.offset_right = -210
+	campus_switcher.offset_bottom = 254
+	campus_switcher.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("162b40"), 0.94, 24, Color(ThemeMaker.COLORS.ivory, 0.34)))
+	campus_switcher.mouse_filter = Control.MOUSE_FILTER_STOP
+	campus_switcher.visible = false
+	stage.add_child(campus_switcher)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	campus_switcher.add_child(row)
+	campus_previous_button = Button.new()
+	campus_previous_button.name = "CampusPrevious"
+	campus_previous_button.text = "‹"
+	campus_previous_button.custom_minimum_size = Vector2(88, 88)
+	campus_previous_button.tooltip_text = tr("CAMPUS_PREVIOUS")
+	campus_previous_button.pressed.connect(_step_campus.bind(-1))
+	ThemeMaker.apply_compact_button(campus_previous_button, ThemeMaker.COLORS.sky)
+	campus_previous_button.add_theme_font_size_override("font_size", 38)
+	campus_previous_button.add_theme_color_override("font_color", Color.WHITE)
+	campus_previous_button.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+	campus_previous_button.add_theme_constant_override("outline_size", 4)
+	row.add_child(campus_previous_button)
+	var overview_button := Button.new()
+	overview_button.name = "CampusOverviewButton"
+	overview_button.custom_minimum_size.y = 88
+	overview_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	overview_button.tooltip_text = tr("CAMPUS_OVERVIEW")
+	overview_button.pressed.connect(_show_campus_overview)
+	ThemeMaker.apply_compact_button(overview_button, ThemeMaker.COLORS.sky)
+	row.add_child(overview_button)
+	campus_switch_label = _label("", 22, Color.WHITE)
+	campus_switch_label.name = "CampusSwitchLabel"
+	campus_switch_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	campus_switch_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	campus_switch_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	campus_switch_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overview_button.add_child(campus_switch_label)
+	campus_next_button = Button.new()
+	campus_next_button.name = "CampusNext"
+	campus_next_button.text = "›"
+	campus_next_button.custom_minimum_size = Vector2(88, 88)
+	campus_next_button.tooltip_text = tr("CAMPUS_NEXT")
+	campus_next_button.pressed.connect(_step_campus.bind(1))
+	ThemeMaker.apply_compact_button(campus_next_button, ThemeMaker.COLORS.sky)
+	campus_next_button.add_theme_font_size_override("font_size", 38)
+	campus_next_button.add_theme_color_override("font_color", Color.WHITE)
+	campus_next_button.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+	campus_next_button.add_theme_constant_override("outline_size", 4)
+	row.add_child(campus_next_button)
+
+func _on_campus_changed(_index: int, _count: int) -> void:
+	_refresh_campus_switcher()
+
+func _refresh_campus_switcher() -> void:
+	if campus_switcher == null or park_map == null:
+		return
+	var count := park_map.campus_count()
+	var index := park_map.active_campus_index()
+	campus_switcher.visible = active_page == "map" and count > 1
+	campus_switch_label.text = tr("CAMPUS_SWITCH_FORMAT") % [index + 1, count]
+	campus_previous_button.disabled = index <= 0
+	campus_next_button.disabled = index >= count - 1
+
+func _step_campus(delta: int) -> void:
+	if park_map == null:
+		return
+	park_map.focus_campus(park_map.active_campus_index() + delta)
+	_haptic(HAPTIC_LIGHT)
+
+func _show_campus_overview() -> void:
+	if park_map == null:
+		return
+	var choices: Array[Dictionary] = []
+	var active_index := park_map.active_campus_index()
+	for summary: Dictionary in park_map.campus_summaries():
+		var campus_index := int(summary.get("index", 0))
+		var alert_count := int(summary.get("alert_count", 0))
+		var text := tr("CAMPUS_OVERVIEW_CARD") % [
+			campus_index + 1,
+			int(summary.get("building_count", 0)),
+			Game.format_number(float(summary.get("income", 0.0))),
+			alert_count,
+		]
+		choices.append({
+			"id": "campus_%d" % campus_index,
+			"text": text,
+			"color": ThemeMaker.COLORS.green.darkened(0.20) if campus_index == active_index else Color("29445c"),
+		})
+	_present_action_sheet(tr("CAMPUS_OVERVIEW"), tr("CAMPUS_OVERVIEW_SUBTITLE"), choices, func(choice: String) -> void:
+		if choice.begins_with("campus_"):
+			park_map.focus_campus(int(choice.trim_prefix("campus_")))
+	)
+
 func _connect_events() -> void:
 	EventBus.state_changed.connect(_on_state_changed)
 	EventBus.toast_requested.connect(_on_toast_requested)
@@ -416,6 +520,7 @@ func _refresh_hud() -> void:
 	var market: Dictionary = Game.state.get("market", {})
 	var has_news: bool = not market.get("active", []).is_empty() or not market.get("previews", []).is_empty()
 	news_panel.visible = active_page == "map" and has_news
+	_refresh_campus_switcher()
 	var queue_size: int = Game.state.get("construction_queue", []).size()
 	queue_badge_label.text = str(queue_size)
 	queue_badge_label.visible = queue_size > 0
@@ -3120,9 +3225,19 @@ func _handle_result(result: Dictionary) -> void:
 	if bool(result.get("ok", false)):
 		_haptic(HAPTIC_MEDIUM)
 		_show_toast(tr("TOAST_CONSTRUCTION_STARTED") if result.has("construction") or result.has("rack_installation") else tr("CONFIRM"), "sfx_success_chime")
+		if result.has("plot_id"):
+			_deferred_focus_world_target(str(result.get("plot_id", "")))
 	else:
 		_show_toast(_reason_text(str(result.get("reason", "unknown"))), "sfx_error_thud")
 	_request_hud_refresh()
+
+func _deferred_focus_world_target(target_id: String) -> void:
+	# Plot purchase schedules a full state refresh. Wait for the rebuilt target
+	# dictionary, then reveal the campus that owns the newly purchased parcel.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if active_page == "map" and park_map != null and not target_id.is_empty():
+		park_map.focus_target(target_id)
 
 func _reason_text(reason: String) -> String:
 	var keys := {

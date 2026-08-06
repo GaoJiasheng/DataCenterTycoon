@@ -8,21 +8,21 @@ signal datacenter_selected(datacenter_id: String)
 signal empty_plot_selected(plot_id: String)
 signal buy_plot_requested
 signal alert_selected(datacenter_id: String, alert_type: String, slot: int)
+signal campus_changed(index: int, count: int)
 
 const MIN_ZOOM := 0.7
 const MAX_ZOOM := 1.45
 const PLOT_SIZE := Vector2(344, 260)
 const PLOT_LANE := 40.0
 const CAMPUS_LEFT := 38.0
-const CAMPUS_TOP := 18.0
+const CAMPUS_TOP := 88.0
 const COLUMN_STEP := 384.0 # PLOT_SIZE.x + PLOT_LANE
-const ISO_RISE := 192.0 # 2:1 axis rise for one column step
-const ROW_STEP := 384.0
-const ROAD_EDGE_OVERLAP := 8.0
-const ROAD_SPRITE_PADDING := 8.0
-const ROAD_PAD_ANCHOR_REACH_X := 112.0
-const ROAD_ISO_A_SOURCE_ANGLE := deg_to_rad(-31.1913)
-const ROAD_ISO_B_SOURCE_ANGLE := deg_to_rad(30.7479)
+const ROW_STEP := 300.0 # PLOT_SIZE.y + PLOT_LANE
+const PLOTS_PER_CAMPUS := 6
+const ROWS_PER_CAMPUS := 3
+const CAMPUS_BLOCK_STEP := 1040.0
+const ROAD_JUNCTION_SIZE := 128.0
+const ROAD_AXIS_HALF := Vector2(64.0, 32.0)
 const DECO_LANE_CLEARANCE := 20.0
 const SALE_PRICE_GAP := 12.0
 const SALE_ART_VISIBLE_BOTTOM := 190.0
@@ -66,6 +66,10 @@ var _glow_art: Array[TextureRect] = []
 var _construction_labels: Array[Dictionary] = []
 var _countdown_accumulator := 0.0
 var _campus_bounds := Rect2()
+var _campus_bounds_by_index: Dictionary = {}
+var _campus_summaries: Array[Dictionary] = []
+var _campus_count := 1
+var _active_campus_index := 0
 var _default_zoom := 1.02
 var _default_camera_offset := Vector2(-8, 300)
 var _building_variant_shader: Shader
@@ -226,6 +230,11 @@ func setup(plots: Array) -> void:
 	var owned_count := plots.size()
 	var slot_count := owned_count + 1 # Include the next purchasable parcel.
 	_campus_bounds = Rect2()
+	_campus_bounds_by_index.clear()
+	_campus_count = _campus_count_for_slots(slot_count)
+	_active_campus_index = clampi(_active_campus_index, 0, _campus_count - 1)
+	_campus_summaries = _build_campus_summaries(plots, slot_count)
+	_add_campus_markers()
 	_add_campus_paths(plots)
 	_add_environment_props(plots)
 	_add_decorations(slot_count)
@@ -233,9 +242,9 @@ func setup(plots: Array) -> void:
 		var plot: Dictionary = plots[index]
 		var position := _plot_position(index, owned_count)
 		var plot_button := _plot_button(plot, position)
-		_configure_grid_slot(plot_button, index, position)
+		_configure_grid_slot(plot_button, index, position, slot_count)
 		content.add_child(plot_button)
-		_include_campus_rect(Rect2(position, PLOT_SIZE))
+		_include_campus_rect(Rect2(position, PLOT_SIZE), _campus_index_for_slot(index))
 		target_buttons[str(plot.get("id", ""))] = plot_button
 		var raw_dc: Variant = plot.get("datacenter", {})
 		if raw_dc is Dictionary and not raw_dc.is_empty():
@@ -249,13 +258,15 @@ func setup(plots: Array) -> void:
 		"price"
 	)
 	sale.position = _sale_position(owned_count)
-	_configure_grid_slot(sale, owned_count, sale.position)
+	_configure_grid_slot(sale, owned_count, sale.position, slot_count)
 	sale.pressed.connect(func() -> void: buy_plot_requested.emit())
 	content.add_child(sale)
-	_include_campus_rect(Rect2(sale.position, PLOT_SIZE))
+	_include_campus_rect(Rect2(sale.position, PLOT_SIZE), _campus_index_for_slot(owned_count))
 	target_buttons["sale"] = sale
 	world_size = Vector2(804, maxf(1748.0, _campus_bounds.end.y + 560.0))
+	_apply_campus_visibility()
 	_frame_campus(false)
+	campus_changed.emit(_active_campus_index, _campus_count)
 	queue_redraw()
 
 func reset_camera() -> void:
@@ -269,6 +280,11 @@ func focus_target(target_id: String) -> void:
 	var target := target_buttons.get(target_id) as Control
 	if target == null:
 		return
+	var target_campus := int(target.get_meta("campus_index", _active_campus_index))
+	if target_campus != _active_campus_index:
+		_active_campus_index = target_campus
+		_apply_campus_visibility()
+		campus_changed.emit(_active_campus_index, _campus_count)
 	zoom = 1.10
 	var world_center := target.position + target.size * 0.5
 	camera_offset = Vector2(size.x * 0.5, size.y * 0.35) - world_center * zoom
@@ -290,6 +306,25 @@ func world_position_of(target_id: String) -> Vector2:
 
 func target_control_of(target_id: String) -> Control:
 	return target_buttons.get(target_id) as Control
+
+func campus_count() -> int:
+	return _campus_count
+
+func active_campus_index() -> int:
+	return _active_campus_index
+
+func campus_summaries() -> Array[Dictionary]:
+	return _campus_summaries.duplicate(true)
+
+func focus_campus(index: int, animate: bool = true) -> void:
+	var next_index := clampi(index, 0, _campus_count - 1)
+	if next_index == _active_campus_index and animate:
+		_frame_campus(true)
+		return
+	_active_campus_index = next_index
+	_apply_campus_visibility()
+	_frame_campus(animate)
+	campus_changed.emit(_active_campus_index, _campus_count)
 
 func building_rect(datacenter_id: String) -> Rect2:
 	var target := target_buttons.get(datacenter_id) as Control
@@ -423,7 +458,7 @@ func _add_decorations(slot_count: int) -> void:
 	# Ambient motion follows the same two 2:1 axes as the explicit parcel grid.
 	_add_wind_streak(Vector2(-180, 560), 0.0, 1.0)
 	_add_wind_streak(Vector2(820, 910), 4.5, -1.0)
-	var last_slot := _plot_position(maxi(0, slot_count - 1), slot_count)
+	var last_slot := _slot_position(maxi(0, slot_count - 1), slot_count)
 	var campus_bottom := maxf(690.0, last_slot.y + PLOT_SIZE.y)
 	var trees: Array[TextureRect] = []
 	# Decorations live in reserved outer gutters. They never occupy a parcel slot
@@ -440,93 +475,120 @@ func _add_decorations(slot_count: int) -> void:
 	_add_world_prop("prop_bush_row", Vector2(-34, campus_bottom + 68), Vector2(142, 90), "outer_left")
 	_add_world_prop("prop_bush_row", Vector2(696, campus_bottom + 132), Vector2(142, 90), "outer_right")
 
-func _add_campus_paths(plots: Array) -> void:
-	var fallback_texture := AssetCatalog.texture("ground_path_straight")
-	var slot_count := plots.size() + 1
-	if slot_count < 2:
-		return
-	for slot: int in range(slot_count - 1):
-		# Roads bridge only adjacent pad-edge anchors. The 8u inward overlap hides
-		# antialias seams without letting the road sprite continue through a pad.
-		var from := _road_edge_anchor(slot, slot + 1, plots.size(), ROAD_EDGE_OVERLAP)
-		var to := _road_edge_anchor(slot + 1, slot, plots.size(), ROAD_EDGE_OVERLAP)
-		var direction := to - from
-		# road_iso_a is the / axis, road_iso_b is the \\ axis. A road is
-		# undirected, so the X sign selects the sprite matching this grid edge.
-		var asset_id := "road_iso_b" if direction.x > 0.0 else "road_iso_a"
-		var texture := AssetCatalog.texture(asset_id)
-		var uses_iso_asset := texture != null
-		if texture == null:
-			texture = fallback_texture
-		if texture != null:
-			_add_path_segment(from, to, texture, slot, asset_id, uses_iso_asset)
+func _build_campus_summaries(plots: Array, slot_count: int) -> Array[Dictionary]:
+	var summaries: Array[Dictionary] = []
+	for campus_index: int in range(_campus_count_for_slots(slot_count)):
+		var building_count := 0
+		var alert_count := 0
+		var income := 0.0
+		var first_slot := campus_index * PLOTS_PER_CAMPUS
+		var last_slot := mini(first_slot + PLOTS_PER_CAMPUS, plots.size())
+		for slot: int in range(first_slot, last_slot):
+			var plot: Dictionary = plots[slot]
+			var raw_dc: Variant = plot.get("datacenter", {})
+			if not raw_dc is Dictionary or raw_dc.is_empty():
+				continue
+			var dc: Dictionary = raw_dc
+			building_count += 1
+			income += Game.datacenter_monthly_income(dc)
+			if not _datacenter_alert(dc).is_empty():
+				alert_count += 1
+		summaries.append({
+			"index": campus_index,
+			"building_count": building_count,
+			"plot_count": maxi(0, last_slot - first_slot),
+			"income": income,
+			"alert_count": alert_count,
+			"has_sale": slot_count - 1 >= first_slot and slot_count - 1 < first_slot + PLOTS_PER_CAMPUS,
+		})
+	return summaries
 
-func _add_path_segment(from: Vector2, to: Vector2, texture: Texture2D, slot: int, asset_id: String = "ground_path_straight", uses_iso_asset: bool = false) -> void:
-	var distance := from.distance_to(to)
-	if distance < 32.0:
+func _add_campus_markers() -> void:
+	for summary: Dictionary in _campus_summaries:
+		var campus_index := int(summary.get("index", 0))
+		var marker := PanelContainer.new()
+		marker.name = "CampusMarker_%d" % campus_index
+		marker.position = Vector2(238, _campus_origin_y(campus_index) - 70.0)
+		marker.size = Vector2(328, 54)
+		marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		marker.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("18344d"), 0.90, 18, Color(ThemeMaker.COLORS.ivory, 0.36)))
+		marker.set_meta("campus_index", campus_index)
+		marker.set_meta("campus_marker", true)
+		var label := Label.new()
+		label.name = "CampusMarkerLabel"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		label.add_theme_font_override("font", ThemeMaker.font_bold())
+		label.add_theme_font_size_override("font_size", 20)
+		label.add_theme_color_override("font_color", Color.WHITE)
+		label.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+		label.add_theme_constant_override("outline_size", 3)
+		var building_count := int(summary.get("building_count", 0))
+		label.text = tr("CAMPUS_WORLD_EMPTY") % (campus_index + 1) if building_count == 0 else tr("CAMPUS_WORLD_SUMMARY") % [campus_index + 1, building_count, Game.format_number(float(summary.get("income", 0.0)))]
+		marker.add_child(label)
+		content.add_child(marker)
+		_include_campus_rect(Rect2(marker.position, marker.size), campus_index)
+
+func _add_campus_paths(plots: Array) -> void:
+	var slot_count := plots.size() + 1
+	if slot_count < 3:
 		return
+	var texture := AssetCatalog.texture("road_iso_cross")
+	var asset_id := "road_iso_cross"
+	var uses_iso_asset := texture != null
+	if texture == null:
+		texture = AssetCatalog.texture("ground_path_cross")
+		asset_id = "ground_path_cross"
+	if texture == null:
+		return
+	for campus_index: int in range(_campus_count_for_slots(slot_count)):
+		var campus_slots := mini(PLOTS_PER_CAMPUS, slot_count - campus_index * PLOTS_PER_CAMPUS)
+		var row_count := int(ceili(float(campus_slots) / 2.0))
+		for row: int in range(maxi(0, row_count - 1)):
+			_add_campus_junction(campus_index, row, texture, asset_id, uses_iso_asset)
+
+func _add_campus_junction(campus_index: int, row: int, texture: Texture2D, asset_id: String, uses_iso_asset: bool) -> void:
+	var center := _campus_junction_center(campus_index, row)
 	var view := TextureRect.new()
-	var direction := to - from
-	var axis := "a" if direction.x > 0.0 else "b"
-	view.name = "CampusLane_%s_%d" % [axis, slot]
+	view.name = "CampusJunction_%d_%d" % [campus_index, row]
 	view.texture = texture
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	if uses_iso_asset:
-		# The final road art is already rendered on the shared 2:1 axes. Its
-		# generated pixels are about four degrees steeper than the actual 2:1
-		# campus grid, so apply only that measured correction. This keeps the
-		# baked perspective while making the visible centreline meet both pads.
-		view.size = Vector2.ONE * (distance + ROAD_SPRITE_PADDING)
-		view.position = (from + to) * 0.5 - view.size * 0.5
-		var source_angle := ROAD_ISO_B_SOURCE_ANGLE if asset_id == "road_iso_b" else ROAD_ISO_A_SOURCE_ANGLE
-		var target_angle := direction.angle()
-		if target_angle > PI * 0.5:
-			target_angle -= PI
-		elif target_angle < -PI * 0.5:
-			target_angle += PI
-		view.rotation = target_angle - source_angle
-		view.set_meta("source_axis_angle", source_angle)
-		view.set_meta("target_axis_angle", target_angle)
-	else:
-		view.size = Vector2(distance + ROAD_SPRITE_PADDING, 56.0)
-		view.position = (from + to) * 0.5 - view.size * 0.5
-		view.rotation = direction.angle()
+	view.size = Vector2.ONE * ROAD_JUNCTION_SIZE
+	view.position = center - view.size * 0.5
 	view.pivot_offset = view.size * 0.5
 	view.modulate = Color(1, 1, 1, 0.94)
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.set_meta("world_environment", true)
 	view.set_meta("world_lane", true)
-	view.set_meta("lane_axis", axis)
-	view.set_meta("lane_from_slot", slot)
-	view.set_meta("lane_to_slot", slot + 1)
-	view.set_meta("lane_asset_id", asset_id if uses_iso_asset else "ground_path_straight")
+	view.set_meta("campus_index", campus_index)
+	view.set_meta("junction_row", row)
+	view.set_meta("junction_center", center)
+	view.set_meta("lane_asset_id", asset_id)
 	view.set_meta("using_iso_asset", uses_iso_asset)
-	view.set_meta("edge_from", from)
-	view.set_meta("edge_to", to)
-	view.set_meta("edge_overlap", ROAD_EDGE_OVERLAP)
+	view.set_meta("axis_a_from", center - ROAD_AXIS_HALF)
+	view.set_meta("axis_a_to", center + ROAD_AXIS_HALF)
+	view.set_meta("axis_b_from", center + Vector2(-ROAD_AXIS_HALF.x, ROAD_AXIS_HALF.y))
+	view.set_meta("axis_b_to", center + Vector2(ROAD_AXIS_HALF.x, -ROAD_AXIS_HALF.y))
 	content.add_child(view)
 
-func _road_edge_anchor(from_slot: int, toward_slot: int, plot_count: int, overlap: float = 0.0) -> Vector2:
-	var center := _plot_position(from_slot, plot_count) + PLOT_SIZE * 0.5
-	var toward := _plot_position(toward_slot, plot_count) + PLOT_SIZE * 0.5
-	var delta := toward - center
-	if delta.is_zero_approx():
-		return center
-	# The concrete pad is a cropped isometric diamond inside the 344x260 touch
-	# rect. Its two visible lane midpoints sit 112x56 from the logical center;
-	# using the touch-rect edge produces the old center-through-pad overshoot.
-	var scale_to_edge := ROAD_PAD_ANCHOR_REACH_X / maxf(absf(delta.x), 0.001)
-	var boundary := center + delta * scale_to_edge
-	return boundary - delta.normalized() * overlap
+func _campus_junction_center(campus_index: int, row: int) -> Vector2:
+	return Vector2(
+		world_size.x * 0.5,
+		_campus_origin_y(campus_index) + float(row + 1) * ROW_STEP - PLOT_LANE * 0.5
+	)
 
-func road_edge_anchor_for_slots(from_slot: int, toward_slot: int, plot_count: int, overlap: float = ROAD_EDGE_OVERLAP) -> Vector2:
-	return _road_edge_anchor(from_slot, toward_slot, plot_count, overlap)
+func campus_junction_center_for_row(campus_index: int, row: int) -> Vector2:
+	return _campus_junction_center(campus_index, row)
 
 func _add_environment_props(plots: Array) -> void:
+	var campus_pylon_placed: Dictionary = {}
+	var campus_prop_counts: Dictionary = {}
 	for array_index: int in range(plots.size()):
 		var plot: Dictionary = plots[array_index]
 		var plot_index := int(plot.get("index", array_index + 1))
+		var campus_index := _campus_index_for_slot(array_index)
 		var plot_origin := _plot_position(array_index, plots.size())
 		var raw_dc: Variant = plot.get("datacenter", {})
 		var powered: bool = false
@@ -534,18 +596,22 @@ func _add_environment_props(plots: Array) -> void:
 			var dc_data: Dictionary = raw_dc
 			powered = not dc_data.is_empty() and not str(dc_data.get("power_unit", "")).is_empty()
 		var used_anchors: Array[int] = []
-		if powered:
-			var pylon_dimensions := Vector2(132, 132)
-			var pylon_position := _pylon_deco_position(plot_origin, pylon_dimensions)
+		if powered and not campus_pylon_placed.has(campus_index):
+			var pylon_dimensions := Vector2(104, 104)
+			var pylon_position := _pylon_deco_position(plot_origin, pylon_dimensions, array_index % 2)
 			var pylon := _add_world_prop("deco_pylon", pylon_position, pylon_dimensions, "%d_power" % plot_index)
 			if pylon != null:
 				var pylon_clearance := _distance_to_campus_lanes(pylon_position + pylon_dimensions * 0.5, plots.size() + 1)
 				pylon.set_meta("grid_slot", array_index)
-				pylon.set_meta("deco_anchor", 1)
-				pylon.set_meta("deco_anchor_name", "right_rear")
+				pylon.set_meta("campus_index", campus_index)
+				pylon.set_meta("deco_anchor", 0 if array_index % 2 == 0 else 1)
+				pylon.set_meta("deco_anchor_name", "left_rear" if array_index % 2 == 0 else "right_rear")
 				pylon.set_meta("lane_clearance", pylon_clearance)
-				used_anchors.append(1)
-		var prop_count := 0 if plot_index % 3 == 0 else (1 if powered else plot_index % 3)
+				used_anchors.append(0 if array_index % 2 == 0 else 1)
+				campus_pylon_placed[campus_index] = true
+		var campus_prop_count := int(campus_prop_counts.get(campus_index, 0))
+		var requested_prop_count := 0 if plot_index % 3 == 0 else (1 if powered else plot_index % 3)
+		var prop_count := mini(requested_prop_count, maxi(0, 4 - campus_prop_count))
 		for slot: int in range(prop_count):
 			var prop_type := (plot_index - 1 + slot) % 4
 			# The inner-side anchors are reserved for the two road axes. Regular
@@ -562,21 +628,30 @@ func _add_environment_props(plots: Array) -> void:
 			if prop != null:
 				var prop_clearance := _distance_to_campus_lanes(prop.position + prop.size * 0.5, plots.size() + 1)
 				prop.set_meta("grid_slot", array_index)
+				prop.set_meta("campus_index", campus_index)
 				prop.set_meta("deco_anchor", anchor)
 				prop.set_meta("lane_clearance", prop_clearance)
 				used_anchors.append(anchor)
+				campus_prop_count += 1
+		campus_prop_counts[campus_index] = campus_prop_count
 
-func _pylon_deco_position(plot_origin: Vector2, dimensions: Vector2) -> Vector2:
-	# Dedicated right-rear anchor, outside both the road band and building art.
-	var anchor_center := plot_origin + Vector2(PLOT_SIZE.x + 20.0, -56.0)
+func _pylon_deco_position(plot_origin: Vector2, dimensions: Vector2, column: int) -> Vector2:
+	# Power fixtures mirror to the outer rear corner of their column. Keeping the
+	# center corridor empty is part of the campus alignment contract: junctions
+	# must remain readable instead of being covered by a differently sized prop.
+	var anchor_x := 52.0 if column == 0 else PLOT_SIZE.x - 52.0
+	var anchor_center := plot_origin + Vector2(anchor_x, -44.0)
 	return anchor_center - dimensions * 0.5
 
 func _distance_to_campus_lanes(point: Vector2, slot_count: int) -> float:
 	var nearest := INF
-	for slot: int in range(maxi(0, slot_count - 1)):
-		var from := _road_edge_anchor(slot, slot + 1, slot_count - 1, 0.0)
-		var to := _road_edge_anchor(slot + 1, slot, slot_count - 1, 0.0)
-		nearest = minf(nearest, _point_segment_distance(point, from, to))
+	for campus_index: int in range(_campus_count_for_slots(slot_count)):
+		var campus_slots := mini(PLOTS_PER_CAMPUS, slot_count - campus_index * PLOTS_PER_CAMPUS)
+		var row_count := int(ceili(float(campus_slots) / 2.0))
+		for row: int in range(maxi(0, row_count - 1)):
+			var center := _campus_junction_center(campus_index, row)
+			nearest = minf(nearest, _point_segment_distance(point, center - ROAD_AXIS_HALF, center + ROAD_AXIS_HALF))
+			nearest = minf(nearest, _point_segment_distance(point, center + Vector2(-ROAD_AXIS_HALF.x, ROAD_AXIS_HALF.y), center + Vector2(ROAD_AXIS_HALF.x, -ROAD_AXIS_HALF.y)))
 	return nearest
 
 func _point_segment_distance(point: Vector2, from: Vector2, to: Vector2) -> float:
@@ -862,25 +937,47 @@ func _configure_construction_timer(button: Button, label: Label, construction: D
 	progress.value = clampf(Game.simulation_time() - started, 0.0, progress.max_value)
 	_construction_labels.append({"label": label, "progress": progress, "construction_id": str(construction.get("id", "")), "started_at": started, "complete_at": completed})
 
-func _plot_position(index: int, _owned_count: int) -> Vector2:
-	var column := index % 2
-	var row := index / 2
-	# The second bay rises by exactly half its horizontal step, so consecutive
-	# slots alternate across the two 2:1 isometric axes instead of forming a
-	# screen-space rectangle. No odd-row centering exception may break this grid.
-	return Vector2(CAMPUS_LEFT + column * COLUMN_STEP, CAMPUS_TOP + row * ROW_STEP + column * ISO_RISE)
+func _campus_count_for_slots(slot_count: int) -> int:
+	return maxi(1, int(ceili(float(slot_count) / float(PLOTS_PER_CAMPUS))))
+
+func _campus_index_for_slot(index: int) -> int:
+	return maxi(0, index / PLOTS_PER_CAMPUS)
+
+func _campus_origin_y(campus_index: int) -> float:
+	return CAMPUS_TOP + float(campus_index) * CAMPUS_BLOCK_STEP
+
+func _slot_position(index: int, slot_count: int) -> Vector2:
+	var campus_index := _campus_index_for_slot(index)
+	var local_index := index % PLOTS_PER_CAMPUS
+	var column := local_index % 2
+	var row := local_index / 2
+	# A lone final parcel sits on the campus centerline. Every complete row uses
+	# the exact same two X anchors and one shared baseline; no staggered snake is
+	# allowed to creep back into the world layout.
+	if slot_count % 2 == 1 and index == slot_count - 1:
+		return Vector2((world_size.x - PLOT_SIZE.x) * 0.5, _campus_origin_y(campus_index) + row * ROW_STEP)
+	return Vector2(CAMPUS_LEFT + column * COLUMN_STEP, _campus_origin_y(campus_index) + row * ROW_STEP)
+
+func _plot_position(index: int, owned_count: int) -> Vector2:
+	return _slot_position(index, owned_count + 1)
 
 func _sale_position(owned_count: int) -> Vector2:
-	return _plot_position(owned_count, owned_count + 1)
+	return _slot_position(owned_count, owned_count + 1)
 
-func _configure_grid_slot(button: Button, slot: int, at: Vector2) -> void:
+func _configure_grid_slot(button: Button, slot: int, at: Vector2, slot_count: int) -> void:
 	# Slot order follows increasing world Y, so it provides the same stable
 	# painter's order without leaking unbounded pixel coordinates into the root
 	# canvas Z range. The cap guarantees even very large parks stay below pages.
 	button.z_index = 10 + mini(slot, 1024)
 	button.set_meta("grid_slot", slot)
-	button.set_meta("grid_column", slot % 2)
-	button.set_meta("grid_row", slot / 2)
+	var campus_index := _campus_index_for_slot(slot)
+	var local_slot := slot % PLOTS_PER_CAMPUS
+	var centered := slot_count % 2 == 1 and slot == slot_count - 1
+	button.set_meta("grid_column", -1 if centered else slot % 2)
+	button.set_meta("grid_row", campus_index * ROWS_PER_CAMPUS + local_slot / 2)
+	button.set_meta("campus_index", campus_index)
+	button.set_meta("campus_row", local_slot / 2)
+	button.set_meta("grid_centered", centered)
 	button.set_meta("grid_origin", at)
 	button.set_meta("grid_center", at + PLOT_SIZE * 0.5)
 
@@ -1058,22 +1155,26 @@ func _visible_world_texture(texture: Texture2D) -> Texture2D:
 	_world_texture_cache[cache_key] = cropped
 	return cropped
 
-func _include_campus_rect(rect: Rect2) -> void:
+func _include_campus_rect(rect: Rect2, campus_index: int = -1) -> void:
 	_campus_bounds = rect if _campus_bounds.size == Vector2.ZERO else _campus_bounds.merge(rect)
+	if campus_index >= 0:
+		var existing: Rect2 = _campus_bounds_by_index.get(campus_index, Rect2())
+		_campus_bounds_by_index[campus_index] = rect if existing.size == Vector2.ZERO else existing.merge(rect)
 
 func _frame_campus(animate: bool) -> void:
-	if _campus_bounds.size == Vector2.ZERO:
+	var frame_bounds: Rect2 = _campus_bounds_by_index.get(_active_campus_index, _campus_bounds)
+	if frame_bounds.size == Vector2.ZERO:
 		_apply_camera()
 		return
 	var viewport_size := size
 	if viewport_size.x < 1.0 or viewport_size.y < 1.0:
 		viewport_size = Vector2(804, 1748)
 	var safe_height := maxf(560.0, viewport_size.y - CAMPUS_SAFE_TOP - CAMPUS_SAFE_BOTTOM)
-	var fit_x := (viewport_size.x - 64.0) / _campus_bounds.size.x
-	var fit_y := safe_height / _campus_bounds.size.y
+	var fit_x := (viewport_size.x - 64.0) / frame_bounds.size.x
+	var fit_y := safe_height / frame_bounds.size.y
 	zoom = clampf(minf(fit_x, fit_y), 0.82, 1.06)
 	var safe_center := Vector2(viewport_size.x * 0.5, CAMPUS_SAFE_TOP + safe_height * 0.5)
-	camera_offset = safe_center - _campus_bounds.get_center() * zoom
+	camera_offset = safe_center - frame_bounds.get_center() * zoom
 	_default_zoom = zoom
 	_default_camera_offset = camera_offset
 	_clamp_camera_offset()
@@ -1082,6 +1183,13 @@ func _frame_campus(animate: bool) -> void:
 		_animate_camera()
 	else:
 		_apply_camera()
+
+func _apply_campus_visibility() -> void:
+	if content == null:
+		return
+	for child: Node in content.get_children():
+		if child is CanvasItem and child.has_meta("campus_index"):
+			(child as CanvasItem).visible = int(child.get_meta("campus_index", -1)) == _active_campus_index
 
 func _refresh_construction_labels() -> void:
 	for entry: Dictionary in _construction_labels:
