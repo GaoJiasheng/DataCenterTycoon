@@ -28,7 +28,9 @@ func _ready() -> void:
 	await _play_tutorial()
 	_verify_shortened_timings_are_tutorial_only()
 	await _verify_install_in_progress_is_announced()
+	await _verify_drawer_reflects_completed_installs()
 	await _verify_orphaned_step_recovers()
+	await _verify_countdown_shows_full_units()
 	AudioService.stop_all()
 	for wait: String in waits:
 		print("PLAYTHROUGH: wait  %s" % wait)
@@ -282,3 +284,44 @@ func _verify_install_in_progress_is_announced() -> void:
 	main.call("_refresh")
 	await _settle()
 	_expect(int(Game.state.get("tutorial", {}).get("step", 0)) != 1, "finished install must advance the lesson")
+
+# The drawer opens while the site is still dark and is never rebuilt, so any
+# element created for the unpowered case has to keep tracking the authority.
+# Both the board meter and the contract hint used to freeze at "no power" long
+# after the transformer was running.
+func _verify_drawer_reflects_completed_installs() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.start_datacenter_construction("plot_1", "dc_t0")
+	Game.advance_time(400.0, false)
+	var dc_id := str(Game.state["plots"][0]["datacenter"].get("id", ""))
+	main.call("_open_datacenter", dc_id)     # opened while unpowered
+	await _settle()
+	var hint := main.find_child("ContractPowerHint", true, false) as Label
+	_expect(hint != null and hint.visible, "unpowered drawer should show the install-power hint")
+	Game.install_power(dc_id, "power_t1")
+	Game.advance_time(400.0, false)          # completes inside a tick
+	main.call("_refresh_hud")
+	await _settle()
+	_expect(hint == null or not hint.visible, "powered site must drop the install-power hint")
+	var usage := main.find_child("BoardPowerUsage", true, false)
+	var usage_text: String = usage.get_parsed_text() if usage is RichTextLabel else (usage.text if usage is Label else "")
+	_expect(not usage_text.contains(tr("UNPOWERED")), "power meter must not still read unpowered (got %s)" % usage_text)
+	await _shot("drawer_after_power")
+
+# Countdown badges are clipped, so a too-narrow label silently drops characters:
+# "59m 59s" shipped as "59m 59".
+func _verify_countdown_shows_full_units() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.start_datacenter_construction("plot_1", "dc_t1")
+	main.call("_refresh")
+	await _settle()
+	for node: Node in main.find_children("StatusText", "Label", true, false):
+		var label := node as Label
+		if label == null or not label.is_visible_in_tree() or label.text.is_empty():
+			continue
+		if not label.text.contains("m "):
+			continue
+		_expect(label.get_combined_minimum_size().x <= label.size.x + 1.0, "countdown label must fit its text (text=%s min=%.0f actual=%.0f)" % [label.text, label.get_combined_minimum_size().x, label.size.x])
+		_expect(label.text.ends_with("s"), "countdown must keep its unit suffix (got %s)" % label.text)

@@ -925,7 +925,9 @@ func _configure_construction_timer(button: Button, label: Label, construction: D
 	badge.clip_contents = true
 	badge.size.y = 68
 	badge.position.y = PLOT_SIZE.y - 72
-	label.custom_minimum_size.x = 70
+	# "59m 59s" needs the full width; 70 clipped the trailing unit and left the
+	# countdown reading "59m 59".
+	label.custom_minimum_size.x = 118
 	var progress := ProgressBar.new()
 	progress.name = "ConstructionProgress"
 	progress.show_percentage = false

@@ -172,3 +172,38 @@ A2) 等待后 power_unit = power_t1
 `tutorial_playthrough` 增加 `_verify_install_in_progress_is_announced()`：构造「供电已提交、尚未完成」的状态，断言 ① 目标来源为 `install_wait` ② 不可点 ③ 文案不再是原指令；随后推进时钟，断言安装完成后教学自行前进。
 
 全量门禁：`validate_data`、`check_assets`、`test_runner` 103/103、`flow_audit`、`midgame_audit`、`visual_smoke` zh 31/31、`tutorial_playthrough` 全部通过。
+
+---
+
+## 8. 逐屏审查（2026-08-06，全 8 步截图复核）
+
+按所有者要求把教学从头逐帧看了一遍。流程本身可通关，但截图暴露三处**陈旧显示**缺陷，全部已修并加断言。
+
+### T6 · 棋盘停在打开抽屉那一刻的状态
+
+装机柜那一步，电力条仍显示「供电 未通电」——变压器上一步已装好。
+
+根因：`DatacenterBoard._on_state_changed()` 对 `tick` / `offline_advance` 一律跳过重建，而**安装完成恰恰发生在时钟推进里**。抽屉打开后棋盘就再也不更新，玩家看到的是打开那一刻的世界。
+
+修复：tick 时比对权威状态指纹（`power_unit` + `coolers` + 每个机柜的 id/状态/启用），变化才重建，普通 tick 仍然零开销。
+
+### T7 · 合约区的「先安装变压器」永不消失
+
+同一屏底部持续显示该提示。根因不同：`ContractPowerHint` **只在未通电时创建**，而抽屉在供电步就已打开且从不重建，于是这行字被永久留在了一个已通电的机房上。
+
+修复：该标签改为无条件创建，可见性由抽屉既有的 `live_update` 按权威 `power_unit` 驱动。
+
+### T8 · 建设倒计时丢失单位
+
+教学结束后标准机房倒计时显示「59m 59」——尾部的 `s` 被裁掉。根因：倒计时标签 `custom_minimum_size.x = 70`，而其父徽章开启了 `clip_contents`，超出即静默截断。修复：加宽至 118。
+
+### 门禁
+
+`tutorial_playthrough` 新增两条：
+
+- `_verify_drawer_reflects_completed_installs()` —— 在**未通电时打开抽屉**，随后完成安装（在 tick 中），断言提示消失且电力条不再显示未通电；
+- `_verify_countdown_shows_full_units()` —— 断言倒计时标签能容纳自身文本且保留单位后缀。
+
+> 过程记录：本轮有三个 playthrough 进程因脚本解析错误挂起并同时写同一批截图，一度让结果自相矛盾。教训是**先确认脚本能加载**（看 `SCRIPT ERROR`），再解读任何截图或断言结果。
+
+全量门禁：`validate_data`、`check_assets`、`test_runner` 103/103、`flow_audit`、`midgame_audit`、`visual_smoke` zh/en 各 31/31、`tutorial_playthrough` 全通过。

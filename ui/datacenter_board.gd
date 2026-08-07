@@ -25,6 +25,7 @@ var preview_slot := -1
 var _press_started: Dictionary = {}
 var _tooltip: PanelContainer
 var _stage: Control
+var _last_state_fingerprint := ""
 
 func setup(value: String) -> void:
 	datacenter_id = value
@@ -109,10 +110,35 @@ func tutorial_target_rect(focus: String) -> Rect2:
 	return Rect2()
 
 func _on_state_changed(reason: String) -> void:
-	if reason not in ["tick", "offline_advance"] and is_inside_tree():
+	if not is_inside_tree():
+		return
+	if reason not in ["tick", "offline_advance"]:
+		call_deferred("_rebuild")
+		return
+	# Installs finish inside the clock tick, so skipping every tick left the board
+	# showing the state it had when the drawer opened — a site could be powered
+	# while the meter still read "unpowered". Rebuild only when the authority
+	# actually changed, so a normal tick stays free.
+	var fingerprint := _state_fingerprint()
+	if fingerprint != _last_state_fingerprint:
+		_last_state_fingerprint = fingerprint
 		call_deferred("_rebuild")
 
+func _state_fingerprint() -> String:
+	var dc := Game.find_datacenter(datacenter_id)
+	if dc.is_empty():
+		return ""
+	var parts := PackedStringArray([str(dc.get("power_unit", "")), JSON.stringify(dc.get("coolers", {}))])
+	for installed: Variant in dc.get("racks", []):
+		if installed is Dictionary:
+			var entry: Dictionary = installed
+			parts.append("%s:%s:%s" % [str(entry.get("rack_id", "")), str(entry.get("status", "")), str(entry.get("enabled", true))])
+		else:
+			parts.append("-")
+	return "|".join(parts)
+
 func _rebuild() -> void:
+	_last_state_fingerprint = _state_fingerprint()
 	for child: Node in get_children():
 		remove_child(child)
 		child.queue_free()

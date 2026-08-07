@@ -2722,6 +2722,9 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		var live_contract_button := overlay.find_child("ContractCTA", true, false) as Button
 		if live_contract_button != null:
 			_refresh_contract_cta(live_contract_button, live_dc)
+		var live_hint := overlay.find_child("ContractPowerHint", true, false) as Label
+		if live_hint != null:
+			live_hint.visible = str(live_dc.get("power_unit", "")).is_empty()
 	)
 	if str(dc.get("status", "")) == "ruined":
 		sheet_box.add_child(_button(tr("DEMOLISH"), func() -> void:
@@ -2744,13 +2747,16 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	_set_button_asset(contract_button, "ic_contract", 42)
 	_refresh_contract_cta(contract_button, dc)
 	sheet_box.add_child(contract_button)
-	if not powered:
-		var power_hint := _label(tr("BOARD_INSTALL_POWER"), 20, Color("b8c2cc"))
-		power_hint.name = "ContractPowerHint"
-		power_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		power_hint.max_lines_visible = 1
-		power_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		sheet_box.add_child(power_hint)
+	# Built unconditionally: the drawer opens before the transformer exists and is
+	# never rebuilt, so a hint created only for the unpowered case used to sit
+	# there telling a powered site to install power.
+	var power_hint := _label(tr("BOARD_INSTALL_POWER"), 20, Color("b8c2cc"))
+	power_hint.name = "ContractPowerHint"
+	power_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	power_hint.max_lines_visible = 1
+	power_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	power_hint.visible = not powered
+	sheet_box.add_child(power_hint)
 
 func _datacenter_context_asset(dc: Dictionary, building: Dictionary) -> String:
 	if str(dc.get("status", "")) == "ruined":
