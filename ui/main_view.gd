@@ -1,6 +1,13 @@
 extends Control
 
 const ThemeMaker := preload("res://ui/theme_factory.gd")
+
+# Market banners are tracked by group rather than by name. A banner raised while
+# the previous one was still in the tree — two market events landing together —
+# used to lose its name to Godot's sibling de-duplication, after which nothing
+# could find it: it never got replaced, never got retired on navigation, and
+# simply stacked up.
+const MARKET_BANNER_GROUP := "market_event_banner"
 const Widgets := preload("res://ui/widgets.gd")
 const ChartScene := preload("res://ui/market_chart.gd")
 const ParkMapScene := preload("res://gameplay/map/park_map.gd")
@@ -76,6 +83,7 @@ var _refresh_cooldown := 0.0
 var _page_scroll_cache: Dictionary = {}
 var _era_overlay_queue: Array[int] = []
 var _era_overlay_open := false
+var _pending_market_banner: Dictionary = {}
 var _last_map_signature := ""
 var _rendered_page := ""
 var _display_cash := NAN
@@ -540,6 +548,7 @@ func _refresh_hud() -> void:
 	world_host.visible = on_map
 	navigation_panel.visible = on_map
 	page_host.visible = not on_map
+	_sync_market_banner()
 	_refresh_live_page()
 
 func _refresh_page() -> void:
@@ -3529,14 +3538,78 @@ func _on_market_event_started(event_id: String) -> void:
 func _on_market_event_ended(event_id: String) -> void:
 	_show_market_banner(event_id, false)
 
+# The banner is a map-level alert. A system page or a modal owns the whole
+# screen while it is open, so raising the banner there would clip the page's own
+# header; hold the newest one and raise it when the player is back on the map.
 func _show_market_banner(event_id: String, started: bool) -> void:
-	var existing := find_child("MarketEventBanner", true, false)
-	if existing != null:
-		existing.queue_free()
+	if _market_banner_would_be_buried():
+		_pending_market_banner = {"event_id": event_id, "started": started}
+		return
+	_present_market_banner(event_id, started)
+
+# Only the surfaces that own the entire screen. Sheets and the data-center
+# drawer sit below the band and leave the banner readable.
+func _market_banner_would_be_buried() -> bool:
+	if active_page != "map":
+		return true
+	for overlay_name: String in ["OfflineOverlay", "EraOverlay", "GameOverOverlay"]:
+		var overlay := find_child(overlay_name, true, false) as CanvasItem
+		if overlay != null and overlay.is_visible_in_tree():
+			return true
+	return false
+
+# Also retires a banner the player navigated away from: a four-second alert
+# raised on the map used to ride along on top of whatever page opened next.
+func _sync_market_banner() -> void:
+	if _market_banner_would_be_buried():
+		# A full-screen modal will pass; the banner is only retired when the
+		# player has actually navigated off the map.
+		if active_page != "map":
+			_retire_market_banners()
+		return
+	if _pending_market_banner.is_empty():
+		return
+	var pending := _pending_market_banner
+	_pending_market_banner = {}
+	_present_market_banner(str(pending.get("event_id", "")), bool(pending.get("started", false)))
+
+# Rests clear of the whole top band. The news strip and the campus pager appear
+# and disappear on their own schedule, so a banner parked at a fixed height — or
+# measured against whatever happened to be visible when it spawned — ends up
+# sitting on one of them. Measured off global rects: the band lives inside the
+# safe-area stage while the banner is parented to the view, so their raw offsets
+# are not in the same coordinate space.
+func _market_banner_rest_y() -> float:
+	var rest := 130.0
+	var band: Array[Control] = [news_panel, campus_switcher]
+	# The campus name plate belongs to the world but reads as a label, not
+	# scenery — half-covering it looks like a bug. Buildings below it are fair
+	# game for a passing toast.
+	if park_map != null:
+		for node: Node in park_map.find_children("CampusMarker_*", "Control", true, false):
+			var marker := node as Control
+			if marker != null and marker.is_visible_in_tree():
+				band.append(marker)
+	for control: Control in band:
+		if control == null:
+			continue
+		rest = maxf(rest, control.get_global_rect().end.y - global_position.y + 12.0)
+	return rest
+
+func _retire_market_banners() -> void:
+	for node: Node in get_tree().get_nodes_in_group(MARKET_BANNER_GROUP):
+		if node.get_parent() != self:
+			continue
+		remove_child(node)
+		node.queue_free()
+
+func _present_market_banner(event_id: String, started: bool) -> void:
+	_retire_market_banners()
 	var event := DataRepository.get_entry("events", event_id)
 	var message := tr("MARKET_EVENT_STARTED" if started else "MARKET_EVENT_ENDED") % tr(event.get("name_key", ""))
 	var banner := _button(message, Callable(), ThemeMaker.COLORS.orange if started else ThemeMaker.COLORS.sky)
 	banner.name = "MarketEventBanner"
+	banner.add_to_group(MARKET_BANNER_GROUP)
 	banner.set_meta("destination", "market")
 	banner.set_meta("swipe_dismiss_enabled", true)
 	banner.pressed.connect(_open_market_from_banner.bind(banner))
@@ -3549,9 +3622,11 @@ func _show_market_banner(event_id: String, started: bool) -> void:
 	_set_button_asset(banner, "ic_market_up", 42)
 	add_child(banner)
 	_wire_market_banner_swipe(banner)
+	var rest_y := _market_banner_rest_y()
+	banner.set_meta("rest_y", rest_y)
 	var tween := create_tween()
 	banner.set_meta("lifecycle_tween", tween)
-	tween.tween_property(banner, "position:y", 130.0, 0.30).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(banner, "position:y", rest_y, 0.30).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_interval(4.0)
 	tween.tween_property(banner, "position:y", -120.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_callback(banner.queue_free)

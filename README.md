@@ -42,6 +42,9 @@
 godot --path .
 godot --headless --path . tests/test_runner.tscn
 godot --headless --path . tests/flow_audit.tscn
+godot --headless --path . tests/midgame_audit.tscn
+godot --disable-vsync --max-fps 200 --path . tests/tutorial_playthrough.tscn
+godot --disable-vsync --max-fps 200 --path . tests/full_campaign.tscn
 godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=en
 godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN
 godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn
@@ -50,6 +53,8 @@ python3 tools/simulate_economy.py
 ```
 
 `tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、103 项逻辑、该流程门禁和中文 30 态渲染回归。
+
+`tests/tutorial_playthrough.tscn` 只用触摸走完新手教程；`tests/full_campaign.tscn` 接着往下打——从全新存档按"月"推进，边玩边刷新真实 UI，一路走到时代 2、时代 3 和第一次上市重组，断言故障维修、续约窗口、退役重建、离线结算、页面切换与顶部信息带不互相遮挡，输出 `/tmp/dct_camp_*.png`。审计记录见 [docs/17_full_campaign_audit.md](docs/17_full_campaign_audit.md)。
 
 资源重做或更新后执行：
 
