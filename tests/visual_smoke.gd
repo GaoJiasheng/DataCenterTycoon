@@ -219,12 +219,13 @@ func _ready() -> void:
 	if era_overlay != null:
 		era_overlay.queue_free()
 		await get_tree().process_frame
-	main.call("_on_bankruptcy_state_changed", "game_over")
-	await get_tree().create_timer(1.25).timeout
-	valid = (await _capture(main, "game_over", false)) and valid
-	var game_over_sheet := main.find_child("ActionSheetOverlay", true, false)
-	if game_over_sheet != null:
-		game_over_sheet.queue_free()
+	Game.state["bankruptcy"] = {"status": "normal", "debt": 0.0, "arrears_online_seconds": 0.0, "rescue_uses": 0, "rescue_day": -1, "takeover_notice_pending": true, "last_takeover": {"debt_before": 4250.0, "debt_paid": 3100.0, "debt_forgiven": 1150.0, "relief_grant": 5000.0, "remaining_datacenters": 2, "sold_count": 2, "sold": [{"datacenter_id": "dc_1", "proceeds": 1800.0}, {"datacenter_id": "dc_2", "proceeds": 1300.0}]}}
+	main.call("_on_bankruptcy_state_changed", "takeover")
+	await get_tree().create_timer(0.6).timeout
+	valid = (await _capture(main, "bank_takeover", false)) and valid
+	var takeover_overlay := main.find_child("BankTakeoverOverlay", true, false)
+	if takeover_overlay != null:
+		takeover_overlay.queue_free()
 		await get_tree().process_frame
 	AudioService.stop_all()
 	main.queue_free()
@@ -862,15 +863,16 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if main.find_child("EraRewardChip", true, false) == null:
 			push_error("VISUAL_SMOKE: era reward is not presented as an icon chip")
 			valid = false
-	if state_name == "game_over":
-		var stat_count := main.find_children("GameOverStat_*", "", true, false).size()
-		if main.find_child("GameOverStatsCard", true, false) == null or stat_count != 4 or main.find_child("GameOverRestart", true, false) == null:
-			push_error("VISUAL_SMOKE: game over lacks the four-stat blackout presentation stats=%d card=%s restart=%s" % [stat_count, str(main.find_child("GameOverStatsCard", true, false)), str(main.find_child("GameOverRestart", true, false))])
+	if state_name == "bank_takeover":
+		var stat_count := main.find_children("BankTakeoverStat_*", "", true, false).size()
+		var sold_list := main.find_child("BankTakeoverSoldList", true, false)
+		if main.find_child("BankTakeoverCard", true, false) == null or stat_count != 4 or main.find_child("BankTakeoverContinue", true, false) == null or sold_list == null or sold_list.get_child_count() != 2:
+			push_error("VISUAL_SMOKE: bank settlement lacks retained-assets stats or sold-center details stats=%d sold=%s" % [stat_count, str(sold_list)])
 			valid = false
-		var game_over_title := main.find_child("GameOverTitle", true, false) as Label
-		var game_over_restart := main.find_child("GameOverRestart", true, false) as Button
-		if game_over_title == null or game_over_title.get_theme_font_size("font_size") < 44 or game_over_restart == null or game_over_restart.get_theme_font_size("font_size") != 28 or game_over_restart.get_theme_constant("outline_size") < 4:
-			push_error("VISUAL_SMOKE: game over title/restart hierarchy is below the P1 contract")
+		var takeover_title := main.find_child("BankTakeoverTitle", true, false) as Label
+		var takeover_continue := main.find_child("BankTakeoverContinue", true, false) as Button
+		if takeover_title == null or takeover_title.get_theme_font_size("font_size") < 44 or takeover_continue == null or takeover_continue.get_theme_font_size("font_size") != 28 or takeover_continue.get_theme_constant("outline_size") < 4:
+			push_error("VISUAL_SMOKE: bank settlement title/continue hierarchy is below the P1 contract")
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	valid = _typography_roles_are_valid(main, state_name) and valid

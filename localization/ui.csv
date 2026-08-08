@@ -168,13 +168,20 @@ HIGHEST_NET_WORTH,Highest net worth,历史最高净值
 STAT_SURVIVAL,Company age,公司存续时间
 TOTAL_REVENUE,Total revenue,累计收入
 BANKRUPTCY_WARNING,Cash-flow emergency,现金流告急
-BANKRUPTCY_BODY,Pay the outstanding maintenance within %s or the company will fail.,请在 %s 内付清维护欠款，否则公司将破产。
+BANKRUPTCY_BODY,Pay the outstanding maintenance within %s or the bank will sell the oldest data center.,请在 %s 内付清维护欠款，否则银行将变卖最老的机房。
 ARREARS_BANNER,Maintenance debt $%s,维护欠款 $%s
-ARREARS_TIME_LEFT,Rescue window %s,抢救时间 %s
-GAME_OVER,Company Bankrupt,公司破产
+ARREARS_TIME_LEFT,Bank collection in %s,距银行接管 %s
+BANK_TAKEOVER_TITLE,Bank restructuring,银行接管结算
+BANK_TAKEOVER_BODY,The bank settled $%s of maintenance debt. Your progress and remaining assets are safe.,银行已处理 $%s 维护欠款，你的进度与剩余资产均已保留。
+BANK_TAKEOVER_DEBT_PAID,Debt paid,已抵欠款
+BANK_TAKEOVER_FORGIVEN,Debt waived,坏账核销
+BANK_TAKEOVER_RELIEF,Restructuring grant,重整补助
+BANK_TAKEOVER_REMAINING,Data centers retained,保留机房
+BANK_TAKEOVER_SOLD,Data centers sold · %d,变卖机房 · %d
+BANK_TAKEOVER_NONE_SOLD,No data centers needed to be sold.,无需变卖机房。
+BANK_TAKEOVER_SOLD_ROW,Data center %s · $%s recovered,机房 %s · 回收 $%s
+BANK_TAKEOVER_CONTINUE,Start fresh,重新出发
 NEW_COMPANY,Start a new company,重新创业
-GAME_OVER_RESTART,Start over,重新创业
-GAME_OVER_BUILT,Data centers built,累计建成机房
 ARREARS_RESCUE,Claim emergency funds,领取救急金
 OFFLINE_TITLE,Welcome back,欢迎回来
 OFFLINE_EARNED,Your data centers earned $%s while you were away.,离线期间机房赚取了 $%s。

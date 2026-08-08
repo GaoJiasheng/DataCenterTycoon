@@ -50,6 +50,12 @@ def validate_references():
         ERRORS.append("economy/faults: auto_repair_seconds must be positive")
     if DATA["achievements"]["items"].get("repair_ten", {}).get("metric") != "faults_repaired_manual":
         ERRORS.append("achievements/repair_ten: automatic repairs must not count toward the manual repair achievement")
+    bankruptcy = DATA["economy"].get("bankruptcy", {})
+    if "game_over_after_online_seconds" in bankruptcy:
+        ERRORS.append("economy/bankruptcy: game-over deadlines are forbidden")
+    for field, expected in (("takeover_after_online_seconds", 21600), ("takeover_value_ratio", 0.7), ("relief_cash_floor", 5000)):
+        if not math.isclose(float(bankruptcy.get(field, -1)), expected):
+            ERRORS.append(f"economy/bankruptcy: {field} must equal {expected}")
     aging = DATA["economy"].get("aging", {})
     if "demolition_cost_ratio" in aging:
         ERRORS.append("economy/aging: demolition penalties are forbidden")

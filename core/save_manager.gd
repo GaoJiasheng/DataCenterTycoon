@@ -37,15 +37,6 @@ func write_save(state: Dictionary) -> bool:
 		return false
 	return true
 
-func archive_game_over(state: Dictionary) -> bool:
-	var stamp := int(Time.get_unix_time_from_system())
-	var path := "user://save_gameover_%d.json" % stamp
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify(state, "\t", false))
-	return true
-
 func delete_active_save() -> void:
 	for path: String in [SAVE_PATH, TEMP_PATH]:
 		if FileAccess.file_exists(path):

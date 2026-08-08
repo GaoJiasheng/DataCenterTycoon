@@ -31,7 +31,7 @@ func _ready() -> void:
 	set_process(true)
 
 func _process(delta: float) -> void:
-	if _in_background or state.get("bankruptcy", {}).get("status", "normal") == "game_over":
+	if _in_background:
 		return
 	_tick_accumulator += delta
 	_autosave_accumulator += delta
@@ -71,8 +71,9 @@ func advance_time(real_seconds: float, offline: bool) -> Dictionary:
 		"events": [],
 		"contracts": [],
 		"aging": [],
+		"takeovers": [],
 	}
-	if real_seconds <= 0.0 or state.get("bankruptcy", {}).get("status", "normal") == "game_over":
+	if real_seconds <= 0.0:
 		return report
 	var financial_remaining := real_seconds
 	if offline:
@@ -545,8 +546,6 @@ func mark_era_presented(era_id: int) -> void:
 
 func start_new_company() -> void:
 	var kept := _account_state_snapshot()
-	if not state.is_empty() and persistence_enabled:
-		SaveManager.archive_game_over(state)
 	state = _new_state()
 	_restore_account_state(kept)
 	_market.ensure_state(state, data)
@@ -670,7 +669,7 @@ func _process_due(financial: bool, offline: bool, report: Dictionary) -> void:
 	_process_contract_renewals(now, report)
 	_process_aging(now, offline, report)
 	_process_maintenance(financial)
-	_check_bankruptcy()
+	_process_bank_takeover(report)
 
 func _process_construction_completions(now: float, report: Dictionary) -> void:
 	var pending: Array = []
@@ -885,18 +884,94 @@ func _try_clear_arrears() -> void:
 	state["stats"]["arrears_recovered"] = int(state["stats"].get("arrears_recovered", 0)) + 1
 	EventBus.bankruptcy_state_changed.emit("normal")
 
-func _check_bankruptcy() -> void:
-	if state.get("bankruptcy", {}).get("status", "normal") != "arrears":
-		return
-	var limit := float(data.get("economy", {}).get("bankruptcy", {}).get("game_over_after_online_seconds", 21600.0))
-	if float(state["bankruptcy"].get("arrears_online_seconds", 0.0)) < limit:
-		return
-	state["bankruptcy"]["status"] = "game_over"
+func _process_bank_takeover(report: Dictionary = {}, force: bool = false, notify: bool = true) -> Dictionary:
+	var bankruptcy: Dictionary = state.get("bankruptcy", {})
+	if not force and bankruptcy.get("status", "normal") != "arrears":
+		return {}
+	var config: Dictionary = data.get("economy", {}).get("bankruptcy", {})
+	var limit := float(config.get("takeover_after_online_seconds", 21600.0))
+	if not force and float(bankruptcy.get("arrears_online_seconds", 0.0)) < limit:
+		return {}
+	var debt_before := maxf(0.0, float(bankruptcy.get("debt", 0.0)))
+	var debt_remaining := debt_before
+	var cash_before := float(state.get("player", {}).get("cash", 0.0))
+	var ratio := float(config.get("takeover_value_ratio", 0.7))
+	var candidates: Array[Dictionary] = []
+	for plot: Dictionary in state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if dc is Dictionary and dc.get("status", "") == "operational":
+			candidates.append({"plot": plot, "datacenter": dc})
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a["datacenter"].get("built_at", 0.0)) < float(b["datacenter"].get("built_at", 0.0))
+	)
+	var sold: Array[Dictionary] = []
+	var debt_paid_total := 0.0
+	for candidate: Dictionary in candidates:
+		if debt_remaining <= 0.0:
+			break
+		var plot: Dictionary = candidate["plot"]
+		var dc: Dictionary = candidate["datacenter"]
+		var datacenter_id := str(dc.get("id", ""))
+		var job_refund := _cancel_jobs_for_datacenter(datacenter_id)
+		state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + job_refund
+		var proceeds: float = round(Rules.retirement_value(dc, simulation_time(), data) * ratio)
+		var debt_paid := minf(proceeds, debt_remaining)
+		debt_remaining -= debt_paid
+		debt_paid_total += debt_paid
+		var cash_received := proceeds - debt_paid
+		state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + cash_received
+		plot["datacenter"] = null
+		plot["status"] = "empty"
+		sold.append({
+			"datacenter_id": datacenter_id,
+			"built_at": float(dc.get("built_at", 0.0)),
+			"proceeds": proceeds,
+			"debt_paid": debt_paid,
+			"cash_received": cash_received,
+			"job_refund": job_refund,
+		})
+	var forgiven := maxf(0.0, debt_remaining)
+	bankruptcy["debt"] = 0.0
+	bankruptcy["status"] = "normal"
+	bankruptcy["arrears_online_seconds"] = 0.0
+	var remaining_datacenters := 0
+	for remaining_plot: Dictionary in state.get("plots", []):
+		var remaining_dc: Variant = remaining_plot.get("datacenter")
+		if remaining_dc is Dictionary and remaining_dc.get("status", "") == "operational":
+			remaining_datacenters += 1
+	var floor_cash := float(config.get("relief_cash_floor", 5000.0))
+	var relief_grant := 0.0
+	if remaining_datacenters == 0:
+		relief_grant = maxf(0.0, floor_cash - float(state["player"].get("cash", 0.0)))
+	state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + relief_grant
+	var settlement := {
+		"debt_before": debt_before,
+		"debt_paid": debt_paid_total,
+		"debt_forgiven": forgiven,
+		"cash_before": cash_before,
+		"cash_after": float(state["player"].get("cash", 0.0)),
+		"relief_grant": relief_grant,
+		"sold": sold,
+		"sold_count": sold.size(),
+		"remaining_datacenters": remaining_datacenters,
+	}
+	bankruptcy["last_takeover"] = settlement.duplicate(true)
+	bankruptcy["takeover_notice_pending"] = true
+	state["stats"]["bank_takeovers"] = int(state["stats"].get("bank_takeovers", 0)) + 1
+	state["stats"]["datacenters_bank_sold"] = int(state["stats"].get("datacenters_bank_sold", 0)) + sold.size()
+	state["stats"]["debt_forgiven"] = float(state["stats"].get("debt_forgiven", 0.0)) + forgiven
+	if report.has("takeovers"):
+		report["takeovers"].append(settlement.duplicate(true))
+	if notify:
+		AudioService.play_sfx("sfx_bankrupt")
+		EventBus.bankruptcy_state_changed.emit("takeover")
+		EventBus.bank_takeover_completed.emit(settlement.duplicate(true))
+	return settlement
+
+func acknowledge_bank_takeover() -> void:
+	state["bankruptcy"]["takeover_notice_pending"] = false
 	if persistence_enabled:
 		save_now()
-	SaveManager.archive_game_over(state)
-	AudioService.play_sfx("sfx_bankrupt")
-	EventBus.bankruptcy_state_changed.emit("game_over")
 
 func _check_era_unlocks() -> void:
 	var current := int(state["player"].get("era", 1))
@@ -1258,6 +1333,9 @@ func _ensure_state_shape() -> void:
 					installed["enabled"] = true
 				if str(installed.get("status", "")) == "faulted" and not installed.has("auto_repair_at"):
 					installed["auto_repair_at"] = simulation_time() + float(data.get("economy", {}).get("faults", {}).get("auto_repair_seconds", 14400.0))
+	if state["bankruptcy"].get("status", "normal") == "game_over":
+		state["bankruptcy"]["status"] = "arrears"
+		_process_bank_takeover({}, true, false)
 	state["save_version"] = SaveManager.SAVE_VERSION
 
 func _migrate_legacy_rack_installations() -> void:
@@ -1294,7 +1372,7 @@ func _new_state() -> Dictionary:
 		"plots": [{"id": "plot_1", "index": 1, "purchase_price": 0.0, "purchased": true, "status": "empty", "datacenter": null}],
 		"construction_queue": [],
 		"market": {"active": [], "previews": [], "history": {}, "noise": {}, "next_noise_at": float(economy.get("time", {}).get("real_seconds_per_game_day", 240.0)), "next_event_at": float(economy.get("time", {}).get("real_seconds_per_game_month", 7200.0)), "rng_state": 73471},
-		"bankruptcy": {"status": "normal", "debt": 0.0, "arrears_online_seconds": 0.0, "rescue_uses": 0, "rescue_day": -1},
+		"bankruptcy": {"status": "normal", "debt": 0.0, "arrears_online_seconds": 0.0, "rescue_uses": 0, "rescue_day": -1, "last_takeover": {}, "takeover_notice_pending": false},
 		"tutorial": {"step": 0, "completed": false, "dismissed_messages": []},
 		"technology": {"repair_team": 1, "auto_retirement": false},
 		"flags": {"standard_built": false, "last_presented_era": 1},
@@ -1305,7 +1383,7 @@ func _new_state() -> Dictionary:
 		"reward_limits": {"repair_window_start": now, "repair_uses": 0, "rescue_day": -1, "rescue_uses": 0},
 		"inventory": {"instant_build_tickets": 0},
 		"settings": {"locale": "", "music_enabled": true, "sfx_enabled": true, "haptics_enabled": true},
-		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "datacenters_auto_retired": 0, "prestige_count": 0, "contracts_signed": 0, "arrears_recovered": 0, "highest_net_worth": 0.0},
+		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "datacenters_auto_retired": 0, "bank_takeovers": 0, "datacenters_bank_sold": 0, "debt_forgiven": 0.0, "prestige_count": 0, "contracts_signed": 0, "arrears_recovered": 0, "highest_net_worth": 0.0},
 	}
 
 func _success(payload: Dictionary = {}) -> Dictionary:

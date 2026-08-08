@@ -13,6 +13,7 @@ signal contract_auto_renewed(datacenter_id: String, customer_id: String, contrac
 signal datacenter_entered_aging(datacenter_id: String)
 signal era_unlocked(era: int)
 signal bankruptcy_state_changed(state: String)
+signal bank_takeover_completed(settlement: Dictionary)
 signal reward_granted(placement: String, payload: Dictionary)
 signal entitlement_changed(product_id: String, active: bool)
 signal purchase_completed(product_id: String, success: bool, message: String)

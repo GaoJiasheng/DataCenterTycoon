@@ -79,7 +79,12 @@ class Simulator:
         self.debt = 0.0
         self.missed_maintenance = 0
         self.arrears_online_seconds = 0.0
-        self.bankrupt = False
+        self.takeovers = 0
+        self.bank_sold = 0
+        self.debt_forgiven = 0.0
+        self.relief_received = 0.0
+        self.negative_income_months = 0
+        self.month_revenue = 0.0
         self.ended_at = 0.0
         self.minimum_cash = self.cash
         self.minimum_maintenance_coverage = math.inf
@@ -93,7 +98,7 @@ class Simulator:
 
     def run(self, days):
         Simulator.now = 0.0
-        while Simulator.now < days * DAY and not self.bankrupt:
+        while Simulator.now < days * DAY:
             self.update_market()
             self.update_contracts()
             self.complete_auto_repairs()
@@ -185,6 +190,7 @@ class Simulator:
                 self.customer_seconds[dc.customer] += STEP
         self.cash += income
         self.revenue += income
+        self.month_revenue += income
         if self.debt > 0 and self.cash >= self.debt:
             self.cash -= self.debt
             self.debt = 0.0
@@ -212,6 +218,9 @@ class Simulator:
 
     def pay_maintenance(self):
         amount = sum(BUILDINGS[dc.building_id]["maintenance_per_month"] for dc in self.dcs if dc.ready)
+        if self.month_revenue - amount < 0:
+            self.negative_income_months += 1
+        self.month_revenue = 0.0
         total_due = amount + self.debt
         if self.cash >= total_due:
             self.cash -= total_due
@@ -226,9 +235,8 @@ class Simulator:
     def player_session(self):
         if self.debt > 0:
             self.arrears_online_seconds += 300.0
-            if self.arrears_online_seconds >= ECONOMY["bankruptcy"]["game_over_after_online_seconds"]:
-                self.bankrupt = True
-                return
+            if self.arrears_online_seconds >= ECONOMY["bankruptcy"]["takeover_after_online_seconds"]:
+                self.process_bank_takeover()
         if not self.cozy_faults or self.strategy != "idle":
             for dc in self.dcs:
                 for index in list(dc.faulted):
@@ -258,6 +266,42 @@ class Simulator:
         for _ in range(attempts):
             if not self.try_expand():
                 break
+
+    def process_bank_takeover(self):
+        config = ECONOMY["bankruptcy"]
+        candidates = sorted(
+            (
+                dc for dc in self.dcs
+                if dc.ready and Simulator.now - dc.built_at < BUILDINGS[dc.building_id]["lifespan_seconds"]
+            ),
+            key=lambda dc: dc.built_at,
+        )
+        sold_ids = set()
+        for dc in candidates:
+            if self.debt <= 0:
+                break
+            age = max(0, Simulator.now - dc.built_at) / BUILDINGS[dc.building_id]["lifespan_seconds"]
+            proceeds = round(self.retirement_value(dc, age) * config["takeover_value_ratio"])
+            debt_paid = min(proceeds, self.debt)
+            self.debt -= debt_paid
+            self.cash += proceeds - debt_paid
+            sold_ids.add(id(dc))
+            self.bank_sold += 1
+        if sold_ids:
+            self.dcs = [dc for dc in self.dcs if id(dc) not in sold_ids]
+        if self.debt > 0:
+            self.debt_forgiven += self.debt
+            self.debt = 0.0
+        operational_remaining = any(
+            dc.ready and Simulator.now - dc.built_at < BUILDINGS[dc.building_id]["lifespan_seconds"]
+            for dc in self.dcs
+        )
+        relief = 0.0 if operational_remaining else max(0.0, config["relief_cash_floor"] - self.cash)
+        self.cash += relief
+        self.relief_received += relief
+        self.takeovers += 1
+        self.missed_maintenance = 0
+        self.arrears_online_seconds = 0.0
 
     def switch_to_best_customer(self, dc, available):
         values = {
@@ -428,7 +472,7 @@ class Simulator:
         day = Simulator.now / DAY
         if self.curve and abs(self.curve[-1][0] - day) < 0.5:
             return
-        self.curve.append((day, self.net_worth(), self.cash, len(self.dcs), self.era, self.revenue, self.arrears, self.total_built))
+        self.curve.append((day, self.net_worth(), self.cash, len(self.dcs), self.era, self.revenue, self.arrears, self.total_built, self.takeovers, self.bank_sold))
 
 
 def write_csv(results):
@@ -436,7 +480,7 @@ def write_csv(results):
     for name, sim in results.items():
         with (OUT / f"{name}.csv").open("w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle, lineterminator="\n")
-            writer.writerow(["real_day", "net_worth", "cash", "datacenters", "era", "total_revenue", "arrears_count", "total_built"])
+            writer.writerow(["real_day", "net_worth", "cash", "datacenters", "era", "total_revenue", "arrears_count", "total_built", "takeovers", "bank_sold"])
             writer.writerows(sim.curve)
 
 
@@ -508,9 +552,12 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
         (6 <= active_day_7[3] <= 10 and active_day_7[4] >= 2, "day 7 active player has 6–10 data centers and reaches era 2"),
         (0.4 <= idle_ratio <= 0.6, f"day 7 idle revenue is {idle_ratio:.0%} of active revenue"),
     ]
-    aggressive_rate = sum(sim.arrears > 0 for sim in cohorts["aggressive"]) / len(cohorts["aggressive"])
+    aggressive_rate = sum(sim.takeovers > 0 for sim in cohorts["aggressive"]) / len(cohorts["aggressive"])
     all_runs = [sim for sims in cohorts.values() for sim in sims]
-    bankruptcy_rate = sum(sim.bankrupt for sim in all_runs) / len(all_runs)
+    idle_takeovers = sum(sim.takeovers for sim in cohorts["idle"])
+    idle_negative_months = sum(sim.negative_income_months for sim in cohorts["idle"])
+    all_positive = all(sim.net_worth(sim.ended_at) > 0 for sim in all_runs)
+    aggressive_growing = all(sim.net_worth(sim.ended_at) > point_at(sim, 15)[1] for sim in cohorts["aggressive"])
     prestige_days = [sim.prestige_ready_at / DAY for sim in cohorts["active"] if sim.prestige_ready_at is not None]
     median_prestige = statistics.median(prestige_days) if prestige_days else math.inf
     customer_seconds = {
@@ -522,8 +569,9 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
     checks.extend([
         (14 <= median_prestige <= 21, f"active prestige readiness median is day {median_prestige:.1f} (target day 14–21)"),
         (all(share >= 0.10 for share in customer_shares.values()), "active contract-time share: " + ", ".join(f"{key}={value:.0%}" for key, value in customer_shares.items())),
-        (0.30 <= aggressive_rate <= 0.60, f"aggressive arrears incidence is {aggressive_rate:.0%} (target 30–60%)"),
-        (bankruptcy_rate < 0.10, f"multi-seed bankruptcy incidence is {bankruptcy_rate:.0%} (target <10%)"),
+        (idle_takeovers == 0 and idle_negative_months == 0, f"idle cohort has {idle_takeovers} takeovers and {idle_negative_months} negative-income months (target 0/0)"),
+        (0.30 <= aggressive_rate <= 0.60, f"aggressive bank-takeover incidence is {aggressive_rate:.0%} (target 30–60%)"),
+        (all_positive and aggressive_growing, "every run ends with positive net worth and every aggressive run grows from day 15 to day 30"),
     ])
     for passed, description in checks:
         print(f"{'PASS' if passed else 'TUNE'}: {description}")
@@ -557,7 +605,7 @@ def main():
         write_csv(results)
         write_svg(results)
     for name, sim in results.items():
-        print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} bankrupt={sim.bankrupt}")
+        print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} takeovers={sim.takeovers} sold={sim.bank_sold}")
     print_acceptance(results, cohorts, legacy_idle_cohort)
     return 0
 

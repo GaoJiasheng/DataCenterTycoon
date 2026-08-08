@@ -3607,7 +3607,7 @@ func _show_market_banner(event_id: String, started: bool) -> void:
 func _market_banner_would_be_buried() -> bool:
 	if active_page != "map":
 		return true
-	for overlay_name: String in ["OfflineOverlay", "EraOverlay", "GameOverOverlay"]:
+	for overlay_name: String in ["OfflineOverlay", "EraOverlay", "BankTakeoverOverlay"]:
 		var overlay := find_child(overlay_name, true, false) as CanvasItem
 		if overlay != null and overlay.is_visible_in_tree():
 			return true
@@ -3750,7 +3750,7 @@ func _world_reward_fx_available(source: Vector2) -> bool:
 	return not _blocking_surface_visible()
 
 func _blocking_surface_visible() -> bool:
-	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "GameOverOverlay"]:
+	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "BankTakeoverOverlay"]:
 		var overlay := find_child(overlay_name, true, false) as CanvasItem
 		if overlay != null and overlay.is_visible_in_tree():
 			return true
@@ -3798,7 +3798,9 @@ func _present_next_era_overlay() -> void:
 
 func _show_pending_bankruptcy_state() -> void:
 	var status := str(Game.state.get("bankruptcy", {}).get("status", "normal"))
-	if status in ["arrears", "game_over"]:
+	if bool(Game.state.get("bankruptcy", {}).get("takeover_notice_pending", false)):
+		_on_bankruptcy_state_changed("takeover")
+	elif status == "arrears":
 		_on_bankruptcy_state_changed(status)
 
 func _on_bankruptcy_state_changed(status: String) -> void:
@@ -3809,8 +3811,10 @@ func _on_bankruptcy_state_changed(status: String) -> void:
 	elif status == "normal":
 		_clear_crisis_hud()
 		_play_music("music_main")
-	elif status == "game_over":
-		_show_game_over_overlay()
+	elif status == "takeover":
+		_clear_crisis_hud()
+		_play_music("music_main")
+		_show_bank_takeover_overlay()
 
 func _refresh_arrears_hud() -> void:
 	var status := str(Game.state.get("bankruptcy", {}).get("status", "normal"))
@@ -3825,7 +3829,7 @@ func _refresh_arrears_hud() -> void:
 	if banner == null:
 		return
 	var bankruptcy: Dictionary = Game.state.get("bankruptcy", {})
-	var limit := float(DataRepository.get_table("economy").get("bankruptcy", {}).get("game_over_after_online_seconds", 21600.0))
+	var limit := float(DataRepository.get_table("economy").get("bankruptcy", {}).get("takeover_after_online_seconds", 21600.0))
 	var elapsed := float(bankruptcy.get("arrears_online_seconds", 0.0))
 	var debt_label := banner.find_child("DebtValue", true, false) as Label
 	var time_label := banner.find_child("ArrearsTime", true, false) as Label
@@ -3929,15 +3933,13 @@ func _clear_crisis_hud() -> void:
 		if node != null:
 			node.queue_free()
 
-func _show_game_over_overlay() -> void:
-	if find_child("GameOverOverlay", true, false) != null:
+func _show_bank_takeover_overlay() -> void:
+	if find_child("BankTakeoverOverlay", true, false) != null:
 		return
 	_clear_crisis_hud()
-	if park_map != null:
-		park_map.blackout_sequence()
-	_play_fx("fx_smoke_puff", 420)
+	var settlement: Dictionary = Game.state.get("bankruptcy", {}).get("last_takeover", {})
 	var overlay := ColorRect.new()
-	overlay.name = "GameOverOverlay"
+	overlay.name = "BankTakeoverOverlay"
 	overlay.color = Color(0.005, 0.01, 0.02, 0.48)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -3947,8 +3949,8 @@ func _show_game_over_overlay() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(center)
 	var card := PanelContainer.new()
-	card.name = "GameOverStatsCard"
-	card.custom_minimum_size = Vector2(700, 900)
+	card.name = "BankTakeoverCard"
+	card.custom_minimum_size.x = 760
 	card.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
 	center.add_child(card)
 	var margin := MarginContainer.new()
@@ -3959,44 +3961,64 @@ func _show_game_over_overlay() -> void:
 	card.add_child(margin)
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 20)
+	box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	margin.add_child(box)
-	box.add_child(_icon_view("ic_bankrupt", Vector2(180, 180)))
-	var title := _label(tr("GAME_OVER"), 48, ThemeMaker.COLORS.red.lightened(0.16))
-	title.name = "GameOverTitle"
+	box.add_child(_icon_view("ic_bankrupt", Vector2(128, 128)))
+	var title := _label(tr("BANK_TAKEOVER_TITLE"), 48, ThemeMaker.COLORS.gold)
+	title.name = "BankTakeoverTitle"
 	ThemeMaker.apply_text_role(title, "display")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
-	var survival := float(GameClock.wall_time() - int(Game.state.get("clock", {}).get("created_at", GameClock.wall_time())))
+	var body := _label(tr("BANK_TAKEOVER_BODY") % Game.format_number(float(settlement.get("debt_before", 0.0))), 22, ThemeMaker.COLORS.ink)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(body)
 	var stats := [
-		{"key": "STAT_SURVIVAL", "value": Game.format_duration(survival)},
-		{"key": "TOTAL_REVENUE", "value": "$%s" % Game.format_number(float(Game.state["player"].get("total_revenue", 0.0)))},
-		{"key": "GAME_OVER_BUILT", "value": str(int(Game.state["player"].get("total_datacenters_built", 0)))},
-		{"key": "HIGHEST_NET_WORTH", "value": "$%s" % Game.format_number(float(Game.state["stats"].get("highest_net_worth", 0.0)))},
+		{"key": "BANK_TAKEOVER_DEBT_PAID", "value": "$%s" % Game.format_number(float(settlement.get("debt_paid", 0.0)))},
+		{"key": "BANK_TAKEOVER_FORGIVEN", "value": "$%s" % Game.format_number(float(settlement.get("debt_forgiven", 0.0)))},
+		{"key": "BANK_TAKEOVER_RELIEF", "value": "$%s" % Game.format_number(float(settlement.get("relief_grant", 0.0)))},
+		{"key": "BANK_TAKEOVER_REMAINING", "value": str(int(settlement.get("remaining_datacenters", 0)))},
 	]
 	for stat_index: int in range(stats.size()):
 		var stat: Dictionary = stats[stat_index]
 		var row := HBoxContainer.new()
-		row.name = "GameOverStat_%d" % stat_index
+		row.name = "BankTakeoverStat_%d" % stat_index
 		box.add_child(row)
-		var key_label := _label(tr(stat.get("key", "")), 22, ThemeMaker.COLORS.cyan)
+		var key_label := _label(tr(stat.get("key", "")), 22, ThemeMaker.COLORS.ink)
 		key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(key_label)
-		row.add_child(_label(str(stat.get("value", "")), 25, ThemeMaker.COLORS.cream))
-	var restart := Widgets.button(tr("GAME_OVER_RESTART"), func() -> void:
-		Game.start_new_company()
+		row.add_child(_label(str(stat.get("value", "")), 25, ThemeMaker.COLORS.ink))
+	var sold_title := _label(tr("BANK_TAKEOVER_SOLD") % int(settlement.get("sold_count", 0)), 24, ThemeMaker.COLORS.ink)
+	box.add_child(sold_title)
+	var sold_scroll := ScrollContainer.new()
+	sold_scroll.name = "BankTakeoverSoldScroll"
+	sold_scroll.custom_minimum_size.y = 180
+	sold_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(sold_scroll)
+	var sold_list := VBoxContainer.new()
+	sold_list.name = "BankTakeoverSoldList"
+	sold_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sold_list.add_theme_constant_override("separation", 8)
+	sold_scroll.add_child(sold_list)
+	var sold_entries: Array = settlement.get("sold", [])
+	if sold_entries.is_empty():
+		sold_list.add_child(_label(tr("BANK_TAKEOVER_NONE_SOLD"), 21, ThemeMaker.COLORS.cyan))
+	else:
+		for sold_entry: Dictionary in sold_entries:
+			sold_list.add_child(_label(tr("BANK_TAKEOVER_SOLD_ROW") % [str(sold_entry.get("datacenter_id", "")), Game.format_number(float(sold_entry.get("proceeds", 0.0)))], 21, ThemeMaker.COLORS.ink))
+	var restart := Widgets.button(tr("BANK_TAKEOVER_CONTINUE"), func() -> void:
+		Game.acknowledge_bank_takeover()
 		overlay.queue_free()
 		_navigate("map")
-	, "danger")
-	restart.name = "GameOverRestart"
-	ThemeMaker.apply_prominent_danger(restart)
+	, "primary")
+	restart.name = "BankTakeoverContinue"
 	box.add_child(restart)
 	card.modulate.a = 0.0
 	card.scale = Vector2.ONE * 0.84
 	var reveal := create_tween().set_parallel(true)
-	reveal.tween_property(overlay, "color", Color(0.005, 0.01, 0.02, 0.96), 1.0)
-	reveal.tween_property(card, "modulate:a", 1.0, 0.34).set_delay(0.72)
-	reveal.tween_property(card, "scale", Vector2.ONE, 0.46).set_delay(0.72).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	reveal.tween_property(overlay, "color", Color(0.005, 0.01, 0.02, 0.82), 0.4)
+	reveal.tween_property(card, "modulate:a", 1.0, 0.28)
+	reveal.tween_property(card, "scale", Vector2.ONE, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _on_locale_changed(_locale: String) -> void:
 	_last_map_signature = ""

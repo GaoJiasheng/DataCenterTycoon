@@ -624,10 +624,47 @@ func _run_aging_test() -> void:
 
 func _run_bankruptcy_test() -> void:
 	Game.reset_for_tests()
-	Game.state["bankruptcy"] = {"status": "arrears", "debt": 100.0, "arrears_online_seconds": 21599.0, "rescue_uses": 0, "rescue_day": -1}
+	var oldest := _test_datacenter("dc_oldest", "dc_t1")
+	oldest["built_at"] = -1000.0
+	var newer := _test_datacenter("dc_newer", "dc_t1")
+	newer["built_at"] = -100.0
+	Game.state["plots"][0]["datacenter"] = oldest
+	Game.state["plots"][0]["status"] = "operational"
+	Game.state["plots"].append({"id": "plot_2", "index": 2, "purchase_price": 1000.0, "purchased": true, "status": "operational", "datacenter": newer})
+	Game.state["bankruptcy"] = {"status": "arrears", "debt": 1000.0, "arrears_online_seconds": 21599.0, "rescue_uses": 0, "rescue_day": -1, "last_takeover": {}, "takeover_notice_pending": false}
 	Game.state["player"]["cash"] = 0.0
-	Game.advance_time(2.0, false)
-	_expect(Game.state["bankruptcy"]["status"] == "game_over", "arrears timeout causes game over")
+	Game.state["player"]["era"] = 3
+	Game.state["player"]["network_level"] = 4
+	Game.state["player"]["gems"] = 99
+	Game.state["technology"]["auto_retirement"] = true
+	Game.state["achievements"]["era_two"] = true
+	Game.state["achievements"]["era_three"] = true
+	var takeover_report := Game.advance_time(2.0, false)
+	var settlement: Dictionary = takeover_report.get("takeovers", [])[0] if not takeover_report.get("takeovers", []).is_empty() else {}
+	_expect(Game.state["bankruptcy"]["status"] == "normal" and is_zero_approx(float(Game.state["bankruptcy"]["debt"])), "arrears timeout resolves through bank takeover instead of game over")
+	_expect(settlement.get("sold_count", 0) == 1 and settlement.get("sold", [])[0].get("datacenter_id", "") == "dc_oldest", "bank takeover sells the oldest operational data center first")
+	_expect(Game.find_datacenter("dc_oldest").is_empty() and not Game.find_datacenter("dc_newer").is_empty(), "bank takeover stops selling as soon as the debt is cleared")
+	_expect(Game.state["player"]["era"] == 3 and Game.state["player"]["network_level"] == 4, "bank takeover preserves era and network progression")
+	_expect(Game.state["player"]["gems"] == 99 and bool(Game.state["technology"]["auto_retirement"]), "bank takeover preserves technology and premium currency")
+	_expect(Game.state["plots"].size() == 2 and bool(Game.state["plots"][0].get("purchased", false)) and bool(Game.state["plots"][1].get("purchased", false)), "bank takeover preserves every purchased plot")
+
+	Game.reset_for_tests()
+	var doomed := _test_datacenter("dc_insufficient", "dc_t1")
+	Game.state["plots"][0]["datacenter"] = doomed
+	Game.state["plots"][0]["status"] = "operational"
+	Game.state["bankruptcy"] = {"status": "arrears", "debt": 100000.0, "arrears_online_seconds": 21600.0, "rescue_uses": 0, "rescue_day": -1, "last_takeover": {}, "takeover_notice_pending": false}
+	Game.state["player"]["cash"] = 0.0
+	var shortfall_report := Game.advance_time(1.0, false)
+	var shortfall: Dictionary = shortfall_report.get("takeovers", [])[0] if not shortfall_report.get("takeovers", []).is_empty() else {}
+	_expect(float(shortfall.get("debt_forgiven", 0.0)) > 0.0 and is_zero_approx(float(Game.state["bankruptcy"]["debt"])), "bank takeover forgives any debt left after all operational data centers are sold")
+	_expect(is_equal_approx(float(Game.state["player"]["cash"]), 5000.0) and float(shortfall.get("relief_grant", 0.0)) > 0.0, "bank takeover grants enough restructuring cash to guarantee the five-thousand floor")
+
+	Game.reset_for_tests()
+	Game.state["bankruptcy"]["status"] = "game_over"
+	Game.state["bankruptcy"]["debt"] = 250.0
+	Game.state["player"]["cash"] = 0.0
+	Game.call("_ensure_state_shape")
+	_expect(Game.state["bankruptcy"]["status"] == "normal" and bool(Game.state["bankruptcy"].get("takeover_notice_pending", false)) and is_equal_approx(float(Game.state["player"]["cash"]), 5000.0), "legacy game-over saves migrate once into a playable takeover settlement")
 
 func _run_prestige_test() -> void:
 	Game.reset_for_tests()
