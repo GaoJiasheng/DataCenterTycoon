@@ -580,9 +580,47 @@ func _run_aging_test() -> void:
 	_expect(dc.get("status", "") == "operational" and bool(dc.get("offline_expired", false)), "offline expiry freezes before forced ruin")
 	Game.advance_time(100.0, false)
 	_expect(dc.get("status", "") == "ruined", "expired data center becomes ruin online")
-	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active"}
+	dc["power_unit"] = "power_t1"
+	dc["coolers"] = {"north": "cool_air_t1"}
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
 	_expect(not bool(Game.retire_datacenter(dc["id"]).get("ok", true)), "ruin cannot be retired for salvage value")
 	_expect(not bool(Game.uninstall_rack(dc["id"], 0).get("ok", true)), "rack cannot be salvaged from a ruin")
+	var scrap := Rules.ruin_scrap_value(dc, Game.data)
+	var cash_before_scrap := float(Game.state["player"]["cash"])
+	var cleared := Game.demolish_ruin(dc["id"])
+	_expect(bool(cleared.get("ok", false)) and is_equal_approx(float(cleared.get("refund", 0.0)), scrap) and is_equal_approx(float(Game.state["player"]["cash"]), cash_before_scrap + scrap), "clearing a ruin is free and deposits building attachment and rack scrap")
+
+	Game.reset_for_tests()
+	var lifespan := float(DataRepository.get_entry("buildings", "dc_t1").get("lifespan_seconds", 432000.0))
+	var harvest_dc := _test_datacenter("dc_harvest", "dc_t1")
+	harvest_dc["built_at"] = Game.simulation_time() - lifespan * 0.94
+	harvest_dc["power_unit"] = "power_t1"
+	harvest_dc["coolers"] = {"north": "cool_air_t1"}
+	harvest_dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	var harvest_value := Rules.retirement_value(harvest_dc, Game.simulation_time(), Game.data)
+	var late_scrap := Rules.ruin_scrap_value(harvest_dc, Game.data)
+	_expect(harvest_value > late_scrap, "normal retirement at ninety-four percent always pays strictly more than waiting for scrap")
+
+	Game.state["player"]["era"] = 2
+	Game.state["player"]["cash"] = 40000.0
+	_expect(Game.purchase_auto_retirement().get("ok", false) and bool(Game.state["technology"].get("auto_retirement", false)), "Era 2 can purchase the single auto-retirement technology for fifteen thousand")
+	harvest_dc["racks"][1] = {"rack_id": "rack_storage_t1", "status": "installing", "enabled": true, "cost": 321.0, "install_complete_at": Game.simulation_time() + 10000.0}
+	Game.state["plots"][0]["datacenter"] = harvest_dc
+	Game.state["plots"][0]["status"] = "operational"
+	Game.state["construction_queue"] = [{"id": "job_auto_retire", "type": "cooler", "datacenter_id": harvest_dc["id"], "attachment_id": "cool_air_t2", "cost": 777.0, "started_at": Game.simulation_time(), "complete_at": Game.simulation_time() + 10000.0}]
+	var retirement_probe := harvest_dc.duplicate(true)
+	retirement_probe["racks"][1] = null
+	var auto_at := Game.simulation_time() + lifespan * 0.01
+	var expected_harvest := Rules.retirement_value(retirement_probe, auto_at, Game.data)
+	var cash_before_auto := float(Game.state["player"]["cash"])
+	var auto_report := Game.advance_time(5000.0, true)
+	var auto_entry: Dictionary = {}
+	for aging_entry: Dictionary in auto_report.get("aging", []):
+		if aging_entry.get("type", "") == "datacenter_auto_retired":
+			auto_entry = aging_entry
+			break
+	_expect(Game.state["plots"][0].get("datacenter") == null and Game.state["construction_queue"].is_empty() and is_equal_approx(float(Game.state["player"]["cash"]), cash_before_auto + expected_harvest + 1098.0), "offline auto-retirement at ninety-five percent harvests recovery and fully refunds pending jobs")
+	_expect(auto_entry.get("type", "") == "datacenter_auto_retired" and is_equal_approx(float(auto_entry.get("refund", 0.0)), expected_harvest) and is_equal_approx(float(auto_entry.get("job_refund", 0.0)), 1098.0), "offline auto-retirement is recorded as a recovery event in the return report")
 
 func _run_bankruptcy_test() -> void:
 	Game.reset_for_tests()

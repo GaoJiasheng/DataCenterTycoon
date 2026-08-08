@@ -3,6 +3,7 @@
 
 import csv
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -49,6 +50,21 @@ def validate_references():
         ERRORS.append("economy/faults: auto_repair_seconds must be positive")
     if DATA["achievements"]["items"].get("repair_ten", {}).get("metric") != "faults_repaired_manual":
         ERRORS.append("achievements/repair_ten: automatic repairs must not count toward the manual repair achievement")
+    aging = DATA["economy"].get("aging", {})
+    if "demolition_cost_ratio" in aging:
+        ERRORS.append("economy/aging: demolition penalties are forbidden")
+    for field, expected in (("ruin_building_scrap_ratio", 0.05), ("ruin_attachment_scrap_ratio", 0.1), ("auto_retire_progress", 0.95)):
+        if not math.isclose(float(aging.get(field, -1)), expected):
+            ERRORS.append(f"economy/aging: {field} must equal {expected}")
+    if float(aging.get("retirement_building_refund_ratio", 0)) <= 0:
+        ERRORS.append("economy/aging: retirement building recovery must stay positive")
+    if float(aging.get("attachment_refund_ratio", 0)) < float(aging.get("ruin_attachment_scrap_ratio", 0)):
+        ERRORS.append("economy/aging: normal attachment recovery cannot trail ruin scrap")
+    if float(aging.get("rack_refund_ratio", 0)) < 0.5:
+        ERRORS.append("economy/aging: normal rack recovery cannot trail the 50% ruin scrap rule")
+    auto_retirement = DATA["technology"].get("upgrades", {}).get("auto_retirement", {}).get("levels", {}).get("1", {})
+    if float(auto_retirement.get("cost", 0)) != 15000 or int(auto_retirement.get("unlock_era", 0)) != 2:
+        ERRORS.append("technology/auto_retirement: expected one Era 2 level costing 15000")
 
 
 def validate_localization():
@@ -72,10 +88,10 @@ def validate_localization():
     for level_id, level in DATA["technology"]["network"].items():
         if level.get("name_key") not in keys:
             ERRORS.append(f"technology/network/{level_id}: localization key missing")
-    repair = DATA["technology"]["upgrades"]["repair_team"]
-    for field in ("name_key", "description_key"):
-        if repair.get(field) not in keys:
-            ERRORS.append(f"technology/repair_team: localization key {repair.get(field)} missing")
+    for upgrade_id, upgrade in DATA["technology"]["upgrades"].items():
+        for field in ("name_key", "description_key"):
+            if upgrade.get(field) not in keys:
+                ERRORS.append(f"technology/{upgrade_id}: localization key {upgrade.get(field)} missing")
 
 
 def validate_manifest():

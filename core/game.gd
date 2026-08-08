@@ -345,27 +345,32 @@ func retire_datacenter(datacenter_id: String) -> Dictionary:
 	var progress := Rules.age_progress(dc, simulation_time(), data.get("buildings", {}))
 	if progress < float(data.get("economy", {}).get("aging", {}).get("aging_start", 0.6)):
 		return _failure("too_new_to_retire")
+	var result := _retire_datacenter_internal(plot, dc, false)
+	_commit_action("datacenter_retired")
+	return result
+
+func _retire_datacenter_internal(plot: Dictionary, dc: Dictionary, automatic: bool) -> Dictionary:
 	var refund := Rules.retirement_value(dc, simulation_time(), data)
 	state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + refund
 	plot["datacenter"] = null
 	plot["status"] = "empty"
 	state["stats"]["datacenters_retired"] = int(state["stats"].get("datacenters_retired", 0)) + 1
+	if automatic:
+		state["stats"]["datacenters_auto_retired"] = int(state["stats"].get("datacenters_auto_retired", 0)) + 1
 	_tutorial_event("dc_retired")
 	AudioService.play_sfx("sfx_retire")
-	_commit_action("datacenter_retired")
-	return _success({"refund": refund})
+	return _success({"refund": refund, "automatic": automatic})
 
 func demolish_ruin(datacenter_id: String) -> Dictionary:
 	var plot := find_plot_for_datacenter(datacenter_id)
 	if plot.is_empty() or plot.get("datacenter", {}).get("status", "") != "ruined":
 		return _failure("not_ruined")
-	var cost := Rules.demolition_cost(plot["datacenter"], data)
-	if not _spend_cash(cost):
-		return _failure("not_enough_cash")
+	var refund := Rules.ruin_scrap_value(plot["datacenter"], data)
+	state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + refund
 	plot["datacenter"] = null
 	plot["status"] = "empty"
 	_commit_action("ruin_demolished")
-	return _success({"cost": cost})
+	return _success({"refund": refund})
 
 func upgrade_network() -> Dictionary:
 	var next_level := int(state["player"].get("network_level", 1)) + 1
@@ -396,6 +401,19 @@ func upgrade_repair_team() -> Dictionary:
 	state["technology"]["repair_team"] = next
 	_commit_action("repair_team_upgraded")
 	return _success({"level": next})
+
+func purchase_auto_retirement() -> Dictionary:
+	if bool(state.get("technology", {}).get("auto_retirement", false)):
+		return _success({"owned": true})
+	var upgrade: Dictionary = data.get("technology", {}).get("upgrades", {}).get("auto_retirement", {}).get("levels", {}).get("1", {})
+	if upgrade.is_empty() or not is_unlocked(upgrade):
+		return _failure("locked")
+	var cost := float(upgrade.get("cost", 15000.0))
+	if not _spend_cash(cost):
+		return _failure("not_enough_cash")
+	state["technology"]["auto_retirement"] = true
+	_commit_action("auto_retirement_purchased")
+	return _success({"cost": cost, "owned": true})
 
 func speed_up_construction_with_gems(construction_id: String) -> Dictionary:
 	var item := find_construction(construction_id)
@@ -620,6 +638,11 @@ func _next_boundary_after(now: float, include_noise: bool) -> float:
 			var contract_end := float(dc.get("contract_end_at", INF))
 			if contract_end > now:
 				result = minf(result, contract_end)
+		if bool(state.get("technology", {}).get("auto_retirement", false)) and dc.get("status", "") == "operational":
+			var building: Dictionary = data.get("buildings", {}).get("items", {}).get(dc.get("building_id", ""), {})
+			var retire_at := float(dc.get("built_at", now)) + float(building.get("lifespan_seconds", 1.0)) * float(data.get("economy", {}).get("aging", {}).get("auto_retire_progress", 0.95))
+			if retire_at > now:
+				result = minf(result, retire_at)
 	var market_boundary := _market.next_transition_after(state, now, include_noise)
 	return minf(result, market_boundary)
 
@@ -795,11 +818,19 @@ func _process_contract_renewals(now: float, report: Dictionary) -> void:
 			EventBus.contract_auto_renewed.emit(dc.get("id", ""), dc.get("customer_id", ""), float(dc.get("contract_end_at", 0.0)))
 
 func _process_aging(now: float, offline: bool, report: Dictionary) -> void:
+	var auto_retirement := bool(state.get("technology", {}).get("auto_retirement", false))
+	var auto_progress := float(data.get("economy", {}).get("aging", {}).get("auto_retire_progress", 0.95))
 	for plot: Dictionary in state.get("plots", []):
 		var dc: Variant = plot.get("datacenter")
 		if not dc is Dictionary or dc.get("status", "") != "operational":
 			continue
 		var progress := Rules.age_progress(dc, now, data.get("buildings", {}))
+		if auto_retirement and progress >= auto_progress:
+			var datacenter_id := str(dc.get("id", ""))
+			var job_refund := _cancel_jobs_for_datacenter(datacenter_id)
+			var retired := _retire_datacenter_internal(plot, dc, true)
+			report.get("aging", []).append({"type": "datacenter_auto_retired", "datacenter_id": datacenter_id, "refund": float(retired.get("refund", 0.0)), "job_refund": job_refund})
+			continue
 		var stage := Rules.aging_stage(progress)
 		if stage in ["aging", "decline"] and stage not in dc.get("aging_notices", []):
 			dc["aging_notices"].append(stage)
@@ -987,6 +1018,26 @@ func _has_jobs_for_datacenter(datacenter_id: String) -> bool:
 		if installed is Dictionary and installed.get("status", "") == "installing":
 			return true
 	return false
+
+func _cancel_jobs_for_datacenter(datacenter_id: String) -> float:
+	var refund := 0.0
+	var retained: Array = []
+	for item: Dictionary in state.get("construction_queue", []):
+		if str(item.get("datacenter_id", "")) == datacenter_id:
+			refund += float(item.get("cost", 0.0))
+		else:
+			retained.append(item)
+	state["construction_queue"] = retained
+	var dc := find_datacenter(datacenter_id)
+	if not dc.is_empty():
+		for slot: int in range(dc.get("racks", []).size()):
+			var installed: Variant = dc["racks"][slot]
+			if installed is Dictionary and str(installed.get("status", "")) == "installing":
+				refund += float(installed.get("cost", 0.0))
+				dc["racks"][slot] = null
+	if refund > 0.0:
+		state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + refund
+	return refund
 
 func _queue_item(type: String, duration: float) -> Dictionary:
 	var started := simulation_time()
@@ -1245,7 +1296,7 @@ func _new_state() -> Dictionary:
 		"market": {"active": [], "previews": [], "history": {}, "noise": {}, "next_noise_at": float(economy.get("time", {}).get("real_seconds_per_game_day", 240.0)), "next_event_at": float(economy.get("time", {}).get("real_seconds_per_game_month", 7200.0)), "rng_state": 73471},
 		"bankruptcy": {"status": "normal", "debt": 0.0, "arrears_online_seconds": 0.0, "rescue_uses": 0, "rescue_day": -1},
 		"tutorial": {"step": 0, "completed": false, "dismissed_messages": []},
-		"technology": {"repair_team": 1},
+		"technology": {"repair_team": 1, "auto_retirement": false},
 		"flags": {"standard_built": false, "last_presented_era": 1},
 		"achievements": {},
 		"entitlements": {},
@@ -1254,7 +1305,7 @@ func _new_state() -> Dictionary:
 		"reward_limits": {"repair_window_start": now, "repair_uses": 0, "rescue_day": -1, "rescue_uses": 0},
 		"inventory": {"instant_build_tickets": 0},
 		"settings": {"locale": "", "music_enabled": true, "sfx_enabled": true, "haptics_enabled": true},
-		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "prestige_count": 0, "contracts_signed": 0, "arrears_recovered": 0, "highest_net_worth": 0.0},
+		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "datacenters_auto_retired": 0, "prestige_count": 0, "contracts_signed": 0, "arrears_recovered": 0, "highest_net_worth": 0.0},
 	}
 
 func _success(payload: Dictionary = {}) -> Dictionary:

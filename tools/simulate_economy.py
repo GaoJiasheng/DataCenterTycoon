@@ -86,6 +86,8 @@ class Simulator:
         self.curve = []
         self.customer_seconds = {customer: 0.0 for customer in CUSTOMERS}
         self.prestige_ready_at = None
+        self.auto_retirement = False
+        self.auto_retirements = 0
         self.sessions_per_day = 2 if strategy == "idle" else 6
         self.next_session = 0.0
 
@@ -95,6 +97,7 @@ class Simulator:
             self.update_market()
             self.update_contracts()
             self.complete_auto_repairs()
+            self.process_auto_retirements()
             self.accrue()
             self.roll_faults()
             if Simulator.now >= self.maintenance_at:
@@ -250,6 +253,7 @@ class Simulator:
                     self.sign_customer(dc, "internet")
         self.retire_old()
         self.maybe_upgrade_network()
+        self.maybe_purchase_auto_retirement()
         attempts = 6 if self.strategy == "aggressive" else 1
         for _ in range(attempts):
             if not self.try_expand():
@@ -328,6 +332,44 @@ class Simulator:
             self.cash -= level["cost"]
             self.network += 1
 
+    def maybe_purchase_auto_retirement(self):
+        if self.auto_retirement or self.era < 2:
+            return
+        upgrade = TECHNOLOGY["upgrades"]["auto_retirement"]["levels"]["1"]
+        if self.cash >= upgrade["cost"]:
+            self.cash -= upgrade["cost"]
+            self.auto_retirement = True
+
+    def ruin_scrap_value(self, dc):
+        _racks, power, coolers = LOADOUTS[dc.building_id]
+        aging = ECONOMY["aging"]
+        value = BUILDINGS[dc.building_id]["cost"] * aging["ruin_building_scrap_ratio"]
+        value += (ATTACHMENTS[power]["cost"] + sum(ATTACHMENTS[item]["cost"] for item in coolers)) * aging["ruin_attachment_scrap_ratio"]
+        value += sum(RACKS[item]["cost"] for item in dc.racks) * aging["rack_refund_ratio"]
+        return round(value)
+
+    def retirement_value(self, dc, age):
+        _racks, power, coolers = LOADOUTS[dc.building_id]
+        aging = ECONOMY["aging"]
+        value = BUILDINGS[dc.building_id]["cost"] * aging["retirement_building_refund_ratio"] * max(0, 1 - age)
+        value += (ATTACHMENTS[power]["cost"] + sum(ATTACHMENTS[item]["cost"] for item in coolers)) * aging["attachment_refund_ratio"]
+        value += sum(RACKS[item]["cost"] for item in dc.racks) * aging["rack_refund_ratio"]
+        rounded = round(value)
+        return max(rounded, self.ruin_scrap_value(dc) + 1) if age < 1 else rounded
+
+    def process_auto_retirements(self):
+        if not self.auto_retirement:
+            return
+        survivors = []
+        for dc in self.dcs:
+            age = max(0, Simulator.now - dc.built_at) / BUILDINGS[dc.building_id]["lifespan_seconds"]
+            if age < ECONOMY["aging"]["auto_retire_progress"]:
+                survivors.append(dc)
+                continue
+            self.cash += self.retirement_value(dc, age)
+            self.auto_retirements += 1
+        self.dcs = survivors
+
     def retire_old(self):
         survivors = []
         for dc in self.dcs:
@@ -336,12 +378,10 @@ class Simulator:
             if age < threshold:
                 survivors.append(dc)
                 continue
-            building = BUILDINGS[dc.building_id]
             if age < 1:
-                self.cash += building["cost"] * 0.4 * (1 - age)
+                self.cash += self.retirement_value(dc, age)
             else:
-                demolition = building["cost"] * ECONOMY["aging"]["demolition_cost_ratio"]
-                self.cash -= min(self.cash, demolition)
+                self.cash += self.ruin_scrap_value(dc)
         self.dcs = survivors
 
     def try_expand(self):
@@ -378,7 +418,11 @@ class Simulator:
 
     def net_worth(self, at=None):
         now = Simulator.now if at is None else at
-        return self.cash + sum(BUILDINGS[dc.building_id]["cost"] * max(0, 1 - (now - dc.built_at) / BUILDINGS[dc.building_id]["lifespan_seconds"]) * 0.4 for dc in self.dcs)
+        total = self.cash
+        for dc in self.dcs:
+            age = max(0, now - dc.built_at) / BUILDINGS[dc.building_id]["lifespan_seconds"]
+            total += self.retirement_value(dc, age) if age < 1 else self.ruin_scrap_value(dc)
+        return total
 
     def record(self):
         day = Simulator.now / DAY
@@ -438,6 +482,17 @@ def contract_locking_probe():
     return math.isclose(before, during) and after_renewal < during and dc.free_switch_available
 
 
+def retirement_harvest_probe():
+    sim = Simulator("idle", 23)
+    for building_id, (racks, _power, _coolers) in LOADOUTS.items():
+        dc = Datacenter(building_id, 0.0, 0.0, list(racks))
+        scrap = sim.ruin_scrap_value(dc)
+        for step in range(600, 1000):
+            if sim.retirement_value(dc, step / 1000.0) <= scrap:
+                return False
+    return True
+
+
 def print_acceptance(results, cohorts, legacy_idle_cohort):
     active_day_1 = point_at(results["active"], 1)
     active_day_7 = point_at(results["active"], 7)
@@ -447,6 +502,7 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
     idle_fault_loss = max(0.0, 1.0 - statistics.mean(sim.revenue for sim in cohorts["idle"]) / legacy_idle_revenue)
     checks = [
         (contract_locking_probe(), "mining downturn leaves an existing contract unchanged until automatic renewal"),
+        (retirement_harvest_probe(), "normal retirement beats ruin scrap for every loadout at each 0.1% step from 60.0% through 99.9% lifespan"),
         (idle_fault_loss < 0.08, f"passive auto-repair curve loses {idle_fault_loss:.1%} versus the same-seed pre-A4 fault model (target <8%)"),
         (2 <= active_day_1[3] <= 3 and active_day_1[2] > 0, "day 1 active player has 2–3 data centers and positive cash"),
         (6 <= active_day_7[3] <= 10 and active_day_7[4] >= 2, "day 7 active player has 6–10 data centers and reaches era 2"),

@@ -277,7 +277,7 @@ func _assert_retirement_decision(dc: Dictionary) -> void:
 	var tradeoff := main.find_child("RetireTradeoff", true, false) as Label
 	var monthly := Game.format_number(Game.datacenter_monthly_income(dc))
 	_expect(button != null and bool(button.get_meta("warning_active", false)) and float(button.get_meta("retirement_progress", 0.0)) >= 0.87, "M6 retirement CTA must switch to warning priority at the 87% decision point")
-	_expect(tradeoff != null and tradeoff.text.contains(monthly) and (tradeoff.text.contains("递减") or tradeoff.text.to_lower().contains("falls")), "M6 retirement decision must disclose declining recovery value and current monthly income")
+	_expect(tradeoff != null and tradeoff.text.contains(monthly) and (tradeoff.text.contains("更高") or tradeoff.text.to_lower().contains("better")), "M6 retirement decision must disclose that retiring beats ruin and show current monthly income")
 
 func _assert_offline_routes() -> void:
 	for route_type: String in ["fault", "market", "aging"]:

@@ -1065,12 +1065,12 @@ func _build_datacenter_page() -> Control:
 	var progress := Rules.age_progress(dc, Game.simulation_time(), DataRepository.get_table("buildings"))
 	var detail_metrics := HBoxContainer.new()
 	detail_metrics.add_theme_constant_override("separation", 10)
-	detail_metrics.add_child(_metric_chip("%s  %d%%" % [tr("LIFESPAN"), int(progress * 100.0)], ThemeMaker.COLORS.yellow))
+	detail_metrics.add_child(_metric_chip(_lifespan_metric_text(progress), ThemeMaker.COLORS.yellow))
 	detail_metrics.add_child(_metric_chip(tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(dc)), ThemeMaker.COLORS.green))
 	box.add_child(detail_metrics)
 	if dc.get("status", "") == "ruined":
 		box.add_child(_asset_preview(str(building.get("asset_prefix", "")) + "_ruin", tr("DEMOLISH"), ThemeMaker.COLORS.red, 300))
-		box.add_child(_button("%s · $%s" % [tr("DEMOLISH"), Game.format_number(Rules.demolition_cost(dc, Game.data))], _demolish.bind(str(dc.get("id", ""))), ThemeMaker.COLORS.red))
+		box.add_child(_button(tr("CLEAR_SCRAP_QUOTE") % Game.format_number(Rules.ruin_scrap_value(dc, Game.data)), _demolish.bind(str(dc.get("id", ""))), ThemeMaker.COLORS.green))
 		return _wrap_scroll(box)
 	if _detail_focus == "infrastructure":
 		_detail_focus = "board"
@@ -1086,6 +1086,12 @@ func _set_detail_focus(focus: String) -> void:
 		return
 	_detail_focus = focus
 	_request_full_refresh()
+
+func _lifespan_metric_text(progress: float) -> String:
+	var text := "%s  %d%%" % [tr("LIFESPAN"), int(progress * 100.0)]
+	if bool(Game.state.get("technology", {}).get("auto_retirement", false)):
+		text += " · " + (tr("AUTO_RETIRE_MARKER") % int(round(float(DataRepository.get_table("economy").get("aging", {}).get("auto_retire_progress", 0.95)) * 100.0)))
+	return text
 
 func _build_rack_management(dc: Dictionary, building: Dictionary) -> Control:
 	var section := VBoxContainer.new()
@@ -1419,6 +1425,23 @@ func _build_tech_page() -> Control:
 		Widgets.affordable_style(repair_button, repair_cost)
 		repair_box.add_child(repair_button)
 	box.add_child(repair_card)
+	var auto_config: Dictionary = DataRepository.get_table("technology").get("upgrades", {}).get("auto_retirement", {})
+	var auto_level: Dictionary = auto_config.get("levels", {}).get("1", {})
+	var auto_owned := bool(Game.state.get("technology", {}).get("auto_retirement", false))
+	var auto_card := _card()
+	var auto_box := VBoxContainer.new()
+	auto_box.add_theme_constant_override("separation", 10)
+	auto_card.add_child(auto_box)
+	auto_box.add_child(_feature_heading("ic_retire", tr(auto_config.get("name_key", "TECH_AUTO_RETIREMENT")), tr(auto_config.get("description_key", "TECH_AUTO_RETIREMENT_DESC")), ThemeMaker.COLORS.yellow))
+	if auto_owned:
+		auto_box.add_child(_label(tr("STORE_OWNED"), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.green))
+	else:
+		var auto_cost := float(auto_level.get("cost", 15000.0))
+		var auto_button := _button("%s · $%s" % [tr("BUY"), Game.format_number(auto_cost)], _purchase_auto_retirement, ThemeMaker.COLORS.green)
+		auto_button.disabled = not Game.is_unlocked(auto_level)
+		Widgets.affordable_style(auto_button, auto_cost)
+		auto_box.add_child(auto_button)
+	box.add_child(auto_card)
 	box.add_child(_build_prestige_card(player))
 	return _wrap_scroll(box)
 
@@ -2719,7 +2742,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	income_value.name = "DatacenterIncomeValue"
 	metrics.add_child(income_chip)
 	var progress := Rules.age_progress(dc, Game.simulation_time(), DataRepository.get_table("buildings"))
-	var lifespan_chip := _metric_chip("%s  %d%%" % [tr("LIFESPAN"), int(progress * 100.0)], ThemeMaker.COLORS.yellow)
+	var lifespan_chip := _metric_chip(_lifespan_metric_text(progress), ThemeMaker.COLORS.yellow)
 	var lifespan_value := lifespan_chip.find_child("Value", true, false) as Label
 	lifespan_value.name = "DatacenterLifespanValue"
 	metrics.add_child(lifespan_chip)
@@ -2734,7 +2757,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		_refresh_market_benefit_status(market_benefit, live_dc)
 		income_value.text = tr("INCOME_RATE") % Game.format_number(Game.datacenter_monthly_income(live_dc))
 		var live_progress := Rules.age_progress(live_dc, Game.simulation_time(), DataRepository.get_table("buildings"))
-		lifespan_value.text = "%s  %d%%" % [tr("LIFESPAN"), int(live_progress * 100.0)]
+		lifespan_value.text = _lifespan_metric_text(live_progress)
 		var live_contract_button := overlay.find_child("ContractCTA", true, false) as Button
 		if live_contract_button != null:
 			_refresh_contract_cta(live_contract_button, live_dc)
@@ -2743,9 +2766,9 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 			live_hint.visible = str(live_dc.get("power_unit", "")).is_empty()
 	)
 	if str(dc.get("status", "")) == "ruined":
-		sheet_box.add_child(_button(tr("DEMOLISH"), func() -> void:
+		sheet_box.add_child(_button(tr("CLEAR_SCRAP_QUOTE") % Game.format_number(Rules.ruin_scrap_value(dc, Game.data)), func() -> void:
 			_dismiss_world_sheet(overlay, _demolish.bind(datacenter_id))
-		, ThemeMaker.COLORS.red))
+		, ThemeMaker.COLORS.green))
 		return
 	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
 		sheet_box.add_child(_retirement_decision(dc, progress))
@@ -3168,7 +3191,8 @@ func _show_offline_dialog(report: Dictionary) -> void:
 			event_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 14)
 			event_content.add_theme_constant_override("separation", 10)
 			event_content.add_child(_icon_view(str(item.get("icon", "ic_check")), Vector2(38, 38)))
-			var event_copy := _label("%d · %s" % [int(item.get("count", 0)), tr(item.get("key", ""))], 20, ThemeMaker.COLORS.ink)
+			var event_text := str(item.get("label", tr(item.get("key", ""))))
+			var event_copy := _label("%d · %s" % [int(item.get("count", 0)), event_text], 20, ThemeMaker.COLORS.ink)
 			event_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			event_copy.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			event_content.add_child(event_copy)
@@ -3219,8 +3243,21 @@ func _offline_event_rows(report: Dictionary) -> Array[Dictionary]:
 	if not report.get("events", []).is_empty():
 		rows.append({"type": "market", "icon": "ic_market_up", "count": report["events"].size(), "key": "NAV_MARKET"})
 	if not report.get("aging", []).is_empty():
-		var aging: Dictionary = report["aging"][0]
-		rows.append({"type": "aging", "icon": "ic_retire", "count": report["aging"].size(), "key": "LIFESPAN", "datacenter_id": str(aging.get("datacenter_id", ""))})
+		var auto_entries: Array[Dictionary] = []
+		var regular_entries: Array[Dictionary] = []
+		for aging: Dictionary in report["aging"]:
+			if str(aging.get("type", "")) == "datacenter_auto_retired":
+				auto_entries.append(aging)
+			else:
+				regular_entries.append(aging)
+		if not auto_entries.is_empty():
+			var recovered := 0.0
+			for entry: Dictionary in auto_entries:
+				recovered += float(entry.get("refund", 0.0)) + float(entry.get("job_refund", 0.0))
+			rows.append({"type": "auto_retired", "icon": "ic_retire", "count": auto_entries.size(), "label": tr("OFFLINE_AUTO_RETIRED") % Game.format_number(recovered)})
+		if not regular_entries.is_empty():
+			var aging: Dictionary = regular_entries[0]
+			rows.append({"type": "aging", "icon": "ic_retire", "count": regular_entries.size(), "key": "LIFESPAN", "datacenter_id": str(aging.get("datacenter_id", ""))})
 	return rows
 
 func _run_offline_event(item: Dictionary) -> void:
@@ -3235,6 +3272,7 @@ func _run_offline_event(item: Dictionary) -> void:
 			else:
 				_show_datacenter_context(dc_id)
 		"market": _navigate("market")
+		"auto_retired": _navigate("map")
 		"aging": _show_datacenter_context(str(item.get("datacenter_id", "")))
 		_:
 			_navigate("map")
@@ -3415,6 +3453,9 @@ func _upgrade_network() -> void:
 
 func _upgrade_repair() -> void:
 	_handle_result(Game.upgrade_repair_team())
+
+func _purchase_auto_retirement() -> void:
+	_handle_result(Game.purchase_auto_retirement())
 
 func _purchase(product_id: String) -> void:
 	# StoreKit completion owns the final success/failure toast and its semantic

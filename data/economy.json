@@ -52,7 +52,9 @@
     "retirement_building_refund_ratio": 0.4,
     "attachment_refund_ratio": 0.4,
     "rack_refund_ratio": 0.5,
-    "demolition_cost_ratio": 0.15,
+    "ruin_building_scrap_ratio": 0.05,
+    "ruin_attachment_scrap_ratio": 0.1,
+    "auto_retire_progress": 0.95,
     "overheat_income_multiplier": 0.5,
     "aging_fault_multiplier": 3,
     "decline_fault_multiplier": 6

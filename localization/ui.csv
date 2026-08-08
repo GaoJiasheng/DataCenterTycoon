@@ -59,8 +59,9 @@ REPAIR_AD_QUOTE,Watch ad · Repair now (%d/%d this hour),看广告 · 立即修�
 REPAIR_GEMS_QUOTE,Instant repair · %d Gems,钻石立修 · %d 钻石
 DISMANTLE_RACK_QUOTE,Dismantle rack · Recover $%s,拆除机柜 · 回收 $%s
 RETIRE,Retire,退役
-RETIRE_TRADEOFF,Recovery value falls with age · Current $%s / month,回收金随老化每天递减 · 当前月收入 $%s
-DEMOLISH,Clear ruins,清拆废墟
+RETIRE_TRADEOFF,Retire before ruin to keep the better harvest · Current $%s / month,报废前退役可获得更高回收 · 当前月收入 $%s
+DEMOLISH,Collect scrap,清理残料
+CLEAR_SCRAP_QUOTE,Collect scrap · Recover $%s,清理残料 · 回收 $%s
 SIGN_CONTRACT,Sign contract,签订合约
 SWITCH_CONTRACT,Switch contract,更换合约
 CONTRACT_BREACH_FEE,Switching fee: $%s,换约违约金：$%s
@@ -229,6 +230,10 @@ NETWORK_L3,Dedicated Line,专线接入
 NETWORK_L4,Backbone Node,骨干节点
 TECH_REPAIR_TEAM,Repair Crew,维修队
 TECH_REPAIR_TEAM_DESC,Shortens dispatch repair time.,缩短派修等待时间。
+TECH_AUTO_RETIREMENT,Auto Retirement,自动退役
+TECH_AUTO_RETIREMENT_DESC,At 95% lifespan automatically harvest recovery · Works offline,寿命达到 95% 时自动退役入账 · 离线也生效
+AUTO_RETIRE_MARKER,Auto at %d%%,%d%% 自动退役
+OFFLINE_AUTO_RETIRED,Auto-retired · $%s recovered,已自动退役 · 回收 $%s
 EVENT_SHOPPING,E-commerce Festival,电商大促
 EVENT_SHOPPING_DESC,Internet demand surges.,互联网需求激增。
 EVENT_VIRAL,Viral Social App,社交应用爆红

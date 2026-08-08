@@ -15,6 +15,13 @@
         "2": {"cost": 12000, "repair_time_multiplier": 0.7, "unlock_era": 2},
         "3": {"cost": 150000, "repair_time_multiplier": 0.45, "unlock_era": 3}
       }
+    },
+    "auto_retirement": {
+      "name_key": "TECH_AUTO_RETIREMENT",
+      "description_key": "TECH_AUTO_RETIREMENT_DESC",
+      "levels": {
+        "1": {"cost": 15000, "unlock_era": 2}
+      }
     }
   }
 }

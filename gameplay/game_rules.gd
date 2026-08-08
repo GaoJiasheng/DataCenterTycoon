@@ -177,18 +177,39 @@ static func retirement_value(datacenter: Dictionary, simulation_seconds: float, 
 	for installed: Variant in datacenter.get("racks", []):
 		if installed is Dictionary and racks_table.has(installed.get("rack_id", "")):
 			value += float(racks_table[installed["rack_id"]].get("cost", 0.0)) * rack_ratio
-	return round(value)
+	var rounded: float = round(value)
+	if progress < 1.0:
+		# The harvest must always beat waiting for ruin, even for a bare center at
+		# the very end of its life where the linear building component approaches 0.
+		return maxf(rounded, ruin_scrap_value(datacenter, data) + 1.0)
+	return rounded
 
-static func demolition_cost(datacenter: Dictionary, data: Dictionary) -> float:
+static func ruin_scrap_value(datacenter: Dictionary, data: Dictionary) -> float:
 	var building: Dictionary = data.get("buildings", {}).get("items", {}).get(datacenter.get("building_id", ""), {})
-	return round(float(building.get("cost", 0.0)) * float(data.get("economy", {}).get("aging", {}).get("demolition_cost_ratio", 0.15)))
+	var aging: Dictionary = data.get("economy", {}).get("aging", {})
+	var value := float(building.get("cost", 0.0)) * float(aging.get("ruin_building_scrap_ratio", 0.05))
+	var attachments: Dictionary = data.get("attachments", {}).get("items", {})
+	var attachment_ratio := float(aging.get("ruin_attachment_scrap_ratio", 0.1))
+	var power_id := str(datacenter.get("power_unit", ""))
+	if attachments.has(power_id):
+		value += float(attachments[power_id].get("cost", 0.0)) * attachment_ratio
+	for cooler_id: String in datacenter.get("coolers", {}).values():
+		if attachments.has(cooler_id):
+			value += float(attachments[cooler_id].get("cost", 0.0)) * attachment_ratio
+	var racks_table: Dictionary = data.get("racks", {}).get("items", {})
+	var rack_ratio := float(aging.get("rack_refund_ratio", 0.5))
+	for installed: Variant in datacenter.get("racks", []):
+		if installed is Dictionary and racks_table.has(installed.get("rack_id", "")):
+			value += float(racks_table[installed["rack_id"]].get("cost", 0.0)) * rack_ratio
+	return round(value)
 
 static func total_net_worth(game_state: Dictionary, data: Dictionary) -> float:
 	var total := float(game_state.get("player", {}).get("cash", 0.0))
 	var simulation_seconds := float(game_state.get("clock", {}).get("simulation_seconds", 0.0))
 	for plot: Dictionary in game_state.get("plots", []):
 		if plot.get("datacenter") is Dictionary:
-			total += retirement_value(plot["datacenter"], simulation_seconds, data)
+			var dc: Dictionary = plot["datacenter"]
+			total += ruin_scrap_value(dc, data) if dc.get("status", "") == "ruined" else retirement_value(dc, simulation_seconds, data)
 		if bool(plot.get("purchased", false)):
 			total += land_price(int(plot.get("index", 1)), data.get("economy", {})) * float(data.get("economy", {}).get("land", {}).get("prestige_refund_ratio", 0.5))
 	return total
