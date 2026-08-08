@@ -115,6 +115,7 @@ func _ready() -> void:
 	alert_contract["power_unit"] = "power_t1"
 	alert_contract["customer_id"] = "internet"
 	alert_contract["contract_end_at"] = Game.simulation_time()
+	alert_contract["free_switch_available"] = true
 	main.park_map.setup([
 		{"id": "visual_alert_plot_0", "index": 1, "status": "operational", "datacenter": alert_fault},
 		{"id": "visual_alert_plot_1", "index": 2, "status": "operational", "datacenter": alert_unpowered},

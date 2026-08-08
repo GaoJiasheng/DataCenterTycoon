@@ -3964,7 +3964,7 @@ func _show_bank_takeover_overlay() -> void:
 	box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	margin.add_child(box)
 	box.add_child(_icon_view("ic_bankrupt", Vector2(128, 128)))
-	var title := _label(tr("BANK_TAKEOVER_TITLE"), 48, ThemeMaker.COLORS.gold)
+	var title := _label(tr("BANK_TAKEOVER_TITLE"), 48, ThemeMaker.COLORS.ink)
 	title.name = "BankTakeoverTitle"
 	ThemeMaker.apply_text_role(title, "display")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

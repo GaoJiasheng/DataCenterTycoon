@@ -115,7 +115,7 @@ func _run_campaign() -> void:
 	_expect(bool(seen[2]), "a played campaign must reach era 2 within %d game months" % MAX_MONTHS)
 	_expect(bool(seen[3]), "a played campaign must reach era 3 within %d game months" % MAX_MONTHS)
 	_expect(handled_fault, "no fault ever surfaced across the whole campaign — the repair loop is unreachable")
-	_expect(handled_renewal, "no contract renewal window ever opened — the renewal loop is unreachable")
+	_expect(handled_renewal, "no automatic renewal or free-switch opportunity ever surfaced — the contract loop is unreachable")
 	_expect(retired, "no site ever became old enough to retire — the rebuild loop is unreachable")
 	_expect(str(Game.state.get("bankruptcy", {}).get("status", "normal")) in ["normal", "arrears"], "a reasonably played campaign never enters an unreachable failure state")
 	_expect(_era_overlays_seen >= 2, "both era unlocks must announce themselves (saw %d)" % _era_overlays_seen)

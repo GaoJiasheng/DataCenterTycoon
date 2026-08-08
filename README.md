@@ -16,20 +16,22 @@
 | 文档 | 内容 | 读者 |
 |---|---|---|
 | [docs/00_decisions.md](docs/00_decisions.md) | 已锁定的设计决策与待定项（跨 session 的唯一事实来源） | 所有人，**先读这个** |
-| [docs/01_game_design.md](docs/01_game_design.md) | 核心玩法：三层循环、机房/网格/供电冷却、客户与行情、老化退役、转生、破产 | 策划/程序 |
+| [docs/01_game_design.md](docs/01_game_design.md) | 核心玩法：三层循环、机房/网格/供电冷却、客户与行情、老化退役、转生、银行接管 | 策划/程序 |
 | [docs/02_economy.md](docs/02_economy.md) | 时间换算、全部数值表与公式、平衡目标、调平方法 | 策划/程序 |
 | [docs/03_art_spec.md](docs/03_art_spec.md) | 全局美术风格规范 + 全量素材清单（每个素材含尺寸/状态/英文生成 prompt） | 美术外包/生成模型 |
 | [docs/04_tech_plan.md](docs/04_tech_plan.md) | Godot 工程结构、数据 schema、存档与离线结算、里程碑、风险 | 程序 |
 | [docs/05_monetization_store.md](docs/05_monetization_store.md) | 广告位、IAP SKU、定价、商店文案（中英）、上架清单 | 商务/程序 |
 | [docs/06_gameplay_optimization_proposal.md](docs/06_gameplay_optimization_proposal.md) | 行情敏感度、网络大单、续约、独立上架、停机与多种子调平的实施记录 | 策划/程序 |
+| [docs/18_cozy_rework_spec.md](docs/18_cozy_rework_spec.md) | 「轻松化」改造实施规格：签约锁价、银行接管、退役收割、故障软化、免费改签（已落地） | 策划/程序 |
 
 ## 当前状态
 
 - [x] M0–M4：工程底座、完整经营循环、地图扩张、长线系统、转生、引导与成就
 - [x] iPhone 17 基准的双语竖屏 UI：世界优先园区、极简 HUD、动态主操作、情境抽屉、安全区和触觉接口
-- [x] 正式美术 134 项、音频 16 项完整接入；地图、机房、导航、商店、事件特效和三套音乐均走运行时接口
+- [x] 正式美术 152 项、音频 23 项完整接入；地图、机房、导航、商店、事件特效和三套音乐均走运行时接口
 - [x] StoreKit provider、交易幂等、限购、恢复购买和激励视频原生桥接口
-- [x] 103 项 Godot 回归测试、双语各 30 状态竖屏视觉与排版审计、断言化 FTUE 流程审计、30 天三策略 × 20 种子模拟、iOS 导出与 App Store 自动门禁
+- [x] 轻松向经营闭环：合约锁价/自动续约与永久免费改签、故障 40% 降效/4 小时自愈、残料回收/95% 自动退役、银行接管/重整托底
+- [x] 127 项 Godot 回归测试、双语各 31 状态竖屏视觉与排版审计、断言化 FTUE/中期流程审计、30 天三策略 × 20 种子模拟、iOS 导出与 App Store 自动门禁
 - [ ] 外部交付：P01 正式名称、P04 广告 SDK、Apple 账号/证书、商店截图和 TestFlight
 
 运行时已经使用正式视听资源；资源接口仍保留缺失回退，因此单张素材损坏或暂时移除不会阻止玩法逻辑启动。
@@ -52,9 +54,9 @@ python3 tools/validate_data.py
 python3 tools/simulate_economy.py
 ```
 
-`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、103 项逻辑、该流程门禁和中文 30 态渲染回归。
+`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、127 项逻辑、该流程门禁和双语 31 态渲染回归。
 
-`tests/tutorial_playthrough.tscn` 只用触摸走完新手教程；`tests/full_campaign.tscn` 接着往下打——从全新存档按"月"推进，边玩边刷新真实 UI，一路走到时代 2、时代 3 和第一次上市重组，断言故障维修、续约窗口、退役重建、离线结算、页面切换与顶部信息带不互相遮挡，输出 `/tmp/dct_camp_*.png`。审计记录见 [docs/17_full_campaign_audit.md](docs/17_full_campaign_audit.md)。
+`tests/tutorial_playthrough.tscn` 只用触摸走完新手教程；`tests/full_campaign.tscn` 接着往下打——从全新存档按"月"推进，边玩边刷新真实 UI，一路走到时代 2、时代 3 和第一次上市重组，断言故障降效/修复、锁价自动续约/免费改签、退役收割、银行接管兼容、离线结算、页面切换与顶部信息带不互相遮挡，输出 `/tmp/dct_camp_*.png`。审计记录见 [docs/17_full_campaign_audit.md](docs/17_full_campaign_audit.md)。
 
 资源重做或更新后执行：
 
