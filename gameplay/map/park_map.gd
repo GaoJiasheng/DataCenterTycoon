@@ -853,7 +853,7 @@ func _datacenter_alert(dc: Dictionary) -> Dictionary:
 		var runtime := Rules.rack_runtime_status(dc, slot, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
 		if bool(runtime.get("overheated", false)):
 			return {"type": "overheat", "slot": slot, "caption": tr("OVERHEATED"), "asset": "ic_heat"}
-	if not str(dc.get("customer_id", "")).is_empty() and float(dc.get("contract_end_at", INF)) <= Game.simulation_time():
+	if bool(dc.get("free_switch_available", false)):
 		return {"type": "contract", "slot": -1, "caption": tr("CONTRACT_RENEWAL_FREE"), "asset": "ic_contract"}
 	var benefit := _datacenter_market_benefit(dc)
 	if not benefit.is_empty():

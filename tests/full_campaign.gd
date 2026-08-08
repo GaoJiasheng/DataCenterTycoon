@@ -87,7 +87,7 @@ func _run_campaign() -> void:
 		if not handled_renewal:
 			handled_renewal = await _handle_any_renewal()
 			if handled_renewal:
-				_note("month %d: switched customers inside the renewal window" % _month)
+				_note("month %d: used a saved free switch after automatic renewal" % _month)
 		retired = _play_one_month() or retired
 		main.call("_refresh")
 		await get_tree().process_frame
@@ -286,9 +286,9 @@ func _ensure_contract(dc_id: String, dc: Dictionary) -> void:
 	var best := _best_customer(dc)
 	if best.is_empty() or best == current:
 		return
-	# Outside the renewal window a switch costs a breach fee, so only sign when
-	# there is no contract at all — which is what a player would do.
-	if current.is_empty() or float(dc.get("renewal_window_end_at", 0.0)) > Game.simulation_time():
+	# Existing terms stay locked. Rebalance only on first signing or when an
+	# automatic renewal has banked a non-expiring free switch.
+	if current.is_empty() or bool(dc.get("free_switch_available", false)):
 		Game.sign_contract(dc_id, best)
 
 func _best_customer(dc: Dictionary) -> String:
@@ -300,6 +300,7 @@ func _best_customer(dc: Dictionary) -> String:
 		if not Game.is_unlocked(customer) or int(customer.get("minimum_network_level", 1)) > int(Game.state["player"].get("network_level", 1)):
 			continue
 		probe["customer_id"] = customer_id
+		probe["locked_market_multiplier"] = Game.contract_market_multiplier(customer_id)
 		var income := Game.datacenter_monthly_income(probe)
 		if income > best_income:
 			best_income = income
@@ -350,7 +351,7 @@ func _handle_any_renewal() -> bool:
 		if not dc is Dictionary:
 			continue
 		var entry: Dictionary = dc
-		if float(entry.get("renewal_window_end_at", 0.0)) <= Game.simulation_time():
+		if not bool(entry.get("free_switch_available", false)):
 			continue
 		var dc_id := str(entry.get("id", ""))
 		main.call("_open_datacenter", dc_id)
@@ -358,10 +359,10 @@ func _handle_any_renewal() -> bool:
 		var cta := main.find_child("ContractCTA", true, false) as Button
 		_expect(cta != null, "an open data center must show its contract call to action")
 		if cta != null:
-			_expect(bool(cta.get_meta("renewal_active", false)), "an open renewal window must be advertised on the contract CTA")
+			_expect(bool(cta.get_meta("renewal_active", false)), "a saved free switch must be advertised on the contract CTA")
 		_dismiss_overlays()
 		var target := _best_customer(entry)
-		_expect(bool(Game.sign_contract(dc_id, target).get("ok", false)), "switching customers inside the renewal window must succeed")
+		_expect(bool(Game.sign_contract(dc_id, target).get("ok", false)), "using a saved free switch must succeed")
 		return true
 	return false
 
@@ -551,4 +552,3 @@ func _shot(shot_name: String) -> void:
 	_shot_index += 1
 	image.save_png("%s%02d_%s.png" % [OUT, _shot_index, shot_name])
 	print("CAMPAIGN: shot %02d_%s" % [_shot_index, shot_name])
-

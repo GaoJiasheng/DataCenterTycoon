@@ -496,7 +496,7 @@ func _connect_events() -> void:
 	Monetization.product_info_changed.connect(_request_full_refresh)
 	EventBus.construction_completed.connect(_on_construction_completed)
 	EventBus.rack_fault_occurred.connect(_on_rack_fault_occurred)
-	EventBus.contract_renewal_opened.connect(_on_contract_renewal_opened)
+	EventBus.contract_auto_renewed.connect(_on_contract_auto_renewed)
 	EventBus.datacenter_entered_aging.connect(_on_datacenter_entered_aging)
 	EventBus.market_event_started.connect(_on_market_event_started)
 	EventBus.market_event_ended.connect(_on_market_event_ended)
@@ -758,13 +758,12 @@ func _operations_tasks(include_market: bool = true) -> Array[Dictionary]:
 					"title": tr("TASK_FAULT_TITLE") % [tr(rack.get("name_key", "RACKS")), building_name],
 					"subtitle": tr("TASK_FAULT_SUBTITLE"), "action": tr("TASK_GO_REPAIR"),
 				})
-		var renewal_end := float(dc.get("renewal_window_end_at", 0.0))
-		if renewal_end > now:
+		if bool(dc.get("free_switch_available", false)):
 			var customer := DataRepository.get_entry("customers", str(dc.get("customer_id", "")))
 			tasks.append({
 				"id": "renewal:%s" % dc_id, "type": "renewal", "priority": 1,
 				"datacenter_id": dc_id, "slot": -1, "asset": "ic_contract", "accent": ThemeMaker.COLORS.yellow,
-				"title": tr("TASK_RENEWAL_TITLE") % Game.format_duration(renewal_end - now),
+				"title": tr("TASK_RENEWAL_TITLE"),
 				"subtitle": tr("TASK_RENEWAL_SUBTITLE") % [tr(customer.get("name_key", "CONTRACT_NONE")), building_name],
 				"action": tr("TASK_GO_RENEW"),
 			})
@@ -1166,9 +1165,8 @@ func _build_contract_management(dc: Dictionary) -> Control:
 	var client_name := tr(DataRepository.get_entry("customers", current_customer).get("name_key", "CONTRACT_NONE"))
 	var timing_text := ""
 	if not current_customer.is_empty():
-		var renewal_end := float(dc.get("renewal_window_end_at", 0.0))
-		if renewal_end > Game.simulation_time():
-			timing_text = tr("CONTRACT_RENEWAL_WINDOW") % Game.format_duration(renewal_end - Game.simulation_time())
+		if bool(dc.get("free_switch_available", false)):
+			timing_text = tr("CONTRACT_RENEWAL_WINDOW")
 		else:
 			timing_text = tr("CONTRACT_REMAINING") % Game.format_duration(maxf(0.0, float(dc.get("contract_end_at", 0.0)) - Game.simulation_time()))
 	var summary := Widgets.flat_card()
@@ -1180,10 +1178,16 @@ func _build_contract_management(dc: Dictionary) -> Control:
 	current_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	summary_box.add_child(current_label)
 	if not timing_text.is_empty():
-		var timing_label := _label(timing_text, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+		var timing_label := _label(timing_text, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.green if bool(dc.get("free_switch_available", false)) else ThemeMaker.COLORS.cyan)
 		timing_label.max_lines_visible = 1
 		timing_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		summary_box.add_child(timing_label)
+	if not current_customer.is_empty():
+		var rates := HBoxContainer.new()
+		rates.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+		rates.add_child(Widgets.chip(tr("CONTRACT_LOCKED_RATE") % float(dc.get("locked_market_multiplier", Game.contract_market_multiplier(current_customer))), ThemeMaker.COLORS.green))
+		rates.add_child(Widgets.chip(tr("CONTRACT_MARKET_RATE") % Game.market_multiplier(current_customer), ThemeMaker.COLORS.cyan))
+		summary_box.add_child(rates)
 	section.add_child(summary)
 	var contracts := VBoxContainer.new()
 	contracts.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
@@ -1279,6 +1283,7 @@ func _fit_contract_card_height(card: Button, content: Control) -> void:
 func _projected_datacenter_income(dc: Dictionary, customer_id: String) -> float:
 	var simulated := dc.duplicate(true)
 	simulated["customer_id"] = customer_id
+	simulated["locked_market_multiplier"] = Game.contract_market_multiplier(customer_id)
 	return Rules.datacenter_income_per_month(simulated, Game.state, Game.data, func(id: String) -> float: return Game.market_multiplier(id))
 
 func _market_trend(customer_id: String) -> Dictionary:
@@ -1300,7 +1305,7 @@ func _customer_unlock_text(customer: Dictionary) -> String:
 
 func _build_market_page() -> Control:
 	var box := _page_box()
-	box.add_child(_system_page_header(tr("NAV_MARKET"), _news_text(), "ic_market_up"))
+	box.add_child(_system_page_header(tr("NAV_MARKET"), tr("MARKET_SIGNING_ADVISOR"), "ic_market_up"))
 	var chart_card := _card()
 	var chart_box := VBoxContainer.new()
 	chart_box.add_theme_constant_override("separation", 10)
@@ -2831,11 +2836,10 @@ func _refresh_market_benefit_status(label: Label, dc: Dictionary) -> void:
 	label.set_meta("market_multiplier", float(benefit.get("multiplier", 1.0)))
 
 func _refresh_contract_cta(button: Button, dc: Dictionary) -> void:
-	var renewal_end := float(dc.get("renewal_window_end_at", 0.0))
-	var renewal_active := renewal_end > Game.simulation_time()
-	button.text = tr("CONTRACT_RENEWAL_CTA") % Game.format_duration(renewal_end - Game.simulation_time()) if renewal_active else tr("SIGN_CONTRACT")
+	var renewal_active := bool(dc.get("free_switch_available", false))
+	button.text = tr("CONTRACT_RENEWAL_CTA") if renewal_active else tr("SIGN_CONTRACT")
 	button.set_meta("renewal_active", renewal_active)
-	button.set_meta("renewal_end_at", renewal_end if renewal_active else 0.0)
+	button.set_meta("free_switch_available", renewal_active)
 	var visual_state := "renewal" if renewal_active else ("ready" if not str(dc.get("power_unit", "")).is_empty() else "disabled")
 	if str(button.get_meta("contract_visual_state", "")) == visual_state:
 		return
@@ -3259,7 +3263,14 @@ func _offline_events_summary(report: Dictionary) -> String:
 	if not report.get("completed", []).is_empty(): lines.append("%d %s" % [report["completed"].size(), tr("TOAST_CONSTRUCTION_COMPLETE")])
 	if not report.get("faults", []).is_empty(): lines.append("%d %s" % [report["faults"].size(), tr("FAULTED")])
 	if not report.get("events", []).is_empty(): lines.append("%d %s" % [report["events"].size(), tr("NAV_MARKET")])
-	if not report.get("contracts", []).is_empty(): lines.append("%d %s" % [report["contracts"].size(), tr("SIGN_CONTRACT")])
+	var renewed_count := 0
+	var has_free_switch := false
+	for contract: Dictionary in report.get("contracts", []):
+		if str(contract.get("type", "")) == "contract_auto_renewed":
+			renewed_count += 1
+			has_free_switch = has_free_switch or bool(contract.get("free_switch_available", false))
+	if renewed_count > 0: lines.append(tr("OFFLINE_AUTO_RENEWED") % renewed_count)
+	if has_free_switch: lines.append(tr("OFFLINE_FREE_SWITCH_READY"))
 	return "\n".join(lines)
 
 func _confirm_prestige() -> void:
@@ -3502,7 +3513,7 @@ func _on_rack_fault_occurred(datacenter_id: String, _slot: int) -> void:
 	_play_fx_at_world("fx_spark", datacenter_id, 170)
 	_haptic(HAPTIC_HEAVY)
 
-func _on_contract_renewal_opened(_datacenter_id: String, _customer_id: String, _window_end_at: float) -> void:
+func _on_contract_auto_renewed(_datacenter_id: String, _customer_id: String, _contract_end_at: float) -> void:
 	_show_toast(tr("TOAST_CONTRACT_RENEWAL"))
 	_request_full_refresh()
 

@@ -76,14 +76,15 @@ func next_transition_after(game_state: Dictionary, after: float, include_noise: 
 			result = minf(result, value)
 	return result
 
-func customer_multiplier(customer_id: String, game_state: Dictionary, data: Dictionary) -> float:
+func customer_multiplier(customer_id: String, game_state: Dictionary, data: Dictionary, include_noise: bool = true) -> float:
 	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(customer_id, {})
 	var era := str(game_state.get("player", {}).get("era", 1))
 	var result := float(customer.get("era_baseline", {}).get(era, 0.0))
 	if result <= 0.0:
 		return 0.0
 	var market: Dictionary = game_state.get("market", {})
-	result *= float(market.get("noise", {}).get(customer_id, 1.0))
+	if include_noise:
+		result *= float(market.get("noise", {}).get(customer_id, 1.0))
 	for active: Dictionary in market.get("active", []):
 		var event_data: Dictionary = data.get("events", {}).get("items", {}).get(active.get("event_id", ""), {})
 		result *= float(event_data.get("all_customer_multiplier", 1.0))

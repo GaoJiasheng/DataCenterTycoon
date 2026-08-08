@@ -49,7 +49,8 @@ class Datacenter:
     customer: str = ""
     faulted: set = field(default_factory=set)
     contract_end_at: float = 0.0
-    renewal_window_end_at: float = 0.0
+    locked_market_multiplier: float = 1.0
+    free_switch_available: bool = False
 
     @property
     def ready(self):
@@ -151,7 +152,7 @@ class Simulator:
         customer = CUSTOMERS[dc.customer]
         subtotal = 0
         kinds = set()
-        raw_market = self.market_multiplier(dc.customer)
+        raw_market = dc.locked_market_multiplier
         for index, rack_id in enumerate(dc.racks):
             if index in dc.faulted:
                 continue
@@ -223,7 +224,7 @@ class Simulator:
                     dc.faulted.remove(index)
         if self.strategy == "active":
             for dc in self.dcs:
-                if not dc.ready:
+                if not dc.ready or (dc.customer and not dc.free_switch_available):
                     continue
                 available = [key for key, value in CUSTOMERS.items() if value["unlock_era"] <= self.era and value["minimum_network_level"] <= self.network]
                 self.switch_to_best_customer(dc, available)
@@ -256,7 +257,7 @@ class Simulator:
         best_value = max(values.values())
         viable = [customer for customer in available if values[customer] >= best_value * 0.50]
         contracted = {customer: sum(1 for item in self.dcs if item.customer == customer) for customer in available}
-        free_switch = dc.renewal_window_end_at > Simulator.now
+        free_switch = dc.free_switch_available
         if not dc.customer or free_switch:
             portfolio_candidates = [customer for customer in available if values[customer] >= best_value * 0.35]
             total_seconds = sum(self.customer_seconds[customer] for customer in available) or 1.0
@@ -274,13 +275,15 @@ class Simulator:
             self.sign_customer(dc, choice)
 
     def sign_customer(self, dc, customer):
+        if dc.customer == customer:
+            return
         dc.customer = customer
+        dc.locked_market_multiplier = self.market_multiplier(customer)
         dc.contract_end_at = Simulator.now + ECONOMY["contracts"]["duration_seconds"]
-        dc.renewal_window_end_at = 0.0
+        dc.free_switch_available = False
 
     def update_contracts(self):
         duration = ECONOMY["contracts"]["duration_seconds"]
-        renewal = ECONOMY["contracts"]["renewal_window_seconds"]
         for dc in self.dcs:
             if dc.ready and not dc.customer:
                 if self.strategy == "idle":
@@ -294,20 +297,13 @@ class Simulator:
                 continue
             if dc.contract_end_at <= 0:
                 dc.contract_end_at = dc.ready_at + duration
-            while True:
-                if dc.renewal_window_end_at <= 0:
-                    if Simulator.now < dc.contract_end_at:
-                        break
-                    dc.renewal_window_end_at = dc.contract_end_at + renewal
-                    if self.strategy == "active":
-                        available = [key for key, value in CUSTOMERS.items() if value["unlock_era"] <= self.era and value["minimum_network_level"] <= self.network]
-                        self.switch_to_best_customer(dc, available)
-                        if dc.renewal_window_end_at <= 0:
-                            break
-                if Simulator.now < dc.renewal_window_end_at:
-                    break
-                dc.contract_end_at = dc.renewal_window_end_at + duration
-                dc.renewal_window_end_at = 0.0
+            while Simulator.now >= dc.contract_end_at:
+                dc.contract_end_at += duration
+                dc.locked_market_multiplier = self.market_multiplier(dc.customer)
+                dc.free_switch_available = True
+            if self.strategy == "active" and dc.free_switch_available:
+                available = [key for key, value in CUSTOMERS.items() if value["unlock_era"] <= self.era and value["minimum_network_level"] <= self.network]
+                self.switch_to_best_customer(dc, available)
 
     def maybe_upgrade_network(self):
         desired = 2 if self.era == 1 else (3 if self.era == 2 else 4)
@@ -412,12 +408,32 @@ def point_at(sim, day):
     return min(sim.curve, key=lambda point: abs(point[0] - day))
 
 
+def contract_locking_probe():
+    sim = Simulator("idle", 17)
+    Simulator.now = 0.0
+    baseline = CUSTOMERS["mining"]["era_baseline"]["1"]
+    dc = Datacenter(
+        "dc_t0", 0.0, 0.0, ["rack_compute_t1"], customer="mining",
+        contract_end_at=ECONOMY["contracts"]["duration_seconds"],
+        locked_market_multiplier=baseline,
+    )
+    sim.dcs = [dc]
+    before = sim.dc_monthly_income(dc)
+    sim.events = [("mining_crash", ECONOMY["contracts"]["duration_seconds"] * 4)]
+    during = sim.dc_monthly_income(dc)
+    Simulator.now = dc.contract_end_at
+    sim.update_contracts()
+    after_renewal = sim.dc_monthly_income(dc)
+    return math.isclose(before, during) and after_renewal < during and dc.free_switch_available
+
+
 def print_acceptance(results, cohorts):
     active_day_1 = point_at(results["active"], 1)
     active_day_7 = point_at(results["active"], 7)
     idle_day_7 = point_at(results["idle"], 7)
     idle_ratio = idle_day_7[5] / active_day_7[5] if active_day_7[5] else 0
     checks = [
+        (contract_locking_probe(), "mining downturn leaves an existing contract unchanged until automatic renewal"),
         (2 <= active_day_1[3] <= 3 and active_day_1[2] > 0, "day 1 active player has 2–3 data centers and positive cash"),
         (6 <= active_day_7[3] <= 10 and active_day_7[4] >= 2, "day 7 active player has 6–10 data centers and reaches era 2"),
         (0.4 <= idle_ratio <= 0.6, f"day 7 idle revenue is {idle_ratio:.0%} of active revenue"),

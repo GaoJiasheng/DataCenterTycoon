@@ -35,6 +35,12 @@ def validate_references():
     store = DATA["store"]["items"]
     if set(store) != {"noads", "offline24", "gems_s", "gems_m", "gems_l", "pack_starter", "pack_builder", "pack_tycoon"}:
         ERRORS.append("store SKU set differs from monetization document")
+    contracts = DATA["economy"].get("contracts", {})
+    if "renewal_window_seconds" in contracts:
+        ERRORS.append("economy/contracts: timed renewal windows are forbidden")
+    for field in ("duration_seconds", "breach_fee_monthly_income_ratio", "minimum_breach_fee"):
+        if float(contracts.get(field, 0)) <= 0:
+            ERRORS.append(f"economy/contracts: {field} must be positive")
 
 
 def validate_localization():

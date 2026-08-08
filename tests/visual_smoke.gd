@@ -134,7 +134,7 @@ func _ready() -> void:
 	dc["coolers"]["north"] = "cool_air_t1"
 	dc["customer_id"] = "internet"
 	dc["contract_end_at"] = Game.simulation_time()
-	dc["renewal_window_end_at"] = Game.simulation_time() + 7200.0
+	dc["free_switch_available"] = true
 	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
 	valid = (await _capture(main, "dc_board")) and valid
 	dc["power_unit"] = "power_t2"

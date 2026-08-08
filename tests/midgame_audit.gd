@@ -42,12 +42,12 @@ func _ready() -> void:
 	Game.dispatch_repair(dc_id, 0)
 	await _shot("m1_fault_repairing")
 	_close("DatacenterContext")
-	# --- renewal window flow ---
+	# --- automatic renewal and saved free-switch flow ---
 	var dc2: Dictionary = Game.state["plots"][1]["datacenter"]
 	var dc2_id := str(dc2.get("id", ""))
-	dc2["contract_end_at"] = Game.simulation_time()
-	dc2["renewal_window_end_at"] = Game.simulation_time() + 7200.0
-	EventBus.contract_renewal_opened.emit(dc2_id, str(dc2.get("customer_id", "")), dc2["renewal_window_end_at"])
+	dc2["contract_end_at"] = Game.simulation_time() + 43200.0
+	dc2["free_switch_available"] = true
+	EventBus.contract_auto_renewed.emit(dc2_id, str(dc2.get("customer_id", "")), dc2["contract_end_at"])
 	main.call("_refresh")
 	await _shot("m2_renewal_on_map")
 	_assert_alert_badge("contract", "contract", false)
@@ -59,7 +59,7 @@ func _ready() -> void:
 	Game.advance_time(60.0, false)
 	main.call("_refresh")
 	await get_tree().process_frame
-	_expect(renewal_cta != null and renewal_cta.text != renewal_copy_before, "M4 renewal CTA countdown must update live")
+	_expect(renewal_cta != null and renewal_cta.text == renewal_copy_before and bool(dc2.get("free_switch_available", false)), "M4 free-switch eligibility must remain visible without a countdown")
 	_close("DatacenterContext")
 	await get_tree().process_frame
 	main.call("_on_world_alert_selected", dc2_id, "contract", -1)
@@ -86,10 +86,10 @@ func _ready() -> void:
 	dc["racks"][1]["fault_at"] = -1.0
 	main.call("_navigate", "map")
 	await get_tree().process_frame
-	# Renewal remains visible through the task-center test, then returns to a
+	# The free switch remains visible through the task-center test, then returns to a
 	# normal term so the same mining site can surface its market benefit badge.
 	dc2["contract_end_at"] = Game.simulation_time() + 20000.0
-	dc2.erase("renewal_window_end_at")
+	dc2["free_switch_available"] = false
 	# --- market event flow ---
 	Game.state["market"]["active"] = [{"event_id": "coin_boom", "start_at": Game.simulation_time() - 600.0, "end_at": Game.simulation_time() + 13800.0}]
 	EventBus.market_event_started.emit("coin_boom")
@@ -290,7 +290,7 @@ func _assert_renewal_drawer(dc: Dictionary) -> void:
 	var customer := DataRepository.get_entry("customers", str(dc.get("customer_id", "")))
 	var customer_name := tr(customer.get("name_key", "CONTRACT_NONE"))
 	_expect(cta != null and bool(cta.get_meta("renewal_active", false)) and (cta.text.contains("免费") or cta.text.to_lower().contains("free")), "M4 renewal drawer CTA must be gold and explicitly say free switching")
-	_expect(cta != null and float(cta.get_meta("renewal_end_at", 0.0)) > Game.simulation_time(), "M4 renewal CTA must carry its live countdown deadline")
+	_expect(cta != null and bool(cta.get_meta("free_switch_available", false)), "M4 renewal CTA must carry non-expiring free-switch eligibility")
 	_expect(status != null and status.text.contains(customer_name), "M5 drawer header must identify the current client")
 
 func _assert_contract_deep_link(datacenter_id: String) -> void:

@@ -131,7 +131,7 @@ static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dict
 		var overheat_multiplier := 1.0
 		if cooling_at(datacenter, slot, attachments, data.get("economy", {})) < float(rack.get("heat", 0.0)):
 			overheat_multiplier = float(data.get("economy", {}).get("aging", {}).get("overheat_income_multiplier", 0.5))
-		var raw_market_multiplier := float(market_multiplier.call(customer_id))
+		var raw_market_multiplier := float(datacenter.get("locked_market_multiplier", market_multiplier.call(customer_id)))
 		var sensitivity := float(rack.get("market_sensitivity", 1.0))
 		var effective_market_multiplier := maxf(0.0, 1.0 + (raw_market_multiplier - 1.0) * sensitivity)
 		result += float(rack.get("income_per_month", 0.0)) * float(customer.get("fit", {}).get(kind, 0.0)) * overheat_multiplier * effective_market_multiplier

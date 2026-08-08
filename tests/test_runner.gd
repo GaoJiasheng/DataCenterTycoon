@@ -284,22 +284,45 @@ func _run_gameplay_optimization_tests() -> void:
 	Game.state["plots"][0]["datacenter"] = _test_datacenter("dc_contract", "dc_t1")
 	Game.state["plots"][0]["status"] = "operational"
 	dc = Game.state["plots"][0]["datacenter"]
-	_expect(Game.sign_contract(dc["id"], "internet").get("ok", false), "contract starts a fixed initial term")
+	Game.state["player"]["era"] = 2
+	Game.state["player"]["network_level"] = 2
+	dc["power_unit"] = "power_t2"
+	dc["coolers"] = {"north": "cool_air_t2"}
+	dc["racks"][0] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true}
+	_expect(Game.sign_contract(dc["id"], "gpu_company").get("ok", false), "contract starts a fixed initial term and locks the no-noise market rate")
+	var locked_before_event := float(dc.get("locked_market_multiplier", 0.0))
+	var income_before_event := Game.datacenter_monthly_income(dc)
+	Game.state["market"]["active"] = [{"event_id": "ai_model_boom", "started_at": Game.simulation_time(), "end_at": Game.simulation_time() + 43200.0 * 4.0}]
+	_expect(is_equal_approx(Game.contract_market_multiplier("gpu_company"), locked_before_event * 3.0) and is_equal_approx(Game.datacenter_monthly_income(dc), income_before_event), "a new three-times market event does not change income on an existing locked contract")
 	var term_end := float(dc.get("contract_end_at", 0.0))
 	var renewal_report := Game.advance_time(term_end - Game.simulation_time(), false)
-	_expect(float(dc.get("renewal_window_end_at", 0.0)) == term_end + 7200.0 and Game.contract_switch_fee(dc["id"], "mining") == 0.0 and not renewal_report.get("contracts", []).is_empty(), "term expiry opens and reports a one-month free-switch renewal window")
+	_expect(float(dc.get("contract_end_at", 0.0)) == term_end + 43200.0 and bool(dc.get("free_switch_available", false)) and is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), Game.contract_market_multiplier("gpu_company")) and renewal_report.get("contracts", []).size() == 1, "term expiry renews without a gap, relocks at the no-noise rate, and grants one non-expiring free switch")
+	var cash_after_renewal := float(Game.state["player"]["cash"])
+	Game.advance_time(1.0, false)
+	_expect(float(Game.state["player"]["cash"]) > cash_after_renewal, "automatic renewal keeps contract income continuous across the term boundary")
 	var cash_before_switch := float(Game.state["player"]["cash"])
-	_expect(Game.sign_contract(dc["id"], "mining").get("ok", false) and is_equal_approx(float(Game.state["player"]["cash"]), cash_before_switch), "switching clients during renewal does not charge a breach fee")
-	Game.sign_contract(dc["id"], "internet")
+	_expect(Game.sign_contract(dc["id"], "cloud").get("ok", false) and is_equal_approx(float(Game.state["player"]["cash"]), cash_before_switch) and not bool(dc.get("free_switch_available", true)) and is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), Game.contract_market_multiplier("cloud")), "the saved free switch changes client and locked income exactly once without a fee")
+	var paid_fee := Game.contract_switch_fee(dc["id"], "internet")
+	var cash_before_paid_switch := float(Game.state["player"]["cash"])
+	_expect(paid_fee >= 25.0 and Game.sign_contract(dc["id"], "internet").get("ok", false) and is_equal_approx(float(Game.state["player"]["cash"]), cash_before_paid_switch - paid_fee), "the next early switch restores the twenty-five-percent breach fee")
 	term_end = float(dc.get("contract_end_at", 0.0))
-	Game.advance_time(term_end + 7200.0 - Game.simulation_time(), false)
-	_expect(not dc.has("renewal_window_end_at") and float(dc.get("contract_end_at", 0.0)) > Game.simulation_time(), "an unused renewal window automatically renews the contract")
+	var offline_renewals := Game.advance_time(term_end + 43200.0 - Game.simulation_time(), true)
+	var persisted_state := Game.state.duplicate(true)
+	Game.state = persisted_state
+	Game._ensure_state_shape()
+	dc = Game.state["plots"][0]["datacenter"]
+	_expect(bool(dc.get("free_switch_available", false)) and offline_renewals.get("contracts", []).size() == 2, "unused free-switch eligibility survives multiple offline renewals and a save reload without stacking")
+	dc.erase("locked_market_multiplier")
+	dc.erase("free_switch_available")
+	dc["renewal_window_end_at"] = Game.simulation_time() + 60.0
+	Game._ensure_state_shape()
+	_expect(not dc.has("renewal_window_end_at") and bool(dc.get("free_switch_available", false)) and dc.has("locked_market_multiplier"), "legacy renewal-window saves migrate to a locked rate and non-expiring free switch")
 
 func _test_datacenter(id: String, building_id: String) -> Dictionary:
 	var racks: Array = []
 	racks.resize(9)
 	racks.fill(null)
-	return {"id": id, "building_id": building_id, "status": "operational", "built_at": Game.simulation_time(), "power_unit": "", "coolers": {}, "racks": racks, "customer_id": "", "contract_end_at": 0.0, "aging_notices": []}
+	return {"id": id, "building_id": building_id, "status": "operational", "built_at": Game.simulation_time(), "power_unit": "", "coolers": {}, "racks": racks, "customer_id": "", "contract_end_at": 0.0, "free_switch_available": false, "aging_notices": []}
 
 func _run_wp4_decision_ui_tests() -> void:
 	Game.reset_for_tests()
@@ -318,6 +341,7 @@ func _run_wp4_decision_ui_tests() -> void:
 	var projected := float(main.call("_projected_datacenter_income", dc, "mining"))
 	var simulated := dc.duplicate(true)
 	simulated["customer_id"] = "mining"
+	simulated["locked_market_multiplier"] = Game.contract_market_multiplier("mining")
 	var authoritative := Rules.datacenter_income_per_month(simulated, Game.state, Game.data, func(customer_id: String) -> float: return Game.market_multiplier(customer_id))
 	_expect(is_equal_approx(projected, authoritative), "contract card projection matches the authoritative post-signing income rule")
 	var route_unlocks: Array = main.call("_era_unlock_items", 2)
@@ -388,7 +412,7 @@ func _run_core_loop_test() -> void:
 	_expect(rack_two.get("ok", false), "second rack install starts")
 	Game.advance_time(120.0, false)
 	_expect(Game.sign_contract(dc["id"], "internet").get("ok", false), "internet contract signs")
-	_expect(is_equal_approx(Game.datacenter_monthly_income(dc), 216.0 * Game.market_multiplier("internet")), "two cooled compute racks earn documented income")
+	_expect(is_equal_approx(Game.datacenter_monthly_income(dc), 216.0 * float(dc.get("locked_market_multiplier", 0.0))), "two cooled compute racks earn documented locked-price income")
 	_expect(Game.contract_switch_fee(dc["id"], "mining") >= 25.0, "contract switch exposes the breach fee before confirmation")
 	var runtime: Dictionary = Rules.rack_runtime_status(dc, 0, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
 	_expect(bool(runtime.get("powered", false)) and not bool(runtime.get("overheated", true)), "north cooler covers north rack")

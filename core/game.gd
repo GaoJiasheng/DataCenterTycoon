@@ -132,6 +132,9 @@ func datacenter_monthly_income(datacenter: Dictionary) -> float:
 func market_multiplier(customer_id: String) -> float:
 	return _market.customer_multiplier(customer_id, state, data)
 
+func contract_market_multiplier(customer_id: String) -> float:
+	return _market.customer_multiplier(customer_id, state, data, false)
+
 func rack_purchase_cost(rack_id: String) -> float:
 	var rack: Dictionary = data.get("racks", {}).get("items", {}).get(rack_id, {})
 	return float(rack.get("cost", 0.0)) * _market.purchase_multiplier(str(rack.get("kind", "")), state, data)
@@ -276,13 +279,16 @@ func sign_contract(datacenter_id: String, customer_id: String) -> Dictionary:
 	if customer.is_empty() or int(customer.get("unlock_era", 1)) > int(state["player"].get("era", 1)) or int(customer.get("minimum_network_level", 1)) > int(state["player"].get("network_level", 1)):
 		return _failure("locked")
 	var previous := str(dc.get("customer_id", ""))
+	if previous == customer_id:
+		return _success({"breach_fee": 0.0, "unchanged": true, "locked_market_multiplier": float(dc.get("locked_market_multiplier", contract_market_multiplier(customer_id)))})
 	var fee := contract_switch_fee(datacenter_id, customer_id)
 	if not previous.is_empty() and previous != customer_id:
 		if not _spend_cash(fee):
 			return _failure("not_enough_cash")
 	dc["customer_id"] = customer_id
+	dc["locked_market_multiplier"] = contract_market_multiplier(customer_id)
 	dc["contract_end_at"] = simulation_time() + float(data.get("economy", {}).get("contracts", {}).get("duration_seconds", 43200.0))
-	dc.erase("renewal_window_end_at")
+	dc["free_switch_available"] = false
 	state["stats"]["contracts_signed"] = int(state["stats"].get("contracts_signed", 0)) + 1
 	_tutorial_event("contract_signed")
 	_commit_action("contract_signed")
@@ -292,10 +298,10 @@ func contract_switch_fee(datacenter_id: String, customer_id: String) -> float:
 	var dc := find_datacenter(datacenter_id)
 	if dc.is_empty() or str(dc.get("customer_id", "")).is_empty() or dc.get("customer_id", "") == customer_id:
 		return 0.0
-	if simulation_time() >= float(dc.get("contract_end_at", INF)) or float(dc.get("renewal_window_end_at", 0.0)) > simulation_time():
+	if bool(dc.get("free_switch_available", false)):
 		return 0.0
 	var config: Dictionary = data.get("economy", {}).get("contracts", {})
-	return maxf(float(config.get("minimum_breach_fee", 25.0)), datacenter_monthly_income(dc) * float(config.get("breach_fee_monthly_income_ratio", 0.1)))
+	return maxf(float(config.get("minimum_breach_fee", 25.0)), datacenter_monthly_income(dc) * float(config.get("breach_fee_monthly_income_ratio", 0.25)))
 
 func dispatch_repair(datacenter_id: String, slot: int) -> Dictionary:
 	var installed := _installed_rack(datacenter_id, slot)
@@ -610,10 +616,9 @@ func _next_boundary_after(now: float, include_noise: bool) -> float:
 				if value > now:
 					result = minf(result, value)
 		if not str(dc.get("customer_id", "")).is_empty():
-			for key: String in ["contract_end_at", "renewal_window_end_at"]:
-				var value := float(dc.get(key, INF))
-				if value > now:
-					result = minf(result, value)
+			var contract_end := float(dc.get("contract_end_at", INF))
+			if contract_end > now:
+				result = minf(result, contract_end)
 	var market_boundary := _market.next_transition_after(state, now, include_noise)
 	return minf(result, market_boundary)
 
@@ -630,14 +635,16 @@ func _process_due(financial: bool, offline: bool, report: Dictionary) -> void:
 	_process_construction_completions(now, report)
 	_process_rack_installations(now, report)
 	_process_repairs_and_faults(now, report)
-	_process_contract_renewals(now, report)
-	_process_aging(now, offline, report)
 	for notice: Dictionary in _market.process_due(state, data):
 		report.get("events", []).append(notice)
 		match notice.get("type", ""):
 			"event_previewed": EventBus.market_event_previewed.emit(notice.get("event_id", ""))
 			"event_started": EventBus.market_event_started.emit(notice.get("event_id", ""))
 			"event_ended": EventBus.market_event_ended.emit(notice.get("event_id", ""))
+	# Renew only after applying market transitions at this exact boundary so the
+	# new locked rate reflects events that have just started or ended.
+	_process_contract_renewals(now, report)
+	_process_aging(now, offline, report)
 	_process_maintenance(financial)
 	_check_bankruptcy()
 
@@ -675,6 +682,7 @@ func _complete_datacenter(item: Dictionary) -> void:
 		"racks": racks,
 		"customer_id": "",
 		"contract_end_at": 0.0,
+		"free_switch_available": false,
 		"aging_notices": [],
 	}
 	plot["status"] = "operational"
@@ -768,27 +776,17 @@ func _process_repairs_and_faults(now: float, report: Dictionary) -> void:
 
 func _process_contract_renewals(now: float, report: Dictionary) -> void:
 	var duration := float(data.get("economy", {}).get("contracts", {}).get("duration_seconds", 43200.0))
-	var renewal_window := float(data.get("economy", {}).get("contracts", {}).get("renewal_window_seconds", 7200.0))
 	for plot: Dictionary in state.get("plots", []):
 		var dc: Variant = plot.get("datacenter")
 		if not dc is Dictionary or str(dc.get("customer_id", "")).is_empty():
 			continue
-		while true:
-			var window_end := float(dc.get("renewal_window_end_at", 0.0))
-			if window_end <= 0.0:
-				var contract_end := float(dc.get("contract_end_at", INF))
-				if contract_end > now:
-					break
-				window_end = contract_end + renewal_window
-				dc["renewal_window_end_at"] = window_end
-				var opened := {"type": "renewal_window_opened", "datacenter_id": dc.get("id", ""), "customer_id": dc.get("customer_id", ""), "window_end_at": window_end}
-				report.get("contracts", []).append(opened)
-				EventBus.contract_renewal_opened.emit(dc.get("id", ""), dc.get("customer_id", ""), window_end)
-			if window_end > now:
-				break
-			dc["contract_end_at"] = window_end + duration
-			dc.erase("renewal_window_end_at")
-			report.get("contracts", []).append({"type": "contract_auto_renewed", "datacenter_id": dc.get("id", ""), "customer_id": dc.get("customer_id", ""), "contract_end_at": dc.get("contract_end_at", 0.0)})
+		while float(dc.get("contract_end_at", INF)) <= now:
+			dc["contract_end_at"] = float(dc.get("contract_end_at", now)) + duration
+			dc["locked_market_multiplier"] = contract_market_multiplier(str(dc.get("customer_id", "")))
+			dc["free_switch_available"] = true
+			var renewed := {"type": "contract_auto_renewed", "datacenter_id": dc.get("id", ""), "customer_id": dc.get("customer_id", ""), "contract_end_at": dc.get("contract_end_at", 0.0), "free_switch_available": true}
+			report.get("contracts", []).append(renewed)
+			EventBus.contract_auto_renewed.emit(dc.get("id", ""), dc.get("customer_id", ""), float(dc.get("contract_end_at", 0.0)))
 
 func _process_aging(now: float, offline: bool, report: Dictionary) -> void:
 	for plot: Dictionary in state.get("plots", []):
@@ -1180,6 +1178,15 @@ func _ensure_state_shape() -> void:
 		var dc: Variant = plot.get("datacenter")
 		if not dc is Dictionary:
 			continue
+		var customer_id := str(dc.get("customer_id", ""))
+		if not customer_id.is_empty() and not dc.has("locked_market_multiplier"):
+			dc["locked_market_multiplier"] = contract_market_multiplier(customer_id)
+		if dc.has("renewal_window_end_at"):
+			if float(dc.get("renewal_window_end_at", 0.0)) > simulation_time():
+				dc["free_switch_available"] = true
+			dc.erase("renewal_window_end_at")
+		if not dc.has("free_switch_available"):
+			dc["free_switch_available"] = false
 		for installed: Variant in dc.get("racks", []):
 			if installed is Dictionary and not installed.is_empty() and not installed.has("enabled"):
 				installed["enabled"] = true

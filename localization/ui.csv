@@ -26,14 +26,14 @@ OPERATIONS_TOOLS,Management tools,管理工具
 TASK_FAULT_TITLE,%s fault · %s,%s 故障 · %s
 TASK_FAULT_SUBTITLE,Income interrupted · Fix first,收入已中断 · 建议优先处理
 TASK_GO_REPAIR,Repair,去维修
-TASK_RENEWAL_TITLE,Free switch · %s left,免费换约窗口 · 剩 %s
+TASK_RENEWAL_TITLE,Free switch ready,免费改签已就绪
 TASK_RENEWAL_SUBTITLE,%s · %s,%s · %s
 TASK_GO_RENEW,Switch,去换约
 TASK_RETIRE_TITLE,Retirement ready · %s,可退役 · %s
 TASK_RETIRE_SUBTITLE,Recover $%s · Current $%s / month,回收 $%s · 当前月收入 $%s
 TASK_GO_DECIDE,Review,去决策
 TASK_MARKET_TITLE,%s is live,%s 进行中
-TASK_MARKET_SUBTITLE,Review beneficiaries and rebalance contracts,查看受益机房并调整合约
+TASK_MARKET_SUBTITLE,Find a signing opportunity · Existing rates stay locked,寻找签约机会 · 已签价格保持锁定
 TASK_VIEW_MARKET,Market,看行情
 COMPANY_OVERVIEW,Company,公司
 ERA_SHORT,Era %d,时代 %d
@@ -64,17 +64,21 @@ DEMOLISH,Clear ruins,清拆废墟
 SIGN_CONTRACT,Sign contract,签订合约
 SWITCH_CONTRACT,Switch contract,更换合约
 CONTRACT_BREACH_FEE,Switching fee: $%s,换约违约金：$%s
-CONTRACT_RENEWAL_WINDOW,Renewal window · free switching for %s,续约窗口 · %s 内免费换约
-CONTRACT_RENEWAL_CTA,Free switch · %s left,免费换约 · 剩 %s
+CONTRACT_RENEWAL_WINDOW,Auto-renewed · free switch saved,已自动续约 · 免费改签资格已保留
+CONTRACT_RENEWAL_CTA,Free switch ready,免费改签
 CONTRACT_REMAINING,Term remaining: %s,合约剩余：%s
 CONTRACT_FREE_SWITCH,Free switch,免费换约
+CONTRACT_LOCKED_RATE,Signed ×%.2f,签约价 ×%.2f
+CONTRACT_MARKET_RATE,Market now ×%.2f,当前行情 ×%.2f
 CONTRACT_PROJECTED,Projected $%s / month,预计 $%s / 月
 CONTRACT_IN_SERVICE,In service,服务中
 CONTRACT_FIT_TOOLTIP,Compute %.2f · Storage %.2f · GPU %.2f,算力 %.2f · 存储 %.2f · GPU %.2f
 CONTRACT_CONFIRM_DELTA,Current $%s / month → $%s / month (%+.1f%%),当前 $%s / 月 → $%s / 月（%+.1f%%）
 CONTRACT_TERM_INFO,The new term lasts 6 game months,新合约持续 6 个游戏月
 CONTRACT_NO_DC,Build a data center before assigning clients,请先建成机房再调配客户
-TOAST_CONTRACT_RENEWAL,Contract renewal window is open,合约续约窗口已开启
+TOAST_CONTRACT_RENEWAL,Contract renewed · free switch saved,合约已自动续约 · 免费改签资格已保留
+OFFLINE_AUTO_RENEWED,%d contracts auto-renewed,%d 份合约已自动续约
+OFFLINE_FREE_SWITCH_READY,Free switch ready · no expiry,免费改签资格已就绪 · 永不过期
 CANCEL,Cancel,取消
 CONFIRM,Confirm,确认
 CLOSE,Close,关闭
@@ -123,6 +127,7 @@ LIFESPAN,Lifespan,寿命
 MAINTENANCE,Maintenance $%s / month,维护费 $%s / 月
 CONTRACT_NONE,No active contract,尚未签约
 CONTRACT_CURRENT,Client: %s,客户：%s
+CONTRACT_RENEWAL_FREE,Free switch,免费改签
 DATACENTER_CLIENT_STATUS,%s · %s,%s · %s
 MARKET_ACTIVE,Active events,正在发生
 MARKET_PREVIEW,Coming next,新闻预告
@@ -130,13 +135,14 @@ MARKET_CALM,Markets are calm,当前行情平稳
 MARKET_NO_HISTORY,Market history will appear as time passes,行情记录将在运营后逐步生成
 MARKET_NOW,Now,现在
 MARKET_CUSTOMERS,Customer signals,客户走势
-MARKET_CUSTOMERS_HINT,Tap the legend to compare demand curves,点击图例对比需求曲线
+MARKET_SIGNING_ADVISOR,Signing advisor · compare today's opportunities without changing existing income,签约参谋 · 比较今日机会，不影响现有合约收入
+MARKET_CUSTOMERS_HINT,Compare today's rates before a new signing or free switch,新签或免费改签前，先比较今日行情
 MARKET_7D_TREND,Recent 7-day signal,近 7 日走势
 EVENT_STARTS_IN,Starts in %s,%s 后开始
 EVENT_CHECK_MY_DC,Review my contracts,查看我的合约
 MARKET_EVENT_STARTED,%s is live · Tap to rebalance,%s 已开始 · 点击调整合约
 MARKET_EVENT_ENDED,%s has ended · Tap to review,%s 已结束 · 点击复盘
-MARKET_BENEFIT_STATUS,%s ×%.1f active · %s left,%s ×%.1f 生效中 · 剩 %s
+MARKET_BENEFIT_STATUS,Signing chance · %s ×%.1f · %s left,签约机会 · %s ×%.1f · 剩 %s
 NETWORK,Network access,网络接入
 ERA_PROGRESS,Era progress,时代进度
 ERA_CURRENT,Current,当前

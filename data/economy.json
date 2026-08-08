@@ -32,7 +32,6 @@
   },
   "contracts": {
     "duration_seconds": 43200,
-    "renewal_window_seconds": 7200,
     "breach_fee_monthly_income_ratio": 0.25,
     "minimum_breach_fee": 25
   },
