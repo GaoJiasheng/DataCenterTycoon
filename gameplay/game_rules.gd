@@ -123,7 +123,8 @@ static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dict
 		if not racks[slot] is Dictionary or racks[slot].is_empty() or not powered[slot]:
 			continue
 		var installed: Dictionary = racks[slot]
-		if installed.get("status", "active") != "active":
+		var rack_status := str(installed.get("status", "active"))
+		if rack_status not in ["active", "faulted"]:
 			continue
 		var rack: Dictionary = racks_table.get("items", {}).get(installed.get("rack_id", ""), {})
 		var kind := str(rack.get("kind", ""))
@@ -134,7 +135,8 @@ static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dict
 		var raw_market_multiplier := float(datacenter.get("locked_market_multiplier", market_multiplier.call(customer_id)))
 		var sensitivity := float(rack.get("market_sensitivity", 1.0))
 		var effective_market_multiplier := maxf(0.0, 1.0 + (raw_market_multiplier - 1.0) * sensitivity)
-		result += float(rack.get("income_per_month", 0.0)) * float(customer.get("fit", {}).get(kind, 0.0)) * overheat_multiplier * effective_market_multiplier
+		var fault_multiplier := float(data.get("economy", {}).get("faults", {}).get("faulted_income_multiplier", 0.4)) if rack_status == "faulted" else 1.0
+		result += float(rack.get("income_per_month", 0.0)) * float(customer.get("fit", {}).get(kind, 0.0)) * overheat_multiplier * effective_market_multiplier * fault_multiplier
 	if kinds.size() >= int(customer.get("diversity_required_kinds", 999)):
 		result *= float(customer.get("diversity_multiplier", 1.0))
 	var player: Dictionary = game_state.get("player", {})

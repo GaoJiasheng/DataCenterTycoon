@@ -41,6 +41,14 @@ def validate_references():
     for field in ("duration_seconds", "breach_fee_monthly_income_ratio", "minimum_breach_fee"):
         if float(contracts.get(field, 0)) <= 0:
             ERRORS.append(f"economy/contracts: {field} must be positive")
+    faults = DATA["economy"].get("faults", {})
+    fault_multiplier = float(faults.get("faulted_income_multiplier", 0))
+    if not 0 < fault_multiplier < 1:
+        ERRORS.append("economy/faults: faulted_income_multiplier must be between zero and one")
+    if float(faults.get("auto_repair_seconds", 0)) <= 0:
+        ERRORS.append("economy/faults: auto_repair_seconds must be positive")
+    if DATA["achievements"]["items"].get("repair_ten", {}).get("metric") != "faults_repaired_manual":
+        ERRORS.append("achievements/repair_ten: automatic repairs must not count toward the manual repair achievement")
 
 
 def validate_localization():

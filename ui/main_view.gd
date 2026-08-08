@@ -736,6 +736,7 @@ func _operations_tasks(include_market: bool = true) -> Array[Dictionary]:
 	var now := Game.simulation_time()
 	var buildings := DataRepository.get_table("buildings")
 	var racks := DataRepository.get_table("racks")
+	var fault_config := DataRepository.get_table("economy").get("faults", {}) as Dictionary
 	var aging_start := float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6))
 	for plot: Dictionary in Game.state.get("plots", []):
 		var dc_variant: Variant = plot.get("datacenter")
@@ -752,11 +753,12 @@ func _operations_tasks(include_market: bool = true) -> Array[Dictionary]:
 			var installed: Variant = installed_racks[slot]
 			if installed is Dictionary and str(installed.get("status", "")) == "faulted":
 				var rack := racks.get("items", {}).get(str(installed.get("rack_id", "")), {}) as Dictionary
+				var auto_at := float(installed.get("auto_repair_at", now + float(fault_config.get("auto_repair_seconds", 14400.0))))
 				tasks.append({
 					"id": "fault:%s:%d" % [dc_id, slot], "type": "fault", "priority": 0,
 					"datacenter_id": dc_id, "slot": slot, "asset": "ic_wrench", "accent": ThemeMaker.COLORS.red,
 					"title": tr("TASK_FAULT_TITLE") % [tr(rack.get("name_key", "RACKS")), building_name],
-					"subtitle": tr("TASK_FAULT_SUBTITLE"), "action": tr("TASK_GO_REPAIR"),
+					"subtitle": tr("TASK_FAULT_SUBTITLE") % Game.format_duration(maxf(0.0, auto_at - now)), "action": tr("TASK_GO_REPAIR"),
 				})
 		if bool(dc.get("free_switch_available", false)):
 			var customer := DataRepository.get_entry("customers", str(dc.get("customer_id", "")))
@@ -2905,9 +2907,10 @@ func _show_rack_actions(datacenter_id: String, slot: int) -> void:
 		choices.append({"id": "install_ad", "text": "%s · -%s" % [tr("WATCH_AD"), Game.format_duration(ad_reduction)]})
 		choices.append({"id": "install_gems", "text": "%s · %d %s" % [tr("SPEED_UP"), gem_cost, tr("GEMS_REWARD_SHORT")]})
 	elif installed.get("status", "") == "faulted":
-		body = tr("FAULTED")
-		status_color = ThemeMaker.COLORS.red
 		var faults: Dictionary = DataRepository.get_table("economy").get("faults", {})
+		var auto_remaining := maxf(0.0, float(installed.get("auto_repair_at", Game.simulation_time() + float(faults.get("auto_repair_seconds", 14400.0)))) - Game.simulation_time())
+		body = tr("FAULTED_AUTO_REPAIR") % [int(round(float(faults.get("faulted_income_multiplier", 0.4)) * 100.0)), Game.format_duration(auto_remaining)]
+		status_color = ThemeMaker.COLORS.red
 		var repair_cost: float = ceil(float(rack.get("cost", 0.0)) * float(faults.get("repair_cost_ratio", 0.05)))
 		var repair_seconds := (float(faults.get("repair_seconds_min", 600.0)) + float(faults.get("repair_seconds_max", 1800.0))) * 0.5
 		var repair_level := str(Game.state.get("technology", {}).get("repair_team", 1))

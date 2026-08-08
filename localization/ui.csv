@@ -24,7 +24,7 @@ OPERATIONS_ALL_CLEAR,All caught up,事项已清空
 OPERATIONS_ALL_CLEAR_DETAIL,The park is running normally · Check market signals below,园区运行正常 · 可顺手查看下方行情
 OPERATIONS_TOOLS,Management tools,管理工具
 TASK_FAULT_TITLE,%s fault · %s,%s 故障 · %s
-TASK_FAULT_SUBTITLE,Income interrupted · Fix first,收入已中断 · 建议优先处理
+TASK_FAULT_SUBTITLE,Efficiency reduced · Auto-repair in %s,效率降低 · %s 后自动修复
 TASK_GO_REPAIR,Repair,去维修
 TASK_RENEWAL_TITLE,Free switch ready,免费改签已就绪
 TASK_RENEWAL_SUBTITLE,%s · %s,%s · %s
@@ -110,6 +110,7 @@ RACK_MARKET_STEADY,Steady · 30% market exposure,稳健 · 30% 行情敏感
 RACK_MARKET_BALANCED,Balanced · 100% market exposure,均衡 · 100% 行情敏感
 RACK_MARKET_VOLATILE,Volatile · 120% market exposure,高波动 · 120% 行情敏感
 FAULTED,Faulted,故障
+FAULTED_AUTO_REPAIR,Efficiency %d%% · Engineer auto-repairs in %s,效率降至 %d%% · 工程师将在 %s 后自动修复
 OVERHEATED,Overheated,过热
 UNPOWERED,Unpowered,未通电
 POWERED,Powered,供电正常

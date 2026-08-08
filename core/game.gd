@@ -315,6 +315,7 @@ func dispatch_repair(datacenter_id: String, slot: int) -> Dictionary:
 	var duration := lerpf(float(faults.get("repair_seconds_min", 600.0)), float(faults.get("repair_seconds_max", 1800.0)), _random())
 	duration *= _repair_time_multiplier()
 	installed["status"] = "repairing"
+	installed.erase("auto_repair_at")
 	installed["repair_complete_at"] = simulation_time() + duration
 	AudioService.play_sfx("sfx_repair")
 	_commit_action("repair_started")
@@ -611,7 +612,7 @@ func _next_boundary_after(now: float, include_noise: bool) -> float:
 		for installed: Variant in dc.get("racks", []):
 			if not installed is Dictionary:
 				continue
-			for key: String in ["install_complete_at", "repair_complete_at", "fault_at"]:
+			for key: String in ["install_complete_at", "repair_complete_at", "auto_repair_at", "fault_at"]:
 				var value := float(installed.get(key, INF))
 				if value > now:
 					result = minf(result, value)
@@ -758,8 +759,12 @@ func _process_repairs_and_faults(now: float, report: Dictionary) -> void:
 			var installed: Variant = dc["racks"][slot]
 			if not installed is Dictionary:
 				continue
+			if installed.get("status", "") == "faulted" and float(installed.get("auto_repair_at", INF)) <= now:
+				_complete_repair(dc.get("id", ""), slot, true)
+				continue
 			if installed.get("status", "") == "repairing" and float(installed.get("repair_complete_at", INF)) <= now:
-				_complete_repair(dc.get("id", ""), slot)
+				_complete_repair(dc.get("id", ""), slot, false)
+				continue
 			if installed.get("status", "") == "active":
 				var runtime := Rules.rack_runtime_status(dc, slot, data.get("racks", {}), data.get("attachments", {}), data.get("economy", {}))
 				if not bool(runtime.get("powered", false)):
@@ -769,6 +774,7 @@ func _process_repairs_and_faults(now: float, report: Dictionary) -> void:
 				elif float(installed.get("fault_at", INF)) <= now:
 					installed["status"] = "faulted"
 					installed["fault_at"] = -1.0
+					installed["auto_repair_at"] = now + float(data.get("economy", {}).get("faults", {}).get("auto_repair_seconds", 14400.0))
 					var fault := {"datacenter_id": dc.get("id", ""), "slot": slot}
 					report.get("faults", []).append(fault)
 					EventBus.rack_fault_occurred.emit(dc.get("id", ""), slot)
@@ -949,13 +955,15 @@ func _reschedule_dc_faults(dc: Dictionary) -> void:
 			installed["fault_at"] = -1.0
 			_schedule_fault(dc, slot)
 
-func _complete_repair(datacenter_id: String, slot: int) -> void:
+func _complete_repair(datacenter_id: String, slot: int, automatic: bool = false) -> void:
 	var installed := _installed_rack(datacenter_id, slot)
-	if installed.is_empty():
+	if installed.is_empty() or str(installed.get("status", "")) not in ["faulted", "repairing"]:
 		return
 	installed["status"] = "active"
 	installed.erase("repair_complete_at")
-	state["stats"]["faults_repaired"] = int(state["stats"].get("faults_repaired", 0)) + 1
+	installed.erase("auto_repair_at")
+	var stat_key := "faults_repaired_auto" if automatic else "faults_repaired_manual"
+	state["stats"][stat_key] = int(state["stats"].get(stat_key, 0)) + 1
 	var dc := find_datacenter(datacenter_id)
 	_schedule_fault(dc, slot)
 	AudioService.play_sfx("sfx_repair")
@@ -1163,6 +1171,9 @@ func _commit_action(reason: String) -> void:
 		save_now()
 
 func _ensure_state_shape() -> void:
+	var legacy_manual_repairs := -1
+	if state.get("stats") is Dictionary and state["stats"].has("faults_repaired") and not state["stats"].has("faults_repaired_manual"):
+		legacy_manual_repairs = int(state["stats"].get("faults_repaired", 0))
 	var defaults := _new_state()
 	for key: String in defaults:
 		if not state.has(key):
@@ -1173,6 +1184,9 @@ func _ensure_state_shape() -> void:
 		for key: String in defaults.get(section, {}):
 			if not state[section].has(key):
 				state[section][key] = defaults[section][key]
+	if legacy_manual_repairs >= 0:
+		state["stats"]["faults_repaired_manual"] = legacy_manual_repairs
+		state["stats"].erase("faults_repaired")
 	_migrate_legacy_rack_installations()
 	for plot: Dictionary in state.get("plots", []):
 		var dc: Variant = plot.get("datacenter")
@@ -1188,8 +1202,11 @@ func _ensure_state_shape() -> void:
 		if not dc.has("free_switch_available"):
 			dc["free_switch_available"] = false
 		for installed: Variant in dc.get("racks", []):
-			if installed is Dictionary and not installed.is_empty() and not installed.has("enabled"):
-				installed["enabled"] = true
+			if installed is Dictionary and not installed.is_empty():
+				if not installed.has("enabled"):
+					installed["enabled"] = true
+				if str(installed.get("status", "")) == "faulted" and not installed.has("auto_repair_at"):
+					installed["auto_repair_at"] = simulation_time() + float(data.get("economy", {}).get("faults", {}).get("auto_repair_seconds", 14400.0))
 	state["save_version"] = SaveManager.SAVE_VERSION
 
 func _migrate_legacy_rack_installations() -> void:
@@ -1237,7 +1254,7 @@ func _new_state() -> Dictionary:
 		"reward_limits": {"repair_window_start": now, "repair_uses": 0, "rescue_day": -1, "rescue_uses": 0},
 		"inventory": {"instant_build_tickets": 0},
 		"settings": {"locale": "", "music_enabled": true, "sfx_enabled": true, "haptics_enabled": true},
-		"stats": {"total_spent": 0.0, "faults_repaired": 0, "datacenters_retired": 0, "prestige_count": 0, "contracts_signed": 0, "arrears_recovered": 0, "highest_net_worth": 0.0},
+		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "prestige_count": 0, "contracts_signed": 0, "arrears_recovered": 0, "highest_net_worth": 0.0},
 	}
 
 func _success(payload: Dictionary = {}) -> Dictionary:

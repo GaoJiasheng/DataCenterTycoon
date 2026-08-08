@@ -16,6 +16,7 @@ func _ready() -> void:
 	await _run_ui_refresh_test()
 	_run_rule_tests()
 	_run_gameplay_optimization_tests()
+	_run_fault_softening_tests()
 	_run_initial_state_test()
 	_run_core_loop_test()
 	await _run_datacenter_board_tests()
@@ -323,6 +324,58 @@ func _test_datacenter(id: String, building_id: String) -> Dictionary:
 	racks.resize(9)
 	racks.fill(null)
 	return {"id": id, "building_id": building_id, "status": "operational", "built_at": Game.simulation_time(), "power_unit": "", "coolers": {}, "racks": racks, "customer_id": "", "contract_end_at": 0.0, "free_switch_available": false, "aging_notices": []}
+
+func _run_fault_softening_tests() -> void:
+	Game.reset_for_tests()
+	var dc := _test_datacenter("dc_fault_soft", "dc_t1")
+	dc["power_unit"] = "power_t1"
+	dc["coolers"] = {"north": "cool_air_t1"}
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true, "fault_at": Game.simulation_time() + 1.0}
+	dc["customer_id"] = "internet"
+	dc["locked_market_multiplier"] = Game.contract_market_multiplier("internet")
+	dc["contract_end_at"] = Game.simulation_time() + 43200.0
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var normal_income := Game.datacenter_monthly_income(dc)
+	Game.advance_time(1.0, false)
+	var installed: Dictionary = dc["racks"][0]
+	var auto_at := float(installed.get("auto_repair_at", 0.0))
+	var faulted_income := Game.datacenter_monthly_income(dc)
+	_expect(installed.get("status", "") == "faulted" and is_equal_approx(auto_at, Game.simulation_time() + 14400.0), "a new fault schedules its free repair exactly four hours later")
+	_expect(is_equal_approx(faulted_income, normal_income * 0.4), "a faulted rack keeps forty percent of its normal income")
+	Game.advance_time(14399.0, false)
+	_expect(installed.get("status", "") == "faulted", "a fault remains softly degraded until its four-hour repair point")
+	Game.advance_time(1.0, false)
+	_expect(installed.get("status", "") == "active" and not installed.has("auto_repair_at") and int(Game.state["stats"].get("faults_repaired_auto", 0)) == 1 and int(Game.state["stats"].get("faults_repaired_manual", 0)) == 0, "an unattended fault repairs for free and records a separate automatic statistic")
+	installed["status"] = "faulted"
+	installed["auto_repair_at"] = Game.simulation_time() + 14400.0
+	_expect(Game.instant_repair_with_gems(dc["id"], 0).get("ok", false) and not installed.has("auto_repair_at") and int(Game.state["stats"].get("faults_repaired_manual", 0)) == 1, "player-accelerated repair clears the automatic timer and records a manual statistic")
+
+	Game.reset_for_tests()
+	dc = _test_datacenter("dc_fault_offline", "dc_t1")
+	dc["power_unit"] = "power_t1"
+	dc["coolers"] = {"north": "cool_air_t1"}
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "faulted", "enabled": true, "fault_at": -1.0, "auto_repair_at": 14400.0}
+	dc["customer_id"] = "internet"
+	dc["locked_market_multiplier"] = Game.contract_market_multiplier("internet")
+	dc["contract_end_at"] = 43200.0
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var active_probe := dc.duplicate(true)
+	active_probe["racks"][0]["status"] = "active"
+	active_probe["racks"][0].erase("auto_repair_at")
+	normal_income = Game.datacenter_monthly_income(active_probe)
+	var original_fault_rate := float(Game.data["economy"]["faults"].get("base_rate_per_game_month", 0.15))
+	Game.data["economy"]["faults"]["base_rate_per_game_month"] = 0.000000001
+	var offline_report := Game.advance_time(18000.0, true)
+	Game.data["economy"]["faults"]["base_rate_per_game_month"] = original_fault_rate
+	var expected_income := normal_income * (14400.0 * 0.4 + 3600.0) / 7200.0
+	_expect(is_equal_approx(float(offline_report.get("income", 0.0)), expected_income) and dc["racks"][0].get("status", "") == "active", "offline settlement splits income at auto-repair: forty percent before and full income after")
+	Game.state["stats"].erase("faults_repaired_manual")
+	Game.state["stats"].erase("faults_repaired_auto")
+	Game.state["stats"]["faults_repaired"] = 7
+	Game._ensure_state_shape()
+	_expect(int(Game.state["stats"].get("faults_repaired_manual", 0)) == 7 and int(Game.state["stats"].get("faults_repaired_auto", 0)) == 0 and not Game.state["stats"].has("faults_repaired"), "legacy repair totals migrate into the manual statistic without counting future automatic repairs")
 
 func _run_wp4_decision_ui_tests() -> void:
 	Game.reset_for_tests()

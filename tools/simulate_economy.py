@@ -47,7 +47,7 @@ class Datacenter:
     ready_at: float
     racks: list
     customer: str = ""
-    faulted: set = field(default_factory=set)
+    faulted: dict = field(default_factory=dict)
     contract_end_at: float = 0.0
     locked_market_multiplier: float = 1.0
     free_switch_available: bool = False
@@ -60,9 +60,11 @@ class Datacenter:
 class Simulator:
     now = 0.0
 
-    def __init__(self, strategy, seed):
+    def __init__(self, strategy, seed, cozy_faults=True):
         self.strategy = strategy
-        self.rng = random.Random(seed)
+        self.cozy_faults = cozy_faults
+        self.market_rng = random.Random(seed)
+        self.fault_rng = random.Random(seed ^ 0x5F3759DF)
         self.cash = float(ECONOMY["starting"]["cash"])
         self.revenue = 0.0
         self.era = 1
@@ -92,6 +94,7 @@ class Simulator:
         while Simulator.now < days * DAY and not self.bankrupt:
             self.update_market()
             self.update_contracts()
+            self.complete_auto_repairs()
             self.accrue()
             self.roll_faults()
             if Simulator.now >= self.maintenance_at:
@@ -128,7 +131,7 @@ class Simulator:
             and not blocked_customers.intersection(value.get("customer_multipliers", {}))
         ]
         total = sum(item[1]["weight"] for item in choices)
-        roll = self.rng.random() * total
+        roll = self.market_rng.random() * total
         selected = choices[-1]
         for choice in choices:
             roll -= choice[1]["weight"]
@@ -136,7 +139,7 @@ class Simulator:
                 selected = choice
                 break
         self.events.append((selected[0], Simulator.now + selected[1]["duration_months"] * MONTH))
-        self.next_event = Simulator.now + self.rng.uniform(1, 3) * MONTH
+        self.next_event = Simulator.now + self.market_rng.uniform(1, 3) * MONTH
 
     def market_multiplier(self, customer):
         result = CUSTOMERS[customer]["era_baseline"].get(str(self.era), 0)
@@ -154,13 +157,12 @@ class Simulator:
         kinds = set()
         raw_market = dc.locked_market_multiplier
         for index, rack_id in enumerate(dc.racks):
-            if index in dc.faulted:
-                continue
+            fault_multiplier = (ECONOMY["faults"]["faulted_income_multiplier"] if self.cozy_faults else 0.0) if index in dc.faulted else 1.0
             rack = RACKS[rack_id]
             kinds.add(rack["kind"])
             sensitivity = rack.get("market_sensitivity", 1.0)
             effective_market = max(0, 1 + (raw_market - 1) * sensitivity)
-            subtotal += rack["income_per_month"] * customer["fit"][rack["kind"]] * effective_market
+            subtotal += rack["income_per_month"] * customer["fit"][rack["kind"]] * effective_market * fault_multiplier
         if len(kinds) >= customer.get("diversity_required_kinds", 999):
             subtotal *= customer.get("diversity_multiplier", 1)
         age = max(0, Simulator.now - dc.built_at) / BUILDINGS[dc.building_id]["lifespan_seconds"]
@@ -194,8 +196,16 @@ class Simulator:
             age = max(0, Simulator.now - dc.built_at) / BUILDINGS[dc.building_id]["lifespan_seconds"]
             age_factor = 6 if age > 0.9 else (3 if age > 0.6 else 1)
             for index in range(len(dc.racks)):
-                if index not in dc.faulted and self.rng.random() < base * age_factor:
-                    dc.faulted.add(index)
+                if index not in dc.faulted and self.fault_rng.random() < base * age_factor:
+                    dc.faulted[index] = Simulator.now + ECONOMY["faults"]["auto_repair_seconds"] if self.cozy_faults else math.inf
+
+    def complete_auto_repairs(self):
+        if not self.cozy_faults:
+            return
+        for dc in self.dcs:
+            for index, repair_at in list(dc.faulted.items()):
+                if Simulator.now >= repair_at:
+                    del dc.faulted[index]
 
     def pay_maintenance(self):
         amount = sum(BUILDINGS[dc.building_id]["maintenance_per_month"] for dc in self.dcs if dc.ready)
@@ -216,12 +226,13 @@ class Simulator:
             if self.arrears_online_seconds >= ECONOMY["bankruptcy"]["game_over_after_online_seconds"]:
                 self.bankrupt = True
                 return
-        for dc in self.dcs:
-            for index in list(dc.faulted):
-                cost = math.ceil(RACKS[dc.racks[index]]["cost"] * ECONOMY["faults"]["repair_cost_ratio"])
-                if self.cash >= cost:
-                    self.cash -= cost
-                    dc.faulted.remove(index)
+        if not self.cozy_faults or self.strategy != "idle":
+            for dc in self.dcs:
+                for index in list(dc.faulted):
+                    cost = math.ceil(RACKS[dc.racks[index]]["cost"] * ECONOMY["faults"]["repair_cost_ratio"])
+                    if self.cash >= cost:
+                        self.cash -= cost
+                        del dc.faulted[index]
         if self.strategy == "active":
             for dc in self.dcs:
                 if not dc.ready or (dc.customer and not dc.free_switch_available):
@@ -427,13 +438,16 @@ def contract_locking_probe():
     return math.isclose(before, during) and after_renewal < during and dc.free_switch_available
 
 
-def print_acceptance(results, cohorts):
+def print_acceptance(results, cohorts, legacy_idle_cohort):
     active_day_1 = point_at(results["active"], 1)
     active_day_7 = point_at(results["active"], 7)
     idle_day_7 = point_at(results["idle"], 7)
     idle_ratio = idle_day_7[5] / active_day_7[5] if active_day_7[5] else 0
+    legacy_idle_revenue = statistics.mean(sim.revenue for sim in legacy_idle_cohort) or 1.0
+    idle_fault_loss = max(0.0, 1.0 - statistics.mean(sim.revenue for sim in cohorts["idle"]) / legacy_idle_revenue)
     checks = [
         (contract_locking_probe(), "mining downturn leaves an existing contract unchanged until automatic renewal"),
+        (idle_fault_loss < 0.08, f"passive auto-repair curve loses {idle_fault_loss:.1%} versus the same-seed pre-A4 fault model (target <8%)"),
         (2 <= active_day_1[3] <= 3 and active_day_1[2] > 0, "day 1 active player has 2–3 data centers and positive cash"),
         (6 <= active_day_7[3] <= 10 and active_day_7[4] >= 2, "day 7 active player has 6–10 data centers and reaches era 2"),
         (0.4 <= idle_ratio <= 0.6, f"day 7 idle revenue is {idle_ratio:.0%} of active revenue"),
@@ -481,13 +495,14 @@ def main():
         name: [Simulator(name, args.seed + run * 101 + index).run(args.days) for run in range(max(1, args.seed_count))]
         for index, name in enumerate(strategy_names)
     }
+    legacy_idle_cohort = [Simulator("idle", args.seed + run * 101, cozy_faults=False).run(args.days) for run in range(max(1, args.seed_count))]
     results = {name: cohorts[name][0] for name in strategy_names}
     if not args.no_write:
         write_csv(results)
         write_svg(results)
     for name, sim in results.items():
         print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} bankrupt={sim.bankrupt}")
-    print_acceptance(results, cohorts)
+    print_acceptance(results, cohorts, legacy_idle_cohort)
     return 0
 
 

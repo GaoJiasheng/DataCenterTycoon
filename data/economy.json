@@ -38,6 +38,8 @@
   "faults": {
     "base_rate_per_game_month": 0.15,
     "overheat_rate_multiplier": 2.5,
+    "faulted_income_multiplier": 0.4,
+    "auto_repair_seconds": 14400,
     "repair_cost_ratio": 0.05,
     "repair_seconds_min": 600,
     "repair_seconds_max": 1800,
