@@ -1914,6 +1914,7 @@ func _build_tutorial_dormant_hint() -> void:
 	add_child(tutorial_hint_button)
 
 func _refresh_tutorial() -> void:
+	Game.reconcile_tutorial_progress()
 	var tutorial: Dictionary = Game.state.get("tutorial", {})
 	var steps: Array = DataRepository.get_table("tutorial").get("steps", [])
 	var index := int(tutorial.get("step", 0))
@@ -1982,20 +1983,20 @@ func _refresh_tutorial() -> void:
 	_set_tutorial_chrome_visibility(false, focus)
 
 func _apply_tutorial_context(index: int, step: Dictionary) -> void:
-	if _tutorial_protocol_step == index:
-		return
-	_tutorial_protocol_step = index
-	_tutorial_world_focus_id = ""
-	if fx_layer != null:
-		fx_layer.clear()
+	var step_changed := _tutorial_protocol_step != index
+	if step_changed:
+		_tutorial_protocol_step = index
+		_tutorial_world_focus_id = ""
+		if fx_layer != null:
+			fx_layer.clear()
 	var context := _effective_tutorial_context(step)
+	var focus := str(step.get("focus", ""))
+	_close_incompatible_tutorial_surfaces(context, focus)
 	match context:
 		"map", "dormant":
-			_close_tutorial_surfaces(false)
 			if active_page != "map":
 				_navigate("map")
 		"drawer":
-			_close_tutorial_surfaces(true)
 			var dc_id := _tutorial_datacenter_id()
 			var drawer := find_child("DatacenterContext", true, false) as CanvasItem
 			if drawer != null and str(drawer.get_meta("datacenter_id", "")) != dc_id:
@@ -2005,7 +2006,7 @@ func _apply_tutorial_context(index: int, step: Dictionary) -> void:
 				_navigate("map")
 			elif active_page not in ["map", "detail"]:
 				_navigate("map")
-	if str(step.get("id", "")) == "retire" and context == "dormant":
+	if step_changed and str(step.get("id", "")) == "retire" and context == "dormant":
 		_schedule_retire_notice_collapse()
 
 func _effective_tutorial_context(step: Dictionary) -> String:
@@ -2039,16 +2040,33 @@ func _expand_retire_dormant_notice() -> void:
 	get_tree().create_timer(3.0).timeout.connect(_collapse_retire_notice.bind(_retire_notice_token))
 	_refresh_tutorial()
 
-func _close_tutorial_surfaces(keep_datacenter_drawer: bool) -> void:
+func _close_incompatible_tutorial_surfaces(context: String, focus: String) -> void:
+	var allowed: Array[String] = []
+	if context == "drawer":
+		allowed = ["ActionSheetOverlay", "DatacenterContext"]
+	elif context == "map":
+		if focus in ["build_dc_t0", "build_dc_t1"]:
+			allowed = ["BuildingPicker"]
+		elif focus == "buy_plot":
+			allowed = ["ActionSheetOverlay"]
 	for surface_name: String in ["ActionSheetOverlay", "BuildingPicker", "OperationsHub", "DatacenterContext"]:
-		if keep_datacenter_drawer and surface_name == "DatacenterContext":
-			continue
 		for surface: Node in find_children(surface_name, "", true, false):
+			var allowed_surface := surface_name in allowed
+			if allowed_surface and surface_name == "ActionSheetOverlay":
+				allowed_surface = str(surface.get_meta("tutorial_focus", "")) == focus
+			if allowed_surface:
+				continue
 			if surface is CanvasItem:
 				(surface as CanvasItem).visible = false
 			surface.queue_free()
 
 func _tutorial_datacenter_id() -> String:
+	# Tutorial actions belong to the starter container even if a notification or
+	# a restored drawer left another data center selected in a larger park.
+	for plot: Dictionary in Game.state.get("plots", []):
+		var tutorial_value: Variant = plot.get("datacenter")
+		if tutorial_value is Dictionary and str((tutorial_value as Dictionary).get("building_id", "")) == "dc_t0":
+			return str((tutorial_value as Dictionary).get("id", ""))
 	if not selected_datacenter_id.is_empty() and not Game.find_datacenter(selected_datacenter_id).is_empty():
 		return selected_datacenter_id
 	for plot: Dictionary in Game.state.get("plots", []):
@@ -2215,10 +2233,10 @@ func _resolve_tutorial_target(focus: String) -> Dictionary:
 	match focus:
 		"build_dc_t0":
 			control = _visible_control_named("Building_dc_t0")
-			if control == null: control = primary_action_button
+			if control == null and _primary_action_kind == "build": control = primary_action_button
 		"build_dc_t1":
 			control = _visible_control_named("Building_dc_t1")
-			if control == null: control = primary_action_button
+			if control == null and _primary_action_kind == "build": control = primary_action_button
 		"install_power": control = _visible_control_named("PowerSlot")
 		"rack_slot_0":
 			control = _visible_control_named("RackSlot0")
@@ -2434,7 +2452,7 @@ func _show_rack_picker(datacenter_id: String, slot: int) -> void:
 					_rack_trait_label(float(rack.get("market_sensitivity", 1.0))),
 				],
 			})
-	_show_choice(tr("INSTALL"), choices, func(rack_id: String) -> void: _preview_rack_install(datacenter_id, slot, rack_id))
+	_show_choice(tr("INSTALL"), choices, func(rack_id: String) -> void: _preview_rack_install(datacenter_id, slot, rack_id), "rack_slot_0")
 
 func _preview_rack_install(datacenter_id: String, slot: int, rack_id: String) -> void:
 	var board := _visible_datacenter_board(datacenter_id)
@@ -2449,10 +2467,10 @@ func _preview_rack_install(datacenter_id: String, slot: int, rack_id: String) ->
 		tr("RACK_STAT_HEAT"), Game.format_number(float(rack.get("heat", 0.0))),
 		tr("RACK_STAT_OUTPUT"), Game.format_number(float(rack.get("income_per_month", 0.0))), tr("MONTH_SHORT"),
 	]
-	_present_action_sheet(tr("INSTALL"), body, [{"id": "confirm", "text": "%s · $%s" % [tr("CONFIRM"), Game.format_number(Game.rack_purchase_cost(rack_id))], "color": ThemeMaker.COLORS.green}], func(choice: String) -> void:
+	var confirm_install := func(choice: String) -> void:
 		if choice == "confirm":
 			_handle_result(Game.install_rack(datacenter_id, slot, rack_id))
-	)
+	_present_action_sheet(tr("INSTALL"), body, [{"id": "confirm", "text": "%s · $%s" % [tr("CONFIRM"), Game.format_number(Game.rack_purchase_cost(rack_id))], "color": ThemeMaker.COLORS.green}], confirm_install, true, ThemeMaker.COLORS.cyan, "rack_slot_0")
 	var overlay := find_child("ActionSheetOverlay", true, false)
 	if overlay != null and board != null:
 		overlay.tree_exiting.connect(board.clear_placement_preview)
@@ -2889,13 +2907,17 @@ func _show_plot_purchase() -> void:
 		"text": "%s · $%s" % [tr("BUY_NEXT_PLOT"), Game.format_number(Game.next_plot_price())],
 		"color": ThemeMaker.COLORS.green,
 	}]
+	var purchase_plot := func(choice: String) -> void:
+		if choice == "buy":
+			_handle_result(Game.buy_next_plot())
 	_present_action_sheet(
 		tr("BUY_NEXT_PLOT"),
 		tr("PLOT_FOR_SALE") % [Game.state.get("plots", []).size() + 1, Game.format_number(Game.next_plot_price())],
 		choices,
-		func(choice: String) -> void:
-			if choice == "buy":
-				_handle_result(Game.buy_next_plot())
+		purchase_plot,
+		true,
+		ThemeMaker.COLORS.cyan,
+		"buy_plot"
 	)
 
 func _show_attachment_picker(datacenter_id: String, kind: String, edge: String) -> void:
@@ -2908,12 +2930,12 @@ func _show_attachment_picker(datacenter_id: String, kind: String, edge: String) 
 			# left bare numbers with no way to tell capacity from cooling.
 			var stat := "%s %s" % [tr("STAT_CAPACITY"), Game.format_number(float(item.get("capacity", 0.0)))] if kind == "power" else "%s %s · %s" % [tr("STAT_COOLING_OUTPUT"), Game.format_number(float(item.get("cooling", 0.0))), tr("STAT_COVERAGE") % 3]
 			choices.append({"id": attachment_id, "height": 108, "cost": float(item.get("cost", 0.0)), "text": "%s · $%s\n%s" % [tr(item.get("name_key", "")), Game.format_number(float(item.get("cost", 0.0))), stat]})
-	_show_choice(tr("INSTALL"), choices, func(attachment_id: String) -> void:
+	var install_attachment := func(attachment_id: String) -> void:
 		var result: Dictionary = Game.install_power(datacenter_id, attachment_id) if kind == "power" else Game.install_cooler(datacenter_id, edge, attachment_id)
 		_handle_result(result)
 		if bool(result.get("ok", false)) and kind == "cooler":
 			_play_fx_at_world("fx_snowflake", datacenter_id, 170)
-	)
+	_show_choice(tr("INSTALL"), choices, install_attachment, "install_power" if kind == "power" else "install_cooler")
 
 func _show_rack_actions(datacenter_id: String, slot: int) -> void:
 	var installed: Dictionary = Game.find_datacenter(datacenter_id).get("racks", [])[slot]
@@ -2963,12 +2985,13 @@ func _show_rack_actions(datacenter_id: String, slot: int) -> void:
 			"uninstall": _handle_result(Game.uninstall_rack(datacenter_id, slot))
 	, true, status_color)
 
-func _show_choice(title_text: String, choices: Array[Dictionary], callback: Callable) -> void:
-	_present_action_sheet(title_text, "", choices, callback)
+func _show_choice(title_text: String, choices: Array[Dictionary], callback: Callable, tutorial_focus: String = "") -> void:
+	_present_action_sheet(title_text, "", choices, callback, true, ThemeMaker.COLORS.cyan, tutorial_focus)
 
-func _present_action_sheet(title_text: String, body: String, choices: Array[Dictionary], callback: Callable, show_cancel: bool = true, body_color: Color = ThemeMaker.COLORS.cyan) -> void:
+func _present_action_sheet(title_text: String, body: String, choices: Array[Dictionary], callback: Callable, show_cancel: bool = true, body_color: Color = ThemeMaker.COLORS.cyan, tutorial_focus: String = "") -> void:
 	var overlay := ColorRect.new()
 	overlay.name = "ActionSheetOverlay"
+	overlay.set_meta("tutorial_focus", tutorial_focus)
 	overlay.color = Color(0.015, 0.03, 0.06, 0.76)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -3335,12 +3358,12 @@ func _confirm_reset() -> void:
 		_navigate("map")
 	)
 
-func _confirm(title_text: String, body: String, callback: Callable) -> void:
+func _confirm(title_text: String, body: String, callback: Callable, tutorial_focus: String = "") -> void:
 	var choices: Array[Dictionary] = [{"id": "confirm", "text": tr("CONFIRM"), "color": ThemeMaker.COLORS.red}]
-	_present_action_sheet(title_text, body, choices, func(choice: String) -> void:
+	var confirm_action := func(choice: String) -> void:
 		if choice == "confirm":
 			callback.call()
-	)
+	_present_action_sheet(title_text, body, choices, confirm_action, true, ThemeMaker.COLORS.cyan, tutorial_focus)
 
 func _navigate(page: String) -> void:
 	if fx_layer != null:
@@ -3404,14 +3427,14 @@ func _demolish(datacenter_id: String) -> void:
 	_handle_result(Game.demolish_ruin(datacenter_id))
 
 func _retire(datacenter_id: String) -> void:
-	_confirm(tr("RETIRE"), tr("RETIRE"), func() -> void:
+	var complete_retirement := func() -> void:
 		var source := park_map.world_position_of(datacenter_id) if park_map != null else Vector2.ZERO
 		var result := Game.retire_datacenter(datacenter_id)
 		_handle_result(result)
 		if bool(result.get("ok", false)):
 			_fly_cash_reward(source, 8)
 		_navigate("map")
-	)
+	_confirm(tr("RETIRE"), tr("RETIRE"), complete_retirement, "retire_dc")
 
 func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 	var dc := Game.find_datacenter(datacenter_id)
@@ -3427,10 +3450,10 @@ func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 	var body := tr("CONTRACT_CONFIRM_DELTA") % [Game.format_number(current), Game.format_number(projected), percent]
 	body += "\n" + (tr("CONTRACT_FREE_SWITCH") if fee <= 0.0 else tr("CONTRACT_BREACH_FEE") % Game.format_number(fee))
 	body += "\n" + tr("CONTRACT_TERM_INFO")
-	_present_action_sheet(tr("SWITCH_CONTRACT"), body, [{"id": "confirm", "text": "%s · %s" % [tr("CONFIRM"), tr("CONTRACT_PROJECTED") % Game.format_number(projected)], "color": ThemeMaker.COLORS.green}], func(choice: String) -> void:
+	var confirm_contract := func(choice: String) -> void:
 		if choice == "confirm":
 			_complete_contract_signing(datacenter_id, customer_id)
-	)
+	_present_action_sheet(tr("SWITCH_CONTRACT"), body, [{"id": "confirm", "text": "%s · %s" % [tr("CONFIRM"), tr("CONTRACT_PROJECTED") % Game.format_number(projected)], "color": ThemeMaker.COLORS.green}], confirm_contract, true, ThemeMaker.COLORS.cyan, "contract_internet")
 
 func _complete_contract_signing(datacenter_id: String, customer_id: String) -> void:
 	var result := Game.sign_contract(datacenter_id, customer_id)

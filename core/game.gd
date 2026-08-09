@@ -1155,6 +1155,80 @@ func _tutorial_event(event_name: String) -> void:
 		if index + 1 >= steps.size():
 			tutorial["completed"] = true
 
+# Repairs tutorial state that can lag behind the authoritative world after an
+# app update, an interrupted save, or an action completing while the app is
+# backgrounded. Progress is forward-only: already completed actions are never
+# replayed, while an unmet lesson remains fully interactive.
+func reconcile_tutorial_progress(persist: bool = true) -> bool:
+	var tutorial: Dictionary = state.get("tutorial", {})
+	if bool(tutorial.get("completed", false)):
+		return false
+	var steps: Array = data.get("tutorial", {}).get("steps", [])
+	var index := clampi(int(tutorial.get("step", 0)), 0, steps.size())
+	var changed := false
+	while index < steps.size() and _tutorial_step_already_satisfied(str(steps[index].get("id", ""))):
+		index += 1
+		changed = true
+	if not changed:
+		return false
+	tutorial["step"] = index
+	if index >= steps.size():
+		tutorial["completed"] = true
+	if persist and persistence_enabled:
+		save_now()
+	return true
+
+func _tutorial_step_already_satisfied(step_id: String) -> bool:
+	var tutorial_dc := _tutorial_progress_datacenter()
+	match step_id:
+		"welcome":
+			if not tutorial_dc.is_empty():
+				return true
+			return _has_queued_tutorial_building("dc_t0")
+		"power":
+			return not tutorial_dc.is_empty() and not str(tutorial_dc.get("power_unit", "")).is_empty()
+		"first_rack":
+			if tutorial_dc.is_empty():
+				return false
+			for installed: Variant in tutorial_dc.get("racks", []):
+				if installed is Dictionary and not installed.is_empty() and str(installed.get("status", "")) != "installing":
+					return true
+			return false
+		"contract":
+			return not tutorial_dc.is_empty() and not str(tutorial_dc.get("customer_id", "")).is_empty()
+		"cooling":
+			if tutorial_dc.is_empty():
+				return false
+			for cooler_id: Variant in tutorial_dc.get("coolers", {}).values():
+				if not str(cooler_id).is_empty():
+					return true
+			return false
+		"buy_land":
+			return state.get("plots", []).size() >= 2
+		"retire":
+			return tutorial_dc.is_empty() and not _has_queued_tutorial_building("dc_t0")
+		"standard":
+			if bool(state.get("flags", {}).get("standard_built", false)) or _has_queued_tutorial_building("dc_t1"):
+				return true
+			for plot: Dictionary in state.get("plots", []):
+				var value: Variant = plot.get("datacenter")
+				if value is Dictionary and str((value as Dictionary).get("building_id", "")) == "dc_t1":
+					return true
+	return false
+
+func _tutorial_progress_datacenter() -> Dictionary:
+	for plot: Dictionary in state.get("plots", []):
+		var value: Variant = plot.get("datacenter")
+		if value is Dictionary and str((value as Dictionary).get("building_id", "")) == "dc_t0":
+			return value as Dictionary
+	return {}
+
+func _has_queued_tutorial_building(building_id: String) -> bool:
+	for item: Dictionary in state.get("construction_queue", []):
+		if str(item.get("type", "")) == "datacenter" and str(item.get("building_id", "")) == building_id:
+			return true
+	return false
+
 func _on_reward_result(placement: String, success: bool) -> void:
 	if not bool(_pending_rewards.get(placement, false)):
 		return
@@ -1336,6 +1410,7 @@ func _ensure_state_shape() -> void:
 	if state["bankruptcy"].get("status", "normal") == "game_over":
 		state["bankruptcy"]["status"] = "arrears"
 		_process_bank_takeover({}, true, false)
+	reconcile_tutorial_progress(false)
 	state["save_version"] = SaveManager.SAVE_VERSION
 
 func _migrate_legacy_rack_installations() -> void:

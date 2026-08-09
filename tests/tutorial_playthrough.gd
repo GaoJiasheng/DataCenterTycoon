@@ -30,6 +30,8 @@ func _ready() -> void:
 	await _verify_install_in_progress_is_announced()
 	await _verify_drawer_reflects_completed_installs()
 	await _verify_orphaned_step_recovers()
+	await _verify_standard_step_clears_stale_drawer()
+	_verify_completed_actions_reconcile()
 	await _verify_countdown_shows_full_units()
 	AudioService.stop_all()
 	for wait: String in waits:
@@ -232,6 +234,86 @@ func _verify_orphaned_step_recovers() -> void:
 	_expect(str(overlay.get_meta("target_source", "")) == "rebuild", "orphaned step must route the player back to building a site (source=%s)" % str(overlay.get_meta("target_source", "")))
 	_expect(overlay.is_actionable(), "orphaned step must offer a tappable recovery")
 	await _shot("orphan_recovered")
+
+# Reproduces the device screenshot: the lesson has advanced to the final
+# standard-building step, but an aging/faulted container drawer is still open.
+# The old one-shot context switch left the real build CTA underneath that
+# drawer, so the spotlight framed an apparently empty, unresponsive rectangle.
+func _verify_standard_step_clears_stale_drawer() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.start_datacenter_construction("plot_1", "dc_t0")
+	Game.advance_time(400.0, false)
+	Game.buy_next_plot()
+	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	var lifespan := float(DataRepository.get_entry("buildings", "dc_t0").get("lifespan_seconds", 86400.0))
+	dc["built_at"] = Game.simulation_time() - lifespan * 0.999
+	dc["power_unit"] = "power_t1"
+	dc["customer_id"] = "internet"
+	dc["contract_end_at"] = Game.simulation_time() + 5400.0
+	dc["locked_market_multiplier"] = 1.0
+	dc["free_switch_available"] = true
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "faulted", "enabled": true, "auto_repair_at": Game.simulation_time() + 13140.0}
+	Game.state["player"]["cash"] = 37100.0
+	Game.state["tutorial"] = {"step": 7, "completed": false, "dismissed_messages": []}
+	Game.state["flags"]["standard_built"] = false
+	main.call("_refresh")
+	await _settle()
+	main.call("_show_datacenter_context", str(dc.get("id", "")))
+	await _settle()
+	main.call("_refresh")
+	await _settle()
+	var stale_drawer := main.find_child("DatacenterContext", true, false) as Control
+	_expect(stale_drawer == null or not stale_drawer.is_visible_in_tree(), "standard lesson must clear a stale data-center drawer instead of highlighting the CTA underneath it")
+	var overlay := _overlay()
+	_expect(overlay != null and overlay.is_actionable() and str(overlay.get_meta("target_node", "")) == "PrimaryWorldAction", "standard lesson must recover to the visible map build CTA")
+	if overlay == null or not overlay.is_actionable():
+		return
+	_touch(overlay.target_rect.get_center())
+	await _settle()
+	var picker := main.find_child("BuildingPicker", true, false) as Control
+	overlay = _overlay()
+	_expect(picker != null and picker.is_visible_in_tree(), "standard lesson build CTA must open the building picker")
+	_expect(overlay != null and overlay.is_actionable() and str(overlay.get_meta("target_node", "")) == "Building_dc_t1", "standard lesson must retarget to the standard data-center card")
+	if overlay == null or not overlay.is_actionable():
+		return
+	_touch(overlay.target_rect.get_center())
+	await _settle()
+	_expect(bool(Game.state.get("tutorial", {}).get("completed", false)), "standard data-center card must complete the tutorial through touch")
+	await _shot("standard_stale_drawer_recovered")
+
+# A save can be interrupted after the world action succeeds but before its
+# tutorial step is persisted. Reconciliation must skip only lessons whose
+# authoritative outcome already exists, then stop at the first unmet lesson.
+func _verify_completed_actions_reconcile() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.start_datacenter_construction("plot_1", "dc_t0")
+	Game.advance_time(400.0, false)
+	Game.buy_next_plot()
+	var starter: Dictionary = Game.state["plots"][0]["datacenter"]
+	starter["power_unit"] = "power_t1"
+	starter["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	starter["customer_id"] = "internet"
+	starter["coolers"] = {"north": "cool_air_t1"}
+	var secondary := starter.duplicate(true)
+	secondary["id"] = "dc_non_tutorial"
+	secondary["building_id"] = "dc_t1"
+	Game.state["plots"][1]["datacenter"] = secondary
+	Game.state["plots"][1]["status"] = "operational"
+	main.set("selected_datacenter_id", "dc_non_tutorial")
+	_expect(str(main.call("_tutorial_datacenter_id")) == str(starter.get("id", "")), "tutorial must prioritize the starter container over a selected later data center")
+	Game.state["tutorial"] = {"step": 0, "completed": false, "dismissed_messages": []}
+	_expect(Game.reconcile_tutorial_progress(false), "completed tutorial actions must reconcile forward")
+	_expect(int(Game.state["tutorial"].get("step", -1)) == 6 and not bool(Game.state["tutorial"].get("completed", false)), "reconciliation must stop at the still-unmet retirement lesson")
+	Game.state["plots"][1]["datacenter"] = null
+	Game.state["plots"][1]["status"] = "empty"
+	Game.state["plots"][0]["datacenter"] = null
+	Game.state["plots"][0]["status"] = "empty"
+	_expect(Game.reconcile_tutorial_progress(false), "a starter container already removed must reconcile to the standard-building lesson")
+	_expect(int(Game.state["tutorial"].get("step", -1)) == 7 and not bool(Game.state["tutorial"].get("completed", false)), "reconciliation must stop before an unbuilt standard data center")
+	Game.state["flags"]["standard_built"] = true
+	_expect(Game.reconcile_tutorial_progress(false) and bool(Game.state["tutorial"].get("completed", false)), "an already-built standard data center must close the tutorial")
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:

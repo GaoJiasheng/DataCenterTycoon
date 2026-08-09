@@ -139,7 +139,10 @@ func _run_ui_refresh_test() -> void:
 	# construction, 0s left" with nothing on screen to tap.
 	var rebuild_rect: Rect2 = spotlight.get("target_rect")
 	_expect(spotlight.visible and bool(spotlight.call("is_actionable")) and primary != null and primary.visible and rebuild_rect.intersects(primary.get_global_rect()), "FTUE routes back to rebuilding when its data center is absent")
-	Game.state["tutorial"]["step"] = 0
+	# The remaining checks exercise ordinary post-FTUE pages and sheets. Leaving
+	# the tutorial active would correctly force their incompatible surfaces back
+	# to the current lesson, contaminating these unrelated UI assertions.
+	Game.state["tutorial"]["completed"] = true
 	main.call("_refresh_hud")
 	main.call("_navigate", "store")
 	main.call("_refresh")
@@ -176,7 +179,6 @@ func _run_ui_refresh_test() -> void:
 	_expect(not is_instance_valid(overlay), "action sheet dismissal waits for its exit animation before freeing")
 	# Generic reward-juice coverage belongs to the post-tutorial state. Active
 	# FTUE steps intentionally suppress world coin trajectories (FT2).
-	Game.state["tutorial"]["completed"] = true
 	main.call("_refresh_hud")
 	main.call("_fly_cash_reward", Vector2(220, 520), 12)
 	await get_tree().process_frame

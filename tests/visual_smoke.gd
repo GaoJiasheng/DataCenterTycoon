@@ -142,7 +142,7 @@ func _ready() -> void:
 	dc["racks"][4] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true, "fault_at": -1.0}
 	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
 	valid = (await _capture(main, "dc_board_overheat")) and valid
-	var board := main.find_child("DatacenterBoard", true, false)
+	var board := main.call("_visible_datacenter_board", str(dc.get("id", ""))) as DatacenterBoard
 	if board != null:
 		board.call("set_placement_preview", 3, "rack_gpu_t1")
 	valid = (await _capture(main, "dc_board_placing", false)) and valid
@@ -269,6 +269,15 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	if name == "era_unlock":
 		await get_tree().create_timer(1.25).timeout
 	await get_tree().create_timer(0.24).timeout
+	if name == "dc_board_placing":
+		# A pending live-page refresh may replace the board during the capture
+		# delay. Apply the preview to the final visible board immediately before
+		# layout validation so the nine-state gate is deterministic.
+		var selected_id := str(main.get("selected_datacenter_id"))
+		var live_board := main.call("_visible_datacenter_board", selected_id) as DatacenterBoard
+		if live_board != null:
+			live_board.set_placement_preview(3, "rack_gpu_t1")
+		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	# macOS may report the drawable one physical pixel narrower than the requested

@@ -214,7 +214,8 @@ func _assert_tutorial_target(step_id: String, context: String, source: String, a
 		return
 	_expect(str(overlay.get_meta("tutorial_step_id", "")) == step_id, "B1 active step must be %s" % step_id)
 	_expect(str(overlay.get_meta("tutorial_context", "")) == context, "B1 %s context must be %s" % [step_id, context])
-	_expect(str(overlay.get_meta("target_source", "")) == source, "B2 %s target source must be %s" % [step_id, source])
+	var actual_source := str(overlay.get_meta("target_source", ""))
+	_expect(actual_source == source, "B2 %s target source must be %s (actual %s)" % [step_id, source, actual_source])
 	var resolved: Rect2 = overlay.get_meta("resolved_target_rect", Rect2())
 	if allow_zero:
 		_expect(resolved.size == Vector2.ZERO and not overlay.is_actionable(), "B1 %s must be a non-actionable explained state" % step_id)
