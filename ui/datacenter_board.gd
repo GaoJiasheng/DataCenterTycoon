@@ -436,6 +436,7 @@ func _add_coolers(stage: Control, dc: Dictionary) -> void:
 
 func _add_power_meter(dc: Dictionary) -> void:
 	var panel := PanelContainer.new()
+	panel.name = "BoardPowerSection"
 	panel.add_theme_stylebox_override("panel", ThemeMaker.flat_group_box(ThemeMaker.COLORS.yellow))
 	add_child(panel)
 	var row := HBoxContainer.new()

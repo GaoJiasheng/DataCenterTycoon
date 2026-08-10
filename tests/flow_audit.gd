@@ -44,6 +44,7 @@ func _ready() -> void:
 	main.call("_open_datacenter", dc_id)
 	await _shot("s1_power_step_drawer_open")
 	_assert_tutorial_target("power", "drawer", "control")
+	_assert_power_guidance_matches_drawer()
 	_assert_unpowered_copy_and_drawer_lock()
 	_assert_sheet_blocks_world_fx(dc_id)
 	main.call("_show_attachment_picker", dc_id, "power", "")
@@ -226,6 +227,12 @@ func _assert_tutorial_target(step_id: String, context: String, source: String, a
 		_expect(hole_border != null and int(hole_border.get_meta("spotlight_corner_radius", 0)) == 32, "FT3 spotlight border must use the shared 32u corner radius")
 		var callout := main.find_child("TutorialCallout", true, false) as Control
 		_expect(callout != null and not callout.get_global_rect().intersects(resolved), "E3 %s callout must not cover its tap target" % step_id)
+		if source == "control":
+			var target_name := str(overlay.get_meta("target_node", ""))
+			var live_target := main.find_child(target_name, true, false) as Control
+			var live_rect := live_target.get_global_rect() if live_target != null else Rect2()
+			_expect(live_target != null and live_target.is_visible_in_tree() and resolved.position.distance_to(live_rect.position) < 1.0 and resolved.size.distance_to(live_rect.size) < 1.0, "E4 %s spotlight must track the live %s control (resolved=%s live=%s)" % [step_id, target_name, resolved, live_rect])
+			_expect(callout != null and not callout.get_global_rect().intersects(live_rect), "E4 %s callout must not hide the live %s control" % [step_id, target_name])
 
 func _assert_tutorial_orphan_guard() -> void:
 	var message := main.find_child("TutorialMessage", true, false) as Label
@@ -239,6 +246,18 @@ func _assert_tutorial_orphan_guard() -> void:
 		if bounds.size != Vector2.ZERO and absf(bounds.position.y - last_bounds.position.y) < 1.0 and not message.text.substr(index, 1).strip_edges().is_empty():
 			last_line_chars += 1
 	_expect(last_line_chars >= 2, "FT1 tutorial bubble last line must contain at least two visible characters")
+
+func _assert_power_guidance_matches_drawer() -> void:
+	var overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
+	var section := main.find_child("BoardPowerSection", true, false) as Control
+	var button := main.find_child("PowerSlot", true, false) as Button
+	var message := main.find_child("TutorialMessage", true, false) as Label
+	var resolved: Rect2 = overlay.get_meta("resolved_target_rect", Rect2()) if overlay != null else Rect2()
+	_expect(overlay != null and str(overlay.get_meta("target_node", "")) == "BoardPowerSection", "E5 power lesson must target the complete power section")
+	_expect(section != null and button != null and section.get_global_rect().grow(1.0).encloses(button.get_global_rect()), "E5 power section must visibly contain the transformer install button")
+	_expect(section != null and resolved.position.distance_to(section.get_global_rect().position) < 1.0 and resolved.size.distance_to(section.get_global_rect().size) < 1.0, "E5 power spotlight must match the complete visible power section")
+	var copy := message.text.to_lower() if message != null else ""
+	_expect(copy.contains(tr("BOARD_POWER_LABEL").to_lower()) and copy.contains(tr("BUILDING_T0").to_lower()), "E5 power copy must name both the visible power section and container data center")
 
 func _assert_tutorial_suppresses_world_coins() -> void:
 	var layer := main.find_child("FxLayer", true, false) as FxLayer

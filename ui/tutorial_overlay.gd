@@ -49,6 +49,23 @@ func present(rect: Rect2, copy: String, guide_asset: String, action: Callable, f
 	_position_callout()
 	_start_motion(actionable)
 
+# Drawers and sheets finish their container layout a frame or two after they
+# appear. Keep an already-presented lesson attached to the live control instead
+# of leaving the spotlight at the provisional opening geometry.
+func retarget(rect: Rect2) -> void:
+	if not visible or rect.size == Vector2.ZERO:
+		return
+	var next_rect := rect.grow(SPOTLIGHT_GUTTER).intersection(get_viewport_rect())
+	if target_rect.position.distance_to(next_rect.position) < 0.5 and target_rect.size.distance_to(next_rect.size) < 0.5:
+		return
+	target_rect = next_rect
+	var actionable := target_action.is_valid()
+	mouse_filter = Control.MOUSE_FILTER_STOP if actionable else Control.MOUSE_FILTER_IGNORE
+	pointer.visible = actionable
+	_layout_mask(actionable)
+	_position_callout()
+	_start_motion(actionable)
+
 func dismiss() -> void:
 	visible = false
 	target_rect = Rect2()

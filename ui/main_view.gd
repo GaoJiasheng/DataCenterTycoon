@@ -144,6 +144,7 @@ func _process(delta: float) -> void:
 		_refresh_hud()
 		if refresh_page:
 			_refresh_page()
+	_sync_tutorial_target_geometry()
 	_update_night_ambience(delta)
 
 func _update_night_ambience(delta: float) -> void:
@@ -1986,6 +1987,24 @@ func _refresh_tutorial() -> void:
 	tutorial_hint_button.visible = false
 	_set_tutorial_chrome_visibility(false, focus)
 
+func _sync_tutorial_target_geometry() -> void:
+	if tutorial_overlay == null or not tutorial_overlay.visible:
+		return
+	if str(tutorial_overlay.get_meta("target_source", "")) != "control":
+		return
+	var target_name := str(tutorial_overlay.get_meta("target_node", ""))
+	if target_name.is_empty():
+		return
+	var live := _visible_control_named(target_name)
+	if live == null:
+		return
+	var live_rect := live.get_global_rect()
+	var resolved: Rect2 = tutorial_overlay.get_meta("resolved_target_rect", Rect2())
+	if resolved.position.distance_to(live_rect.position) < 0.5 and resolved.size.distance_to(live_rect.size) < 0.5:
+		return
+	tutorial_overlay.set_meta("resolved_target_rect", live_rect)
+	tutorial_overlay.retarget(live_rect)
+
 func _apply_tutorial_context(index: int, step: Dictionary) -> void:
 	var step_changed := _tutorial_protocol_step != index
 	if step_changed:
@@ -2241,13 +2260,22 @@ func _resolve_tutorial_target(focus: String) -> Dictionary:
 		"build_dc_t1":
 			control = _visible_control_named("Building_dc_t1")
 			if control == null and _primary_action_kind == "build": control = primary_action_button
-		"install_power": control = _visible_control_named("PowerSlot")
+		"install_power":
+			var power_button := _visible_control_named("PowerSlot") as Button
+			var power_section := _visible_control_named("BoardPowerSection")
+			if power_button != null and power_section != null:
+				var install_action := func() -> void:
+					var live := _visible_control_named("PowerSlot") as Button
+					if live != null and not live.disabled:
+						live.pressed.emit()
+				return {"rect": power_section.get_global_rect(), "action": install_action, "source": "control", "mode": "actionable", "target_node": power_section.name, "action_node": power_button.name}
+			control = power_button
 		"rack_slot_0":
 			control = _visible_control_named("RackSlot0")
 			if control != null:
 				var board := _visible_datacenter_board(selected_datacenter_id)
 				if board != null:
-					return {"rect": control.get_global_rect(), "action": _on_board_rack_slot_selected.bind(board.datacenter_id, 0), "source": "control", "mode": "actionable"}
+					return {"rect": control.get_global_rect(), "action": _on_board_rack_slot_selected.bind(board.datacenter_id, 0), "source": "control", "mode": "actionable", "target_node": control.name}
 		"contract_internet":
 			control = _visible_control_named("Contract_internet")
 			if control == null: control = _visible_control_named("ContractCTA")

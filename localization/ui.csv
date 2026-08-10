@@ -293,7 +293,7 @@ ACH_ERA_THREE,AI Infrastructure,AI 基建
 ACH_PRESTIGE,Public Company,成功上市
 ACH_ARREARS,Cash-flow Survivor,绝处逢生
 TUTORIAL_WELCOME,Welcome! Build your first container data center on the empty plot.,欢迎！先在空地上建造第一座集装箱机房。
-TUTORIAL_POWER,Install a transformer and watch the building light up.,安装变压器，让机房亮起来。
+TUTORIAL_POWER,Tap Power to install a transformer and light up the Container Data Center.,点击「供电」安装变压器，点亮集装箱机房。
 TUTORIAL_FIRST_RACK,Install a compute rack in the first slot.,在第一个机位安装计算机柜。
 TUTORIAL_CONTRACT,Sign an internet-company contract to start earning.,签下互联网厂商合约，开始赚钱。
 TUTORIAL_COOLING,Install air cooling before adding more heat.,继续上架前，先安装风冷设备。
