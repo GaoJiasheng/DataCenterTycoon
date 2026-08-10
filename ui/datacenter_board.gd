@@ -40,23 +40,26 @@ func _ready() -> void:
 	resized.connect(_update_stage_scale)
 	_rebuild()
 
-# The board stage is authored in a fixed 660x660 coordinate space, but the page
-# content area is only 740 minus the sheet's frame insets. The stage minimum must
-# never reach layout negotiation at full size, or it widens the whole page and
-# pushes the header past the clip rect — so it is capped at build time and only
-# shrinks further on narrower parents.
-const STAGE_MAX_SCALE := 0.95
+# The board is authored in a fixed 660x660 coordinate space. A system page has
+# 580u of usable width after the safe area, illustrated frame, and content inset,
+# so leave a small gutter rather than letting the board's minimum widen the page.
+const STAGE_MIN_SCALE := 0.50
+const STAGE_MAX_SCALE := 0.86
 
 func _update_stage_scale() -> void:
 	if _stage == null or not is_instance_valid(_stage):
 		return
 	var board_scale := STAGE_MAX_SCALE
 	if size.x > 0.0:
-		board_scale = clampf(size.x / BOARD_SIZE.x, 0.5, STAGE_MAX_SCALE)
+		board_scale = clampf(size.x / BOARD_SIZE.x, STAGE_MIN_SCALE, STAGE_MAX_SCALE)
+	var footprint := BOARD_SIZE * board_scale
 	_stage.scale = Vector2.ONE * board_scale
-	# scale is visual-only; layout must reserve the scaled footprint, otherwise
-	# SHRINK_CENTER still centers the unscaled 660u box and overflows the clip.
-	_stage.custom_minimum_size = BOARD_SIZE * board_scale
+	# Control scale is visual-only, so reserve the transformed footprint rather
+	# than the full authored canvas during the parent container's negotiation.
+	_stage.custom_minimum_size = footprint
+	_stage.set_meta("authored_size", BOARD_SIZE)
+	_stage.set_meta("responsive_scale", board_scale)
+	_stage.set_meta("visual_footprint", footprint)
 
 func set_placement_preview(slot: int, rack_id: String) -> void:
 	preview_slot = slot
@@ -143,16 +146,18 @@ func _rebuild() -> void:
 		remove_child(child)
 		child.queue_free()
 	_tooltip = null
+	_stage = null
 	var dc := Game.find_datacenter(datacenter_id)
 	if dc.is_empty():
 		return
 	var stage := Control.new()
 	stage.name = "BoardStage"
-	stage.custom_minimum_size = BOARD_SIZE
+	stage.custom_minimum_size = BOARD_SIZE * STAGE_MAX_SCALE
 	stage.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	add_child(stage)
 	_stage = stage
 	_update_stage_scale()
+	call_deferred("_update_stage_scale")
 	_add_interior(stage)
 	_add_coverage(stage, dc)
 	_add_slots(stage, dc)

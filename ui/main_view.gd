@@ -1460,17 +1460,18 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 	box.add_child(_section_title(tr("ERA_PROGRESS"), tr(era.get("name_key", ""))))
 	var route := HBoxContainer.new()
 	route.alignment = BoxContainer.ALIGNMENT_CENTER
-	route.add_theme_constant_override("separation", 6)
+	route.add_theme_constant_override("separation", 4)
 	box.add_child(route)
 	for node_era: int in range(1, 4):
 		if node_era > 1:
 			var connector := _label(">", 34, ThemeMaker.COLORS.yellow if node_era <= era_id + 1 else Color("718096"))
-			connector.custom_minimum_size.x = 22
+			connector.custom_minimum_size.x = 18
 			connector.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			route.add_child(connector)
 		var node := PanelContainer.new()
 		node.name = "EraNode_%d" % node_era
-		node.custom_minimum_size = Vector2(170, 178)
+		node.custom_minimum_size = Vector2(138, 178)
+		node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		node.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE.lightened(0.08) if node_era == era_id else ThemeMaker.SURFACE, ThemeMaker.COLORS.yellow if node_era == era_id else Color(1, 1, 1, 0.12), 3 if node_era == era_id else 1, 20))
 		route.add_child(node)
 		var node_box := VBoxContainer.new()
@@ -1507,7 +1508,7 @@ func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, p
 	for index: int in range(mini(4, unlocks.size())):
 		var item: Dictionary = unlocks[index]
 		var chip := PanelContainer.new()
-		chip.custom_minimum_size = Vector2(138, 108)
+		chip.custom_minimum_size = Vector2(0, 108)
 		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		chip.add_theme_stylebox_override("panel", ThemeMaker.panel(ThemeMaker.SURFACE_GROUP, Color.TRANSPARENT, 0, 16))
 		var chip_box := VBoxContainer.new()
@@ -1651,7 +1652,10 @@ func _build_store_page() -> Control:
 	var wallet_title := _label(tr("GEMS_FORMAT") % Game.format_number(float(Game.state["player"].get("gems", 0))), 34, ThemeMaker.COLORS.purple.lightened(0.18))
 	ThemeMaker.apply_text_role(wallet_title, "title")
 	wallet_copy.add_child(wallet_title)
-	wallet_copy.add_child(_label(tr("STORE_WALLET_HINT"), 22, ThemeMaker.COLORS.cyan))
+	var wallet_hint := _label(tr("STORE_WALLET_HINT"), 22, ThemeMaker.COLORS.cyan)
+	wallet_hint.max_lines_visible = 1
+	wallet_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	wallet_copy.add_child(wallet_hint)
 	box.add_child(wallet)
 	var sections := {
 		"deals": [],
@@ -2593,6 +2597,8 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	call_deferred("_refresh_tutorial")
 	var sheet := PanelContainer.new()
 	sheet.name = "ContextSheet"
+	sheet.set_meta("viewport_bounded_surface", true)
+	sheet.clip_contents = true
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.offset_left = 20
 	sheet.offset_top = -sheet_height
@@ -3031,6 +3037,8 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 
 	var sheet := PanelContainer.new()
 	sheet.name = "ContextSheet"
+	sheet.set_meta("viewport_bounded_surface", true)
+	sheet.clip_contents = true
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.offset_left = 32
 	sheet.offset_top = -get_viewport_rect().size.y * 0.88 - 24.0
@@ -3175,7 +3183,8 @@ func _show_offline_dialog(report: Dictionary) -> void:
 	overlay.add_child(center)
 	var card := PanelContainer.new()
 	card.name = "OfflineRewardCard"
-	card.custom_minimum_size = Vector2(710, 980)
+	card.custom_minimum_size = _safe_modal_size(Vector2(710, 980))
+	card.set_meta("viewport_bounded_surface", true)
 	card.add_theme_stylebox_override("panel", ThemeMaker.art_panel(false))
 	center.add_child(card)
 	var margin := MarginContainer.new()
@@ -3998,7 +4007,8 @@ func _show_bank_takeover_overlay() -> void:
 	overlay.add_child(center)
 	var card := PanelContainer.new()
 	card.name = "BankTakeoverCard"
-	card.custom_minimum_size.x = 760
+	card.custom_minimum_size.x = _safe_modal_size(Vector2(760, 0)).x
+	card.set_meta("viewport_bounded_surface", true)
 	card.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
 	center.add_child(card)
 	var margin := MarginContainer.new()
@@ -4179,7 +4189,8 @@ func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	overlay.add_child(center)
 	var card := PanelContainer.new()
 	card.name = "EraNewspaper"
-	card.custom_minimum_size = Vector2(720, 1120)
+	card.custom_minimum_size = _safe_modal_size(Vector2(720, 1120))
+	card.set_meta("viewport_bounded_surface", true)
 	card.add_theme_stylebox_override("panel", ThemeMaker.art_panel(false))
 	center.add_child(card)
 	var margin := MarginContainer.new()
@@ -4441,10 +4452,22 @@ func _safe_area_margins() -> Vector4:
 	var bottom := maxf(68.0, float(screen.y - safe.end.y) * scale.y)
 	return Vector4(left, top, right, bottom)
 
+func _safe_modal_size(preferred: Vector2, gutter: Vector2 = Vector2(32, 32)) -> Vector2:
+	# CenterContainer honors a child's combined minimum even when that minimum is
+	# wider than the phone. Clamp authored modal sizes before layout negotiation so
+	# localization or future content can never push a frame beyond the viewport.
+	var viewport := get_viewport_rect().size
+	return Vector2(
+		minf(preferred.x, maxf(0.0, viewport.x - gutter.x * 2.0)) if preferred.x > 0.0 else 0.0,
+		minf(preferred.y, maxf(0.0, viewport.y - gutter.y * 2.0)) if preferred.y > 0.0 else 0.0
+	)
+
 func _wrap_scroll(content: Control) -> Control:
 	var surface := PanelContainer.new()
 	surface.name = "SystemSurface"
+	surface.set_meta("viewport_bounded_surface", true)
 	surface.clip_contents = true
+	surface.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	surface.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
 	var scroll := ScrollContainer.new()
 	scroll.name = "PageScroll"
@@ -4538,7 +4561,7 @@ func _empty_action_state(asset_id: String, title_text: String, body_text: String
 	var center := CenterContainer.new()
 	card.add_child(center)
 	var box := VBoxContainer.new()
-	box.custom_minimum_size.x = 650
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 20)
 	center.add_child(box)

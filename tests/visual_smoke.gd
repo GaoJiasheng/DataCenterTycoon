@@ -795,7 +795,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: tech upgrades do not share the affordability contract")
 			valid = false
 		for era_node: Node in main.find_children("EraNode_*", "PanelContainer", true, false):
-			if (era_node as Control).custom_minimum_size.x < 170.0:
+			if (era_node as Control).custom_minimum_size.x < 138.0:
 				push_error("VISUAL_SMOKE: tech era node is too narrow for localized names")
 				valid = false
 	if state_name == "achievements" and main.find_children("AchievementProgress_*", "ProgressBar", true, false).size() != DataRepository.get_table("achievements").get("items", {}).size():
@@ -903,10 +903,37 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	valid = _typography_roles_are_valid(main, state_name) and valid
+	valid = _viewport_bounded_surfaces_are_safe(main, state_name) and valid
 	valid = _text_is_within_clipping_ancestors(main, state_name) and valid
 	valid = _sibling_labels_do_not_overlap(main, state_name) and valid
 	valid = _panel_content_is_not_compressed(main, state_name) and valid
 	valid = _button_text_contrast_is_safe(main, state_name) and valid
+	return valid
+
+func _viewport_bounded_surfaces_are_safe(main: Node, state_name: String) -> bool:
+	var viewport_rect := get_viewport().get_visible_rect().grow(1.0)
+	var valid := true
+	for node: Node in main.find_children("*", "", true, false):
+		if not node is Control or not node.has_meta("viewport_bounded_surface"):
+			continue
+		var surface := node as Control
+		if not surface.is_visible_in_tree():
+			continue
+		var surface_rect := surface.get_global_rect()
+		if not viewport_rect.encloses(surface_rect):
+			push_error("VISUAL_SMOKE: %s viewport-bounded surface escapes the phone: %s rect=%s viewport=%s" % [state_name, surface.name, surface_rect, viewport_rect])
+			valid = false
+	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing"]:
+		var board_stage := main.find_child("BoardStage", true, false) as Control
+		var page_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+		if board_stage == null or page_scroll == null:
+			push_error("VISUAL_SMOKE: %s cannot verify responsive board containment" % state_name)
+			valid = false
+		else:
+			var visual_footprint: Vector2 = board_stage.get_meta("visual_footprint", Vector2.ZERO)
+			if visual_footprint.x > page_scroll.size.x + 1.0 or visual_footprint.y > board_stage.size.y + 1.0:
+				push_error("VISUAL_SMOKE: %s board footprint exceeds its page slot footprint=%s scroll=%s stage=%s" % [state_name, visual_footprint, page_scroll.size, board_stage.size])
+				valid = false
 	return valid
 
 func _asset_palette_metrics(asset_id: String) -> Dictionary:
