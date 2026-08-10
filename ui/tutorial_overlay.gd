@@ -15,6 +15,10 @@ var mask_layer: ColorRect
 var hole_border: PanelContainer
 var pointer: Control
 var bubble: PanelContainer
+var bubble_tail: Control
+var tail_outer: Polygon2D
+var tail_mid: Polygon2D
+var tail_inner: Polygon2D
 var guide: TextureRect
 var message: Label
 var _pointer_base := Vector2.ZERO
@@ -71,6 +75,8 @@ func dismiss() -> void:
 	target_rect = Rect2()
 	target_action = Callable()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if bubble_tail != null:
+		bubble_tail.visible = false
 	if _pointer_tween != null and _pointer_tween.is_valid(): _pointer_tween.kill()
 	if _border_tween != null and _border_tween.is_valid(): _border_tween.kill()
 
@@ -136,6 +142,7 @@ void fragment() {
 func _build_callout() -> void:
 	pointer = Control.new()
 	pointer.name = "TutorialPointer"
+	pointer.z_index = 3
 	var pointer_texture := AssetCatalog.texture("ic_pointer_hand")
 	pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pointer.size = Vector2(82, 82)
@@ -152,16 +159,39 @@ func _build_callout() -> void:
 	else:
 		_add_programmatic_pointer()
 
+	_build_bubble_tail()
+
 	bubble = PanelContainer.new()
 	bubble.name = "TutorialCallout"
-	bubble.custom_minimum_size.x = 680
+	bubble.z_index = 2
+	bubble.custom_minimum_size = Vector2(680, 148)
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bubble.add_theme_stylebox_override("panel", ThemeMaker.dialog_box())
+	var chrome := ThemeMaker.panel(Color("4db7eb"), Color("d5f8ff"), 4, 34)
+	chrome.content_margin_left = 8
+	chrome.content_margin_right = 8
+	chrome.content_margin_top = 8
+	chrome.content_margin_bottom = 8
+	chrome.shadow_color = Color(0, 0, 0, 0.24)
+	chrome.shadow_size = 8
+	chrome.shadow_offset = Vector2(0, 4)
+	bubble.add_theme_stylebox_override("panel", chrome)
+	bubble.set_meta("body_rendering", "layered_flat")
+	bubble.set_meta("stretched_bitmap", false)
 	add_child(bubble)
+	var paper := PanelContainer.new()
+	paper.name = "TutorialCalloutPaper"
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var paper_style := ThemeMaker.panel(Color("fff8e8"), Color("267dac"), 3, 27)
+	paper_style.content_margin_left = 22
+	paper_style.content_margin_right = 22
+	paper_style.content_margin_top = 14
+	paper_style.content_margin_bottom = 14
+	paper.add_theme_stylebox_override("panel", paper_style)
+	bubble.add_child(paper)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", ThemeMaker.SPACE[2])
-	bubble.add_child(row)
+	paper.add_child(row)
 	guide = TextureRect.new()
 	guide.name = "TutorialGuide"
 	guide.custom_minimum_size = Vector2(104, 104)
@@ -184,6 +214,22 @@ func _build_callout() -> void:
 	message.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(message)
 	_resize_callout()
+
+func _build_bubble_tail() -> void:
+	bubble_tail = Control.new()
+	bubble_tail.name = "TutorialCalloutTail"
+	bubble_tail.z_index = 1
+	bubble_tail.size = Vector2(72, 48)
+	bubble_tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bubble_tail.visible = false
+	bubble_tail.set_meta("placement", "dynamic_target_center")
+	add_child(bubble_tail)
+	tail_outer = _pointer_polygon("TailOuter", PackedVector2Array(), Color("d5f8ff"))
+	tail_mid = _pointer_polygon("TailChrome", PackedVector2Array(), Color("4db7eb"))
+	tail_inner = _pointer_polygon("TailPaper", PackedVector2Array(), Color("fff8e8"))
+	bubble_tail.add_child(tail_outer)
+	bubble_tail.add_child(tail_mid)
+	bubble_tail.add_child(tail_inner)
 
 func _add_programmatic_pointer() -> void:
 	var shaft_outline := _pointer_polygon("PointerShaftOutline", PackedVector2Array([
@@ -216,7 +262,7 @@ func _pointer_polygon(node_name: String, points: PackedVector2Array, fill: Color
 func _resize_callout() -> void:
 	if bubble == null or message == null:
 		return
-	bubble.size = Vector2(680, maxf(ThemeMaker.TOUCH_MIN, bubble.get_combined_minimum_size().y + ThemeMaker.GROUP_PADDING))
+	bubble.size = Vector2(680, maxf(148.0, bubble.get_combined_minimum_size().y))
 
 func _layout_mask(actionable: bool) -> void:
 	mask_layer.visible = actionable
@@ -283,6 +329,7 @@ func _position_callout() -> void:
 	if target_rect.size == Vector2.ZERO:
 		bubble.position = Vector2((viewport.x - bubble_size.x) * 0.5, viewport.y - bubble_size.y - 210.0)
 		pointer.visible = false
+		bubble_tail.visible = false
 		return
 	var gap := 42.0
 	var safe_top := 120.0
@@ -307,5 +354,29 @@ func _position_callout() -> void:
 		var bottom_space := safe_bottom - blocker.end.y
 		y = safe_top if top_space >= bottom_space else safe_bottom - bubble_size.y
 	bubble.position = Vector2(x, y)
+	_position_bubble_tail(blocker)
 	_pointer_base = Vector2(target_rect.get_center().x - pointer.size.x * 0.5, target_rect.position.y - pointer.size.y - 24.0)
 	pointer.position = _pointer_base
+
+func _position_bubble_tail(blocker: Rect2) -> void:
+	if bubble_tail == null or target_rect.size == Vector2.ZERO or not target_action.is_valid():
+		if bubble_tail != null:
+			bubble_tail.visible = false
+		return
+	var points_down := bubble.position.y + bubble.size.y <= blocker.position.y
+	var tip_x := clampf(target_rect.get_center().x, bubble.position.x + 36.0, bubble.position.x + bubble.size.x - 36.0)
+	bubble_tail.position = Vector2(tip_x - 36.0, bubble.position.y + bubble.size.y - 8.0 if points_down else bubble.position.y - 40.0)
+	bubble_tail.visible = true
+	if points_down:
+		tail_outer.polygon = PackedVector2Array([Vector2(0, 0), Vector2(72, 0), Vector2(36, 48)])
+		tail_mid.polygon = PackedVector2Array([Vector2(6, 0), Vector2(66, 0), Vector2(36, 41)])
+		tail_inner.polygon = PackedVector2Array([Vector2(14, 0), Vector2(58, 0), Vector2(36, 31)])
+		bubble_tail.set_meta("direction", "down")
+		bubble_tail.set_meta("tip_global", bubble_tail.position + Vector2(36, 48))
+	else:
+		tail_outer.polygon = PackedVector2Array([Vector2(0, 48), Vector2(72, 48), Vector2(36, 0)])
+		tail_mid.polygon = PackedVector2Array([Vector2(6, 48), Vector2(66, 48), Vector2(36, 7)])
+		tail_inner.polygon = PackedVector2Array([Vector2(14, 48), Vector2(58, 48), Vector2(36, 17)])
+		bubble_tail.set_meta("direction", "up")
+		bubble_tail.set_meta("tip_global", bubble_tail.position + Vector2(36, 0))
+	bubble_tail.set_meta("target_center_x", target_rect.get_center().x)

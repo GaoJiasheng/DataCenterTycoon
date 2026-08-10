@@ -19,6 +19,7 @@ func _ready() -> void:
 	main = MAIN_SCENE.instantiate()
 	add_child(main)
 	await _shot("s0_welcome_map")
+	_assert_tutorial_target("welcome", "map", "control")
 	_assert_batch_one_shell()
 	_assert_sale_focus(false)
 	main.call("_show_building_picker", "plot_1")
@@ -65,6 +66,7 @@ func _ready() -> void:
 	Game.install_rack(dc_id, 0, "rack_compute_t1")
 	Game.advance_time(150.0, false)
 	await _shot("s3_contract_step")
+	_assert_tutorial_target("contract", "drawer", "control")
 	Game.sign_contract(dc_id, "internet")
 	await _shot("s4_cooling_step")
 	_assert_tutorial_target("cooling", "drawer", "control")
@@ -93,6 +95,7 @@ func _ready() -> void:
 	_assert_tutorial_target("retire", "drawer", "control")
 	Game.retire_datacenter(dc_id)
 	await _shot("s7_standard_step")
+	_assert_tutorial_target("standard", "map", "control")
 	Game.start_datacenter_construction("plot_1", "dc_t1")
 	Game.advance_time(3600.0, false)
 	await _shot("s8_tutorial_done_map")
@@ -216,6 +219,7 @@ func _assert_tutorial_target(step_id: String, context: String, source: String, a
 	var actual_source := str(overlay.get_meta("target_source", ""))
 	_expect(actual_source == source, "B2 %s target source must be %s (actual %s)" % [step_id, source, actual_source])
 	var resolved: Rect2 = overlay.get_meta("resolved_target_rect", Rect2())
+	_assert_callout_geometry(step_id, overlay, allow_zero)
 	if allow_zero:
 		_expect(resolved.size == Vector2.ZERO and not overlay.is_actionable(), "B1 %s must be a non-actionable explained state" % step_id)
 	else:
@@ -233,6 +237,22 @@ func _assert_tutorial_target(step_id: String, context: String, source: String, a
 			var live_rect := live_target.get_global_rect() if live_target != null else Rect2()
 			_expect(live_target != null and live_target.is_visible_in_tree() and resolved.position.distance_to(live_rect.position) < 1.0 and resolved.size.distance_to(live_rect.size) < 1.0, "E4 %s spotlight must track the live %s control (resolved=%s live=%s)" % [step_id, target_name, resolved, live_rect])
 			_expect(callout != null and not callout.get_global_rect().intersects(live_rect), "E4 %s callout must not hide the live %s control" % [step_id, target_name])
+
+func _assert_callout_geometry(step_id: String, overlay: TutorialOverlay, dormant: bool) -> void:
+	var callout := overlay.find_child("TutorialCallout", true, false) as PanelContainer
+	var tail := overlay.find_child("TutorialCalloutTail", true, false) as Control
+	var pointer := overlay.find_child("TutorialPointer", true, false) as Control
+	var body_style := callout.get_theme_stylebox("panel") if callout != null else null
+	_expect(callout != null and body_style is StyleBoxFlat and not bool(callout.get_meta("stretched_bitmap", true)), "H1 %s callout body must be layered UI, never a stretched bubble bitmap" % step_id)
+	if dormant:
+		_expect(tail != null and not tail.visible, "H2 %s has no target, so its directional tail must stay hidden" % step_id)
+		return
+	var target_center_x := overlay.target_rect.get_center().x
+	var expected_tip_x := clampf(target_center_x, callout.get_global_rect().position.x + 36.0, callout.get_global_rect().end.x - 36.0) if callout != null else target_center_x
+	var tip: Vector2 = tail.get_meta("tip_global", Vector2()) if tail != null else Vector2()
+	_expect(tail != null and tail.visible and absf(tip.x - expected_tip_x) < 1.0, "H2 %s bubble tail must point at the horizontal center of its live target" % step_id)
+	_expect(tail != null and str(tail.get_meta("placement", "")) == "dynamic_target_center", "H2 %s bubble tail must use per-step dynamic placement" % step_id)
+	_expect(pointer != null and absf(pointer.get_global_rect().get_center().x - target_center_x) < 1.0, "H3 %s hand pointer must share the target centerline" % step_id)
 
 func _assert_tutorial_orphan_guard() -> void:
 	var message := main.find_child("TutorialMessage", true, false) as Label
