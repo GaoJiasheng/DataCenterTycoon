@@ -241,9 +241,9 @@ func _assert_tutorial_target(step_id: String, context: String, source: String, a
 func _assert_callout_geometry(step_id: String, overlay: TutorialOverlay, dormant: bool) -> void:
 	var callout := overlay.find_child("TutorialCallout", true, false) as PanelContainer
 	var tail := overlay.find_child("TutorialCalloutTail", true, false) as Control
-	var pointer := overlay.find_child("TutorialPointer", true, false) as Control
 	var body_style := callout.get_theme_stylebox("panel") if callout != null else null
 	_expect(callout != null and body_style is StyleBoxFlat and not bool(callout.get_meta("stretched_bitmap", true)), "H1 %s callout body must be layered UI, never a stretched bubble bitmap" % step_id)
+	_expect(overlay.find_child("TutorialPointer", true, false) == null, "H3 %s must rely on its precise bubble tail without a redundant hand pointer" % step_id)
 	if dormant:
 		_expect(tail != null and not tail.visible, "H2 %s has no target, so its directional tail must stay hidden" % step_id)
 		return
@@ -252,7 +252,6 @@ func _assert_callout_geometry(step_id: String, overlay: TutorialOverlay, dormant
 	var tip: Vector2 = tail.get_meta("tip_global", Vector2()) if tail != null else Vector2()
 	_expect(tail != null and tail.visible and absf(tip.x - expected_tip_x) < 1.0, "H2 %s bubble tail must point at the horizontal center of its live target" % step_id)
 	_expect(tail != null and str(tail.get_meta("placement", "")) == "dynamic_target_center", "H2 %s bubble tail must use per-step dynamic placement" % step_id)
-	_expect(pointer != null and absf(pointer.get_global_rect().get_center().x - target_center_x) < 1.0, "H3 %s hand pointer must share the target centerline" % step_id)
 
 func _assert_tutorial_orphan_guard() -> void:
 	var message := main.find_child("TutorialMessage", true, false) as Label

@@ -49,7 +49,7 @@ The runtime uses `canvas_items` stretch, so the layout scales to other portrait 
 - Construction actions wrap into a two-column grid instead of squeezing three long actions into one row.
 - Contract cards expose customer trend, C/S/G fit and authoritative projected monthly income. Signing confirms current → projected income, change percentage, breach state and term.
 - Market exposes four toggleable series, reference bands, a Now marker, 24-point customer sparklines and event cards with customer impact, countdown and a direct contract route. Technology uses a three-era route with concrete next-era unlocks and a projected prestige multiplier.
-- The tutorial uses a four-pane spotlight mask, target-only input gate, animated pointer and `dialog_bubble` coach. Missing targets degrade to a nonblocking bubble and can never deadlock progress.
+- The tutorial uses a rounded spotlight mask, target-only input gate and an adaptive callout tail that points directly to the live target. A redundant hand pointer is forbidden; missing targets degrade to a nonblocking bubble and can never deadlock progress.
 - Store uses Limited Deals / Gem Vault / Permanent Perks merchandising regions. Offline reward, arrears, era unlock and game over each use purpose-built presentation layers rather than generic alerts.
 - Empty states use a large visual, one clear explanation, and one primary action. Settings uses explicit selected-language states and iOS-style animated switches.
 

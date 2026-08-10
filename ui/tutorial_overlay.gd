@@ -13,7 +13,6 @@ const SPOTLIGHT_GUTTER := 20.0
 
 var mask_layer: ColorRect
 var hole_border: PanelContainer
-var pointer: Control
 var bubble: PanelContainer
 var bubble_tail: Control
 var tail_outer: Polygon2D
@@ -21,8 +20,6 @@ var tail_mid: Polygon2D
 var tail_inner: Polygon2D
 var guide: TextureRect
 var message: Label
-var _pointer_base := Vector2.ZERO
-var _pointer_tween: Tween
 var _border_tween: Tween
 
 func _ready() -> void:
@@ -48,7 +45,6 @@ func present(rect: Rect2, copy: String, guide_asset: String, action: Callable, f
 	_resize_callout()
 	var actionable := target_rect.size.x > 1.0 and target_rect.size.y > 1.0 and target_action.is_valid()
 	mouse_filter = Control.MOUSE_FILTER_STOP if actionable else Control.MOUSE_FILTER_IGNORE
-	pointer.visible = actionable
 	_layout_mask(actionable)
 	_position_callout()
 	_start_motion(actionable)
@@ -65,7 +61,6 @@ func retarget(rect: Rect2) -> void:
 	target_rect = next_rect
 	var actionable := target_action.is_valid()
 	mouse_filter = Control.MOUSE_FILTER_STOP if actionable else Control.MOUSE_FILTER_IGNORE
-	pointer.visible = actionable
 	_layout_mask(actionable)
 	_position_callout()
 	_start_motion(actionable)
@@ -77,7 +72,6 @@ func dismiss() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if bubble_tail != null:
 		bubble_tail.visible = false
-	if _pointer_tween != null and _pointer_tween.is_valid(): _pointer_tween.kill()
 	if _border_tween != null and _border_tween.is_valid(): _border_tween.kill()
 
 func is_actionable() -> bool:
@@ -140,25 +134,6 @@ void fragment() {
 	add_child(hole_border)
 
 func _build_callout() -> void:
-	pointer = Control.new()
-	pointer.name = "TutorialPointer"
-	pointer.z_index = 3
-	var pointer_texture := AssetCatalog.texture("ic_pointer_hand")
-	pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pointer.size = Vector2(82, 82)
-	pointer.pivot_offset = pointer.size * 0.5
-	add_child(pointer)
-	if pointer_texture != null:
-		var pointer_view := TextureRect.new()
-		pointer_view.texture = pointer_texture
-		pointer_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		pointer_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		pointer_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pointer_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		pointer.add_child(pointer_view)
-	else:
-		_add_programmatic_pointer()
-
 	_build_bubble_tail()
 
 	bubble = PanelContainer.new()
@@ -224,37 +199,16 @@ func _build_bubble_tail() -> void:
 	bubble_tail.visible = false
 	bubble_tail.set_meta("placement", "dynamic_target_center")
 	add_child(bubble_tail)
-	tail_outer = _pointer_polygon("TailOuter", PackedVector2Array(), Color("d5f8ff"))
-	tail_mid = _pointer_polygon("TailChrome", PackedVector2Array(), Color("4db7eb"))
-	tail_inner = _pointer_polygon("TailPaper", PackedVector2Array(), Color("fff8e8"))
+	tail_outer = _tail_polygon("TailOuter", Color("d5f8ff"))
+	tail_mid = _tail_polygon("TailChrome", Color("4db7eb"))
+	tail_inner = _tail_polygon("TailPaper", Color("fff8e8"))
 	bubble_tail.add_child(tail_outer)
 	bubble_tail.add_child(tail_mid)
 	bubble_tail.add_child(tail_inner)
 
-func _add_programmatic_pointer() -> void:
-	var shaft_outline := _pointer_polygon("PointerShaftOutline", PackedVector2Array([
-		Vector2(27, 3), Vector2(55, 3), Vector2(61, 6), Vector2(65, 13),
-		Vector2(65, 49), Vector2(17, 49), Vector2(17, 13), Vector2(21, 6),
-	]), ThemeMaker.COLORS.ink)
-	pointer.add_child(shaft_outline)
-	var shaft := _pointer_polygon("PointerShaft", PackedVector2Array([
-		Vector2(33, 9), Vector2(49, 9), Vector2(55, 12), Vector2(59, 17),
-		Vector2(59, 45), Vector2(23, 45), Vector2(23, 17), Vector2(27, 12),
-	]), ThemeMaker.COLORS.ivory)
-	pointer.add_child(shaft)
-	var head_outline := _pointer_polygon("PointerHeadOutline", PackedVector2Array([
-		Vector2(7, 41), Vector2(75, 41), Vector2(41, 82),
-	]), ThemeMaker.COLORS.ink)
-	pointer.add_child(head_outline)
-	var head := _pointer_polygon("PointerHead", PackedVector2Array([
-		Vector2(17, 48), Vector2(65, 48), Vector2(41, 76),
-	]), ThemeMaker.COLORS.yellow)
-	pointer.add_child(head)
-
-func _pointer_polygon(node_name: String, points: PackedVector2Array, fill: Color) -> Polygon2D:
+func _tail_polygon(node_name: String, fill: Color) -> Polygon2D:
 	var polygon := Polygon2D.new()
 	polygon.name = node_name
-	polygon.polygon = points
 	polygon.color = fill
 	polygon.antialiased = true
 	return polygon
@@ -284,14 +238,9 @@ func _layout_mask(actionable: bool) -> void:
 	hole_border.size = target_rect.size
 
 func _start_motion(actionable: bool) -> void:
-	if _pointer_tween != null and _pointer_tween.is_valid(): _pointer_tween.kill()
 	if _border_tween != null and _border_tween.is_valid(): _border_tween.kill()
 	if not actionable:
 		return
-	pointer.position = _pointer_base
-	_pointer_tween = pointer.create_tween().set_loops()
-	_pointer_tween.tween_property(pointer, "position:y", _pointer_base.y + 12.0, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_pointer_tween.tween_property(pointer, "position:y", _pointer_base.y - 12.0, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_border_tween = hole_border.create_tween().set_loops()
 	_border_tween.tween_property(hole_border, "modulate:a", 0.60, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_border_tween.tween_property(hole_border, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -328,7 +277,6 @@ func _position_callout() -> void:
 	var bubble_size := bubble.size
 	if target_rect.size == Vector2.ZERO:
 		bubble.position = Vector2((viewport.x - bubble_size.x) * 0.5, viewport.y - bubble_size.y - 210.0)
-		pointer.visible = false
 		bubble_tail.visible = false
 		return
 	var gap := 42.0
@@ -355,8 +303,6 @@ func _position_callout() -> void:
 		y = safe_top if top_space >= bottom_space else safe_bottom - bubble_size.y
 	bubble.position = Vector2(x, y)
 	_position_bubble_tail(blocker)
-	_pointer_base = Vector2(target_rect.get_center().x - pointer.size.x * 0.5, target_rect.position.y - pointer.size.y - 24.0)
-	pointer.position = _pointer_base
 
 func _position_bubble_tail(blocker: Rect2) -> void:
 	if bubble_tail == null or target_rect.size == Vector2.ZERO or not target_action.is_valid():

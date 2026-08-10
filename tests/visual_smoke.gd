@@ -493,25 +493,19 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 	if state_name == "ftue_spotlight":
 		var spotlight := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
 		var primary := main.find_child("PrimaryWorldAction", true, false) as Control
-		var pointer := main.find_child("TutorialPointer", true, false) as Control
 		var callout := main.find_child("TutorialCallout", true, false) as Control
 		var tutorial_message := main.find_child("TutorialMessage", true, false) as Label
 		var hole_border := main.find_child("TutorialHoleBorder", true, false) as PanelContainer
 		var hole: Rect2 = spotlight.get("target_rect") if spotlight != null else Rect2()
-		if spotlight == null or not spotlight.visible or not bool(spotlight.call("is_actionable")) or primary == null or pointer == null or not pointer.visible or not hole.intersects(primary.get_global_rect()):
-			push_error("VISUAL_SMOKE: FTUE spotlight does not resolve the primary action hole and pointer")
+		if spotlight == null or not spotlight.visible or not bool(spotlight.call("is_actionable")) or primary == null or not hole.intersects(primary.get_global_rect()):
+			push_error("VISUAL_SMOKE: FTUE spotlight does not resolve the primary action hole")
 			valid = false
-		if pointer != null and AssetCatalog.texture("ic_pointer_hand") == null:
-			var pointer_parts := pointer.find_children("Pointer*", "Polygon2D", true, false)
-			if pointer_parts.size() != 4 or pointer_parts.any(func(part: Node) -> bool: return not bool((part as Polygon2D).antialiased)):
-				push_error("VISUAL_SMOKE: FTUE pointer fallback lacks its antialiased capsule/triangle outline")
-				valid = false
+		if main.find_child("TutorialPointer", true, false) != null:
+			push_error("VISUAL_SMOKE: precise FTUE callout tail must not be duplicated by a hand pointer")
+			valid = false
 		var mask := main.find_child("TutorialMask0", true, false) as ColorRect
 		if mask == null or mask.color.a < 0.62 or str(mask.get_meta("mask_geometry", "")) != "rounded_sdf" or not mask.material is ShaderMaterial:
 			push_error("VISUAL_SMOKE: FTUE does not use the 0.62 rounded SDF dim layer")
-			valid = false
-		if pointer != null and pointer.get_global_rect().end.y > hole.position.y - 12.0:
-			push_error("VISUAL_SMOKE: FTUE pointer overlaps the spotlight target")
 			valid = false
 		if callout == null or tutorial_message == null or not callout.get_global_rect().grow(1.0).encloses(tutorial_message.get_global_rect()):
 			push_error("VISUAL_SMOKE: FTUE message is outside its adaptive callout")
