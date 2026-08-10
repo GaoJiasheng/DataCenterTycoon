@@ -534,6 +534,27 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			if cancel_button != null and cancel_button.is_visible_in_tree() and cancel_button.text == tr("CANCEL"):
 				push_error("VISUAL_SMOKE: action sheet still renders a redundant full-width cancel action")
 				valid = false
+	if state_name == "build_drawer":
+		var picker := main.find_child("BuildingPicker", true, false) as ColorRect
+		var picker_sheet := picker.find_child("ContextSheet", true, false) as PanelContainer if picker != null else null
+		var picker_scroll := picker.find_child("BuildingPickerScroll", true, false) as ScrollContainer if picker != null else null
+		var picker_cards := picker.find_child("BuildingPickerCards", true, false) as HBoxContainer if picker != null else null
+		var picker_safe := picker != null and picker_sheet != null and picker_scroll != null and picker_cards != null
+		if picker_safe:
+			var sheet_rect := picker_sheet.get_global_rect()
+			var scroll_rect := picker_scroll.get_global_rect()
+			var cards_rect := picker_cards.get_global_rect()
+			picker_safe = viewport_rect.grow(1.0).encloses(sheet_rect)
+			picker_safe = picker_safe and cards_rect.position.y + 1.0 >= scroll_rect.position.y and cards_rect.end.y <= scroll_rect.end.y + 1.0
+			picker_safe = picker_safe and cards_rect.end.y <= sheet_rect.end.y + 1.0
+			var starter_cards := main.find_children("Building_*", "Button", true, false)
+			if starter_cards.size() >= 2:
+				var first_card := starter_cards[0] as Button
+				var second_card := starter_cards[1] as Button
+				picker_safe = picker_safe and first_card.get_global_rect().end.x <= scroll_rect.end.x + 1.0 and second_card.get_global_rect().end.x <= scroll_rect.end.x + 1.0
+		if not picker_safe:
+			push_error("VISUAL_SMOKE: building picker clips its cards or painted frame on the iPhone viewport")
+			valid = false
 	if state_name == "world_alerts":
 		var alert_count := 0
 		for node: Node in main.find_children("StatusBadge", "PanelContainer", true, false):

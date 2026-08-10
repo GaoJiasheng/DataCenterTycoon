@@ -2490,8 +2490,18 @@ func _rack_trait_label(sensitivity: float) -> String:
 
 func _show_building_picker(plot_id: String) -> void:
 	park_map.focus_target(plot_id)
-	var parts := _create_world_sheet("BuildingPicker", 620)
+	# The picker owns an 88u drag target, an 88u heading, a 418u card and the
+	# painted frame's 112u content inset. A 620u sheet let the cards paint through
+	# the bottom frame on iPhone. Reserve about 46% of the portrait viewport so
+	# the complete card remains visible while more than half the world stays in
+	# view above it.
+	var picker_height := clampf(get_viewport_rect().size.y * 0.46, 760.0, 820.0)
+	var parts := _create_world_sheet("BuildingPicker", picker_height)
 	var overlay := parts["overlay"] as ColorRect
+	overlay.set_meta("content_fits_viewport", true)
+	overlay.set_meta("requested_sheet_height", picker_height)
+	var sheet := parts["sheet"] as PanelContainer
+	sheet.clip_contents = true
 	var sheet_box := parts["box"] as VBoxContainer
 	var heading := HBoxContainer.new()
 	heading.add_theme_constant_override("separation", 12)
@@ -2512,13 +2522,18 @@ func _show_building_picker(plot_id: String) -> void:
 	heading.add_child(close_button)
 
 	var scroll := ScrollContainer.new()
+	scroll.name = "BuildingPickerScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sheet_box.add_child(scroll)
 	var cards := HBoxContainer.new()
+	cards.name = "BuildingPickerCards"
 	cards.add_theme_constant_override("separation", 16)
 	scroll.add_child(cards)
+	var panel_style := sheet.get_theme_stylebox("panel")
+	var cards_width := get_viewport_rect().size.x - 40.0 - panel_style.get_content_margin(SIDE_LEFT) - panel_style.get_content_margin(SIDE_RIGHT)
+	var two_up_card_width := floorf((cards_width - 16.0) * 0.5)
 	for building_id: String in DataRepository.get_table("buildings").get("items", {}):
 		var building := DataRepository.get_entry("buildings", building_id)
 		if not Game.is_unlocked(building):
@@ -2527,7 +2542,9 @@ func _show_building_picker(plot_id: String) -> void:
 			continue
 		var card := Button.new()
 		card.name = "Building_%s" % building_id
-		card.custom_minimum_size = Vector2(322, 418)
+		# Two starter choices fit edge-to-edge without the second card being
+		# clipped by a few pixels. Additional tiers remain horizontally scrollable.
+		card.custom_minimum_size = Vector2(maxf(300.0, two_up_card_width), 418)
 		card.focus_mode = Control.FOCUS_NONE
 		card.set_meta("affordable_card", true)
 		ThemeMaker.apply_button_color(card, Color("1c3850"))
