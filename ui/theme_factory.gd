@@ -208,26 +208,41 @@ static func flat_group_box(accent: Color = Color.TRANSPARENT, padding: int = GRO
 	return box
 
 static func flat_button_box(role: String = "secondary", hovered: bool = false, pressed: bool = false) -> StyleBoxFlat:
+	# Every button surface is procedural. This preserves the designed corner,
+	# border and shadow thickness at every width instead of horizontally pulling
+	# a painted pill until its highlight and end caps deform.
 	var fill := {
-		"primary": Color("31593f"),
-		"warning": Color("5b4937"),
-		"danger": Color("603a43"),
-		"premium": Color("4a3f60"),
-		"ad": Color("4a3f60"),
+		"primary": Color("4f963f"),
+		"warning": Color("9a5b2f"),
+		"danger": Color("9d414d"),
+		"premium": Color("67519a"),
+		"ad": Color("67519a"),
 		"disabled": Color("344354"),
-	}.get(role, Color("243b55")) as Color
+	}.get(role, Color("24435e")) as Color
+	var rim := {
+		"primary": Color("b7e985"),
+		"warning": Color("f4bd78"),
+		"danger": Color("ff9aa4"),
+		"premium": Color("c6afff"),
+		"ad": Color("c6afff"),
+		"disabled": Color("657384"),
+	}.get(role, Color("6f9bb9")) as Color
 	if hovered:
-		fill = fill.lightened(0.08)
+		fill = fill.lightened(0.07)
+		rim = rim.lightened(0.05)
 	elif pressed:
-		fill = fill.darkened(0.10)
-	var box := panel(fill, Color(1, 1, 1, 0.10), 1, RADIUS.button)
+		fill = fill.darkened(0.13)
+		rim = rim.darkened(0.10)
+	var box := panel(fill, Color(rim, 0.86), 2, 22)
 	box.content_margin_left = GROUP_PADDING
 	box.content_margin_right = GROUP_PADDING
-	box.content_margin_top = ITEM_GAP
-	box.content_margin_bottom = ITEM_GAP
-	box.shadow_color = Color(0, 0, 0, 0.10)
-	box.shadow_size = 1 if pressed else 2
-	box.shadow_offset = Vector2(0, 1)
+	box.content_margin_top = 14
+	box.content_margin_bottom = 14
+	box.shadow_color = Color(0, 0, 0, 0.26 if role != "disabled" else 0.12)
+	box.shadow_size = 2 if pressed else 5
+	box.shadow_offset = Vector2(0, 2 if pressed else 3)
+	box.anti_aliasing = true
+	box.corner_detail = 12
 	return box
 
 static func glass_panel(fill: Color, opacity: float = 0.94, radius: int = 24, accent: Color = Color.TRANSPARENT) -> StyleBoxFlat:
@@ -293,19 +308,6 @@ static func dialog_box() -> StyleBox:
 		fallback.shadow_size = 4
 		fallback.shadow_offset = Vector2(0, 2)
 		return fallback
-	return box
-
-static func art_button_box(asset_id: String, tint: Color = Color.WHITE) -> StyleBox:
-	# A1 matte pill geometry (512x256 source): opaque 19..494 x 41..207.
-	# The cap tangent is 70-72px in from the painted edge, the top rim is 6px,
-	# and the lower rim + bevel is 20-21px. Crop the export gutter first, then
-	# slice outside those features. The previous 80/22/80/34 margins cut inside
-	# the cap and over-preserved the lower bevel, producing leaf-like ends and a
-	# stretched dark seam on short controls.
-	var box := texture_box(asset_id, Vector4(74, 12, 74, 22), Vector4(56, 16, 56, 24), tint)
-	# Keep 3-7px of transparent breathing room around the measured alpha bounds.
-	if box is StyleBoxTexture:
-		(box as StyleBoxTexture).region_rect = Rect2(16, 36, 480, 180)
 	return box
 
 static func world_badge(accent: Color, compact: bool = false) -> StyleBox:
@@ -392,27 +394,20 @@ static func apply_button_color(button: Button, color: Color) -> void:
 	apply_button_role(button, button_role_for_color(color))
 
 static func apply_button_role(button: Button, role: String) -> void:
-	var glossy := role == "primary" and not button.text.contains("\n")
-	button.set_meta("glossy_button", glossy)
+	var prominent := role == "primary" and not button.text.contains("\n")
+	button.set_meta("glossy_button", false)
+	button.set_meta("button_surface", "procedural")
+	button.set_meta("button_role", role)
 	button.set_meta("typography_role", "button")
-	if glossy:
-		button.add_theme_stylebox_override("normal", art_button_box("btn_primary"))
-		button.add_theme_stylebox_override("hover", art_button_box("btn_primary", Color("fff4dc")))
-		button.add_theme_stylebox_override("pressed", art_button_box("btn_primary", Color("c8d4dc")))
-		# The glossy pill is reserved for large CTAs; 28u is the size where white
-		# text with a 4px ink outline stays crisp on the bright highlight band.
-		button.add_theme_font_size_override("font_size", 28)
-		button.add_theme_font_override("font", font_bold())
-		button.add_theme_color_override("font_shadow_color", COLORS.ink)
-		button.add_theme_constant_override("shadow_offset_x", 0)
-		button.add_theme_constant_override("shadow_offset_y", 2)
-		button.add_theme_constant_override("shadow_outline_size", 2)
-	else:
-		button.add_theme_stylebox_override("normal", flat_button_box(role))
-		button.add_theme_stylebox_override("hover", flat_button_box(role, true))
-		button.add_theme_stylebox_override("pressed", flat_button_box(role, false, true))
-		button.add_theme_font_size_override("font_size", TYPE_SCALE.body)
-		button.add_theme_font_override("font", font_bold())
+	button.add_theme_stylebox_override("normal", flat_button_box(role))
+	button.add_theme_stylebox_override("hover", flat_button_box(role, true))
+	button.add_theme_stylebox_override("pressed", flat_button_box(role, false, true))
+	button.add_theme_font_size_override("font_size", 28 if prominent else TYPE_SCALE.body)
+	button.add_theme_font_override("font", font_bold())
+	button.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.34) if prominent else Color.TRANSPARENT)
+	button.add_theme_constant_override("shadow_offset_x", 0)
+	button.add_theme_constant_override("shadow_offset_y", 2 if prominent else 0)
+	button.add_theme_constant_override("shadow_outline_size", 1 if prominent else 0)
 	button.add_theme_stylebox_override("disabled", flat_button_box("disabled"))
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	button.add_theme_color_override("font_color", Color.WHITE)
@@ -422,9 +417,9 @@ static func apply_button_role(button: Button, role: String) -> void:
 	button.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
 	button.add_theme_color_override("font_disabled_color", Color("9aa9ba"))
 	button.add_theme_color_override("font_outline_color", COLORS.ink)
-	# 4px outlines swallow CJK stroke interiors below 26u; keep the heavy outline
-	# for the large glossy CTA and use 3px on standard 24u buttons.
-	button.add_theme_constant_override("outline_size", 4 if glossy else 3)
+	# 4px outlines swallow CJK stroke interiors below 26u; reserve that outline
+	# for the large primary CTA and use 3px on standard 24u controls.
+	button.add_theme_constant_override("outline_size", 4 if prominent else 3)
 
 static func button_role_for_color(color: Color) -> String:
 	if color.r > 0.78 and color.g < 0.45:
@@ -436,14 +431,6 @@ static func button_role_for_color(color: Color) -> String:
 	if color.g > color.r and color.g > color.b:
 		return "primary"
 	return "secondary"
-
-static func _button_asset_for_color(color: Color) -> String:
-	return {
-		"danger": "btn_danger",
-		"warning": "btn_warning",
-		"premium": "btn_ad",
-		"primary": "btn_primary",
-	}.get(button_role_for_color(color), "btn_secondary") as String
 
 static func apply_icon_button(button: Button) -> void:
 	var normal := panel(Color(1, 1, 1, 0.04), Color.TRANSPARENT, 0, 22)

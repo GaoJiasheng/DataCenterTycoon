@@ -168,14 +168,12 @@ func _assert_sheet_spotlight(step_id: String, expected_choice: String) -> void:
 	_expect(resolved.size.x > 1.0 and sheet_rect.grow(2.0).encloses(resolved), "G1 %s spotlight target must sit inside the open sheet (target=%s sheet=%s)" % [step_id, resolved, sheet_rect])
 	var choice := sheet_overlay.find_child(expected_choice, true, false) as Control
 	_expect(choice != null and choice.get_global_rect().intersects(resolved), "G1 %s spotlight must land on %s" % [step_id, expected_choice])
-	# F3: dimming may darken the world behind the sheet but never the sheet itself.
-	var sheet_area := sheet_rect.get_area()
-	for pane_name: String in ["TutorialMask0", "TutorialMask1", "TutorialMask2", "TutorialMask3"]:
-		var pane := overlay.find_child(pane_name, true, false) as ColorRect
-		if pane == null or not pane.is_visible_in_tree():
-			continue
-		var covered := pane.get_global_rect().intersection(sheet_rect).get_area()
-		_expect(covered <= sheet_area * 0.02, "F3 %s dim pane %s must not cover the open sheet (%.0f%% covered)" % [step_id, pane_name, covered / maxf(1.0, sheet_area) * 100.0])
+	# F3: the rounded shader mask may span the viewport geometrically, but its
+	# dim region must stop at the sheet edge so pixels inside the sheet stay clear.
+	var mask := overlay.find_child("TutorialMask0", true, false) as ColorRect
+	var dim_bottom := float(mask.get_meta("dim_bottom", INF)) if mask != null else INF
+	_expect(mask != null and str(mask.get_meta("mask_geometry", "")) == "rounded_sdf", "F3 %s must use the single rounded spotlight mask" % step_id)
+	_expect(dim_bottom <= sheet_rect.position.y + 1.0, "F3 %s dim region must stop above the open sheet (%.1f <= %.1f)" % [step_id, dim_bottom, sheet_rect.position.y])
 	# F5: the bubble must clear the sheet heading it would otherwise hide.
 	var heading := sheet_overlay.find_child("SheetHeading", true, false) as Control
 	var callout := main.find_child("TutorialCallout", true, false) as Control
@@ -225,7 +223,7 @@ func _assert_tutorial_target(step_id: String, context: String, source: String, a
 		var expected_hole := resolved.grow(20.0).intersection(overlay.get_viewport_rect())
 		_expect(overlay.target_rect.position.distance_to(expected_hole.position) < 0.5 and overlay.target_rect.size.distance_to(expected_hole.size) < 0.5, "FT3 %s spotlight must keep a 20u breathing gutter" % step_id)
 		var hole_border := overlay.find_child("TutorialHoleBorder", true, false) as PanelContainer
-		_expect(hole_border != null and int(hole_border.get_meta("spotlight_corner_radius", 0)) == 28, "FT3 spotlight border must use a 28u corner radius")
+		_expect(hole_border != null and int(hole_border.get_meta("spotlight_corner_radius", 0)) == 32, "FT3 spotlight border must use the shared 32u corner radius")
 		var callout := main.find_child("TutorialCallout", true, false) as Control
 		_expect(callout != null and not callout.get_global_rect().intersects(resolved), "E3 %s callout must not cover its tap target" % step_id)
 

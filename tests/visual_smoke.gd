@@ -493,8 +493,8 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				push_error("VISUAL_SMOKE: FTUE pointer fallback lacks its antialiased capsule/triangle outline")
 				valid = false
 		var mask := main.find_child("TutorialMask0", true, false) as ColorRect
-		if mask == null or mask.color.a < 0.62:
-			push_error("VISUAL_SMOKE: FTUE dim layer is below 0.62")
+		if mask == null or mask.color.a < 0.62 or str(mask.get_meta("mask_geometry", "")) != "rounded_sdf" or not mask.material is ShaderMaterial:
+			push_error("VISUAL_SMOKE: FTUE does not use the 0.62 rounded SDF dim layer")
 			valid = false
 		if pointer != null and pointer.get_global_rect().end.y > hole.position.y - 12.0:
 			push_error("VISUAL_SMOKE: FTUE pointer overlaps the spotlight target")
@@ -505,8 +505,11 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		var hole_style: StyleBoxFlat = null
 		if hole_border != null:
 			hole_style = hole_border.get_theme_stylebox("panel") as StyleBoxFlat
-		if hole_style == null or hole_style.get_border_width(SIDE_TOP) < 6:
-			push_error("VISUAL_SMOKE: FTUE spotlight border is below 6u")
+		var shared_radius := int(hole_border.get_meta("spotlight_corner_radius", 0)) if hole_border != null else 0
+		var mask_radius := int(mask.get_meta("spotlight_corner_radius", 0)) if mask != null else 0
+		var border_layers := int(hole_border.get_meta("spotlight_border_layers", 0)) if hole_border != null else 0
+		if hole_style == null or hole_style.get_border_width(SIDE_TOP) != 4 or shared_radius != 32 or mask_radius != shared_radius or border_layers != 1 or hole_style.border_color.is_equal_approx(ThemeFactory.COLORS.yellow):
+			push_error("VISUAL_SMOKE: FTUE spotlight is not the single cyan 4u/32u rounded frame")
 			valid = false
 	if state_name in ["dc_contracts", "contract_comparison", "market_empty", "market_active", "market_rich"]:
 		for node: Node in main.find_children("*", "Button", true, false):
@@ -658,7 +661,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 	if state_name == "dc_context":
 		var contract_hint := main.find_child("ContractPowerHint", true, false) as Label
 		var contract_cta := main.find_child("ContractCTA", true, false) as Button
-		if contract_hint == null or contract_cta == null or bool(contract_cta.get_meta("glossy_button", false)):
+		if contract_hint == null or contract_cta == null or str(contract_cta.get_meta("button_role", "")) == "primary":
 			push_error("VISUAL_SMOKE: unpowered context does not explain why contracts are unavailable")
 			valid = false
 	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing"]:
@@ -746,7 +749,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if legend != null:
 			for legend_node: Node in legend.get_children():
 				var legend_button := legend_node as Button
-				if legend_button == null or bool(legend_button.get_meta("glossy_button", false)) or not legend_button.get_theme_color("font_color").is_equal_approx(Color.WHITE):
+				if legend_button == null or str(legend_button.get_meta("button_role", "")) == "primary" or not legend_button.get_theme_color("font_color").is_equal_approx(Color.WHITE):
 					push_error("VISUAL_SMOKE: %s legend is not a flat series-color button" % state_name)
 					valid = false
 		if state_name == "market_empty" and chart != null and not chart.series.is_empty():
@@ -801,7 +804,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			valid = false
 		if state_name == "rack_pause_actions":
 			var resume := main.find_child("Choice_power", true, false) as Button
-			if resume == null or not bool(resume.get_meta("glossy_button", false)):
+			if resume == null or str(resume.get_meta("button_role", "")) != "primary" or str(resume.get_meta("button_surface", "")) != "procedural":
 				push_error("VISUAL_SMOKE: resume action is not the primary rack action")
 				valid = false
 	if state_name == "contract_comparison":
@@ -814,7 +817,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		for buy_node: Node in main.find_children("StoreBuy_*", "Button", true, false):
 			if not (buy_node as Button).disabled:
 				eligible_store_buttons += 1
-				if not bool(buy_node.get_meta("glossy_button", false)):
+				if str(buy_node.get_meta("button_role", "")) != "primary" or str(buy_node.get_meta("button_surface", "")) != "procedural":
 					push_error("VISUAL_SMOKE: store price action is not consistently primary: %s" % buy_node.name)
 					valid = false
 		if eligible_store_buttons == 0 or main.find_child("BestValueRibbon", true, false) == null:
@@ -1036,7 +1039,16 @@ func _button_text_contrast_is_safe(main: Node, state_name: String) -> bool:
 	var valid := true
 	for node: Node in main.find_children("*", "Button", true, false):
 		var button := node as Button
-		if button == null or not button.is_visible_in_tree() or button.text.is_empty():
+		if button == null or not button.is_visible_in_tree():
+			continue
+		# Surface validation includes icon-only and custom-content buttons such as
+		# the world CTA; these have empty native text but must never escape back to
+		# a stretched raster skin.
+		var normal_style := button.get_theme_stylebox("normal")
+		if normal_style is StyleBoxTexture:
+			push_error("VISUAL_SMOKE: %s button still stretches a raster surface: %s" % [state_name, button.name])
+			valid = false
+		if button.text.is_empty():
 			continue
 		var font_color := button.get_theme_color("font_color")
 		var is_legal_color := font_color.is_equal_approx(Color.WHITE) or font_color.is_equal_approx(ThemeFactory.COLORS.cream)
@@ -1048,20 +1060,18 @@ func _button_text_contrast_is_safe(main: Node, state_name: String) -> bool:
 		if not is_legal_color or outline_size < required_outline or not outline_color.is_equal_approx(ThemeFactory.COLORS.ink):
 			push_error("VISUAL_SMOKE: %s illegal button text contrast %s color=%s outline=%d/%s" % [state_name, button.name, font_color, outline_size, outline_color])
 			valid = false
-		if bool(button.get_meta("glossy_button", false)) and (button.text.contains("\n") or button.text.contains("\r")):
-			push_error("VISUAL_SMOKE: %s glossy button contains multiline content %s text=%s" % [state_name, button.name, button.text])
+		var procedural_primary := str(button.get_meta("button_surface", "")) == "procedural" and str(button.get_meta("button_role", "")) == "primary" and not button.text.contains("\n")
+		if procedural_primary and (button.get_theme_font_size("font_size") != 28 or not font_color.is_equal_approx(Color.WHITE) or outline_size < 4 or button.get_theme_constant("shadow_offset_y") < 2 or not normal_style is StyleBoxFlat):
+			push_error("VISUAL_SMOKE: %s procedural CTA violates the 28u white/4px/shadow contract: %s" % [state_name, button.name])
 			valid = false
-		if bool(button.get_meta("glossy_button", false)) and (button.get_theme_font_size("font_size") != 28 or not font_color.is_equal_approx(Color.WHITE) or outline_size < 4 or button.get_theme_constant("shadow_offset_y") < 2):
-			push_error("VISUAL_SMOKE: %s glossy CTA violates the 28u white/4px/shadow contract: %s" % [state_name, button.name])
-			valid = false
-		if bool(button.get_meta("glossy_button", false)):
+		if procedural_primary:
 			for state_color: String in ["font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 				if not button.get_theme_color(state_color).is_equal_approx(Color.WHITE):
-					push_error("VISUAL_SMOKE: %s glossy CTA %s uses gray state text %s=%s" % [state_name, button.name, state_color, button.get_theme_color(state_color)])
+					push_error("VISUAL_SMOKE: %s primary CTA %s uses gray state text %s=%s" % [state_name, button.name, state_color, button.get_theme_color(state_color)])
 					valid = false
-			var normal_style := button.get_theme_stylebox("normal") as StyleBoxTexture
-			if normal_style == null or normal_style.region_rect != Rect2(16, 36, 480, 180) or not is_equal_approx(normal_style.texture_margin_left, 74.0) or not is_equal_approx(normal_style.texture_margin_top, 12.0) or not is_equal_approx(normal_style.texture_margin_right, 74.0) or not is_equal_approx(normal_style.texture_margin_bottom, 22.0):
-				push_error("VISUAL_SMOKE: %s glossy CTA %s uses stale A1 nine-slice geometry" % [state_name, button.name])
+			var primary_style := normal_style as StyleBoxFlat
+			if primary_style == null or primary_style.corner_radius_top_left != 22 or primary_style.get_border_width(SIDE_TOP) != 2:
+				push_error("VISUAL_SMOKE: %s primary CTA %s does not use the shared 22u procedural surface" % [state_name, button.name])
 				valid = false
 	return valid
 

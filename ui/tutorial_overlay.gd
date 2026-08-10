@@ -8,7 +8,10 @@ signal target_activated
 var target_rect := Rect2()
 var target_action := Callable()
 var foreground_rect := Rect2()
-var mask_panes: Array[ColorRect] = []
+const SPOTLIGHT_RADIUS := 32.0
+const SPOTLIGHT_GUTTER := 20.0
+
+var mask_layer: ColorRect
 var hole_border: PanelContainer
 var pointer: Control
 var bubble: PanelContainer
@@ -33,7 +36,7 @@ func _ready() -> void:
 # to — hides the very control the coach is pointing at.
 func present(rect: Rect2, copy: String, guide_asset: String, action: Callable, foreground: Rect2 = Rect2()) -> void:
 	visible = true
-	target_rect = rect.grow(20.0).intersection(get_viewport_rect()) if rect.size != Vector2.ZERO else Rect2()
+	target_rect = rect.grow(SPOTLIGHT_GUTTER).intersection(get_viewport_rect()) if rect.size != Vector2.ZERO else Rect2()
 	target_action = action
 	foreground_rect = foreground
 	message.text = copy
@@ -58,23 +61,59 @@ func is_actionable() -> bool:
 	return visible and mouse_filter == Control.MOUSE_FILTER_STOP and target_rect.size != Vector2.ZERO
 
 func _build_mask() -> void:
-	for index: int in range(4):
-		var pane := ColorRect.new()
-		pane.name = "TutorialMask%d" % index
-		pane.color = Color(0, 0, 0, 0.62)
-		pane.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(pane)
-		mask_panes.append(pane)
+	# A single signed-distance mask keeps the transparent opening and its border
+	# on the exact same rounded geometry. The former four-rectangle cutout leaked
+	# bright square corners around the rounded border, reading as a second frame.
+	mask_layer = ColorRect.new()
+	mask_layer.name = "TutorialMask0"
+	mask_layer.color = Color(0, 0, 0, 0.62)
+	mask_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mask_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var shader := Shader.new()
+	shader.code = """
+shader_type canvas_item;
+
+uniform vec2 viewport_size = vec2(1.0);
+uniform vec4 hole_rect = vec4(0.0);
+uniform float hole_radius = 32.0;
+uniform float dim_bottom = 100000.0;
+uniform vec4 dim_color : source_color = vec4(0.0, 0.0, 0.0, 0.62);
+
+float rounded_rect_distance(vec2 point, vec2 center, vec2 half_size, float radius) {
+	vec2 q = abs(point - center) - max(half_size - vec2(radius), vec2(0.0));
+	return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+void fragment() {
+	vec2 point = UV * viewport_size;
+	vec2 center = hole_rect.xy + hole_rect.zw * 0.5;
+	float radius = min(hole_radius, min(hole_rect.z, hole_rect.w) * 0.5);
+	float distance_to_hole = rounded_rect_distance(point, center, hole_rect.zw * 0.5, radius);
+	float outside_hole = smoothstep(-1.5, 1.5, distance_to_hole);
+	float inside_dim_region = 1.0 - step(dim_bottom, point.y);
+	COLOR = vec4(dim_color.rgb, dim_color.a * outside_hole * inside_dim_region);
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	mask_layer.material = material
+	mask_layer.set_meta("mask_geometry", "rounded_sdf")
+	mask_layer.set_meta("spotlight_corner_radius", int(SPOTLIGHT_RADIUS))
+	add_child(mask_layer)
 	hole_border = PanelContainer.new()
 	hole_border.name = "TutorialHoleBorder"
 	hole_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var border_style := ThemeMaker.panel(Color.TRANSPARENT, Color(ThemeMaker.COLORS.yellow, 0.90), 6, 28)
+	var border_style := ThemeMaker.panel(Color.TRANSPARENT, Color("b9e9ff"), 4, int(SPOTLIGHT_RADIUS))
 	border_style.content_margin_left = 0
 	border_style.content_margin_right = 0
 	border_style.content_margin_top = 0
 	border_style.content_margin_bottom = 0
+	border_style.shadow_color = Color("63c9f5", 0.42)
+	border_style.shadow_size = 10
+	border_style.shadow_offset = Vector2.ZERO
 	hole_border.add_theme_stylebox_override("panel", border_style)
-	hole_border.set_meta("spotlight_corner_radius", 28)
+	hole_border.set_meta("spotlight_corner_radius", int(SPOTLIGHT_RADIUS))
+	hole_border.set_meta("spotlight_border_layers", 1)
 	add_child(hole_border)
 
 func _build_callout() -> void:
@@ -163,32 +202,21 @@ func _resize_callout() -> void:
 	bubble.size = Vector2(680, maxf(ThemeMaker.TOUCH_MIN, bubble.get_combined_minimum_size().y + ThemeMaker.GROUP_PADDING))
 
 func _layout_mask(actionable: bool) -> void:
-	for pane: ColorRect in mask_panes:
-		pane.visible = actionable
+	mask_layer.visible = actionable
 	hole_border.visible = actionable
 	if not actionable:
 		return
 	# The shaded region stops at the top of any open sheet, so the sheet keeps its
 	# own contrast while the world behind it still recedes.
-	var dim := Rect2(Vector2.ZERO, size)
+	var dim_bottom := size.y
 	if foreground_rect.size != Vector2.ZERO:
-		dim.size.y = maxf(0.0, foreground_rect.position.y)
-	if not dim.intersects(target_rect):
-		# The target lives on the foreground surface: shade everything behind it
-		# and let the border alone mark the tap point.
-		mask_panes[0].position = dim.position
-		mask_panes[0].size = dim.size
-		for index: int in range(1, mask_panes.size()):
-			mask_panes[index].size = Vector2.ZERO
-	else:
-		mask_panes[0].position = dim.position
-		mask_panes[0].size = Vector2(dim.size.x, maxf(0.0, target_rect.position.y - dim.position.y))
-		mask_panes[1].position = Vector2(dim.position.x, target_rect.end.y)
-		mask_panes[1].size = Vector2(dim.size.x, maxf(0.0, dim.end.y - target_rect.end.y))
-		mask_panes[2].position = Vector2(dim.position.x, target_rect.position.y)
-		mask_panes[2].size = Vector2(maxf(0.0, target_rect.position.x - dim.position.x), target_rect.size.y)
-		mask_panes[3].position = Vector2(target_rect.end.x, target_rect.position.y)
-		mask_panes[3].size = Vector2(maxf(0.0, dim.end.x - target_rect.end.x), target_rect.size.y)
+		dim_bottom = maxf(0.0, foreground_rect.position.y)
+	var material := mask_layer.material as ShaderMaterial
+	material.set_shader_parameter("viewport_size", size)
+	material.set_shader_parameter("hole_rect", Vector4(target_rect.position.x, target_rect.position.y, target_rect.size.x, target_rect.size.y))
+	material.set_shader_parameter("hole_radius", SPOTLIGHT_RADIUS)
+	material.set_shader_parameter("dim_bottom", dim_bottom)
+	mask_layer.set_meta("dim_bottom", dim_bottom)
 	hole_border.position = target_rect.position
 	hole_border.size = target_rect.size
 
