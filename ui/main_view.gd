@@ -2470,7 +2470,7 @@ func _preview_rack_install(datacenter_id: String, slot: int, rack_id: String) ->
 	var confirm_install := func(choice: String) -> void:
 		if choice == "confirm":
 			_handle_result(Game.install_rack(datacenter_id, slot, rack_id))
-	_present_action_sheet(tr("INSTALL"), body, [{"id": "confirm", "text": "%s · $%s" % [tr("CONFIRM"), Game.format_number(Game.rack_purchase_cost(rack_id))], "color": ThemeMaker.COLORS.green}], confirm_install, true, ThemeMaker.COLORS.cyan, "rack_slot_0")
+	_present_action_sheet(tr("INSTALL"), body, [{"id": "confirm", "text": "%s · $%s" % [tr("CONFIRM"), Game.format_number(Game.rack_purchase_cost(rack_id))], "color": ThemeMaker.COLORS.green}], confirm_install, ThemeMaker.COLORS.cyan, "rack_slot_0")
 	var overlay := find_child("ActionSheetOverlay", true, false)
 	if overlay != null and board != null:
 		overlay.tree_exiting.connect(board.clear_placement_preview)
@@ -2651,11 +2651,22 @@ func _animate_sheet_dismiss(overlay: CanvasItem, after: Callable, reset_world: b
 	)
 
 func _wire_sheet_interactions(overlay: ColorRect, sheet: Control, handle_area: Control, reset_world: bool) -> void:
+	var backdrop := {"armed": false}
 	overlay.gui_input.connect(func(event: InputEvent) -> void:
 		var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or (event is InputEventScreenTouch and event.pressed)
-		if pressed and not sheet.get_global_rect().has_point(_pointer_position(event)):
-			_animate_sheet_dismiss(overlay, Callable(), reset_world)
+		var released: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) or (event is InputEventScreenTouch and not event.pressed)
+		var outside := not sheet.get_global_rect().has_point(_pointer_position(event))
+		if pressed:
+			backdrop["armed"] = outside
+			if outside:
+				overlay.accept_event()
+		elif released and bool(backdrop["armed"]):
+			backdrop["armed"] = false
+			if outside:
+				_animate_sheet_dismiss(overlay, Callable(), reset_world)
 			overlay.accept_event()
+		elif released:
+			backdrop["armed"] = false
 	)
 	var drag := {"active": false, "start_y": 0.0, "base_y": 0.0, "last_y": 0.0, "last_ms": 0}
 	handle_area.gui_input.connect(func(event: InputEvent) -> void:
@@ -2915,7 +2926,6 @@ func _show_plot_purchase() -> void:
 		tr("PLOT_FOR_SALE") % [Game.state.get("plots", []).size() + 1, Game.format_number(Game.next_plot_price())],
 		choices,
 		purchase_plot,
-		true,
 		ThemeMaker.COLORS.cyan,
 		"buy_plot"
 	)
@@ -2983,15 +2993,17 @@ func _show_rack_actions(datacenter_id: String, slot: int) -> void:
 			"gems": _handle_result(Game.instant_repair_with_gems(datacenter_id, slot))
 			"power": _handle_result(Game.set_rack_enabled(datacenter_id, slot, not bool(installed.get("enabled", true))))
 			"uninstall": _handle_result(Game.uninstall_rack(datacenter_id, slot))
-	, true, status_color)
+		, status_color)
 
 func _show_choice(title_text: String, choices: Array[Dictionary], callback: Callable, tutorial_focus: String = "") -> void:
-	_present_action_sheet(title_text, "", choices, callback, true, ThemeMaker.COLORS.cyan, tutorial_focus)
+	_present_action_sheet(title_text, "", choices, callback, ThemeMaker.COLORS.cyan, tutorial_focus)
 
-func _present_action_sheet(title_text: String, body: String, choices: Array[Dictionary], callback: Callable, show_cancel: bool = true, body_color: Color = ThemeMaker.COLORS.cyan, tutorial_focus: String = "") -> void:
+func _present_action_sheet(title_text: String, body: String, choices: Array[Dictionary], callback: Callable, body_color: Color = ThemeMaker.COLORS.cyan, tutorial_focus: String = "") -> void:
 	var overlay := ColorRect.new()
 	overlay.name = "ActionSheetOverlay"
 	overlay.set_meta("tutorial_focus", tutorial_focus)
+	overlay.set_meta("backdrop_dismiss_enabled", true)
+	overlay.set_meta("explicit_close_count", 1)
 	overlay.color = Color(0.015, 0.03, 0.06, 0.76)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -3035,6 +3047,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	heading.add_child(title_label)
 	var close_button := Widgets.close_button(_dismiss_action_sheet.bind(overlay))
+	close_button.name = "SheetCloseButton"
 	heading.add_child(close_button)
 	if not body.is_empty():
 		var body_label := _label(body, 25, body_color)
@@ -3085,11 +3098,6 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 		if choice.has("cost"):
 			Widgets.affordable_style(choice_button, float(choice.get("cost", 0.0)))
 		choice_box.add_child(choice_button)
-	if show_cancel:
-		var cancel_button := _button(tr("CANCEL"), _dismiss_action_sheet.bind(overlay), Color("263d59"))
-		cancel_button.custom_minimum_size.y = 92
-		sheet_box.add_child(cancel_button)
-
 	# Autowrapped labels only know their true height after the sheet has a width.
 	# Measure and animate on the next layout frame instead of guessing from lines.
 	sheet.modulate.a = 0.0
@@ -3363,7 +3371,7 @@ func _confirm(title_text: String, body: String, callback: Callable, tutorial_foc
 	var confirm_action := func(choice: String) -> void:
 		if choice == "confirm":
 			callback.call()
-	_present_action_sheet(title_text, body, choices, confirm_action, true, ThemeMaker.COLORS.cyan, tutorial_focus)
+	_present_action_sheet(title_text, body, choices, confirm_action, ThemeMaker.COLORS.cyan, tutorial_focus)
 
 func _navigate(page: String) -> void:
 	if fx_layer != null:
@@ -3453,7 +3461,7 @@ func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 	var confirm_contract := func(choice: String) -> void:
 		if choice == "confirm":
 			_complete_contract_signing(datacenter_id, customer_id)
-	_present_action_sheet(tr("SWITCH_CONTRACT"), body, [{"id": "confirm", "text": "%s · %s" % [tr("CONFIRM"), tr("CONTRACT_PROJECTED") % Game.format_number(projected)], "color": ThemeMaker.COLORS.green}], confirm_contract, true, ThemeMaker.COLORS.cyan, "contract_internet")
+	_present_action_sheet(tr("SWITCH_CONTRACT"), body, [{"id": "confirm", "text": "%s · %s" % [tr("CONFIRM"), tr("CONTRACT_PROJECTED") % Game.format_number(projected)], "color": ThemeMaker.COLORS.green}], confirm_contract, ThemeMaker.COLORS.cyan, "contract_internet")
 
 func _complete_contract_signing(datacenter_id: String, customer_id: String) -> void:
 	var result := Game.sign_contract(datacenter_id, customer_id)

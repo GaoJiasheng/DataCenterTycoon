@@ -524,9 +524,16 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				valid = false
 	if state_name == "action_sheet":
 		var drag_handle := main.find_child("SheetDragHandle", true, false) as Control
-		if drag_handle == null or drag_handle.size.y < 88.0:
-			push_error("VISUAL_SMOKE: action sheet drag target is below 44pt")
+		var sheet_close := main.find_child("SheetCloseButton", true, false) as Button
+		var action_overlay := main.find_child("ActionSheetOverlay", true, false) as ColorRect
+		if drag_handle == null or drag_handle.size.y < 88.0 or sheet_close == null or action_overlay == null or not bool(action_overlay.get_meta("backdrop_dismiss_enabled", false)) or int(action_overlay.get_meta("explicit_close_count", 0)) != 1:
+			push_error("VISUAL_SMOKE: action sheet does not expose the close/backdrop/drag dismissal contract")
 			valid = false
+		for cancel_node: Node in main.find_children("*", "Button", true, false):
+			var cancel_button := cancel_node as Button
+			if cancel_button != null and cancel_button.is_visible_in_tree() and cancel_button.text == tr("CANCEL"):
+				push_error("VISUAL_SMOKE: action sheet still renders a redundant full-width cancel action")
+				valid = false
 	if state_name == "world_alerts":
 		var alert_count := 0
 		for node: Node in main.find_children("StatusBadge", "PanelContainer", true, false):

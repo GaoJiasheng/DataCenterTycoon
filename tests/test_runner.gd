@@ -170,13 +170,22 @@ func _run_ui_refresh_test() -> void:
 	main.call("_refresh")
 	main.call("_show_plot_purchase")
 	await get_tree().process_frame
-	var overlay := main.find_child("ActionSheetOverlay", true, false) as CanvasItem
+	var overlay := main.find_child("ActionSheetOverlay", true, false) as ColorRect
 	var drag_handle := main.find_child("SheetDragHandle", true, false) as Control
-	var sheet_routes_ok: bool = overlay != null and drag_handle != null and drag_handle.size.y >= 88.0 and not overlay.gui_input.get_connections().is_empty() and not drag_handle.gui_input.get_connections().is_empty()
-	_expect(sheet_routes_ok, "action sheet exposes backdrop and 44pt drag-dismiss input routes")
-	main.call("_dismiss_action_sheet", overlay)
+	var sheet_close := main.find_child("SheetCloseButton", true, false) as Button
+	var sheet_routes_ok: bool = overlay != null and bool(overlay.get_meta("backdrop_dismiss_enabled", false)) and int(overlay.get_meta("explicit_close_count", 0)) == 1 and sheet_close != null and drag_handle != null and drag_handle.size.y >= 88.0 and not overlay.gui_input.get_connections().is_empty() and not drag_handle.gui_input.get_connections().is_empty()
+	_expect(sheet_routes_ok, "action sheet exposes one explicit close, backdrop tap, and 44pt drag-dismiss routes")
+	_expect(main.find_child("SheetCancelButton", true, false) == null, "action sheet removes the redundant full-width cancel action")
+	var backdrop_press := InputEventScreenTouch.new()
+	backdrop_press.position = Vector2(8, 8)
+	backdrop_press.pressed = true
+	overlay.gui_input.emit(backdrop_press)
+	var backdrop_release := InputEventScreenTouch.new()
+	backdrop_release.position = Vector2(8, 8)
+	backdrop_release.pressed = false
+	overlay.gui_input.emit(backdrop_release)
 	await get_tree().create_timer(0.24).timeout
-	_expect(not is_instance_valid(overlay), "action sheet dismissal waits for its exit animation before freeing")
+	_expect(not is_instance_valid(overlay), "action sheet backdrop tap closes after its exit animation")
 	# Generic reward-juice coverage belongs to the post-tutorial state. Active
 	# FTUE steps intentionally suppress world coin trajectories (FT2).
 	main.call("_refresh_hud")
