@@ -4022,31 +4022,43 @@ func _show_bank_takeover_overlay() -> void:
 	box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	margin.add_child(box)
 	box.add_child(_icon_view("ic_bankrupt", Vector2(128, 128)))
-	var title := _label(tr("BANK_TAKEOVER_TITLE"), 48, ThemeMaker.COLORS.ink)
+	var title := _label(tr("BANK_TAKEOVER_TITLE"), 48, ThemeMaker.COLORS.cream)
 	title.name = "BankTakeoverTitle"
 	ThemeMaker.apply_text_role(title, "display")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
-	var body := _label(tr("BANK_TAKEOVER_BODY") % Game.format_number(float(settlement.get("debt_before", 0.0))), 22, ThemeMaker.COLORS.ink)
+	var body := _label(tr("BANK_TAKEOVER_BODY") % Game.format_number(float(settlement.get("debt_before", 0.0))), 24, Color("c7d8e5"))
+	body.name = "BankTakeoverBody"
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(body)
 	var stats := [
-		{"key": "BANK_TAKEOVER_DEBT_PAID", "value": "$%s" % Game.format_number(float(settlement.get("debt_paid", 0.0)))},
-		{"key": "BANK_TAKEOVER_FORGIVEN", "value": "$%s" % Game.format_number(float(settlement.get("debt_forgiven", 0.0)))},
-		{"key": "BANK_TAKEOVER_RELIEF", "value": "$%s" % Game.format_number(float(settlement.get("relief_grant", 0.0)))},
-		{"key": "BANK_TAKEOVER_REMAINING", "value": str(int(settlement.get("remaining_datacenters", 0)))},
+		{"key": "BANK_TAKEOVER_DEBT_PAID", "value": "$%s" % Game.format_number(float(settlement.get("debt_paid", 0.0))), "accent": ThemeMaker.COLORS.yellow},
+		{"key": "BANK_TAKEOVER_FORGIVEN", "value": "$%s" % Game.format_number(float(settlement.get("debt_forgiven", 0.0))), "accent": Color("dce8f0")},
+		{"key": "BANK_TAKEOVER_RELIEF", "value": "$%s" % Game.format_number(float(settlement.get("relief_grant", 0.0))), "accent": ThemeMaker.COLORS.green.lightened(0.08)},
+		{"key": "BANK_TAKEOVER_REMAINING", "value": str(int(settlement.get("remaining_datacenters", 0))), "accent": ThemeMaker.COLORS.cream},
 	]
 	for stat_index: int in range(stats.size()):
 		var stat: Dictionary = stats[stat_index]
+		var stat_panel := PanelContainer.new()
+		stat_panel.name = "BankTakeoverStat_%d" % stat_index
+		stat_panel.custom_minimum_size.y = 64
+		stat_panel.add_theme_stylebox_override("panel", ThemeMaker.flat_group_box(Color(stat.get("accent", ThemeMaker.COLORS.sky)), 16))
+		box.add_child(stat_panel)
 		var row := HBoxContainer.new()
-		row.name = "BankTakeoverStat_%d" % stat_index
-		box.add_child(row)
-		var key_label := _label(tr(stat.get("key", "")), 22, ThemeMaker.COLORS.ink)
+		row.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+		stat_panel.add_child(row)
+		var key_label := _label(tr(stat.get("key", "")), 22, ThemeMaker.TEXT_SECONDARY)
+		key_label.name = "BankTakeoverStatKey_%d" % stat_index
 		key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(key_label)
-		row.add_child(_label(str(stat.get("value", "")), 25, ThemeMaker.COLORS.ink))
-	var sold_title := _label(tr("BANK_TAKEOVER_SOLD") % int(settlement.get("sold_count", 0)), 24, ThemeMaker.COLORS.ink)
+		var value_label := _label(str(stat.get("value", "")), 26, Color(stat.get("accent", ThemeMaker.COLORS.cream)))
+		value_label.name = "BankTakeoverStatValue_%d" % stat_index
+		ThemeMaker.apply_numeric_text(value_label)
+		row.add_child(value_label)
+	var sold_title := _label(tr("BANK_TAKEOVER_SOLD") % int(settlement.get("sold_count", 0)), 24, ThemeMaker.COLORS.cream)
+	sold_title.name = "BankTakeoverSoldTitle"
+	ThemeMaker.apply_text_role(sold_title, "title")
 	box.add_child(sold_title)
 	var sold_scroll := ScrollContainer.new()
 	sold_scroll.name = "BankTakeoverSoldScroll"
@@ -4062,8 +4074,11 @@ func _show_bank_takeover_overlay() -> void:
 	if sold_entries.is_empty():
 		sold_list.add_child(_label(tr("BANK_TAKEOVER_NONE_SOLD"), 21, ThemeMaker.COLORS.cyan))
 	else:
-		for sold_entry: Dictionary in sold_entries:
-			sold_list.add_child(_label(tr("BANK_TAKEOVER_SOLD_ROW") % [str(sold_entry.get("datacenter_id", "")), Game.format_number(float(sold_entry.get("proceeds", 0.0)))], 21, ThemeMaker.COLORS.ink))
+		for sold_index: int in range(sold_entries.size()):
+			var sold_entry: Dictionary = sold_entries[sold_index]
+			var sold_label := _label(tr("BANK_TAKEOVER_SOLD_ROW") % [str(sold_entry.get("datacenter_id", "")), Game.format_number(float(sold_entry.get("proceeds", 0.0)))], 21, Color("c7d8e5"))
+			sold_label.name = "BankTakeoverSoldEntry_%d" % sold_index
+			sold_list.add_child(sold_label)
 	var restart := Widgets.button(tr("BANK_TAKEOVER_CONTINUE"), func() -> void:
 		Game.acknowledge_bank_takeover()
 		overlay.queue_free()

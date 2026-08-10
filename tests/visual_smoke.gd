@@ -897,10 +897,20 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: bank settlement lacks retained-assets stats or sold-center details stats=%d sold=%s" % [stat_count, str(sold_list)])
 			valid = false
 		var takeover_title := main.find_child("BankTakeoverTitle", true, false) as Label
+		var takeover_body := main.find_child("BankTakeoverBody", true, false) as Label
 		var takeover_continue := main.find_child("BankTakeoverContinue", true, false) as Button
-		if takeover_title == null or takeover_title.get_theme_font_size("font_size") < 44 or takeover_continue == null or takeover_continue.get_theme_font_size("font_size") != 28 or takeover_continue.get_theme_constant("outline_size") < 4:
+		if takeover_title == null or takeover_title.get_theme_font_size("font_size") < 44 or takeover_body == null or takeover_continue == null or takeover_continue.get_theme_font_size("font_size") != 28 or takeover_continue.get_theme_constant("outline_size") < 4:
 			push_error("VISUAL_SMOKE: bank settlement title/continue hierarchy is below the P1 contract")
 			valid = false
+		var readable_labels: Array[Label] = [takeover_title, takeover_body]
+		for contrast_node: Node in main.find_children("BankTakeoverStat*", "Label", true, false):
+			readable_labels.append(contrast_node as Label)
+		for contrast_node: Node in main.find_children("BankTakeoverSold*", "Label", true, false):
+			readable_labels.append(contrast_node as Label)
+		for readable: Label in readable_labels:
+			if readable == null or readable.get_theme_color("font_color").get_luminance() < 0.52:
+				push_error("VISUAL_SMOKE: bank settlement text is too dark on its navy panel: %s color=%s" % [readable.name if readable != null else "missing", readable.get_theme_color("font_color") if readable != null else Color.TRANSPARENT])
+				valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	valid = _typography_roles_are_valid(main, state_name) and valid
 	valid = _close_glyphs_are_readable(main, state_name) and valid
