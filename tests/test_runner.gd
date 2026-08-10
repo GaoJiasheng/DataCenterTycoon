@@ -81,7 +81,7 @@ func _run_asset_integration_tests() -> void:
 	var next_campus_sale: Vector2 = park_map.call("_sale_position", 6)
 	var next_campus_first: Vector2 = park_map.call("_plot_position", 6, 12)
 	var campus_center_x := park_map.world_size.x * 0.5 - ParkMap.PLOT_SIZE.x * 0.5
-	var campus_grid_ok := first_axis.is_equal_approx(Vector2(ParkMap.COLUMN_STEP, 0.0)) and is_equal_approx(left_top.y, right_top.y) and is_equal_approx(left_bottom.y, right_bottom.y) and (left_bottom - left_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and (right_bottom - right_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and is_equal_approx(next_sale.x, campus_center_x) and is_equal_approx(next_sale.y, ParkMap.CAMPUS_TOP + ParkMap.ROW_STEP * 2.0) and paired_sale.is_equal_approx(Vector2(ParkMap.CAMPUS_LEFT + ParkMap.COLUMN_STEP, ParkMap.CAMPUS_TOP + ParkMap.ROW_STEP)) and next_campus_sale.is_equal_approx(Vector2(campus_center_x, ParkMap.CAMPUS_TOP + ParkMap.CAMPUS_BLOCK_STEP)) and next_campus_first.is_equal_approx(Vector2(ParkMap.CAMPUS_LEFT, ParkMap.CAMPUS_TOP + ParkMap.CAMPUS_BLOCK_STEP)) and bool(plot_button.get_meta("grid_slot", -1) == 0)
+	var campus_grid_ok := first_axis.is_equal_approx(Vector2(ParkMap.COLUMN_STEP, 0.0)) and is_equal_approx(left_top.y, right_top.y) and is_equal_approx(left_bottom.y, right_bottom.y) and (left_bottom - left_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and (right_bottom - right_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and is_equal_approx(next_sale.x, campus_center_x) and is_equal_approx(next_sale.y, ParkMap.CAMPUS_TOP + ParkMap.ROW_STEP * 2.0) and paired_sale.is_equal_approx(Vector2(ParkMap.CAMPUS_LEFT + ParkMap.COLUMN_STEP, ParkMap.CAMPUS_TOP + ParkMap.ROW_STEP)) and next_campus_sale.is_equal_approx(Vector2(campus_center_x, ParkMap.CAMPUS_TOP)) and next_campus_first.is_equal_approx(Vector2(ParkMap.CAMPUS_LEFT, ParkMap.CAMPUS_TOP)) and bool(plot_button.get_meta("grid_slot", -1) == 0)
 	# The cinematic polish stays presentation-only and must clean up after itself.
 	Game.reset_for_tests()
 	Game.start_datacenter_construction("plot_1", "dc_t0")
@@ -204,8 +204,16 @@ func _run_ui_refresh_test() -> void:
 
 func _run_rule_tests() -> void:
 	var economy: Dictionary = DataRepository.get_table("economy")
-	_expect(is_equal_approx(Rules.land_price(2, economy), 775.0), "second plot price follows formula")
-	_expect(is_equal_approx(Rules.land_price(5, economy), 2886.0), "fifth plot price follows formula")
+	_expect(is_equal_approx(Rules.land_price(2, economy), 965.0), "second plot price follows the bounded power curve")
+	_expect(is_equal_approx(Rules.land_price(5, economy), 2862.0), "fifth plot price keeps the original early-game scale")
+	_expect(is_equal_approx(Rules.land_price(7, economy), 4815.0), "first expansion-campus plot applies only the configured eight-percent premium")
+	_expect(is_equal_approx(Rules.land_price(100, economy), 222970.0), "hundredth plot remains below a top-tier building cost")
+	var last_starter := Rules.campus_layout_for_plot(6, economy)
+	var first_expansion := Rules.campus_layout_for_plot(7, economy)
+	var third_campus := Rules.campus_layout_for_plot(15, economy)
+	_expect(str(last_starter.get("type_id", "")) == "type_1" and int(last_starter.get("local_slot", -1)) == 5, "starter campus owns exactly six ordered slots")
+	_expect(str(first_expansion.get("type_id", "")) == "type_2" and int(first_expansion.get("capacity", 0)) == 8 and int(first_expansion.get("campus_index", -1)) == 1, "second campus is the eight-slot expansion type")
+	_expect(int(third_campus.get("campus_index", -1)) == 2 and str(third_campus.get("type_id", "")) == "type_2", "expansion campus type repeats without imposing a global building cap")
 	_expect(is_equal_approx(Rules.aging_efficiency(0.75), 0.85), "aging efficiency interpolates")
 	_expect(is_equal_approx(Rules.aging_efficiency(0.95), 0.55), "decline efficiency interpolates")
 	var ambient_dc := {"power_unit": "power_t1", "coolers": {}, "racks": [null, null, null, null, {"rack_id": "rack_storage_t1", "status": "active"}, null, null, null, null]}
@@ -457,7 +465,7 @@ func _run_initial_state_test() -> void:
 	Game.reset_for_tests()
 	_expect(is_equal_approx(float(Game.state["player"]["cash"]), 40000.0), "new company starts with tuned cash")
 	_expect(int(Game.state["player"]["gems"]) == 20, "new company starts with documented gems")
-	_expect(Game.state["plots"].size() == 1 and is_equal_approx(Game.next_plot_price(), 775.0), "new company starts with one free plot")
+	_expect(Game.state["plots"].size() == 1 and is_equal_approx(Game.next_plot_price(), 965.0), "new company starts with one free plot and the bounded second-plot price")
 
 func _run_core_loop_test() -> void:
 	Game.reset_for_tests()

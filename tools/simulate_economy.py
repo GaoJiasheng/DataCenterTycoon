@@ -43,6 +43,37 @@ LOADOUTS = {
 }
 
 
+def campus_layout(plot_index):
+    campuses = ECONOMY.get("campuses", {})
+    definitions = campuses.get("types", {})
+    sequence = campuses.get("sequence", [])
+    if not sequence or not definitions:
+        return {"campus_index": max(0, (plot_index - 1) // 6), "type_id": "type_1", "capacity": 6, "land_price_multiplier": 1.0}
+    remaining = max(1, plot_index)
+    campus_index = 0
+    for type_id in sequence:
+        definition = definitions[type_id]
+        capacity = max(1, int(definition["capacity"]))
+        if remaining <= capacity:
+            return {"campus_index": campus_index, "type_id": type_id, **definition}
+        remaining -= capacity
+        campus_index += 1
+    type_id = sequence[-1]
+    definition = definitions[type_id]
+    capacity = max(1, int(definition["capacity"]))
+    campus_index += (remaining - 1) // capacity
+    return {"campus_index": campus_index, "type_id": type_id, **definition}
+
+
+def land_price(plot_index):
+    if plot_index <= ECONOMY["starting"]["free_plot_count"]:
+        return 0
+    land = ECONOMY["land"]
+    multiplier = campus_layout(plot_index).get("land_price_multiplier", 1.0)
+    growth_base = 1.0 + land["growth_step"] * (plot_index - 1)
+    return round(land["base_price"] * growth_base ** land["growth_exponent"] * multiplier)
+
+
 @dataclass
 class Datacenter:
     building_id: str
@@ -74,6 +105,7 @@ class Simulator:
         self.network = 1
         self.dcs = []
         self.plots = 1
+        self.land_spend = 0.0
         self.total_built = 0
         self.maintenance_at = MONTH
         self.events = []
@@ -474,7 +506,7 @@ class Simulator:
                 racks = ["rack_gpu_t1"] * 4
             needs_land = len(self.dcs) >= self.plots
             next_plot = self.plots + 1
-            land = round(ECONOMY["land"]["base_price"] * ECONOMY["land"]["growth_factor"] ** (next_plot - 1)) if needs_land else 0
+            land = land_price(next_plot) if needs_land else 0
             package = BUILDINGS[building_id]["cost"] + ATTACHMENTS[power]["cost"] + sum(ATTACHMENTS[c]["cost"] for c in coolers) + sum(RACKS[r]["cost"] for r in racks) + land
             if self.cash < package * reserve:
                 continue
@@ -484,6 +516,7 @@ class Simulator:
                 self.prestige_ready_at = Simulator.now
             if needs_land:
                 self.plots += 1
+                self.land_spend += land
             ready_at = Simulator.now + BUILDINGS[building_id]["build_seconds"]
             self.dcs.append(Datacenter(building_id, ready_at, ready_at, list(racks)))
             return True
@@ -507,7 +540,7 @@ class Simulator:
         day = Simulator.now / DAY
         if self.curve and abs(self.curve[-1][0] - day) < 0.5:
             return
-        self.curve.append((day, self.net_worth(), self.cash, len(self.dcs), self.era, self.revenue, self.arrears, self.total_built, self.takeovers, self.bank_sold))
+        self.curve.append((day, self.net_worth(), self.cash, len(self.dcs), self.era, self.revenue, self.arrears, self.total_built, self.takeovers, self.bank_sold, self.land_spend))
 
 
 def write_csv(results):
@@ -515,7 +548,7 @@ def write_csv(results):
     for name, sim in results.items():
         with (OUT / f"{name}.csv").open("w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle, lineterminator="\n")
-            writer.writerow(["real_day", "net_worth", "cash", "datacenters", "era", "total_revenue", "arrears_count", "total_built", "takeovers", "bank_sold"])
+            writer.writerow(["real_day", "net_worth", "cash", "datacenters", "era", "total_revenue", "arrears_count", "total_built", "takeovers", "bank_sold", "land_spend"])
             writer.writerows(sim.curve)
 
 
@@ -580,6 +613,8 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
     legacy_idle_revenue = statistics.mean(sim.revenue for sim in legacy_idle_cohort) or 1.0
     idle_fault_loss = max(0.0, 1.0 - statistics.mean(sim.revenue for sim in cohorts["idle"]) / legacy_idle_revenue)
     checks = [
+        (campus_layout(6)["type_id"] == "type_1" and campus_layout(7)["type_id"] == "type_2" and campus_layout(15)["campus_index"] == 2, "campus sequence partitions unlimited plots into a 6-slot starter page followed by 8-slot expansion pages"),
+        (math.isclose(land_price(7) / round(ECONOMY["land"]["base_price"] * (1.0 + ECONOMY["land"]["growth_step"] * 6) ** ECONOMY["land"]["growth_exponent"]), 1.08, rel_tol=0.001), "expansion-campus land premium stays at the intended modest 8%"),
         (contract_locking_probe(), "mining downturn leaves an existing contract unchanged until automatic renewal"),
         (retirement_harvest_probe(), "normal retirement beats ruin scrap for every loadout at each 0.1% step from 60.0% through 99.9% lifespan"),
         (idle_fault_loss < 0.08, f"passive auto-repair curve loses {idle_fault_loss:.1%} versus the same-seed pre-A4 fault model (target <8%)"),
@@ -649,7 +684,7 @@ def main():
         write_csv(results)
         write_svg(results)
     for name, sim in results.items():
-        print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} takeovers={sim.takeovers} sold={sim.bank_sold}")
+        print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} land=${sim.land_spend:,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} takeovers={sim.takeovers} sold={sim.bank_sold}")
     print_acceptance(results, cohorts, legacy_idle_cohort)
     return 0
 

@@ -15,7 +15,9 @@ func _ready() -> void:
 	main.call("_refresh")
 	await get_tree().process_frame
 	var baseline_nodes := int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
-	for plot: Dictionary in Game.state["plots"]:
+	# World feedback is emitted only for the six visible starter-page centers;
+	# hidden pages keep simulating without spawning off-screen particles.
+	for plot: Dictionary in Game.state["plots"].slice(0, 6):
 		var dc: Dictionary = plot["datacenter"]
 		var source: Vector2 = main.park_map.world_position_of(str(dc.get("id", "")))
 		main.call("_fly_cash_reward", source, 5)
@@ -39,11 +41,19 @@ func _ready() -> void:
 	await get_tree().create_timer(1.0).timeout
 	var remaining_particles := fx_layer.get_child_count() if fx_layer != null else -1
 	var node_delta := int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)) - baseline_nodes
+	var visible_slots := 0
+	for node: Node in main.park_map.content.get_children():
+		if node is Button and node.has_meta("grid_slot") and (node as Control).visible:
+			visible_slots += 1
+	var orientation_consistent := true
+	for node: Node in main.find_children("WorldArt", "TextureRect", true, false):
+		if str(node.get_meta("world_asset_id", "")).begins_with("dc_"):
+			orientation_consistent = orientation_consistent and not (node as TextureRect).flip_h
 	# Run uncapped or at 240 fps: a 16.67 ms p95 demonstrates real 60 fps
 	# headroom without measuring the sleep jitter introduced by a 60 fps cap.
 	# The iPhone Instruments pass remains the authoritative device measurement.
-	var valid := peak_particles == 30 and remaining_particles == 0 and node_delta <= 5 and average <= 8.0 and p95 <= 16.67
-	print("PERFORMANCE_SMOKE: %s six_dc+30_coins average=%.2fms p90=%.2fms p95=%.2fms peak_particles=%d remaining=%d node_delta=%d" % ["PASS" if valid else "FAIL", average, p90, p95, peak_particles, remaining_particles, node_delta])
+	var valid: bool = peak_particles == 30 and remaining_particles == 0 and node_delta <= 5 and average <= 8.0 and p95 <= 16.67 and main.park_map.campus_count() == 13 and visible_slots == 6 and orientation_consistent
+	print("PERFORMANCE_SMOKE: %s hundred_dc_paged+30_coins pages=%d visible=%d orientation=%s average=%.2fms p90=%.2fms p95=%.2fms peak_particles=%d remaining=%d node_delta=%d" % ["PASS" if valid else "FAIL", main.park_map.campus_count(), visible_slots, str(orientation_consistent), average, p90, p95, peak_particles, remaining_particles, node_delta])
 	AudioService.stop_all()
 	main.queue_free()
 	await get_tree().process_frame
@@ -51,7 +61,9 @@ func _ready() -> void:
 
 func _dense_campus() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for index: int in range(6):
+	# A 10×10 player's estate is partitioned across typed campus pages. All one
+	# hundred centers remain authoritative while only the active page is visible.
+	for index: int in range(100):
 		var racks: Array = []
 		racks.resize(9)
 		racks.fill(null)

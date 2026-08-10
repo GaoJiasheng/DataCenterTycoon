@@ -71,6 +71,28 @@ def validate_references():
     auto_retirement = DATA["technology"].get("upgrades", {}).get("auto_retirement", {}).get("levels", {}).get("1", {})
     if float(auto_retirement.get("cost", 0)) != 15000 or int(auto_retirement.get("unlock_era", 0)) != 2:
         ERRORS.append("technology/auto_retirement: expected one Era 2 level costing 15000")
+    campuses = DATA["economy"].get("campuses", {})
+    campus_types = campuses.get("types", {})
+    campus_sequence = campuses.get("sequence", [])
+    if campus_sequence != ["type_1", "type_2"] or not campuses.get("repeat_last", False):
+        ERRORS.append("economy/campuses: expected type_1 → type_2 with repeat_last for unlimited expansion")
+    expected_campuses = {"type_1": (6, 1.0), "type_2": (8, 1.08)}
+    for type_id in campus_sequence:
+        definition = campus_types.get(type_id, {})
+        capacity = int(definition.get("capacity", 0))
+        premium = float(definition.get("land_price_multiplier", 0))
+        if capacity < 4 or capacity > 10 or capacity % 2 != 0:
+            ERRORS.append(f"economy/campuses/{type_id}: capacity must be an even 4–10 slots")
+        if premium < 1.0 or premium > 1.15:
+            ERRORS.append(f"economy/campuses/{type_id}: land premium must stay within 0–15%")
+        expected_capacity, expected_premium = expected_campuses[type_id]
+        if capacity != expected_capacity or not math.isclose(premium, expected_premium):
+            ERRORS.append(f"economy/campuses/{type_id}: expected {expected_capacity} slots at {expected_premium:.2f}×")
+    land = DATA["economy"].get("land", {})
+    if "growth_factor" in land:
+        ERRORS.append("economy/land: unbounded geometric growth_factor is forbidden for a hundred-center park")
+    if not math.isclose(float(land.get("growth_step", 0)), 0.55) or not math.isclose(float(land.get("growth_exponent", 0)), 1.5):
+        ERRORS.append("economy/land: expected the bounded 0.55-step / 1.50-exponent power curve")
 
 
 def validate_localization():
@@ -98,6 +120,9 @@ def validate_localization():
         for field in ("name_key", "description_key"):
             if upgrade.get(field) not in keys:
                 ERRORS.append(f"technology/{upgrade_id}: localization key {upgrade.get(field)} missing")
+    for type_id, definition in DATA["economy"].get("campuses", {}).get("types", {}).items():
+        if definition.get("name_key") not in keys:
+            ERRORS.append(f"economy/campuses/{type_id}: localization key {definition.get('name_key')} missing")
 
 
 def validate_manifest():

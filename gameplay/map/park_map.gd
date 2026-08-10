@@ -18,9 +18,9 @@ const CAMPUS_LEFT := 38.0
 const CAMPUS_TOP := 88.0
 const COLUMN_STEP := 352.0 # PLOT_SIZE.x + one compact 8u gutter.
 const ROW_STEP := 252.0 # A slight overlap keeps integrated plinths visually grouped.
-const PLOTS_PER_CAMPUS := 6
-const ROWS_PER_CAMPUS := 3
-const CAMPUS_BLOCK_STEP := 860.0
+const PLOTS_PER_CAMPUS := 6 # Legacy/default capacity; live capacity comes from economy.json.
+const ROWS_PER_CAMPUS := 3 # Legacy/default row count for type_1.
+const CAMPUS_BLOCK_STEP := 0.0 # Campuses are pages on one shared canvas, not stacked strips.
 const ROAD_JUNCTION_SIZE := 128.0
 const ROAD_AXIS_HALF := Vector2(64.0, 32.0)
 const DECO_LANE_CLEARANCE := 20.0
@@ -147,7 +147,7 @@ func _process(delta: float) -> void:
 		_refresh_day_grade()
 	for index: int in range(_active_art.size()):
 		var art := _active_art[index]
-		if is_instance_valid(art):
+		if is_instance_valid(art) and art.is_visible_in_tree():
 			# Only the powered window light breathes. Scaling the full building every
 			# frame fights completion tweens and reads as layout jank.
 			var phase := float(art.get_meta("ambient_phase", float(index) * 1.7))
@@ -156,11 +156,11 @@ func _process(delta: float) -> void:
 			art.self_modulate = Color(brightness, brightness, brightness, 1.0)
 	for index: int in range(_sway_art.size()):
 		var art := _sway_art[index]
-		if is_instance_valid(art):
+		if is_instance_valid(art) and art.is_visible_in_tree():
 			art.rotation = sin(_ambient_time * 0.72 + index * 1.31) * 0.012
 	for index: int in range(_glow_art.size()):
 		var glow := _glow_art[index]
-		if is_instance_valid(glow):
+		if is_instance_valid(glow) and glow.is_visible_in_tree():
 			glow.modulate.a = 0.11 + sin(_ambient_time * 1.8 + index) * 0.045
 			glow.rotation = _ambient_time * (0.035 if index % 2 == 0 else -0.03)
 	_countdown_accumulator += delta
@@ -234,6 +234,7 @@ func setup(plots: Array) -> void:
 	_campus_count = _campus_count_for_slots(slot_count)
 	_active_campus_index = clampi(_active_campus_index, 0, _campus_count - 1)
 	_campus_summaries = _build_campus_summaries(plots, slot_count)
+	_add_campus_boundaries()
 	_add_campus_markers()
 	_add_environment_props(plots)
 	_add_decorations(slot_count)
@@ -480,8 +481,10 @@ func _build_campus_summaries(plots: Array, slot_count: int) -> Array[Dictionary]
 		var building_count := 0
 		var alert_count := 0
 		var income := 0.0
-		var first_slot := campus_index * PLOTS_PER_CAMPUS
-		var last_slot := mini(first_slot + PLOTS_PER_CAMPUS, plots.size())
+		var layout := _campus_layout_for_index(campus_index)
+		var capacity := int(layout.get("capacity", PLOTS_PER_CAMPUS))
+		var first_slot := int(layout.get("start_plot_index", 1)) - 1
+		var last_slot := mini(first_slot + capacity, plots.size())
 		for slot: int in range(first_slot, last_slot):
 			var plot: Dictionary = plots[slot]
 			var raw_dc: Variant = plot.get("datacenter", {})
@@ -494,21 +497,51 @@ func _build_campus_summaries(plots: Array, slot_count: int) -> Array[Dictionary]
 				alert_count += 1
 		summaries.append({
 			"index": campus_index,
+			"type_id": str(layout.get("type_id", "type_1")),
+			"type_name_key": str(layout.get("name_key", "CAMPUS_TYPE_STANDARD")),
+			"capacity": capacity,
+			"land_price_multiplier": float(layout.get("land_price_multiplier", 1.0)),
+			"accent": str(layout.get("accent", "3aa7f0")),
 			"building_count": building_count,
 			"plot_count": maxi(0, last_slot - first_slot),
 			"income": income,
 			"alert_count": alert_count,
-			"has_sale": slot_count - 1 >= first_slot and slot_count - 1 < first_slot + PLOTS_PER_CAMPUS,
+			"has_sale": slot_count - 1 >= first_slot and slot_count - 1 < first_slot + capacity,
 		})
 	return summaries
+
+func _add_campus_boundaries() -> void:
+	for summary: Dictionary in _campus_summaries:
+		var campus_index := int(summary.get("index", 0))
+		var capacity := maxi(1, int(summary.get("capacity", PLOTS_PER_CAMPUS)))
+		var row_count := int(ceili(float(capacity) / 2.0))
+		var accent := Color(str(summary.get("accent", "3aa7f0")))
+		var boundary := PanelContainer.new()
+		boundary.name = "CampusBoundary_%d" % campus_index
+		boundary.position = Vector2(18, _campus_origin_y(campus_index) - 86.0)
+		boundary.size = Vector2(768, float(row_count - 1) * ROW_STEP + PLOT_SIZE.y + 114.0)
+		boundary.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# The border sits above ambient props but below every interactive parcel.
+		# A negative Z would fall behind the sibling grass canvas and disappear.
+		boundary.z_index = 1
+		var style := ThemeMaker.panel(Color(0.035, 0.11, 0.16, 0.12), Color(accent, 0.68), 3, 38)
+		style.shadow_color = Color(0.02, 0.06, 0.09, 0.20)
+		style.shadow_size = 12
+		boundary.add_theme_stylebox_override("panel", style)
+		boundary.set_meta("campus_index", campus_index)
+		boundary.set_meta("campus_boundary", true)
+		boundary.set_meta("campus_capacity", capacity)
+		boundary.set_meta("campus_type_id", str(summary.get("type_id", "type_1")))
+		content.add_child(boundary)
+		_include_campus_rect(Rect2(boundary.position, boundary.size), campus_index)
 
 func _add_campus_markers() -> void:
 	for summary: Dictionary in _campus_summaries:
 		var campus_index := int(summary.get("index", 0))
 		var marker := PanelContainer.new()
 		marker.name = "CampusMarker_%d" % campus_index
-		marker.position = Vector2(238, _campus_origin_y(campus_index) - 70.0)
-		marker.size = Vector2(328, 54)
+		marker.position = Vector2(167, _campus_origin_y(campus_index) - 70.0)
+		marker.size = Vector2(470, 54)
 		marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		marker.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("18344d"), 0.90, 18, Color(ThemeMaker.COLORS.ivory, 0.36)))
 		marker.set_meta("campus_index", campus_index)
@@ -524,7 +557,9 @@ func _add_campus_markers() -> void:
 		label.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
 		label.add_theme_constant_override("outline_size", 3)
 		var building_count := int(summary.get("building_count", 0))
-		label.text = tr("CAMPUS_WORLD_EMPTY") % (campus_index + 1) if building_count == 0 else tr("CAMPUS_WORLD_SUMMARY") % [campus_index + 1, building_count, Game.format_number(float(summary.get("income", 0.0)))]
+		var type_name := tr(str(summary.get("type_name_key", "CAMPUS_TYPE_STANDARD")))
+		var land_premium := int(round((float(summary.get("land_price_multiplier", 1.0)) - 1.0) * 100.0))
+		label.text = tr("CAMPUS_WORLD_TYPE_SUMMARY") % [type_name, building_count, int(summary.get("capacity", PLOTS_PER_CAMPUS)), land_premium, Game.format_number(float(summary.get("income", 0.0)))]
 		marker.add_child(label)
 		content.add_child(marker)
 		_include_campus_rect(Rect2(marker.position, marker.size), campus_index)
@@ -542,7 +577,9 @@ func _add_campus_paths(plots: Array) -> void:
 	if texture == null:
 		return
 	for campus_index: int in range(_campus_count_for_slots(slot_count)):
-		var campus_slots := mini(PLOTS_PER_CAMPUS, slot_count - campus_index * PLOTS_PER_CAMPUS)
+		var campus_layout := _campus_layout_for_index(campus_index)
+		var first_slot := int(campus_layout.get("start_plot_index", 1)) - 1
+		var campus_slots := mini(int(campus_layout.get("capacity", PLOTS_PER_CAMPUS)), slot_count - first_slot)
 		var row_count := int(ceili(float(campus_slots) / 2.0))
 		for row: int in range(maxi(0, row_count - 1)):
 			_add_campus_junction(campus_index, row, texture, asset_id, uses_iso_asset)
@@ -645,7 +682,9 @@ func _pylon_deco_position(plot_origin: Vector2, dimensions: Vector2, column: int
 func _distance_to_campus_lanes(point: Vector2, slot_count: int) -> float:
 	var nearest := INF
 	for campus_index: int in range(_campus_count_for_slots(slot_count)):
-		var campus_slots := mini(PLOTS_PER_CAMPUS, slot_count - campus_index * PLOTS_PER_CAMPUS)
+		var campus_layout := _campus_layout_for_index(campus_index)
+		var first_slot := int(campus_layout.get("start_plot_index", 1)) - 1
+		var campus_slots := mini(int(campus_layout.get("capacity", PLOTS_PER_CAMPUS)), slot_count - first_slot)
 		var row_count := int(ceili(float(campus_slots) / 2.0))
 		for row: int in range(maxi(0, row_count - 1)):
 			var center := _campus_junction_center(campus_index, row)
@@ -804,8 +843,10 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 
 func _apply_building_variant(view: TextureRect, plot_index: int) -> void:
 	var variant := posmod(plot_index, 2)
-	var degrees := -5.0 if variant == 0 else 5.0
-	view.flip_h = variant == 1
+	var degrees := -2.0 if variant == 0 else 2.0
+	# All buildings share one authored isometric camera and entrance direction.
+	# Mirroring alternate columns makes long grids look like opposing chess pieces.
+	view.flip_h = false
 	view.set_meta("building_variant", variant)
 	view.set_meta("hue_shift_degrees", degrees)
 	if _building_variant_shader == null:
@@ -939,23 +980,34 @@ func _configure_construction_timer(button: Button, label: Label, construction: D
 	_construction_labels.append({"label": label, "progress": progress, "construction_id": str(construction.get("id", "")), "started_at": started, "complete_at": completed})
 
 func _campus_count_for_slots(slot_count: int) -> int:
-	return maxi(1, int(ceili(float(slot_count) / float(PLOTS_PER_CAMPUS))))
+	return Rules.campus_count_for_slots(slot_count, DataRepository.get_table("economy"))
 
 func _campus_index_for_slot(index: int) -> int:
-	return maxi(0, index / PLOTS_PER_CAMPUS)
+	return int(_campus_layout_for_slot(index).get("campus_index", 0))
 
-func _campus_origin_y(campus_index: int) -> float:
-	return CAMPUS_TOP + float(campus_index) * CAMPUS_BLOCK_STEP
+func _campus_layout_for_slot(index: int) -> Dictionary:
+	return Rules.campus_layout_for_plot(maxi(0, index) + 1, DataRepository.get_table("economy"))
+
+func _campus_layout_for_index(campus_index: int) -> Dictionary:
+	return Rules.campus_layout_for_index(campus_index, DataRepository.get_table("economy"))
+
+func _campus_origin_y(_campus_index: int) -> float:
+	# Every campus is a tab page laid out on the same spatial grid. Inactive
+	# pages are hidden, so a hundred campuses never create a hundred-screen strip.
+	return CAMPUS_TOP
 
 func _slot_position(index: int, slot_count: int) -> Vector2:
-	var campus_index := _campus_index_for_slot(index)
-	var local_index := index % PLOTS_PER_CAMPUS
+	var layout := _campus_layout_for_slot(index)
+	var campus_index := int(layout.get("campus_index", 0))
+	var local_index := int(layout.get("local_slot", 0))
+	var first_slot := int(layout.get("start_plot_index", 1)) - 1
+	var campus_slot_count := mini(int(layout.get("capacity", PLOTS_PER_CAMPUS)), maxi(0, slot_count - first_slot))
 	var column := local_index % 2
 	var row := local_index / 2
 	# A lone final parcel sits on the campus centerline. Every complete row uses
 	# the exact same two X anchors and one shared baseline; no staggered snake is
 	# allowed to creep back into the world layout.
-	if slot_count % 2 == 1 and index == slot_count - 1:
+	if campus_slot_count % 2 == 1 and local_index == campus_slot_count - 1:
 		return Vector2((world_size.x - PLOT_SIZE.x) * 0.5, _campus_origin_y(campus_index) + row * ROW_STEP)
 	return Vector2(CAMPUS_LEFT + column * COLUMN_STEP, _campus_origin_y(campus_index) + row * ROW_STEP)
 
@@ -971,13 +1023,18 @@ func _configure_grid_slot(button: Button, slot: int, at: Vector2, slot_count: in
 	# canvas Z range. The cap guarantees even very large parks stay below pages.
 	button.z_index = 10 + mini(slot, 1024)
 	button.set_meta("grid_slot", slot)
-	var campus_index := _campus_index_for_slot(slot)
-	var local_slot := slot % PLOTS_PER_CAMPUS
-	var centered := slot_count % 2 == 1 and slot == slot_count - 1
-	button.set_meta("grid_column", -1 if centered else slot % 2)
-	button.set_meta("grid_row", campus_index * ROWS_PER_CAMPUS + local_slot / 2)
+	var layout := _campus_layout_for_slot(slot)
+	var campus_index := int(layout.get("campus_index", 0))
+	var local_slot := int(layout.get("local_slot", 0))
+	var first_slot := int(layout.get("start_plot_index", 1)) - 1
+	var campus_slot_count := mini(int(layout.get("capacity", PLOTS_PER_CAMPUS)), maxi(0, slot_count - first_slot))
+	var centered := campus_slot_count % 2 == 1 and local_slot == campus_slot_count - 1
+	button.set_meta("grid_column", -1 if centered else local_slot % 2)
+	button.set_meta("grid_row", campus_index * 100 + local_slot / 2)
 	button.set_meta("campus_index", campus_index)
 	button.set_meta("campus_row", local_slot / 2)
+	button.set_meta("campus_capacity", int(layout.get("capacity", PLOTS_PER_CAMPUS)))
+	button.set_meta("campus_type_id", str(layout.get("type_id", "type_1")))
 	button.set_meta("grid_centered", centered)
 	button.set_meta("grid_origin", at)
 	button.set_meta("grid_center", at + PLOT_SIZE * 0.5)

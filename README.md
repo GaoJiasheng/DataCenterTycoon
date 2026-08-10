@@ -54,7 +54,7 @@ python3 tools/validate_data.py
 python3 tools/simulate_economy.py
 ```
 
-`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、127 项逻辑、该流程门禁和双语 31 态渲染回归。
+`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、133 项逻辑、该流程门禁和双语 31 态渲染回归。性能门禁另以 100 座机房验证 13 页园区切分、单页可见集、统一建筑朝向和粒子清理。
 
 `tests/tutorial_playthrough.tscn` 只用触摸走完新手教程；`tests/full_campaign.tscn` 接着往下打——从全新存档按"月"推进，边玩边刷新真实 UI，一路走到时代 2、时代 3 和第一次上市重组，断言故障降效/修复、锁价自动续约/免费改签、退役收割、银行接管兼容、离线结算、页面切换与顶部信息带不互相遮挡，输出 `/tmp/dct_camp_*.png`。审计记录见 [docs/17_full_campaign_audit.md](docs/17_full_campaign_audit.md)。
 

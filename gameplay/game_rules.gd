@@ -12,7 +12,73 @@ static func land_price(plot_index: int, economy: Dictionary) -> float:
 	if plot_index <= int(economy.get("starting", {}).get("free_plot_count", 1)):
 		return 0.0
 	var land: Dictionary = economy.get("land", {})
-	return round(float(land.get("base_price", 500.0)) * pow(float(land.get("growth_factor", 1.55)), plot_index - 1))
+	var campus := campus_layout_for_plot(plot_index, economy)
+	var multiplier := float(campus.get("land_price_multiplier", 1.0))
+	var growth_base := 1.0 + float(land.get("growth_step", 0.55)) * float(plot_index - 1)
+	return round(float(land.get("base_price", 500.0)) * pow(growth_base, float(land.get("growth_exponent", 1.5))) * multiplier)
+
+static func campus_layout_for_plot(plot_index: int, economy: Dictionary) -> Dictionary:
+	var campuses: Dictionary = economy.get("campuses", {})
+	var types: Dictionary = campuses.get("types", {})
+	var sequence: Array = campuses.get("sequence", [])
+	if sequence.is_empty() or types.is_empty():
+		return {
+			"campus_index": maxi(0, (plot_index - 1) / 6),
+			"local_slot": maxi(0, (plot_index - 1) % 6),
+			"start_plot_index": maxi(1, ((plot_index - 1) / 6) * 6 + 1),
+			"type_id": "type_1",
+			"capacity": 6,
+			"name_key": "CAMPUS_TYPE_STANDARD",
+			"land_price_multiplier": 1.0,
+			"accent": "3aa7f0",
+		}
+	var remaining := maxi(1, plot_index)
+	var campus_index := 0
+	var start_plot_index := 1
+	for raw_type_id: Variant in sequence:
+		var type_id := str(raw_type_id)
+		var definition: Dictionary = types.get(type_id, {})
+		var capacity := maxi(1, int(definition.get("capacity", 6)))
+		if remaining <= capacity:
+			return _campus_layout_result(campus_index, remaining - 1, start_plot_index, type_id, definition, capacity)
+		remaining -= capacity
+		start_plot_index += capacity
+		campus_index += 1
+	var repeat_last := bool(campuses.get("repeat_last", true))
+	var fallback_type_id := str(sequence.back()) if repeat_last else str(sequence[posmod(campus_index, sequence.size())])
+	var fallback: Dictionary = types.get(fallback_type_id, {})
+	var fallback_capacity := maxi(1, int(fallback.get("capacity", 6)))
+	if repeat_last:
+		var extra_campuses := (remaining - 1) / fallback_capacity
+		campus_index += extra_campuses
+		start_plot_index += extra_campuses * fallback_capacity
+		remaining = (remaining - 1) % fallback_capacity + 1
+	return _campus_layout_result(campus_index, remaining - 1, start_plot_index, fallback_type_id, fallback, fallback_capacity)
+
+static func campus_layout_for_index(campus_index: int, economy: Dictionary) -> Dictionary:
+	var target := maxi(0, campus_index)
+	var plot_index := 1
+	var current := 0
+	while current < target:
+		var layout := campus_layout_for_plot(plot_index, economy)
+		plot_index += maxi(1, int(layout.get("capacity", 6)))
+		current += 1
+	return campus_layout_for_plot(plot_index, economy)
+
+static func campus_count_for_slots(slot_count: int, economy: Dictionary) -> int:
+	return int(campus_layout_for_plot(maxi(1, slot_count), economy).get("campus_index", 0)) + 1
+
+static func _campus_layout_result(campus_index: int, local_slot: int, start_plot_index: int, type_id: String, definition: Dictionary, capacity: int) -> Dictionary:
+	return {
+		"campus_index": campus_index,
+		"local_slot": local_slot,
+		"start_plot_index": start_plot_index,
+		"type_id": type_id,
+		"capacity": capacity,
+		"name_key": str(definition.get("name_key", "CAMPUS_TYPE_STANDARD")),
+		"land_price_multiplier": float(definition.get("land_price_multiplier", 1.0)),
+		"accent": str(definition.get("accent", "3aa7f0")),
+	}
 
 static func age_progress(datacenter: Dictionary, simulation_seconds: float, buildings: Dictionary) -> float:
 	if datacenter.is_empty() or datacenter.get("status", "") == "ruined":

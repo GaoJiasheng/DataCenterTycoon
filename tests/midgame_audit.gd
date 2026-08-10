@@ -213,11 +213,11 @@ func _assert_building_variants() -> void:
 			"hue": float(art.get_meta("hue_shift_degrees", 0.0)),
 			"material": art.material,
 		}
-	_expect(seen.has(0) and seen.has(1), "M12 repeated same-tier buildings must alternate between two stable presentation variants")
+	_expect(seen.has(0) and seen.has(1), "M12 repeated same-tier buildings may retain two subtle color-grade variants")
 	if seen.has(0) and seen.has(1):
 		var first: Dictionary = seen[0]
 		var second: Dictionary = seen[1]
-		_expect(bool(first.get("flip", false)) != bool(second.get("flip", false)) and absf(float(first.get("hue", 0.0)) - float(second.get("hue", 0.0))) >= 9.9 and first.get("material") is ShaderMaterial and second.get("material") is ShaderMaterial, "M12 variants must combine mirroring with a subtle ten-degree hue spread")
+		_expect(not bool(first.get("flip", true)) and not bool(second.get("flip", true)) and absf(float(first.get("hue", 0.0)) - float(second.get("hue", 0.0))) <= 4.1 and first.get("material") is ShaderMaterial and second.get("material") is ShaderMaterial, "M12 every building must keep the authored isometric orientation; color variation stays below four degrees")
 
 func _assert_alert_badge(alert_type: String, expected_tone: String, breathing: bool) -> void:
 	var badge := _alert_badge(alert_type)

@@ -51,9 +51,9 @@ var shell_header: PanelContainer
 var news_panel: PanelContainer
 var navigation_panel: PanelContainer
 var campus_switcher: PanelContainer
-var campus_switch_label: Label
-var campus_previous_button: Button
-var campus_next_button: Button
+var campus_tab_scroll: ScrollContainer
+var campus_tab_row: HBoxContainer
+var _campus_tab_signature := ""
 var era_icon: TextureRect
 var company_label: Label
 var primary_action_button: Button
@@ -392,74 +392,93 @@ func _build_campus_switcher(stage: Control) -> void:
 	campus_switcher = PanelContainer.new()
 	campus_switcher.name = "CampusSwitcher"
 	campus_switcher.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	campus_switcher.offset_left = 210
+	campus_switcher.offset_left = 106
 	campus_switcher.offset_top = 166
-	campus_switcher.offset_right = -210
-	campus_switcher.offset_bottom = 254
+	campus_switcher.offset_right = -106
+	campus_switcher.offset_bottom = 262
 	campus_switcher.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("162b40"), 0.94, 24, Color(ThemeMaker.COLORS.ivory, 0.34)))
 	campus_switcher.mouse_filter = Control.MOUSE_FILTER_STOP
 	campus_switcher.visible = false
 	stage.add_child(campus_switcher)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	campus_switcher.add_child(row)
-	campus_previous_button = Button.new()
-	campus_previous_button.name = "CampusPrevious"
-	campus_previous_button.text = "<"
-	campus_previous_button.custom_minimum_size = Vector2(88, 88)
-	campus_previous_button.tooltip_text = tr("CAMPUS_PREVIOUS")
-	campus_previous_button.pressed.connect(_step_campus.bind(-1))
-	ThemeMaker.apply_compact_button(campus_previous_button, ThemeMaker.COLORS.sky)
-	campus_previous_button.add_theme_font_size_override("font_size", 38)
-	campus_previous_button.add_theme_color_override("font_color", Color.WHITE)
-	campus_previous_button.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
-	campus_previous_button.add_theme_constant_override("outline_size", 4)
-	row.add_child(campus_previous_button)
-	var overview_button := Button.new()
-	overview_button.name = "CampusOverviewButton"
-	overview_button.custom_minimum_size.y = 88
-	overview_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	overview_button.tooltip_text = tr("CAMPUS_OVERVIEW")
-	overview_button.pressed.connect(_show_campus_overview)
-	ThemeMaker.apply_compact_button(overview_button, ThemeMaker.COLORS.sky)
-	row.add_child(overview_button)
-	campus_switch_label = _label("", 22, Color.WHITE)
-	campus_switch_label.name = "CampusSwitchLabel"
-	campus_switch_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	campus_switch_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	campus_switch_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	campus_switch_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overview_button.add_child(campus_switch_label)
-	campus_next_button = Button.new()
-	campus_next_button.name = "CampusNext"
-	campus_next_button.text = ">"
-	campus_next_button.custom_minimum_size = Vector2(88, 88)
-	campus_next_button.tooltip_text = tr("CAMPUS_NEXT")
-	campus_next_button.pressed.connect(_step_campus.bind(1))
-	ThemeMaker.apply_compact_button(campus_next_button, ThemeMaker.COLORS.sky)
-	campus_next_button.add_theme_font_size_override("font_size", 38)
-	campus_next_button.add_theme_color_override("font_color", Color.WHITE)
-	campus_next_button.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
-	campus_next_button.add_theme_constant_override("outline_size", 4)
-	row.add_child(campus_next_button)
+	campus_tab_scroll = ScrollContainer.new()
+	campus_tab_scroll.name = "CampusTabScroll"
+	campus_tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	campus_tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	campus_tab_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	campus_switcher.add_child(campus_tab_scroll)
+	var horizontal_bar := campus_tab_scroll.get_h_scroll_bar()
+	horizontal_bar.modulate.a = 0.0
+	horizontal_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	horizontal_bar.custom_minimum_size.y = 0.0
+	campus_tab_row = HBoxContainer.new()
+	campus_tab_row.name = "CampusTabs"
+	campus_tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	campus_tab_row.add_theme_constant_override("separation", 8)
+	campus_tab_scroll.add_child(campus_tab_row)
 
 func _on_campus_changed(_index: int, _count: int) -> void:
 	_refresh_campus_switcher()
+	call_deferred("_reflow_market_banners")
 
 func _refresh_campus_switcher() -> void:
-	if campus_switcher == null or park_map == null:
+	if campus_switcher == null or campus_tab_row == null or park_map == null:
 		return
 	var count := park_map.campus_count()
 	var index := park_map.active_campus_index()
-	campus_switcher.visible = active_page == "map" and count > 1
-	campus_switch_label.text = tr("CAMPUS_SWITCH_FORMAT") % [index + 1, count]
-	campus_previous_button.disabled = index <= 0
-	campus_next_button.disabled = index >= count - 1
+	campus_switcher.visible = active_page == "map"
+	var summaries := park_map.campus_summaries()
+	var signature := "%s:%d:%s" % [TranslationServer.get_locale(), count, ",".join(summaries.map(func(summary: Dictionary) -> String: return str(summary.get("type_id", ""))))]
+	if signature != _campus_tab_signature:
+		_campus_tab_signature = signature
+		for child: Node in campus_tab_row.get_children():
+			campus_tab_row.remove_child(child)
+			child.queue_free()
+		for summary: Dictionary in summaries:
+			var campus_index := int(summary.get("index", 0))
+			var tab := Button.new()
+			tab.name = "CampusTab_%d" % campus_index
+			tab.text = tr("CAMPUS_TAB_FORMAT") % (campus_index + 1)
+			tab.tooltip_text = "%s · %s" % [tr(str(summary.get("type_name_key", "CAMPUS_TYPE_STANDARD"))), tr("CAMPUS_CAPACITY_DETAIL") % [int(summary.get("capacity", 6)), int(round((float(summary.get("land_price_multiplier", 1.0)) - 1.0) * 100.0))]]
+			tab.custom_minimum_size = Vector2(174, 88)
+			tab.pressed.connect(_select_campus_tab.bind(campus_index))
+			campus_tab_row.add_child(tab)
+		var overview_button := Button.new()
+		overview_button.name = "CampusOverviewButton"
+		overview_button.text = ""
+		overview_button.icon = AssetCatalog.texture("ic_operations")
+		overview_button.expand_icon = true
+		overview_button.add_theme_constant_override("icon_max_width", 44)
+		overview_button.tooltip_text = tr("CAMPUS_OVERVIEW")
+		overview_button.custom_minimum_size = Vector2(88, 88)
+		overview_button.pressed.connect(_show_campus_overview)
+		ThemeMaker.apply_compact_button(overview_button, ThemeMaker.COLORS.sky)
+		campus_tab_row.add_child(overview_button)
+		# One and two-campus states center naturally; only 3+ campuses overflow
+		# into a swipeable strip. No permanently visible desktop-style scrollbar.
+		campus_tab_row.custom_minimum_size.x = float(count) * 174.0 + float(count) * 8.0 + 88.0
+	for child: Node in campus_tab_row.get_children():
+		if child is Button and child.name.begins_with("CampusTab_"):
+			var tab_index := int(str(child.name).trim_prefix("CampusTab_"))
+			ThemeMaker.apply_tab_style(child as Button, tab_index == index)
+			(child as Button).add_theme_font_override("font", ThemeMaker.font_bold())
+			(child as Button).add_theme_font_size_override("font_size", 22)
+			(child as Button).add_theme_color_override("font_color", Color.WHITE)
+			(child as Button).add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+			(child as Button).add_theme_constant_override("outline_size", 3)
+			if tab_index == index:
+				call_deferred("_ensure_campus_tab_visible", tab_index)
 
-func _step_campus(delta: int) -> void:
+func _ensure_campus_tab_visible(index: int) -> void:
+	if campus_tab_scroll == null or not is_instance_valid(campus_tab_scroll):
+		return
+	var tab := campus_tab_row.find_child("CampusTab_%d" % index, false, false) as Control
+	if tab != null and campus_tab_scroll.is_ancestor_of(tab):
+		campus_tab_scroll.ensure_control_visible(tab)
+
+func _select_campus_tab(index: int) -> void:
 	if park_map == null:
 		return
-	park_map.focus_campus(park_map.active_campus_index() + delta)
+	park_map.focus_campus(index)
 	_haptic(HAPTIC_LIGHT)
 
 func _show_campus_overview() -> void:
@@ -472,9 +491,12 @@ func _show_campus_overview() -> void:
 		var alert_count := int(summary.get("alert_count", 0))
 		var text := tr("CAMPUS_OVERVIEW_CARD") % [
 			campus_index + 1,
+			tr(str(summary.get("type_name_key", "CAMPUS_TYPE_STANDARD"))),
 			int(summary.get("building_count", 0)),
+			int(summary.get("capacity", 6)),
 			Game.format_number(float(summary.get("income", 0.0))),
 			alert_count,
+			int(round((float(summary.get("land_price_multiplier", 1.0)) - 1.0) * 100.0)),
 		]
 		choices.append({
 			"id": "campus_%d" % campus_index,
@@ -1002,6 +1024,7 @@ func _refresh_park_world() -> void:
 		return
 	_last_map_signature = signature
 	park_map.setup(Game.state.get("plots", []))
+	call_deferred("_reflow_market_banners")
 
 func _clear_page_host() -> void:
 	for child: Node in page_host.get_children():
@@ -1983,6 +2006,12 @@ func _refresh_tutorial() -> void:
 	tutorial_overlay.set_meta("target_source", str(target.get("source", "none")))
 	tutorial_overlay.set_meta("resolved_target_rect", rect)
 	tutorial_overlay.set_meta("target_node", str(target.get("target_node", "")))
+	# World sheets are created after the persistent tutorial overlay. Godot GUI
+	# picking follows sibling order before visual z-index, so a later drawer could
+	# swallow a tap inside the highlighted section even though the cyan guide was
+	# visibly above it. Keep the coach last while it is actionable so the whole
+	# spotlight aperture routes to the one authoritative tutorial action.
+	move_child(tutorial_overlay, get_child_count() - 1)
 	tutorial_overlay.present(rect, copy, guide_assets[mini(index, guide_assets.size() - 1)], action, target.get("foreground", Rect2()))
 	tutorial_hint_button.visible = false
 	_set_tutorial_chrome_visibility(false, focus)
@@ -3735,6 +3764,18 @@ func _market_banner_rest_y() -> float:
 			continue
 		rest = maxf(rest, control.get_global_rect().end.y - global_position.y + 12.0)
 	return rest
+
+func _reflow_market_banners() -> void:
+	var rest_y := _market_banner_rest_y()
+	for node: Node in get_tree().get_nodes_in_group(MARKET_BANNER_GROUP):
+		var banner := node as Control
+		if banner == null or banner.get_parent() != self:
+			continue
+		banner.set_meta("rest_y", rest_y)
+		# Do not interrupt the off-screen entrance. Once visible, keep the live
+		# banner below a campus page whose bounds or camera framing just changed.
+		if banner.position.y >= 0.0:
+			banner.position.y = rest_y
 
 func _retire_market_banners() -> void:
 	for node: Node in get_tree().get_nodes_in_group(MARKET_BANNER_GROUP):

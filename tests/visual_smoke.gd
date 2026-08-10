@@ -89,20 +89,34 @@ func _ready() -> void:
 	main.park_map.setup(mixed_plots)
 	valid = (await _capture(main, "campus_mixed")) and valid
 	var dense_plots: Array[Dictionary] = []
-	for index: int in range(6):
+	for index: int in range(13):
 		var dense_dc := dc.duplicate(true)
 		dense_dc["id"] = "visual_dc_%d" % index
-		dense_dc["building_id"] = "dc_t%d" % mini(index, 3)
+		dense_dc["building_id"] = "dc_t%d" % mini(index % 4, 3)
 		dense_dc["power_unit"] = "power_t1"
 		dense_plots.append({"id": "visual_plot_%d" % index, "index": index + 1, "status": "operational", "datacenter": dense_dc})
-	main.park_map.setup(dense_plots)
-	valid = (await _capture(main, "campus_dense")) and valid
+	# Keep the fixture authoritative: the world sale badge, primary CTA, tabs and
+	# overview must all calculate the same 14th-plot price and two-campus state.
+	var canonical_plots: Array = Game.state["plots"]
+	var canonical_cash := float(Game.state["player"].get("cash", 0.0))
+	Game.state["plots"] = dense_plots
+	Game.state["player"]["cash"] = 2000000.0
+	main.set("_last_map_signature", "")
+	main.call("_refresh")
+	await get_tree().process_frame
+	main.park_map.focus_campus(1, false)
+	valid = (await _capture(main, "campus_dense", false)) and valid
 	main.call("_show_campus_overview")
 	valid = (await _capture(main, "campus_overview", false)) and valid
 	var campus_overview := main.find_child("ActionSheetOverlay", true, false)
 	if campus_overview != null:
 		campus_overview.queue_free()
 		await get_tree().process_frame
+	Game.state["plots"] = canonical_plots
+	Game.state["player"]["cash"] = canonical_cash
+	main.set("_last_map_signature", "")
+	main.call("_refresh")
+	await get_tree().process_frame
 	var alert_fault := dc.duplicate(true)
 	alert_fault["id"] = "visual_alert_fault"
 	alert_fault["power_unit"] = "power_t1"
@@ -650,17 +664,25 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if not main.find_children("PlotFoundation", "TextureRect", true, false).is_empty():
 			push_error("VISUAL_SMOKE: occupied campus still stacks a second non-parallel pad under integrated building plinths")
 			valid = false
-		if grid_slots.size() != 7:
-			push_error("VISUAL_SMOKE: dense campus plots and sale pad do not share seven explicit grid slots: %d" % grid_slots.size())
+		if grid_slots.size() != 14:
+			push_error("VISUAL_SMOKE: two typed campuses do not expose thirteen owned plots plus one sale slot: %d" % grid_slots.size())
 			valid = false
 		var campus_switcher := main.find_child("CampusSwitcher", true, false) as Control
 		var campus_markers := main.find_children("CampusMarker_*", "PanelContainer", true, false)
+		var campus_boundaries := main.find_children("CampusBoundary_*", "PanelContainer", true, false)
+		var campus_tabs := main.find_children("CampusTab_*", "Button", true, false)
+		var expansion_boundary := main.find_child("CampusBoundary_1", true, false) as PanelContainer
+		var active_marker := main.find_child("CampusMarker_1", true, false) as PanelContainer
+		var active_marker_label := active_marker.find_child("CampusMarkerLabel", true, false) as Label if active_marker != null else null
 		var visible_plot_count := 0
 		for plot_node: Node in main.park_map.content.get_children():
 			if plot_node is Button and plot_node.has_meta("grid_slot") and (plot_node as Control).visible:
 				visible_plot_count += 1
-		if campus_switcher == null or not campus_switcher.visible or campus_markers.size() != 2 or visible_plot_count != 6:
-			push_error("VISUAL_SMOKE: scalable campus paging is not exposing one six-plot district and its overview control switcher=%s markers=%d plots=%d" % [str(campus_switcher != null and campus_switcher.visible), campus_markers.size(), visible_plot_count])
+		if campus_switcher == null or not campus_switcher.visible or campus_markers.size() != 2 or campus_boundaries.size() != 2 or campus_tabs.size() != 2 or visible_plot_count != 8:
+			push_error("VISUAL_SMOKE: typed campus tabs are not isolating one eight-slot expansion page switcher=%s markers=%d boundaries=%d tabs=%d plots=%d" % [str(campus_switcher != null and campus_switcher.visible), campus_markers.size(), campus_boundaries.size(), campus_tabs.size(), visible_plot_count])
+			valid = false
+		if expansion_boundary == null or int(expansion_boundary.get_meta("campus_capacity", 0)) != 8 or active_marker_label == null or "+8%" not in active_marker_label.text:
+			push_error("VISUAL_SMOKE: expansion page does not disclose its eight-slot boundary and modest +8% land premium")
 			valid = false
 		if prop_types.size() < 4:
 			push_error("VISUAL_SMOKE: dense campus exposes fewer than four environment prop types: %d" % prop_types.size())
