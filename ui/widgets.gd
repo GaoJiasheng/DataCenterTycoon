@@ -18,10 +18,15 @@ static func button(text: String, action: Callable, role: String = "secondary") -
 
 static func close_button(action: Callable) -> Button:
 	var control := button("×", action, "secondary")
+	control.name = "CloseButton"
 	control.custom_minimum_size = Vector2(ThemeMaker.TOUCH_MIN, ThemeMaker.TOUCH_MIN)
 	control.size_flags_horizontal = Control.SIZE_SHRINK_END
-	control.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.title)
+	# The 88u target stays unchanged; only the glyph grows so the close affordance
+	# reads immediately on a phone instead of looking like punctuation in a box.
+	control.add_theme_font_override("font", ThemeMaker.font_bold())
+	control.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.display)
 	control.add_theme_constant_override("outline_size", 4)
+	control.set_meta("large_close_glyph", true)
 	control.add_theme_stylebox_override("normal", ThemeMaker.round_button_box(Color("263d59")))
 	control.add_theme_stylebox_override("hover", ThemeMaker.round_button_box(Color("365572")))
 	control.add_theme_stylebox_override("pressed", ThemeMaker.round_button_box(Color("1c3047"), true))

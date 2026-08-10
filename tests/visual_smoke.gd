@@ -903,11 +903,23 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			valid = false
 	valid = _typography_and_touch_are_safe(main, state_name) and valid
 	valid = _typography_roles_are_valid(main, state_name) and valid
+	valid = _close_glyphs_are_readable(main, state_name) and valid
 	valid = _viewport_bounded_surfaces_are_safe(main, state_name) and valid
 	valid = _text_is_within_clipping_ancestors(main, state_name) and valid
 	valid = _sibling_labels_do_not_overlap(main, state_name) and valid
 	valid = _panel_content_is_not_compressed(main, state_name) and valid
 	valid = _button_text_contrast_is_safe(main, state_name) and valid
+	return valid
+
+func _close_glyphs_are_readable(main: Node, state_name: String) -> bool:
+	var valid := true
+	for node: Node in main.find_children("*", "Button", true, false):
+		var close := node as Button
+		if close == null or not close.is_visible_in_tree() or not close.has_meta("large_close_glyph"):
+			continue
+		if close.text != "×" or close.get_theme_font_size("font_size") < ThemeFactory.TYPE_SCALE.display or close.get_theme_font("font") != ThemeFactory.font_bold() or not bool(close.get_meta("large_close_glyph", false)):
+			push_error("VISUAL_SMOKE: %s close button glyph is not the shared large bold ×" % state_name)
+			valid = false
 	return valid
 
 func _viewport_bounded_surfaces_are_safe(main: Node, state_name: String) -> bool:
