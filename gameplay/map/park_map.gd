@@ -13,14 +13,14 @@ signal campus_changed(index: int, count: int)
 const MIN_ZOOM := 0.7
 const MAX_ZOOM := 1.45
 const PLOT_SIZE := Vector2(344, 260)
-const PLOT_LANE := 40.0
+const PLOT_LANE := 8.0
 const CAMPUS_LEFT := 38.0
 const CAMPUS_TOP := 88.0
-const COLUMN_STEP := 384.0 # PLOT_SIZE.x + PLOT_LANE
-const ROW_STEP := 300.0 # PLOT_SIZE.y + PLOT_LANE
+const COLUMN_STEP := 352.0 # PLOT_SIZE.x + one compact 8u gutter.
+const ROW_STEP := 252.0 # A slight overlap keeps integrated plinths visually grouped.
 const PLOTS_PER_CAMPUS := 6
 const ROWS_PER_CAMPUS := 3
-const CAMPUS_BLOCK_STEP := 1040.0
+const CAMPUS_BLOCK_STEP := 860.0
 const ROAD_JUNCTION_SIZE := 128.0
 const ROAD_AXIS_HALF := Vector2(64.0, 32.0)
 const DECO_LANE_CLEARANCE := 20.0
@@ -235,7 +235,6 @@ func setup(plots: Array) -> void:
 	_active_campus_index = clampi(_active_campus_index, 0, _campus_count - 1)
 	_campus_summaries = _build_campus_summaries(plots, slot_count)
 	_add_campus_markers()
-	_add_campus_paths(plots)
 	_add_environment_props(plots)
 	_add_decorations(slot_count)
 	for index: int in range(plots.size()):
@@ -1012,22 +1011,34 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", pressed)
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	if asset_id.begins_with("dc_"):
-		_add_owned_plot_base(button, asset_id)
 	var view := TextureRect.new()
 	view.name = "WorldArt"
 	view.set_meta("world_asset_id", asset_id)
 	if asset_id.begins_with("dc_"):
-		# Building exports carry no directional cast shadow. Every tier inherits the
-		# same contact shadow from PlotFoundation, preventing per-tier light drift.
-		view.set_meta("shadow_policy", "foundation_only")
+		# Production buildings already include a complete concrete plinth. Layering
+		# a second generated pad underneath created two conflicting perspective
+		# diamonds. One integrated footprint gives every tier a shared center and
+		# contact baseline without another set of non-parallel edges.
+		view.set_meta("shadow_policy", "integrated_footprint")
+		view.set_meta("footprint_policy", "integrated")
 	var texture := AssetCatalog.texture(asset_id)
 	view.texture = _visible_world_texture(texture)
 	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	view.position = Vector2(12, -2)
-	view.size = Vector2(PLOT_SIZE.x - 24, 224)
+	var art_bounds := Vector2(PLOT_SIZE.x - 24.0, 224.0)
+	var rendered_size := art_bounds
+	if view.texture != null and view.texture.get_size().x > 0.0 and view.texture.get_size().y > 0.0:
+		var fit_scale := minf(art_bounds.x / view.texture.get_size().x, art_bounds.y / view.texture.get_size().y)
+		rendered_size = view.texture.get_size() * fit_scale
+	# Size every sprite to its real aspect ratio, then bottom-anchor the rendered
+	# alpha crop at one 222u contact line. This is stronger than centering every
+	# texture inside the same box: wide and tall tiers now physically land on the
+	# same row baseline instead of merely sharing a nominal Control rectangle.
+	view.size = rendered_size
+	view.position = Vector2((PLOT_SIZE.x - rendered_size.x) * 0.5, 222.0 - rendered_size.y)
+	view.set_meta("grid_center_x", view.position.x + view.size.x * 0.5)
+	view.set_meta("contact_baseline_y", view.position.y + view.size.y)
 	view.pivot_offset = Vector2(view.size.x * 0.5, view.size.y * 0.82)
 	button.add_child(view)
 	if asset_id.ends_with("_active"):

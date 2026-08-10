@@ -578,39 +578,34 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			valid = false
 	if state_name in ["map_built", "campus_dense", "world_alerts"]:
 		var building_count := main.find_children("WorldArt", "TextureRect", true, false).size()
-		var foundation_count := main.find_children("PlotFoundation", "TextureRect", true, false).size()
 		var expected_min := 6 if state_name == "campus_dense" else (3 if state_name == "world_alerts" else 1)
-		if building_count < expected_min or foundation_count < expected_min:
-			push_error("VISUAL_SMOKE: %s lacks unified plot foundations or building art %d/%d" % [state_name, foundation_count, building_count])
+		if building_count < expected_min:
+			push_error("VISUAL_SMOKE: %s lacks expected world building art %d" % [state_name, building_count])
 			valid = false
 		if not main.find_children("BuildingGroundShadow", "Polygon2D", true, false).is_empty():
 			push_error("VISUAL_SMOKE: %s retains a duplicate procedural shadow over A2 baked shadows" % state_name)
 			valid = false
+		var building_baseline := -INF
 		for building_node: Node in main.find_children("WorldArt", "TextureRect", true, false):
 			var building_art := building_node as TextureRect
 			var asset_id := str(building_art.get_meta("world_asset_id", ""))
-			if asset_id.begins_with("dc_") and str(building_art.get_meta("shadow_policy", "")) != "foundation_only":
-				push_error("VISUAL_SMOKE: W4 building tier escaped the shared foundation-only shadow policy: %s" % asset_id)
-				valid = false
+			if asset_id.begins_with("dc_"):
+				var baseline := float(building_art.get_meta("contact_baseline_y", -1.0))
+				if str(building_art.get_meta("shadow_policy", "")) != "integrated_footprint" or str(building_art.get_meta("footprint_policy", "")) != "integrated" or not is_equal_approx(float(building_art.get_meta("grid_center_x", -1.0)), ParkMap.PLOT_SIZE.x * 0.5):
+					push_error("VISUAL_SMOKE: building tier escaped the integrated centered-footprint contract: %s" % asset_id)
+					valid = false
+				if building_baseline > -INF and not is_equal_approx(baseline, building_baseline):
+					push_error("VISUAL_SMOKE: building tiers do not share one contact baseline: %s" % asset_id)
+					valid = false
+				building_baseline = baseline
 	if state_name == "campus_dense":
 		var junctions := main.find_children("CampusJunction_*", "TextureRect", true, false)
-		var production_junction_count := 0
-		for junction_node: Node in junctions:
-			var junction := junction_node as TextureRect
-			var campus_index := int(junction.get_meta("campus_index", -1))
-			var row := int(junction.get_meta("junction_row", -1))
-			var expected_center: Vector2 = main.park_map.call("campus_junction_center_for_row", campus_index, row)
-			var actual_center: Vector2 = junction.get_meta("junction_center", Vector2.ZERO)
-			if bool(junction.get_meta("using_iso_asset", false)):
-				production_junction_count += 1
-			if not bool(junction.get_meta("world_lane", false)) or campus_index < 0 or row < 0 or actual_center.distance_to(expected_center) > 0.5 or not junction.size.is_equal_approx(Vector2.ONE * ParkMap.ROAD_JUNCTION_SIZE) or not is_zero_approx(junction.rotation):
-				push_error("VISUAL_SMOKE: dense campus junction escaped its centered 2:1 grid anchor: %s" % junction.name)
-				valid = false
-			var axis_a: Vector2 = Vector2(junction.get_meta("axis_a_to", Vector2.ZERO)) - Vector2(junction.get_meta("axis_a_from", Vector2.ZERO))
-			var axis_b: Vector2 = Vector2(junction.get_meta("axis_b_to", Vector2.ZERO)) - Vector2(junction.get_meta("axis_b_from", Vector2.ZERO))
-			if not is_equal_approx(absf(axis_a.y / axis_a.x), 0.5) or not is_equal_approx(absf(axis_b.y / axis_b.x), 0.5):
-				push_error("VISUAL_SMOKE: dense campus junction axes are not 2:1: %s" % junction.name)
-				valid = false
+		if not junctions.is_empty():
+			push_error("VISUAL_SMOKE: dense campus still inserts disconnected road crosses between compact rows")
+			valid = false
+		if ParkMap.COLUMN_STEP - ParkMap.PLOT_SIZE.x > 8.0 or ParkMap.ROW_STEP > ParkMap.PLOT_SIZE.y:
+			push_error("VISUAL_SMOKE: dense campus escaped the compact two-column grid contract")
+			valid = false
 		var prop_types: Dictionary = {}
 		var environment_count := 0
 		var grid_slots: Dictionary = {}
@@ -652,17 +647,8 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				if not bool(only.get_meta("grid_centered", false)) or not is_equal_approx(only.position.x + only.size.x * 0.5, main.park_map.world_size.x * 0.5):
 					push_error("VISUAL_SMOKE: lone campus row %d is not centered" % row)
 					valid = false
-		if junctions.size() != 2:
-			push_error("VISUAL_SMOKE: dense campus lacks one centered junction per row gap: %d" % junctions.size())
-			valid = false
-		if production_junction_count != junctions.size():
-			push_error("VISUAL_SMOKE: dense campus still uses fallback orthographic junctions: production=%d/%d" % [production_junction_count, junctions.size()])
-			valid = false
-		var foundation_assets: Dictionary = {}
-		for foundation_node: Node in main.find_children("PlotFoundation", "TextureRect", true, false):
-			foundation_assets[str(foundation_node.get_meta("plot_pad_asset_id", ""))] = true
-		if not foundation_assets.has("plot_pad_std") or not foundation_assets.has("plot_pad_large"):
-			push_error("VISUAL_SMOKE: dense campus is not using both production foundation classes: %s" % str(foundation_assets.keys()))
+		if not main.find_children("PlotFoundation", "TextureRect", true, false).is_empty():
+			push_error("VISUAL_SMOKE: occupied campus still stacks a second non-parallel pad under integrated building plinths")
 			valid = false
 		if grid_slots.size() != 7:
 			push_error("VISUAL_SMOKE: dense campus plots and sale pad do not share seven explicit grid slots: %d" % grid_slots.size())
