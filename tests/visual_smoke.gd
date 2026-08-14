@@ -350,6 +350,11 @@ func _ready() -> void:
 		main.call("_navigate", page)
 		if page == "tech":
 			main.call("_set_tech_section", "upgrades")
+			await get_tree().process_frame
+			var tech_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+			var bays_card := main.find_child("ConstructionBaysCard", true, false) as Control
+			if tech_scroll != null and bays_card != null:
+				tech_scroll.ensure_control_visible(bays_card)
 		valid = (await _capture(main, page)) and valid
 		if page == "store":
 			valid = (await _scroll_survives_tick(main)) and valid
@@ -1009,6 +1014,9 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 	if state_name == "tech":
 		if main.find_children("EraNode_*", "PanelContainer", true, false).size() != 3 or main.find_child("EraUnlockPreview", true, false) == null or main.find_child("PrestigeProgressBar", true, false) == null:
 			push_error("VISUAL_SMOKE: tech page lacks the three-era route or prestige progress")
+			valid = false
+		if main.find_child("ConstructionBaysCard", true, false) == null:
+			push_error("VISUAL_SMOKE: tech page lacks the Engineering expansion path")
 			valid = false
 		var affordability_count := 0
 		for button_node: Node in main.find_children("*", "Button", true, false):

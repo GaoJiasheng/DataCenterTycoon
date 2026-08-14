@@ -125,7 +125,33 @@ func _run_campaign() -> void:
 	_expect(retired, "no site ever became old enough to retire — the rebuild loop is unreachable")
 	_expect(str(Game.state.get("bankruptcy", {}).get("status", "normal")) in ["normal", "arrears"], "a reasonably played campaign never enters an unreachable failure state")
 	_expect(_era_overlays_seen >= 2, "both era unlocks must announce themselves (saw %d)" % _era_overlays_seen)
+	_verify_construction_bays_in_run()
 	await _tour_pages()
+
+func _verify_construction_bays_in_run() -> void:
+	# Let any natural campaign work finish, then use the earned late-game cash to
+	# exercise the same three-lane path a solvent Era-2+ player can purchase.
+	Game.advance_time(43200.0, false)
+	while _empty_plot_ids().size() < 3 and _cash() >= Game.next_plot_price():
+		if not bool(Game.buy_next_plot().get("ok", false)):
+			break
+	var upgrade := Game.purchase_construction_bays()
+	_expect(bool(upgrade.get("ok", false)) and Game.queue_capacity() == 3, "a cash-rich campaign must be able to expand Engineering to three lanes")
+	var started := 0
+	for plot_id: String in _empty_plot_ids():
+		if started >= 3:
+			break
+		if bool(Game.start_datacenter_construction(plot_id, "dc_t1").get("ok", false)):
+			started += 1
+	_expect(started == 3 and Game.state.get("construction_queue", []).size() == 3, "engineering expansion must run three real construction projects concurrently")
+	_note("month %d: Engineering expanded to %d lanes and admitted %d concurrent projects" % [_month, Game.queue_capacity(), started])
+
+func _empty_plot_ids() -> Array[String]:
+	var result: Array[String] = []
+	for plot: Dictionary in Game.state.get("plots", []):
+		if str(plot.get("status", "")) == "empty":
+			result.append(str(plot.get("id", "")))
+	return result
 
 # Buy land, build, kit out, retire, upgrade — the loop a tester repeats.
 # Returns true if anything was retired this month.
@@ -434,6 +460,7 @@ func _verify_prestige() -> void:
 	_expect(int(Game.state["player"].get("era", 1)) == before_era, "prestige must keep era progress")
 	_expect(_cash() > 0.0, "prestige must hand back the liquidated net worth as cash")
 	_expect(Game.state.get("plots", []).size() == 1, "prestige must reset the campus to a single plot")
+	_expect(Game.queue_capacity() == 2 and int(Game.state.get("technology", {}).get("construction_bays", 0)) == 1, "prestige must reset Engineering to its two-lane base")
 	_note("prestige: brand x%.3f, restart cash $%s" % [float(Game.state["player"].get("brand_multiplier", 1.0)), Game.format_number(_cash())])
 	await _shot("f_after_prestige")
 	# The restarted run must still be playable, not a soft-locked empty map.

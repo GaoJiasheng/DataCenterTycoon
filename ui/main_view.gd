@@ -606,7 +606,7 @@ func _refresh_hud() -> void:
 	news_panel.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(news_surface, 0.94, 20, news_accent))
 	_refresh_campus_switcher()
 	var queue_size: int = Game.state.get("construction_queue", []).size()
-	queue_badge_label.text = str(queue_size)
+	queue_badge_label.text = "%d/%d" % [queue_size, Game.queue_capacity()]
 	queue_badge_label.visible = queue_size > 0
 	var operations_count := _operations_attention_count()
 	operations_badge_label.text = str(operations_count)
@@ -980,7 +980,7 @@ func _show_operations_hub() -> void:
 	var era_id := int(Game.state.get("player", {}).get("era", 1))
 	var era := DataRepository.get_entry("eras", str(era_id))
 	var modules: Array[Dictionary] = [
-		{"id": "build", "title": tr("CONSTRUCTION_QUEUE"), "subtitle": tr("QUEUE_CAPACITY") % [queue_size, int(DataRepository.get_table("economy").get("construction", {}).get("base_queue_capacity", 2))], "asset": "ic_build", "accent": ThemeMaker.COLORS.orange if queue_size > 0 else ThemeMaker.COLORS.sky},
+		{"id": "build", "title": tr("CONSTRUCTION_QUEUE"), "subtitle": tr("QUEUE_CAPACITY") % [queue_size, Game.queue_capacity()], "asset": "ic_build", "accent": ThemeMaker.COLORS.orange if queue_size > 0 else ThemeMaker.COLORS.sky},
 		{"id": "market", "title": tr("NAV_MARKET"), "subtitle": _news_text(), "asset": "ic_market_up", "accent": ThemeMaker.COLORS.orange if not Game.state.get("market", {}).get("active", []).is_empty() else ThemeMaker.COLORS.sky},
 		{"id": "tech", "title": tr("NAV_TECH"), "subtitle": tr(era.get("name_key", "ERA_1")), "asset": "ic_tech", "accent": ThemeMaker.COLORS.purple},
 		{"id": "store", "title": tr("NAV_STORE"), "subtitle": tr("GEMS_FORMAT") % Game.format_number(float(Game.state.get("player", {}).get("gems", 0))), "asset": "ic_shop", "accent": ThemeMaker.COLORS.green},
@@ -1118,7 +1118,7 @@ func _animate_page_in(page: Control) -> void:
 
 func _build_construction_page() -> Control:
 	var box := _page_box()
-	box.add_child(_system_page_header(tr("CONSTRUCTION_QUEUE"), tr("QUEUE_CAPACITY") % [Game.state.get("construction_queue", []).size(), int(DataRepository.get_table("economy").get("construction", {}).get("base_queue_capacity", 2))], "ic_build"))
+	box.add_child(_system_page_header(tr("CONSTRUCTION_QUEUE"), tr("QUEUE_CAPACITY") % [Game.state.get("construction_queue", []).size(), Game.queue_capacity()], "ic_build"))
 	if Game.state.get("construction_queue", []).is_empty():
 		box.add_child(_empty_action_state("ic_build", tr("QUEUE_EMPTY"), tr("TUTORIAL_WELCOME"), tr("NAV_MAP"), _navigate.bind("map"), ThemeMaker.COLORS.sky))
 	for item: Dictionary in Game.state.get("construction_queue", []):
@@ -1805,6 +1805,27 @@ func _build_tech_page() -> Control:
 		Widgets.affordable_style(repair_button, repair_cost)
 		repair_box.add_child(repair_button)
 	box.add_child(repair_card)
+	var bays_config: Dictionary = DataRepository.get_table("technology").get("upgrades", {}).get("construction_bays", {})
+	var bays_level := int(Game.state.get("technology", {}).get("construction_bays", 1))
+	var bays_card := _card()
+	bays_card.name = "ConstructionBaysCard"
+	var bays_box := VBoxContainer.new()
+	bays_box.add_theme_constant_override("separation", 10)
+	bays_card.add_child(bays_box)
+	bays_box.add_child(_feature_heading("ic_build", tr(bays_config.get("name_key", "TECH_CONSTRUCTION_BAYS")), tr("TECH_CONSTRUCTION_BAYS_STATUS") % Game.queue_capacity(), ThemeMaker.COLORS.orange))
+	var next_bays: Dictionary = bays_config.get("levels", {}).get(str(bays_level + 1), {})
+	if next_bays.is_empty():
+		bays_box.add_child(_label(tr("STORE_OWNED"), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.green))
+	else:
+		var bays_cost := float(next_bays.get("cost", 0.0))
+		var bays_unlock_era := int(next_bays.get("unlock_era", era_id))
+		var bays_minimum_prestige := int(next_bays.get("minimum_prestige", 0))
+		var bays_button := _button("%s · $%s · %s" % [tr("UPGRADE"), Game.format_number(bays_cost), tr("TECH_CONSTRUCTION_BAYS_STATUS") % int(next_bays.get("queue_capacity", Game.queue_capacity()))], _purchase_construction_bays.bind(bays_unlock_era, bays_minimum_prestige), ThemeMaker.COLORS.orange)
+		if not Game.is_unlocked(next_bays):
+			_mark_explained_unavailable(bays_button, "locked", {"unlock_era": bays_unlock_era, "minimum_prestige": bays_minimum_prestige})
+		Widgets.affordable_style(bays_button, bays_cost)
+		bays_box.add_child(bays_button)
+	box.add_child(bays_card)
 	var auto_config: Dictionary = DataRepository.get_table("technology").get("upgrades", {}).get("auto_retirement", {})
 	var auto_level: Dictionary = auto_config.get("levels", {}).get("1", {})
 	var auto_owned := bool(Game.state.get("technology", {}).get("auto_retirement", false))
@@ -4300,6 +4321,9 @@ func _upgrade_network(unlock_era: int = 0) -> void:
 func _upgrade_repair(unlock_era: int = 0) -> void:
 	_handle_result(Game.upgrade_repair_team(), {"unlock_era": unlock_era})
 
+func _purchase_construction_bays(unlock_era: int = 0, minimum_prestige: int = 0) -> void:
+	_handle_result(Game.purchase_construction_bays(), {"unlock_era": unlock_era, "minimum_prestige": minimum_prestige})
+
 func _purchase_auto_retirement(unlock_era: int = 0) -> void:
 	_handle_result(Game.purchase_auto_retirement(), {"unlock_era": unlock_era})
 
@@ -4388,10 +4412,12 @@ func _reason_text(reason: String) -> String:
 
 func _failure_message(reason: String, context: Dictionary = {}) -> String:
 	if reason == "locked" and int(context.get("unlock_era", 0)) > 0:
+		if int(context.get("minimum_prestige", 0)) > int(Game.state.get("stats", {}).get("prestige_count", 0)):
+			return tr("REASON_LOCKED_PRESTIGE") % int(context.get("minimum_prestige", 0))
 		return tr("REASON_LOCKED_ERA") % int(context.get("unlock_era", 0))
 	if reason == "queue_full":
 		var queue: Array = Game.state.get("construction_queue", [])
-		var capacity := int(DataRepository.get_table("economy").get("construction", {}).get("base_queue_capacity", 2))
+		var capacity := Game.queue_capacity()
 		var earliest := INF
 		for item: Dictionary in queue:
 			earliest = minf(earliest, float(item.get("complete_at", INF)))

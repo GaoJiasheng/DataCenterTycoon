@@ -345,6 +345,10 @@ NETWORK_L3,Dedicated Line,专线接入
 NETWORK_L4,Backbone Node,骨干节点
 TECH_REPAIR_TEAM,Repair Crew,维修队
 TECH_REPAIR_TEAM_DESC,Shortens dispatch repair time.,缩短派修等待时间。
+TECH_CONSTRUCTION_BAYS,Engineering Department,工程部扩编
+TECH_CONSTRUCTION_BAYS_DESC,Add a permanent construction lane for this company.,为本轮公司增加一条建设车道。
+TECH_CONSTRUCTION_BAYS_STATUS,%d simultaneous projects,%d 个项目可同时建设
+REASON_LOCKED_PRESTIGE,Available after completing %d company rebuild.,完成第 %d 次公司重组后开放。
 TECH_AUTO_RETIREMENT,Auto Retirement,自动退役
 TECH_AUTO_RETIREMENT_DESC,At 95% lifespan automatically harvest recovery · Works offline,寿命达到 95% 时自动退役入账 · 离线也生效
 AUTO_RETIRE_MARKER,Auto at %d%%,%d%% 自动退役
@@ -439,7 +443,7 @@ REASON_REWARD_LIMIT,Reward limit reached,已达到奖励次数上限
 REASON_TICKET,No instant build tickets,没有立即完工券
 REASON_ALREADY_OWNED,Already purchased,已购买
 REASON_PURCHASE_PENDING,Purchase is already in progress,购买正在处理中
-REASON_QUEUE_FULL_DETAIL,Queue full (%d/%d). Next slot in %s. Open the build queue to wait or speed up.,建设队列已满（%d/%d）。最快 %s 后空位，可在建设队列等待或加速。
+REASON_QUEUE_FULL_DETAIL,Queue full (%d/%d). Next slot in %s. Wait or speed up; expand Engineering in Tech.,建设队列已满（%d/%d）。最快 %s 后空位；可等待、加速或前往科技扩编工程部。
 REASON_RACK_INSTALL_LIMIT_DETAIL,Two racks are already being installed here. The next slot opens in %s.,该机房已有两台机柜正在安装。最快 %s 后可以继续上架。
 REASON_NOT_ENOUGH_CASH,Not enough cash. Let income accumulate or choose a lower-cost project.,现金不足。可以先积累收入，或选择成本更低的项目。
 REASON_NOT_ENOUGH_GEMS,Not enough gems. Earn more or visit the store.,钻石不足。可以继续游玩获取，或前往商店补充。

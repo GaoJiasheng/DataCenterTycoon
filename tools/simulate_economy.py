@@ -150,6 +150,10 @@ class Simulator:
         self.sessions_per_day = 2 if strategy == "idle" else 6
         self.session_count = 0
         self.next_session = 0.0
+        self.construction_bays = 1
+        self.construction_bay_purchases = []
+        self.build_start_times = []
+        self.maximum_construction_queue = 0
         self.open_inquiries = []
         self.next_inquiry = 0.0
         self.inquiry_sequence = 0
@@ -173,6 +177,7 @@ class Simulator:
             if Simulator.now >= self.next_session:
                 self.player_session()
                 self.next_session += DAY / self.sessions_per_day
+            self.maximum_construction_queue = max(self.maximum_construction_queue, self.construction_queue_size())
             self.unlock_era()
             self.minimum_cash = min(self.minimum_cash, self.cash)
             maintenance = sum(BUILDINGS[dc.building_id]["maintenance_per_month"] for dc in self.dcs if dc.ready)
@@ -502,6 +507,7 @@ class Simulator:
         self.retire_old()
         self.maybe_upgrade_network()
         self.maybe_purchase_auto_retirement()
+        self.maybe_purchase_construction_bays()
         # Passive owners check in twice but make one capital-allocation decision
         # per day; the other visit is collection/inspection only.
         if self.strategy == "idle" and self.session_count % 2 == 0:
@@ -667,6 +673,31 @@ class Simulator:
             self.cash -= upgrade["cost"]
             self.auto_retirement = True
 
+    def queue_capacity(self):
+        base = int(ECONOMY["construction"]["base_queue_capacity"])
+        level = TECHNOLOGY["upgrades"].get("construction_bays", {}).get("levels", {}).get(str(self.construction_bays), {})
+        return max(base, int(level.get("queue_capacity", base)))
+
+    def construction_queue_size(self):
+        return sum(not dc.ready for dc in self.dcs)
+
+    def maybe_purchase_construction_bays(self):
+        if self.strategy != "active" or self.construction_queue_size() < self.queue_capacity():
+            return
+        next_level = str(self.construction_bays + 1)
+        level = TECHNOLOGY["upgrades"].get("construction_bays", {}).get("levels", {}).get(next_level)
+        if not level or self.era < level.get("unlock_era", 1) or level.get("minimum_prestige", 0) > 0:
+            return
+        if self.cash <= level["cost"] * 2:
+            return
+        self.cash -= level["cost"]
+        self.construction_bays += 1
+        self.construction_bay_purchases.append({
+            "level": self.construction_bays,
+            "at": Simulator.now,
+            "built": self.total_built,
+        })
+
     def ruin_scrap_value(self, dc):
         _racks, power, coolers = LOADOUTS[dc.building_id]
         aging = ECONOMY["aging"]
@@ -714,6 +745,8 @@ class Simulator:
         self.dcs = survivors
 
     def try_expand(self):
+        if self.construction_queue_size() >= self.queue_capacity():
+            return False
         reserve = {"idle": 1.4, "active": 1.05, "aggressive": 1.0}[self.strategy]
         if self.strategy == "active" and 10 <= self.total_built < ECONOMY["prestige"]["minimum_datacenters"]:
             reserve += (self.total_built - 9) * ACTIVE_PRESTIGE_RESERVE_STEP
@@ -735,6 +768,7 @@ class Simulator:
                 continue
             self.cash -= package
             self.total_built += 1
+            self.build_start_times.append(Simulator.now)
             if self.total_built >= ECONOMY["prestige"]["minimum_datacenters"] and self.prestige_ready_at is None:
                 self.prestige_ready_at = Simulator.now
             if needs_land:
@@ -907,6 +941,18 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
         all(current[5] + 1e-6 >= previous[5] for previous, current in zip(sim.curve, sim.curve[1:]))
         for sim in cohorts["idle"]
     )
+    bay_buyers = [sim for sim in cohorts["active"] if sim.construction_bay_purchases]
+    bay_before = 0
+    bay_after = 0
+    bay_windows = 0
+    for sim in bay_buyers:
+        for purchase in sim.construction_bay_purchases:
+            at = purchase["at"]
+            if at + 5 * DAY > sim.ended_at:
+                continue
+            bay_before += sum(at - 5 * DAY <= started < at for started in sim.build_start_times)
+            bay_after += sum(at <= started < at + 5 * DAY for started in sim.build_start_times)
+            bay_windows += 1
     checks = [
         (campus_layout(6)["type_id"] == "type_1" and campus_layout(7)["type_id"] == "type_2" and campus_layout(15)["campus_index"] == 2, "campus sequence partitions unlimited plots into a 6-slot starter page followed by 8-slot expansion pages"),
         (math.isclose(land_price(7) / round(ECONOMY["land"]["base_price"] * (1.0 + ECONOMY["land"]["growth_step"] * 6) ** ECONOMY["land"]["growth_exponent"]), 1.08, rel_tol=0.001), "expansion-campus land premium stays at the intended modest 8%"),
@@ -918,6 +964,9 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
         (min(inquiry_accepts) >= 3, f"active inquiry accepts range {min(inquiry_accepts)}–{max(inquiry_accepts)} in 30 days (target every seed >=3)"),
         (inquiry_share <= 0.35, f"inquiry-attributable premium and signing bonuses are {inquiry_share:.1%} of active revenue (target <=35%)"),
         (idle_revenue_monotonic, "idle cumulative revenue never declines while persistent inquiries are ignored"),
+        (len(bay_buyers) == len(cohorts["active"]), f"engineering expansion is purchased in {len(bay_buyers)}/{len(cohorts['active'])} active seeds when cash and queue pressure permit"),
+        (bay_windows > 0 and bay_after > bay_before, f"engineering expansion raises five-day build starts from {bay_before} before to {bay_after} after across {bay_windows} measured purchase windows"),
+        (all(sim.maximum_construction_queue <= sim.queue_capacity() for sims in cohorts.values() for sim in sims), "every simulated build queue stays within its authored 2–5 lane capacity"),
         (active_idle_net_ratio <= 25.0, f"active/idle day-30 net-worth ratio is {active_idle_net_ratio:.2f}x (target <=25x)"),
         (retirement_harvest_probe(), "normal retirement beats ruin scrap for every loadout at each 0.1% step from 60.0% through 99.9% lifespan"),
         (idle_fault_loss < 0.08, f"passive auto-repair curve loses {idle_fault_loss:.1%} versus the same-seed pre-A4 fault model (target <8%)"),
@@ -989,7 +1038,7 @@ def main():
         write_csv(results)
         write_svg(results)
     for name, sim in results.items():
-        print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} land=${sim.land_spend:,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} takeovers={sim.takeovers} sold={sim.bank_sold} inquiries={sim.inquiries_accepted}")
+        print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} land=${sim.land_spend:,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} takeovers={sim.takeovers} sold={sim.bank_sold} inquiries={sim.inquiries_accepted} queue={sim.maximum_construction_queue}/{sim.queue_capacity()} bays={sim.construction_bays}")
     print_acceptance(results, cohorts, legacy_idle_cohort)
     return 0
 

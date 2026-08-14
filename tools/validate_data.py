@@ -85,6 +85,29 @@ def validate_references():
     auto_retirement = DATA["technology"].get("upgrades", {}).get("auto_retirement", {}).get("levels", {}).get("1", {})
     if float(auto_retirement.get("cost", 0)) != 15000 or int(auto_retirement.get("unlock_era", 0)) != 2:
         ERRORS.append("technology/auto_retirement: expected one Era 2 level costing 15000")
+    bay_levels = DATA["technology"].get("upgrades", {}).get("construction_bays", {}).get("levels", {})
+    expected_bays = {
+        "2": (250000, 3, 2, 0),
+        "3": (1500000, 4, 3, 0),
+        "4": (10000000, 5, 3, 1),
+    }
+    if set(bay_levels) != set(expected_bays):
+        ERRORS.append("technology/construction_bays: expected levels 2, 3, and 4")
+    previous_cost = -1.0
+    previous_capacity = 2
+    for level_id, (cost, capacity, era, prestige) in expected_bays.items():
+        level = bay_levels.get(level_id, {})
+        if (
+            float(level.get("cost", -1)) != cost
+            or int(level.get("queue_capacity", 0)) != capacity
+            or int(level.get("unlock_era", 0)) != era
+            or int(level.get("minimum_prestige", 0)) != prestige
+        ):
+            ERRORS.append(f"technology/construction_bays/{level_id}: expected ${cost}, capacity {capacity}, era {era}, prestige {prestige}")
+        if float(level.get("cost", -1)) <= previous_cost or int(level.get("queue_capacity", 0)) <= previous_capacity:
+            ERRORS.append(f"technology/construction_bays/{level_id}: cost and capacity must increase monotonically")
+        previous_cost = float(level.get("cost", -1))
+        previous_capacity = int(level.get("queue_capacity", 0))
     campuses = DATA["economy"].get("campuses", {})
     campus_types = campuses.get("types", {})
     campus_sequence = campuses.get("sequence", [])

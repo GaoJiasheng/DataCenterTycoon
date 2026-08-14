@@ -34,6 +34,7 @@ func _ready() -> void:
 	await _run_contract_capacity_ui_tests()
 	await _run_wp6_presentation_tests()
 	_run_construction_controls_test()
+	_run_construction_bays_tests()
 	_run_commerce_test()
 	_run_offline_test()
 	_run_long_offline_test()
@@ -1213,6 +1214,36 @@ func _run_construction_controls_test() -> void:
 	job["ad_uses"] = int(DataRepository.get_table("economy").get("construction", {}).get("max_ads_per_project", 2))
 	var reward_attempt := Game.request_reward("construction:%s" % job.get("id", ""))
 	_expect(not bool(reward_attempt.get("ok", true)) and reward_attempt.get("reason", "") == "reward_limit", "construction reward frequency limit is enforced")
+
+func _run_construction_bays_tests() -> void:
+	Game.reset_for_tests()
+	Game.state["player"]["cash"] = 20000000.0
+	_expect(not bool(Game.purchase_construction_bays().get("ok", true)), "engineering expansion level 2 stays locked before Era 2")
+	Game.state["player"]["era"] = 2
+	var level_two := Game.purchase_construction_bays()
+	_expect(bool(level_two.get("ok", false)) and Game.queue_capacity() == 3, "engineering expansion level 2 raises the global build queue from two to three")
+	for index: int in range(2, 5):
+		Game.state["plots"].append({"id": "bay_plot_%d" % index, "index": index, "purchase_price": 0.0, "purchased": true, "status": "empty", "datacenter": null})
+	var first := Game.start_datacenter_construction("plot_1", "dc_t1")
+	var second := Game.start_datacenter_construction("bay_plot_2", "dc_t1")
+	var third := Game.start_datacenter_construction("bay_plot_3", "dc_t1")
+	var fourth := Game.start_datacenter_construction("bay_plot_4", "dc_t1")
+	_expect(bool(first.get("ok", false)) and bool(second.get("ok", false)) and bool(third.get("ok", false)) and Game.state["construction_queue"].size() == 3, "a level-2 engineering department admits three simultaneous projects")
+	_expect(not bool(fourth.get("ok", true)) and fourth.get("reason", "") == "queue_full", "the fourth project is explicitly rejected while capacity is three")
+
+	Game.state["construction_queue"] = []
+	_expect(not bool(Game.purchase_construction_bays().get("ok", true)), "engineering expansion level 3 stays locked before Era 3")
+	Game.state["player"]["era"] = 3
+	_expect(bool(Game.purchase_construction_bays().get("ok", false)) and Game.queue_capacity() == 4, "Era 3 unlocks the four-lane engineering department")
+	_expect(not bool(Game.purchase_construction_bays().get("ok", true)), "the five-lane engineering department requires a completed company rebuild")
+	_expect(Game.is_unlocked(DataRepository.get_entry("buildings", "dc_t1")), "minimum_prestige checks do not change unlock behavior for existing items without that field")
+	Game.state["stats"]["prestige_count"] = 1
+	_expect(bool(Game.purchase_construction_bays().get("ok", false)) and Game.queue_capacity() == 5, "one completed rebuild unlocks the five-lane engineering department")
+
+	Game.state["player"]["total_datacenters_built"] = 20
+	var rebuilt := Game.prestige()
+	_expect(bool(rebuilt.get("ok", false)) and Game.queue_capacity() == 2 and int(Game.state["technology"].get("construction_bays", 0)) == 1, "company rebuild resets engineering capacity to the authored two-lane base")
+	_expect(bool(Game.purchase_construction_bays().get("ok", false)) and Game.queue_capacity() == 3, "a rebuilt company can buy engineering expansion again with its carried cash")
 
 func _run_commerce_test() -> void:
 	Game.reset_for_tests()

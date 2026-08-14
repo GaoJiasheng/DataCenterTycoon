@@ -657,6 +657,19 @@ func upgrade_repair_team() -> Dictionary:
 	_commit_action("repair_team_upgraded")
 	return _success({"level": next})
 
+func purchase_construction_bays() -> Dictionary:
+	var current := int(state.get("technology", {}).get("construction_bays", 1))
+	var next := current + 1
+	var level: Dictionary = data.get("technology", {}).get("upgrades", {}).get("construction_bays", {}).get("levels", {}).get(str(next), {})
+	if level.is_empty() or not is_unlocked(level):
+		return _failure("locked")
+	var cost := float(level.get("cost", 0.0))
+	if not _spend_cash(cost):
+		return _failure("not_enough_cash")
+	state["technology"]["construction_bays"] = next
+	_commit_action("construction_bays_upgraded")
+	return _success({"level": next, "queue_capacity": queue_capacity(), "cost": cost})
+
 func purchase_auto_retirement() -> Dictionary:
 	if bool(state.get("technology", {}).get("auto_retirement", false)):
 		return _success({"owned": true})
@@ -876,7 +889,8 @@ func find_construction(construction_id: String) -> Dictionary:
 	return {}
 
 func is_unlocked(item: Dictionary) -> bool:
-	return int(item.get("unlock_era", item.get("minimum_era", 1))) <= int(state.get("player", {}).get("era", 1))
+	return int(item.get("unlock_era", item.get("minimum_era", 1))) <= int(state.get("player", {}).get("era", 1)) \
+		and int(item.get("minimum_prestige", 0)) <= int(state.get("stats", {}).get("prestige_count", 0))
 
 func format_number(value: float) -> String:
 	var absolute := absf(value)
@@ -1405,8 +1419,14 @@ func _installed_rack(datacenter_id: String, slot: int) -> Dictionary:
 	var installed: Variant = dc["racks"][slot]
 	return installed if installed is Dictionary else {}
 
+func queue_capacity() -> int:
+	var base := int(data.get("economy", {}).get("construction", {}).get("base_queue_capacity", 2))
+	var level := int(state.get("technology", {}).get("construction_bays", 1))
+	var upgrade: Dictionary = data.get("technology", {}).get("upgrades", {}).get("construction_bays", {}).get("levels", {}).get(str(level), {})
+	return maxi(base, int(upgrade.get("queue_capacity", base)))
+
 func _queue_has_capacity() -> bool:
-	return state.get("construction_queue", []).size() < int(data.get("economy", {}).get("construction", {}).get("base_queue_capacity", 2))
+	return state.get("construction_queue", []).size() < queue_capacity()
 
 func _has_jobs_for_datacenter(datacenter_id: String) -> bool:
 	for item: Dictionary in state.get("construction_queue", []):
@@ -1827,7 +1847,7 @@ func _new_state() -> Dictionary:
 		"inquiries": {"open": [], "next_arrival_at": 0.0, "cooldowns": {}, "rng_state": 918273, "sequence": 0},
 		"bankruptcy": {"status": "normal", "debt": 0.0, "arrears_online_seconds": 0.0, "rescue_uses": 0, "rescue_day": -1, "last_takeover": {}, "takeover_notice_pending": false},
 		"tutorial": {"step": 0, "completed": false, "dismissed_messages": []},
-		"technology": {"repair_team": 1, "auto_retirement": false},
+		"technology": {"repair_team": 1, "construction_bays": 1, "auto_retirement": false},
 		"flags": {"standard_built": false, "last_presented_era": 1},
 		"achievements": {},
 		"meta": {
