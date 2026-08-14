@@ -16,6 +16,9 @@
     "cloud_framework_deal": {"name_key": "EVENT_CLOUD_FRAMEWORK", "description_key": "EVENT_CLOUD_FRAMEWORK_DESC", "customer_multipliers": {"cloud": 2.2}, "duration_months": 4, "weight": 3, "minimum_era": 2, "minimum_network_level": 3},
     "sovereign_ai_contract": {"name_key": "EVENT_SOVEREIGN_AI", "description_key": "EVENT_SOVEREIGN_AI_DESC", "customer_multipliers": {"gpu_company": 3.5}, "duration_months": 3, "weight": 3, "minimum_era": 3, "minimum_network_level": 4},
     "overseas_node_tender": {"name_key": "EVENT_OVERSEAS_NODE", "description_key": "EVENT_OVERSEAS_NODE_DESC", "customer_multipliers": {"internet": 2.0}, "duration_months": 2, "weight": 3, "minimum_era": 2, "minimum_network_level": 3},
-    "ai_inference_surge": {"name_key": "EVENT_AI_INFERENCE", "description_key": "EVENT_AI_INFERENCE_DESC", "customer_multipliers": {"gpu_company": 2.0, "cloud": 1.3}, "duration_months": 3, "weight": 4, "minimum_era": 3, "minimum_network_level": 3}
+    "ai_inference_surge": {"name_key": "EVENT_AI_INFERENCE", "description_key": "EVENT_AI_INFERENCE_DESC", "customer_multipliers": {"gpu_company": 2.0, "cloud": 1.3}, "duration_months": 3, "weight": 4, "minimum_era": 3, "minimum_network_level": 3},
+    "sovereign_ai": {"name_key": "EVENT_SOVEREIGN_AI_RARE", "description_key": "EVENT_SOVEREIGN_AI_RARE_DESC", "customer_multipliers": {"gpu_company": 5.0}, "duration_months": 1, "weight": 1, "minimum_era": 3, "rare": true},
+    "compute_famine": {"name_key": "EVENT_COMPUTE_FAMINE", "description_key": "EVENT_COMPUTE_FAMINE_DESC", "all_customer_multiplier": 1.8, "duration_months": 2, "weight": 1, "minimum_era": 2, "rare": true},
+    "compliance_archive": {"name_key": "EVENT_COMPLIANCE_ARCHIVE", "description_key": "EVENT_COMPLIANCE_ARCHIVE_DESC", "customer_multipliers": {"internet": 3.0, "cloud": 3.0}, "duration_months": 3, "weight": 1, "minimum_era": 2, "rare": true}
   }
 }

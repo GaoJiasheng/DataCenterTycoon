@@ -195,6 +195,12 @@ class Simulator:
             result *= event.get("customer_multipliers", {}).get(customer, 1)
         return result
 
+    def locked_rate(self, customer, duration_id):
+        rate = self.market_multiplier(customer)
+        if duration_id == "strategic":
+            return min(rate, ECONOMY["contracts"]["strategic_lock_cap"])
+        return rate
+
     def dc_monthly_income(self, dc):
         if not dc.ready or not dc.customer or Simulator.now - dc.built_at >= BUILDINGS[dc.building_id]["lifespan_seconds"]:
             return 0
@@ -402,7 +408,6 @@ class Simulator:
         if dc.customer == customer:
             return
         dc.customer = customer
-        dc.locked_market_multiplier = self.market_multiplier(customer)
         relationship_index = 0
         for index, level in enumerate(META["relationships"]["levels"]):
             if self.customer_seconds.get(customer, 0.0) >= level["service_seconds"]:
@@ -414,6 +419,7 @@ class Simulator:
         duration_id = "standard"
         duration = META["contract_durations"][duration_id]
         dc.contract_duration_id = duration_id
+        dc.locked_market_multiplier = self.locked_rate(customer, duration_id)
         dc.contract_income_multiplier = duration["income_multiplier"]
         dc.contract_end_at = Simulator.now + duration["months"] * MONTH
         dc.free_switch_available = False
@@ -439,7 +445,7 @@ class Simulator:
                 dc.contract_end_at = dc.ready_at + duration_seconds
             while Simulator.now >= dc.contract_end_at:
                 dc.contract_end_at += duration_seconds
-                dc.locked_market_multiplier = self.market_multiplier(dc.customer)
+                dc.locked_market_multiplier = self.locked_rate(dc.customer, dc.contract_duration_id)
                 dc.free_switch_available = True
             if self.strategy == "active" and dc.free_switch_available:
                 available = [key for key, value in CUSTOMERS.items() if value["unlock_era"] <= self.era and value["minimum_network_level"] <= self.network]
@@ -626,6 +632,43 @@ def contract_terms_probe():
     )
 
 
+def strategic_lock_cap_probe():
+    sim = Simulator("active", 31)
+    Simulator.now = 0.0
+    sim.era = 2
+    sim.events = [("sovereign_ai", 12 * MONTH)]
+    return (
+        math.isclose(sim.locked_rate("gpu_company", "flexible"), 5.0)
+        and math.isclose(sim.locked_rate("gpu_company", "standard"), 5.0)
+        and math.isclose(sim.locked_rate("gpu_company", "strategic"), 2.5)
+    )
+
+
+def rare_event_frequency_probe(seed_count=20, draws_per_seed=1000):
+    eligible = [
+        (event_id, event) for event_id, event in EVENTS.items()
+        if event.get("minimum_era", 1) <= 3 and event.get("minimum_network_level", 1) <= 4
+    ]
+    total_weight = sum(float(event["weight"]) for _event_id, event in eligible)
+    rare_weight = sum(float(event["weight"]) for _event_id, event in eligible if event.get("rare", False))
+    expected = rare_weight / total_weight
+    rare_draws = 0
+    total_draws = seed_count * draws_per_seed
+    for seed in range(seed_count):
+        rng = random.Random(20260814 + seed * 101)
+        for _draw in range(draws_per_seed):
+            roll = rng.random() * total_weight
+            selected = eligible[-1]
+            for candidate in eligible:
+                roll -= float(candidate[1]["weight"])
+                if roll <= 0:
+                    selected = candidate
+                    break
+            rare_draws += int(bool(selected[1].get("rare", False)))
+    observed = rare_draws / total_draws
+    return expected, observed, expected * 0.5 <= observed <= expected * 1.5
+
+
 def retirement_harvest_probe():
     sim = Simulator("idle", 23)
     for building_id, (racks, _power, _coolers) in LOADOUTS.items():
@@ -644,11 +687,16 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
     idle_ratio = idle_day_7[5] / active_day_7[5] if active_day_7[5] else 0
     legacy_idle_revenue = statistics.mean(sim.revenue for sim in legacy_idle_cohort) or 1.0
     idle_fault_loss = max(0.0, 1.0 - statistics.mean(sim.revenue for sim in cohorts["idle"]) / legacy_idle_revenue)
+    rare_expected, rare_observed, rare_frequency_ok = rare_event_frequency_probe()
+    active_idle_net_ratio = statistics.mean(sim.net_worth(sim.ended_at) for sim in cohorts["active"]) / max(1.0, statistics.mean(sim.net_worth(sim.ended_at) for sim in cohorts["idle"]))
     checks = [
         (campus_layout(6)["type_id"] == "type_1" and campus_layout(7)["type_id"] == "type_2" and campus_layout(15)["campus_index"] == 2, "campus sequence partitions unlimited plots into a 6-slot starter page followed by 8-slot expansion pages"),
         (math.isclose(land_price(7) / round(ECONOMY["land"]["base_price"] * (1.0 + ECONOMY["land"]["growth_step"] * 6) ** ECONOMY["land"]["growth_exponent"]), 1.08, rel_tol=0.001), "expansion-campus land premium stays at the intended modest 8%"),
         (contract_locking_probe(), "mining downturn leaves an existing contract unchanged until automatic renewal"),
         (contract_terms_probe(), "flexible, standard, and relationship-gated strategic terms preserve their authored risk/reward order"),
+        (strategic_lock_cap_probe(), "five-times rare quotes remain uncapped for flexible/standard terms and cap strategic locks at 2.5x"),
+        (rare_frequency_ok, f"rare-event share is {rare_observed:.2%} versus authored {rare_expected:.2%} (within ±50%)"),
+        (active_idle_net_ratio <= 25.0, f"active/idle day-30 net-worth ratio is {active_idle_net_ratio:.2f}x (target <=25x)"),
         (retirement_harvest_probe(), "normal retirement beats ruin scrap for every loadout at each 0.1% step from 60.0% through 99.9% lifespan"),
         (idle_fault_loss < 0.08, f"passive auto-repair curve loses {idle_fault_loss:.1%} versus the same-seed pre-A4 fault model (target <8%)"),
         (2 <= active_day_1[3] <= 3 and active_day_1[2] > 0, "day 1 active player has 2–3 data centers and positive cash"),

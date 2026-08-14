@@ -136,6 +136,13 @@ func market_multiplier(customer_id: String) -> float:
 func contract_market_multiplier(customer_id: String) -> float:
 	return _market.customer_multiplier(customer_id, state, data, false)
 
+func _locked_rate_for(customer_id: String, duration_id: String) -> float:
+	var rate := contract_market_multiplier(customer_id)
+	if duration_id == "strategic":
+		var cap := float(data.get("economy", {}).get("contracts", {}).get("strategic_lock_cap", 2.5))
+		return minf(rate, cap)
+	return rate
+
 func rack_purchase_cost(rack_id: String) -> float:
 	var rack: Dictionary = data.get("racks", {}).get("items", {}).get(rack_id, {})
 	return float(rack.get("cost", 0.0)) * _market.purchase_multiplier(str(rack.get("kind", "")), state, data)
@@ -300,7 +307,7 @@ func sign_contract(datacenter_id: String, customer_id: String, duration_id: Stri
 		if not _spend_cash(fee):
 			return _failure("not_enough_cash")
 	dc["customer_id"] = customer_id
-	dc["locked_market_multiplier"] = contract_market_multiplier(customer_id)
+	dc["locked_market_multiplier"] = _locked_rate_for(customer_id, duration_id)
 	dc["contract_duration_id"] = duration_id
 	dc["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	dc["contract_end_at"] = simulation_time() + _contract_duration_seconds(duration_id)
@@ -325,14 +332,28 @@ func contract_forecast(datacenter_id: String, customer_id: String, duration_id: 
 	var current := datacenter_monthly_income(dc)
 	var simulated := dc.duplicate(true)
 	simulated["customer_id"] = customer_id
-	simulated["locked_market_multiplier"] = contract_market_multiplier(customer_id)
+	var uncapped_rate := contract_market_multiplier(customer_id)
+	var locked_rate := _locked_rate_for(customer_id, duration_id)
+	simulated["locked_market_multiplier"] = locked_rate
 	simulated["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	var projected := Rules.datacenter_income_per_month(simulated, state, data, func(id: String) -> float: return market_multiplier(id))
 	var fee := contract_switch_fee(datacenter_id, customer_id)
 	var months := float(duration.get("months", 6))
 	var gain := (projected - current) * months - fee
 	var payback := fee / maxf(0.01, projected - current) if projected > current and fee > 0.0 else 0.0
-	return _success({"current": current, "projected": projected, "fee": fee, "months": months, "term_gain": gain, "payback_months": payback, "duration_id": duration_id})
+	return _success({
+		"current": current,
+		"projected": projected,
+		"fee": fee,
+		"months": months,
+		"term_gain": gain,
+		"payback_months": payback,
+		"duration_id": duration_id,
+		"uncapped_market_multiplier": uncapped_rate,
+		"locked_market_multiplier": locked_rate,
+		"lock_cap_applied": duration_id == "strategic" and locked_rate < uncapped_rate,
+		"strategic_lock_cap": float(data.get("economy", {}).get("contracts", {}).get("strategic_lock_cap", 2.5)),
+	})
 
 func _record_contract_decision(dc: Dictionary, previous_customer: String, customer_id: String, duration_id: String, fee: float, previous_monthly: float) -> void:
 	var decisions: Array = state.get("meta", {}).get("market_decisions", [])
@@ -1055,7 +1076,7 @@ func _process_contract_renewals(now: float, report: Dictionary) -> void:
 		var duration := _contract_duration_seconds(str(dc.get("contract_duration_id", "standard")))
 		while float(dc.get("contract_end_at", INF)) <= now:
 			dc["contract_end_at"] = float(dc.get("contract_end_at", now)) + duration
-			dc["locked_market_multiplier"] = contract_market_multiplier(str(dc.get("customer_id", "")))
+			dc["locked_market_multiplier"] = _locked_rate_for(str(dc.get("customer_id", "")), str(dc.get("contract_duration_id", "standard")))
 			dc["free_switch_available"] = true
 			var renewed := {"type": "contract_auto_renewed", "datacenter_id": dc.get("id", ""), "customer_id": dc.get("customer_id", ""), "contract_end_at": dc.get("contract_end_at", 0.0), "free_switch_available": true}
 			report.get("contracts", []).append(renewed)

@@ -81,6 +81,7 @@ var _era_overlay_queue: Array[int] = []
 var _era_overlay_open := false
 var _pending_market_banner: Dictionary = {}
 var _news_notice_message := ""
+var _news_notice_rare := false
 var _news_notice_token := 0
 var _news_gesture := {"active": false, "start_x": 0.0}
 var _last_map_signature := ""
@@ -598,8 +599,11 @@ func _refresh_hud() -> void:
 	news_panel.set_meta("destination", "market")
 	news_panel.set_meta("swipe_dismiss_enabled", true)
 	news_panel.set_meta("transient_market_notice", not _news_notice_message.is_empty())
-	var news_accent := ThemeMaker.COLORS.orange if not _news_notice_message.is_empty() else Color(ThemeMaker.COLORS.ivory, 0.34)
-	news_panel.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("2e2419"), 0.90, 20, news_accent))
+	var rare_headline := _news_notice_rare or _headline_event_is_rare()
+	var news_accent := ThemeMaker.COLORS.purple if rare_headline else (ThemeMaker.COLORS.orange if not _news_notice_message.is_empty() else Color(ThemeMaker.COLORS.ivory, 0.34))
+	var news_surface := Color("271a3a") if rare_headline else Color("2e2419")
+	news_panel.set_meta("rare_event", rare_headline)
+	news_panel.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(news_surface, 0.94, 20, news_accent))
 	_refresh_campus_switcher()
 	var queue_size: int = Game.state.get("construction_queue", []).size()
 	queue_badge_label.text = str(queue_size)
@@ -1292,6 +1296,9 @@ func _build_contract_management(dc: Dictionary) -> Control:
 		rates.add_child(Widgets.chip(tr("CONTRACT_LOCKED_RATE") % float(dc.get("locked_market_multiplier", Game.contract_market_multiplier(current_customer))), ThemeMaker.COLORS.green))
 		rates.add_child(Widgets.chip(tr("CONTRACT_MARKET_RATE") % Game.market_multiplier(current_customer), ThemeMaker.COLORS.cyan))
 		summary_box.add_child(rates)
+		var cap := float(DataRepository.get_table("economy").get("contracts", {}).get("strategic_lock_cap", 2.5))
+		if str(dc.get("contract_duration_id", "standard")) == "strategic" and Game.contract_market_multiplier(current_customer) > cap and is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), cap):
+			summary_box.add_child(_label(tr("CONTRACT_STRATEGIC_CAP") % cap, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.purple))
 	section.add_child(summary)
 	if capacity_state != "ready":
 		section.add_child(_contract_capacity_guide(dc, capacity_state))
@@ -1472,6 +1479,24 @@ func _build_market_page() -> Control:
 	var box := _page_box()
 	box.add_child(_system_page_header(tr("NAV_MARKET"), tr("MARKET_SIGNING_ADVISOR"), "ic_market_up"))
 	box.add_child(_meta_hero("market_review", tr("MARKET_REVIEW"), tr("MARKET_REVIEW_SUBTITLE")))
+	for active: Dictionary in Game.state.get("market", {}).get("active", []):
+		var active_event := DataRepository.get_entry("events", str(active.get("event_id", "")))
+		if bool(active_event.get("rare", false)):
+			var rare_banner := Widgets.flat_card(ThemeMaker.COLORS.purple)
+			rare_banner.name = "RareEventBanner"
+			rare_banner.custom_minimum_size.y = ThemeMaker.TOUCH_MIN
+			var rare_row := HBoxContainer.new()
+			rare_row.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+			rare_banner.add_child(rare_row)
+			rare_row.add_child(_icon_view("ic_market_up", Vector2(48, 48)))
+			var rare_copy := _label("%s · %s" % [tr("EVENT_RARE_BADGE"), tr(active_event.get("name_key", ""))], ThemeMaker.TYPE_SCALE.body, Color.WHITE)
+			rare_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			rare_copy.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			rare_copy.max_lines_visible = 1
+			rare_copy.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			rare_row.add_child(rare_copy)
+			box.add_child(rare_banner)
+			break
 	var chart_card := _card()
 	var chart_box := VBoxContainer.new()
 	chart_box.add_theme_constant_override("separation", 10)
@@ -2722,6 +2747,14 @@ func _news_text() -> String:
 		return "%s: %s" % [tr("MARKET_PREVIEW"), tr(event.get("name_key", ""))]
 	return tr("MARKET_CALM")
 
+func _headline_event_is_rare() -> bool:
+	var market: Dictionary = Game.state.get("market", {})
+	for collection: Array in [market.get("active", []), market.get("previews", [])]:
+		if not collection.is_empty():
+			var event := DataRepository.get_entry("events", str(collection[0].get("event_id", "")))
+			return bool(event.get("rare", false))
+	return false
+
 func _customer_market_card(customer_id: String, customer: Dictionary) -> Control:
 	var player: Dictionary = Game.state.get("player", {})
 	var unlock_era := int(customer.get("unlock_era", 1))
@@ -2781,14 +2814,26 @@ func _feature_heading(asset_id: String, title_text: String, subtitle: String, ac
 
 func _event_card(event_state: Dictionary, preview: bool) -> Control:
 	var event := DataRepository.get_entry("events", str(event_state.get("event_id", "")))
-	var card := _card()
+	var rare := bool(event.get("rare", false))
+	var card := Widgets.flat_card(ThemeMaker.COLORS.purple) if rare else _card()
 	card.name = "MarketEventPreview" if preview else "MarketEventActive"
+	card.set_meta("rare_event", rare)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	card.add_child(box)
-	var event_title := _label("%s · %s" % [tr("MARKET_PREVIEW") if preview else tr("MARKET_ACTIVE"), tr(event.get("name_key", ""))], 27, ThemeMaker.COLORS.orange if preview else ThemeMaker.COLORS.green)
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 10)
+	box.add_child(title_row)
+	var event_title := _label("%s · %s" % [tr("MARKET_PREVIEW") if preview else tr("MARKET_ACTIVE"), tr(event.get("name_key", ""))], 27, ThemeMaker.COLORS.purple if rare else (ThemeMaker.COLORS.orange if preview else ThemeMaker.COLORS.green))
 	ThemeMaker.apply_text_role(event_title, "title")
-	box.add_child(event_title)
+	event_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	event_title.max_lines_visible = 1
+	event_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title_row.add_child(event_title)
+	if rare:
+		var rare_badge := Widgets.chip(tr("EVENT_RARE_BADGE"), ThemeMaker.COLORS.purple)
+		rare_badge.name = "RareEventBadge"
+		title_row.add_child(rare_badge)
 	var description := _label(tr(event.get("description_key", "")), 22, ThemeMaker.COLORS.cream)
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(description)
@@ -4029,12 +4074,15 @@ func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 		var forecast := Game.contract_forecast(datacenter_id, customer_id, duration_id)
 		var available := relationship_index >= int(duration.get("relationship_level_required", 0))
 		var term_value := float(forecast.get("projected", 0.0)) * float(forecast.get("months", 0.0)) - float(forecast.get("fee", 0.0))
+		var choice_text := "%s\n%s\n%s" % [tr(str(duration.get("name_key", ""))), tr(str(duration.get("description_key", ""))), tr("CONTRACT_TERM_PROJECTION") % [Game.format_number(float(forecast.get("projected", 0.0))), Game.format_number(term_value)]]
+		if bool(forecast.get("lock_cap_applied", false)):
+			choice_text += "\n" + tr("CONTRACT_STRATEGIC_CAP") % float(forecast.get("strategic_lock_cap", 2.5))
 		choices.append({
 			"id": duration_id,
-			"height": 126,
+			"height": 150 if bool(forecast.get("lock_cap_applied", false)) else 126,
 			"asset": "customer_portfolio" if available else "ic_lock",
 			"available": available,
-			"text": "%s\n%s\n%s" % [tr(str(duration.get("name_key", ""))), tr(str(duration.get("description_key", ""))), tr("CONTRACT_TERM_PROJECTION") % [Game.format_number(float(forecast.get("projected", 0.0))), Game.format_number(term_value)]],
+			"text": choice_text,
 			"color": Color("29445c") if available else Color("475466"),
 		})
 	_present_action_sheet(tr("CONTRACT_CHOOSE_DURATION"), tr("RELATIONSHIP_STATUS") % [tr(str(relationship.get("name_key", "RELATIONSHIP_NEW"))), float(relationship.get("income_multiplier", 1.0))], choices, func(duration_id: String) -> void:
@@ -4058,6 +4106,8 @@ func _confirm_contract_duration(datacenter_id: String, customer_id: String, dura
 	var body := tr("CONTRACT_CONFIRM_DELTA") % [Game.format_number(current), Game.format_number(projected), percent]
 	body += "\n" + (tr("CONTRACT_FREE_SWITCH") if fee <= 0.0 else tr("CONTRACT_BREACH_FEE") % Game.format_number(fee))
 	body += "\n" + tr("CONTRACT_TERM_GAIN") % Game.format_number(float(forecast.get("term_gain", 0.0)))
+	if bool(forecast.get("lock_cap_applied", false)):
+		body += "\n" + tr("CONTRACT_STRATEGIC_CAP") % float(forecast.get("strategic_lock_cap", 2.5))
 	var confirm_contract := func(choice: String) -> void:
 		if choice == "confirm":
 			_complete_contract_signing(datacenter_id, customer_id, duration_id)
@@ -4328,7 +4378,8 @@ func _present_market_banner(event_id: String, started: bool) -> void:
 	var event := DataRepository.get_entry("events", event_id)
 	_news_notice_token += 1
 	var token := _news_notice_token
-	_news_notice_message = tr("MARKET_EVENT_STARTED" if started else "MARKET_EVENT_ENDED") % tr(event.get("name_key", ""))
+	_news_notice_rare = bool(event.get("rare", false)) and started
+	_news_notice_message = tr("MARKET_RARE_EVENT_STARTED" if _news_notice_rare else ("MARKET_EVENT_STARTED" if started else "MARKET_EVENT_ENDED")) % tr(event.get("name_key", ""))
 	_refresh_hud()
 	if news_panel != null:
 		news_panel.modulate.a = 0.74
@@ -4343,6 +4394,7 @@ func _expire_market_notice(token: int) -> void:
 func _dismiss_market_notice(refresh: bool = true) -> void:
 	_news_notice_token += 1
 	_news_notice_message = ""
+	_news_notice_rare = false
 	if news_panel != null:
 		news_panel.modulate.a = 1.0
 		news_panel.scale = Vector2.ONE

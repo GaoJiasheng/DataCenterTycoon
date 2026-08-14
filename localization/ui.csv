@@ -381,6 +381,15 @@ EVENT_OVERSEAS_NODE,Overseas Node Tender,海外节点招标
 EVENT_OVERSEAS_NODE_DESC,Global services seek new internet edge capacity.,全球业务采购海外边缘节点容量。
 EVENT_AI_INFERENCE,AI Inference Demand Surge,AI 推理需求爆发
 EVENT_AI_INFERENCE_DESC,AI applications lift GPU and cloud demand together.,AI 应用同时拉升 GPU 与云端需求。
+EVENT_SOVEREIGN_AI_RARE,Sovereign AI Reserve,主权 AI 算力储备
+EVENT_SOVEREIGN_AI_RARE_DESC,A strategic program urgently reserves national GPU capacity.,国家级战略项目紧急锁定大规模 GPU 算力。
+EVENT_COMPUTE_FAMINE,Compute Famine,算力荒
+EVENT_COMPUTE_FAMINE_DESC,Scarce capacity lifts demand across every customer segment.,算力供给紧张，所有客户需求同步上升。
+EVENT_COMPLIANCE_ARCHIVE,Compliance Archive Mandate,合规归档令
+EVENT_COMPLIANCE_ARCHIVE_DESC,New retention rules sharply increase internet and cloud storage demand.,新规推动互联网与云厂商集中扩充存储容量。
+EVENT_RARE_BADGE,Rare,稀有
+MARKET_RARE_EVENT_STARTED,Rare event · %s is live,稀有行情 · %s 已开始
+CONTRACT_STRATEGIC_CAP,Strategic lock cap ×%.1f,战略约锁价上限 ×%.1f
 STORE_NOADS,No Ads,永久去广告
 STORE_NOADS_DESC,Claim every rewarded benefit instantly forever.,永久直接领取所有激励广告奖励。
 STORE_OFFLINE24,24-hour Offline Earnings,24 小时离线收益

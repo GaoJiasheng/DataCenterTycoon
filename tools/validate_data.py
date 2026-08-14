@@ -33,6 +33,13 @@ def validate_references():
         for customer_id in event.get("customer_multipliers", {}):
             if customer_id not in customers:
                 ERRORS.append(f"events/{event_id}: missing customer {customer_id}")
+        if event.get("rare", False) and float(event.get("weight", 0)) > 2:
+            ERRORS.append(f"events/{event_id}: rare event weight must be at most 2")
+        multipliers = list(event.get("customer_multipliers", {}).values()) + list(event.get("purchase_multipliers", {}).values())
+        if "all_customer_multiplier" in event:
+            multipliers.append(event["all_customer_multiplier"])
+        if any(float(multiplier) <= 0 or float(multiplier) > 6 for multiplier in multipliers):
+            ERRORS.append(f"events/{event_id}: event multipliers must be within (0, 6]")
     store = DATA["store"]["items"]
     if set(store) != {"noads", "offline24", "gems_s", "gems_m", "gems_l", "pack_starter", "pack_builder", "pack_tycoon"}:
         ERRORS.append("store SKU set differs from monetization document")
@@ -42,6 +49,8 @@ def validate_references():
     for field in ("duration_seconds", "breach_fee_monthly_income_ratio", "minimum_breach_fee"):
         if float(contracts.get(field, 0)) <= 0:
             ERRORS.append(f"economy/contracts: {field} must be positive")
+    if float(contracts.get("strategic_lock_cap", 0)) < 1.5:
+        ERRORS.append("economy/contracts: strategic_lock_cap must be at least 1.5")
     faults = DATA["economy"].get("faults", {})
     fault_multiplier = float(faults.get("faulted_income_multiplier", 0))
     if not 0 < fault_multiplier < 1:

@@ -22,6 +22,7 @@ func _ready() -> void:
 	_run_market_save_compatibility_tests()
 	_run_gameplay_optimization_tests()
 	_run_meta_progression_tests()
+	_run_gameplay_depth_tests()
 	_run_fault_softening_tests()
 	_run_initial_state_test()
 	_run_core_loop_test()
@@ -45,7 +46,7 @@ func _ready() -> void:
 func _run_data_tests() -> void:
 	_expect(DataRepository.errors.is_empty(), "all JSON data files load")
 	_expect(DataRepository.validate_references().is_empty(), "cross-table references are valid")
-	_expect(DataRepository.get_table("events").get("items", {}).size() == 16, "market includes the four network-gated major contracts")
+	_expect(DataRepository.get_table("events").get("items", {}).size() == 19, "market includes major contracts and three rare events")
 	_expect(Monetization.is_product_available("noads") and Monetization.localized_price("noads", "") == "US$ 5.99", "mock StoreKit catalog exposes localized product prices")
 
 func _run_asset_integration_tests() -> void:
@@ -704,6 +705,44 @@ func _run_gameplay_optimization_tests() -> void:
 	dc["renewal_window_end_at"] = Game.simulation_time() + 60.0
 	Game._ensure_state_shape()
 	_expect(not dc.has("renewal_window_end_at") and bool(dc.get("free_switch_available", false)) and dc.has("locked_market_multiplier"), "legacy renewal-window saves migrate to a locked rate and non-expiring free switch")
+
+func _run_gameplay_depth_tests() -> void:
+	var events: Dictionary = DataRepository.get_table("events").get("items", {})
+	var rare_ids := ["sovereign_ai", "compute_famine", "compliance_archive"]
+	var rare_data_ok := true
+	for event_id: String in rare_ids:
+		var event: Dictionary = events.get(event_id, {})
+		rare_data_ok = rare_data_ok and bool(event.get("rare", false)) and int(event.get("weight", 0)) == 1
+	rare_data_ok = rare_data_ok and is_equal_approx(float(events.get("sovereign_ai", {}).get("customer_multipliers", {}).get("gpu_company", 0.0)), 5.0)
+	rare_data_ok = rare_data_ok and is_equal_approx(float(events.get("compute_famine", {}).get("all_customer_multiplier", 0.0)), 1.8)
+	_expect(rare_data_ok, "three authored low-weight rare market events stay in the replayable event pool")
+
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["era"] = 2
+	Game.state["player"]["network_level"] = 2
+	Game.state["meta"]["customer_service_seconds"]["gpu_company"] = 43200.0
+	var dc := _test_datacenter("dc_rare_lock", "dc_t1")
+	dc["power_unit"] = "power_t2"
+	dc["racks"][0] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true}
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": 0.0, "end_at": 1000000000.0}]
+	var flexible := Game.sign_contract(dc["id"], "gpu_company", "flexible")
+	var flexible_rate := float(dc.get("locked_market_multiplier", 0.0))
+	var standard := Game.sign_contract(dc["id"], "gpu_company", "standard")
+	var standard_rate := float(dc.get("locked_market_multiplier", 0.0))
+	var strategic_forecast := Game.contract_forecast(dc["id"], "gpu_company", "strategic")
+	var strategic := Game.sign_contract(dc["id"], "gpu_company", "strategic")
+	var strategic_rate := float(dc.get("locked_market_multiplier", 0.0))
+	_expect(bool(flexible.get("ok", false)) and bool(standard.get("ok", false)) and is_equal_approx(flexible_rate, 5.0) and is_equal_approx(standard_rate, 5.0), "flexible and standard contracts can lock the full five-times rare quote")
+	_expect(bool(strategic.get("ok", false)) and is_equal_approx(strategic_rate, 2.5) and bool(strategic_forecast.get("lock_cap_applied", false)), "strategic contracts disclose and enforce the authored 2.5-times lock cap")
+	dc["contract_end_at"] = Game.simulation_time() + 1.0
+	var renewal_report := Game.advance_time(1.0, false)
+	_expect(is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), 2.5) and renewal_report.get("contracts", []).size() == 1, "strategic automatic renewal uses the same capped lock-rate path")
+	dc["locked_market_multiplier"] = 5.0
+	Game._ensure_state_shape()
+	_expect(is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), 5.0), "loading a legacy strategic contract never retroactively clamps its saved lock rate")
 
 func _test_datacenter(id: String, building_id: String) -> Dictionary:
 	var racks: Array = []

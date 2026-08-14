@@ -52,7 +52,8 @@
   "contracts": {
     "duration_seconds": 43200,
     "breach_fee_monthly_income_ratio": 0.25,
-    "minimum_breach_fee": 25
+    "minimum_breach_fee": 25,
+    "strategic_lock_cap": 2.5
   },
   "faults": {
     "base_rate_per_game_month": 0.15,

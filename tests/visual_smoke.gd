@@ -282,6 +282,9 @@ func _ready() -> void:
 	Game.state["market"]["active"] = [{"event_id": "shopping_festival", "started_at": now - 1800.0, "end_at": now + 5400.0}]
 	Game.state["market"]["previews"] = [{"event_id": "coin_boom", "previewed_at": now, "start_at": now + 3600.0}]
 	valid = (await _capture(main, "market_active")) and valid
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": now - 300.0, "end_at": now + 6900.0}]
+	Game.state["market"]["previews"] = []
+	valid = (await _capture(main, "rare_event_banner")) and valid
 	_fill_market_history(730)
 	valid = (await _capture(main, "market_rich")) and valid
 	# Meta-progression states use their real rendered illustrations and live data.
@@ -344,7 +347,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 41 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
+	print("VISUAL_SMOKE: %s 42 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:
@@ -929,6 +932,13 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				if (spark as Sparkline).values.size() != 24:
 					push_error("VISUAL_SMOKE: rich market sparkline is not reduced to 24 points")
 					valid = false
+	if state_name == "rare_event_banner":
+		var rare_banner := main.find_child("RareEventBanner", true, false) as Control
+		var rare_card := main.find_child("MarketEventActive", true, false) as Control
+		var rare_badge := main.find_child("RareEventBadge", true, false) as Control
+		if rare_banner == null or rare_card == null or rare_badge == null or not bool(rare_card.get_meta("rare_event", false)):
+			push_error("VISUAL_SMOKE: rare market state lacks its dedicated banner and rare event-card badge")
+			valid = false
 	if state_name == "tech":
 		if main.find_children("EraNode_*", "PanelContainer", true, false).size() != 3 or main.find_child("EraUnlockPreview", true, false) == null or main.find_child("PrestigeProgressBar", true, false) == null:
 			push_error("VISUAL_SMOKE: tech page lacks the three-era route or prestige progress")
