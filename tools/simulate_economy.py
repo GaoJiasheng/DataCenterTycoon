@@ -113,7 +113,15 @@ class Datacenter:
 class Simulator:
     now = 0.0
 
-    def __init__(self, strategy, seed, cozy_faults=True):
+    def __init__(
+        self,
+        strategy,
+        seed,
+        cozy_faults=True,
+        market_lock_mode="normal",
+        strategic_cap_enabled=True,
+        active_contract_term="standard",
+    ):
         self.strategy = strategy
         self.cozy_faults = cozy_faults
         self.market_rng = random.Random(seed)
@@ -160,6 +168,9 @@ class Simulator:
         self.inquiries_accepted = 0
         self.inquiry_bonus_revenue = 0.0
         self.inquiry_contract_revenue = 0.0
+        self.market_lock_mode = market_lock_mode
+        self.strategic_cap_enabled = strategic_cap_enabled
+        self.active_contract_term = active_contract_term
 
     def run(self, days):
         Simulator.now = 0.0
@@ -225,8 +236,13 @@ class Simulator:
         return result
 
     def locked_rate(self, customer, duration_id, premium=1.0):
-        rate = self.market_multiplier(customer) * premium
-        if duration_id == "strategic":
+        market = (
+            CUSTOMERS[customer]["era_baseline"].get(str(self.era), 0)
+            if self.market_lock_mode == "era_baseline"
+            else self.market_multiplier(customer)
+        )
+        rate = market * premium
+        if duration_id == "strategic" and self.strategic_cap_enabled:
             return min(rate, ECONOMY["contracts"]["strategic_lock_cap"])
         return rate
 
@@ -580,6 +596,14 @@ class Simulator:
         else:
             choice = max(viable, key=lambda customer: (-(contracted[customer]), values[customer]))
         if choice == dc.customer:
+            if (
+                free_switch
+                and self.active_contract_term == "strategic"
+                and dc.contract_duration_id != "strategic"
+                and self.relationship_level(choice)
+                >= META["contract_durations"]["strategic"]["relationship_level_required"]
+            ):
+                self.sign_customer(dc, choice, "strategic", force=True)
             return
         fee = 0 if not dc.customer or free_switch else max(ECONOMY["contracts"]["minimum_breach_fee"], self.dc_monthly_income(dc) * ECONOMY["contracts"]["breach_fee_monthly_income_ratio"])
         if self.cash >= fee:
@@ -611,10 +635,14 @@ class Simulator:
         for index, level in enumerate(META["relationships"]["levels"]):
             if self.customer_seconds.get(customer, 0.0) >= level["service_seconds"]:
                 relationship_index = index
-        # The reference cohorts retain the balanced six-month default. The
-        # flexible/strategic alternatives are verified below by a dedicated
-        # probe instead of silently turning every familiar client into a
-        # year-long boom lock and distorting the established 30-day baseline.
+        if (
+            not force
+            and self.strategy == "active"
+            and self.active_contract_term == "strategic"
+            and self.relationship_level(customer)
+            >= META["contract_durations"]["strategic"]["relationship_level_required"]
+        ):
+            duration_id = "strategic"
         duration = META["contract_durations"][duration_id]
         dc.contract_duration_id = duration_id
         dc.locked_market_multiplier = self.locked_rate(customer, duration_id, premium)
@@ -914,6 +942,100 @@ def rare_event_frequency_probe(seed_count=20, draws_per_seed=1000):
     return expected, observed, expected * 0.5 <= observed <= expected * 1.5
 
 
+def _active_probe_cohort(seed, seed_count, **options):
+    return [
+        Simulator("active", seed + run * 101 + 1, **options).run(30)
+        for run in range(max(1, seed_count))
+    ]
+
+
+def run_depth_attribution_probe(seed, seed_count):
+    """B5's three-way lock-timing attribution; never mutates authored data."""
+    groups = {
+        # A is the pre-B3 counterfactual: a familiar active player uses the
+        # longest lock and the rare quote is not capped.
+        "A_event_timing_uncapped": _active_probe_cohort(
+            seed, seed_count, market_lock_mode="normal",
+            strategic_cap_enabled=False, active_contract_term="strategic",
+        ),
+        # B removes only event timing from the lock quote.
+        "B_era_baseline_uncapped": _active_probe_cohort(
+            seed, seed_count, market_lock_mode="era_baseline",
+            strategic_cap_enabled=False, active_contract_term="strategic",
+        ),
+        # A' restores event timing under the shipped B3 strategic cap.
+        "A_prime_event_timing_capped": _active_probe_cohort(
+            seed, seed_count, market_lock_mode="normal",
+            strategic_cap_enabled=True, active_contract_term="strategic",
+        ),
+    }
+    means = {
+        name: statistics.mean(sim.net_worth(sim.ended_at) for sim in cohort)
+        for name, cohort in groups.items()
+    }
+    timing_gain = means["A_event_timing_uncapped"] - means["B_era_baseline_uncapped"]
+    timing_share = timing_gain / max(1.0, means["A_event_timing_uncapped"])
+    capped_gain = means["A_prime_event_timing_capped"] - means["B_era_baseline_uncapped"]
+    capped_share = capped_gain / max(1.0, means["A_prime_event_timing_capped"])
+    compression = 1.0 - capped_share / max(1e-9, timing_share)
+    net_compression = 1.0 - means["A_prime_event_timing_capped"] / max(1.0, means["A_event_timing_uncapped"])
+    OUT.mkdir(parents=True, exist_ok=True)
+    with (OUT / "depth_attribution.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(["group", "seed_count", "mean_day30_net_worth"])
+        for name, value in means.items():
+            writer.writerow([name, seed_count, f"{value:.2f}"])
+        writer.writerow(["event_timing_share_uncapped", seed_count, f"{timing_share:.6f}"])
+        writer.writerow(["event_timing_share_capped", seed_count, f"{capped_share:.6f}"])
+        writer.writerow(["b3_share_compression", seed_count, f"{compression:.6f}"])
+        writer.writerow(["b3_net_worth_compression", seed_count, f"{net_compression:.6f}"])
+    return means, timing_share, capped_share, compression, net_compression
+
+
+def run_t2_maintenance_probe(seed, seed_count):
+    """B5's report-only T2 sweep; restore the production value on exit."""
+    original = float(BUILDINGS["dc_t2"]["maintenance_per_month"])
+    candidates = (900, 950, 1000, 1050, 1100, 1150)
+    rows = []
+    try:
+        for candidate in candidates:
+            BUILDINGS["dc_t2"]["maintenance_per_month"] = float(candidate)
+            cohorts = {
+                name: [
+                    Simulator(name, seed + run * 101 + index).run(30)
+                    for run in range(max(1, seed_count))
+                ]
+                for index, name in enumerate(("idle", "active", "aggressive"))
+            }
+            active_slopes = [
+                (point_at(sim, 17)[1] - point_at(sim, 7)[1]) / 10.0
+                for sim in cohorts["active"]
+            ]
+            rows.append({
+                "maintenance": candidate,
+                "active_day7_17_slope": statistics.mean(active_slopes),
+                "idle_takeovers": sum(sim.takeovers for sim in cohorts["idle"]),
+                "idle_debt_months": sum(sim.negative_cash_months for sim in cohorts["idle"]),
+                "aggressive_takeover_rate": sum(sim.takeovers > 0 for sim in cohorts["aggressive"]) / len(cohorts["aggressive"]),
+            })
+    finally:
+        BUILDINGS["dc_t2"]["maintenance_per_month"] = original
+    baseline = next(row for row in rows if row["maintenance"] == 1150)
+    for row in rows:
+        row["slope_improvement"] = row["active_day7_17_slope"] / max(1.0, baseline["active_day7_17_slope"]) - 1.0
+        row["constraints_pass"] = (
+            row["idle_takeovers"] == 0
+            and row["idle_debt_months"] == 0
+            and 0.30 <= row["aggressive_takeover_rate"] <= 0.60
+        )
+    OUT.mkdir(parents=True, exist_ok=True)
+    with (OUT / "t2_maintenance_sweep.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=rows[0].keys(), lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    return rows
+
+
 def retirement_harvest_probe():
     sim = Simulator("idle", 23)
     for building_id, (racks, _power, _coolers) in LOADOUTS.items():
@@ -1020,6 +1142,8 @@ def main():
     parser.add_argument("--portfolio-threshold", type=float, default=0.60, help="Calibration-only active-bid viability threshold")
     parser.add_argument("--active-prestige-reserve-step", type=float, default=2.3, help="Calibration-only reserve growth before first prestige")
     parser.add_argument("--aggressive-session-seconds", type=float, default=7200.0, help="Calibration-only online time per aggressive session")
+    parser.add_argument("--active-contract-term", choices=("standard", "strategic"), default="standard", help="Reference active cohort's preferred term once eligible")
+    parser.add_argument("--run-depth-probes", action="store_true", help="Write the report-only B5 attribution and T2 maintenance sweep CSVs")
     parser.add_argument("--no-write", action="store_true", help="Do not replace the canonical CSV/SVG outputs")
     args = parser.parse_args()
     PORTFOLIO_THRESHOLD = args.portfolio_threshold
@@ -1029,7 +1153,14 @@ def main():
     BUILDINGS["dc_t3"]["maintenance_per_month"] *= args.maintenance_t3_scale if args.maintenance_t3_scale is not None else args.maintenance_scale
     strategy_names = ("idle", "active", "aggressive")
     cohorts = {
-        name: [Simulator(name, args.seed + run * 101 + index).run(args.days) for run in range(max(1, args.seed_count))]
+        name: [
+            Simulator(
+                name,
+                args.seed + run * 101 + index,
+                active_contract_term=args.active_contract_term if name == "active" else "standard",
+            ).run(args.days)
+            for run in range(max(1, args.seed_count))
+        ]
         for index, name in enumerate(strategy_names)
     }
     legacy_idle_cohort = [Simulator("idle", args.seed + run * 101, cozy_faults=False).run(args.days) for run in range(max(1, args.seed_count))]
@@ -1040,6 +1171,17 @@ def main():
     for name, sim in results.items():
         print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} land=${sim.land_spend:,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} takeovers={sim.takeovers} sold={sim.bank_sold} inquiries={sim.inquiries_accepted} queue={sim.maximum_construction_queue}/{sim.queue_capacity()} bays={sim.construction_bays}")
     print_acceptance(results, cohorts, legacy_idle_cohort)
+    if args.run_depth_probes:
+        means, timing_share, capped_share, compression, net_compression = run_depth_attribution_probe(args.seed, args.seed_count)
+        print("B5 ATTRIBUTION: " + ", ".join(f"{name}=${value:,.0f}" for name, value in means.items()))
+        print(f"B5 ATTRIBUTION: event timing share {timing_share:.1%} uncapped -> {capped_share:.1%} capped; share compression {compression:.1%}; net-worth compression {net_compression:.1%}")
+        maintenance_rows = run_t2_maintenance_probe(args.seed, args.seed_count)
+        for row in maintenance_rows:
+            print(
+                "B5 T2: ${maintenance}/mo slope=${active_day7_17_slope:,.0f}/day "
+                "improvement={slope_improvement:.1%} idle={idle_takeovers}/{idle_debt_months} "
+                "aggressive={aggressive_takeover_rate:.0%} constraints={constraints_pass}".format(**row)
+            )
     return 0
 
 

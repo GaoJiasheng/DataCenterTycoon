@@ -1,0 +1,8 @@
+group,seed_count,mean_day30_net_worth
+A_event_timing_uncapped,20,375747814.38
+B_era_baseline_uncapped,20,632528.43
+A_prime_event_timing_capped,20,263579998.20
+event_timing_share_uncapped,20,0.998317
+event_timing_share_capped,20,0.997600
+b3_share_compression,20,0.000718
+b3_net_worth_compression,20,0.298519

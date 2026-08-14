@@ -212,3 +212,56 @@
 4. 所有新增文案中英齐全，跑双语 `visual_smoke` 确认排版；询价卡与稀有横幅注意中文长词换行。
 5. 询价金额展示用 `Game.format_number`；签约金基于 forecast，UI 展示值与入账值必须同一次计算（防止行情 tick 造成显示/入账不一致）。
 6. `full_campaign` 是本批次的总闸：改完后模拟玩家应当自然地接单、成组、买扩编、撞见（注入的）稀有事件并被封顶——四个特性都要在一局跑通的语境下被断言，而不是只有孤立单测。
+
+## 6. 验收记录（2026-08-15）
+
+### 批次与提交边界
+
+- [x] 19 号既有工作区先作为 `5c9b414 feat: polish progression, interaction feedback, and iOS branding` 完整提交，随后 `test_runner` 绿色。
+- [x] 批次 1：`c66d6e3 docs: lock midgame economy decisions`，D35–D38 已进入 00 号决策表。
+- [x] 批次 2：`dc1d54f feat: add rare market events and strategic lock cap`。
+- [x] 批次 3：`6ada1df feat: add authoritative rack set bonuses`。
+- [x] 批次 4：`17c91e8 feat: add persistent client inquiries`。
+- [x] 批次 5：`e694bf9 feat: add construction queue expansion`。
+- [x] 批次 6：B5 探针、同局总闸、文档同步和完整回归保持为独立最终提交。
+
+### B1 · 询价单
+
+- [x] 8 个模板、最多 3 张、4–8 游戏月到达、2 月婉拒冷却均由 `data/inquiries.json` 驱动；无过期字段、无每日刷新和现实倒计时。
+- [x] 行情、故障、询价三条随机流隔离；单测逐位比较同 seed 行情序列，确认询价没有扰动行情重放。
+- [x] 五类条件各有正反例；接单的锁价、forecast 签约金、关系秒数和战略封顶均按权威路径断言。
+- [x] 400 游戏月永久保留、离线跨 `next_arrival_at` 分段到达、婉拒冷却补位均通过。
+- [x] 双语 `inquiry_board` / `inquiry_accept_sheet` 视觉态通过；FTUE 期间不会提前出现。
+- [x] 20 种子活跃型每局 56–63 单；询价可归因收入 0.4%（目标 ≤35%）；挂机忽略询价时累计收入保持单调。
+
+### B2 · 成组加成
+
+- [x] 行、列、交叉不叠加、拔柜、安装中、停机、断电与 faulted 资格全部由单测覆盖；权威收入只在 `datacenter_income_per_month` 一处乘 ×1.10。
+- [x] UI 直接读取 `set_bonus_slots`；`midgame_audit` 同时断言光效、徽标与抽屉收入和权威结果一致。
+- [x] 模拟器参考配置保持每座至少 2 kind，并验证三行三 kind 的云厂商配置可同时取得 ×1.15 多样性与 ×1.10 成组。
+- [x] 双语 `dc_board_set_bonus` 视觉态通过。
+
+### B3 · 稀有行情与战略锁价封顶
+
+- [x] 三条稀有事件均为 `weight: 1`；20,000 次确定性抽取观测 3.14%，作者权重份额 3.26%，位于 ±50% 容差。
+- [x] 注入 ×5 行情后，灵活/标准约完整锁价，战略签约与续约均封顶 ×2.5；旧存档锁价不追溯裁切。
+- [x] 稀有横幅、行情卡和典藏未发现态通过双语视觉回归。
+- [ ] **总量硬闸未通过**：正式 20 种子活跃/挂机 30 日净值比 210.79×（目标 ≤25×）。A/B/A′ 证据见 [depth_attribution.csv](balance_runs/depth_attribution.csv)：事件择时复利贡献 99.8%；正式 ×2.5 战略封顶使 A→A′ 绝对净值下降 29.9%，但该贡献占比仍为 99.8%（只压缩 0.1%）。按 B5“探针只产报告、不自动改值”约束，本批次没有私自改变已定锁价边界，等待所有者拍板。
+- [x] 第 7 天挂机/活跃收入比 43%（目标 40–60%）；挂机 0 接管、0 欠费月。
+
+### B4 · 工程部扩编
+
+- [x] 2→3→4→5 容量、时代 2/3 与转生门槛、逐级价格、转生重置及重购均有单测；`minimum_prestige` 不影响旧科技。
+- [x] 20/20 活跃种子购买扩编，所有队列从未越过权威容量；购买点前后 5 日启动数 597→600，吞吐改善可测。
+- [x] 科技页、HUD `n/容量`、队列页和满队列提示双语 45 态通过。
+- [ ] **20 座节奏硬闸未通过**：中位第 11.0 天（目标 14–21 天）。首笔扩编发生在第 16.8 天、累计第 54 次建设，已经晚于 20 座，因此规格建议的“上调级 2 价格”无法影响该硬闸；根因仍是前置行情复利，不做无效调参。
+
+### B5 · 探针、总闸与文档
+
+- [x] A/B/A′ 20 种子归因数据已写入 [depth_attribution.csv](balance_runs/depth_attribution.csv)，结论同步 [balance_report.md](balance_report.md)。
+- [x] T2 $900–$1,150 六档结果写入 [t2_maintenance_sweep.csv](balance_runs/t2_maintenance_sweep.csv)。$1,100 是距离正式值最近且满足斜率改善 5.9%、挂机 0/0、激进接管 55% 的候选；遵照只产报告要求，正式值仍为 $1,150，等待所有者决定。
+- [x] `full_campaign` 在同一新档中于第 3 月自然接单，第 111 月形成 5 槽成组；随后在同局注入稀有行情，断言标准约高于封顶且战略约恰为 ×2.5；同局购买工程部并真实并发 3 项，上市重组后容量回 2。最终 24 座、时代 3、净值 $9.06M，整局通过。
+- [x] `test_runner` 200/200；`flow_audit`、修正为包含询价的 `midgame_audit`、`tutorial_playthrough`、`full_campaign`、`performance_smoke` 全绿。百机房性能平均 6.32 ms、p95 6.67 ms、粒子残留 0。
+- [x] 英文/中文 `visual_smoke` 各 45/45，画幅 990×2151；`validate_data` 通过 13 张数据表、159 个美术 ID 与本地化校验。
+- [x] 01 号文档补成组/询价/稀有封顶/扩编闭环；02 号补 19 事件、收入公式与全部数值表；README 更新当前能力与门禁数量。
+- [x] 资源合同额外复核：159/159 美术、23/23 音频、6/6 字体通过。App Store 双语 iPhone/iPad 商店截图仍是 README 已列的外部交付项，不属于本批次运行时门禁。

@@ -125,8 +125,39 @@ func _run_campaign() -> void:
 	_expect(retired, "no site ever became old enough to retire — the rebuild loop is unreachable")
 	_expect(str(Game.state.get("bankruptcy", {}).get("status", "normal")) in ["normal", "arrears"], "a reasonably played campaign never enters an unreachable failure state")
 	_expect(_era_overlays_seen >= 2, "both era unlocks must announce themselves (saw %d)" % _era_overlays_seen)
+	_verify_depth_features_in_run()
 	_verify_construction_bays_in_run()
 	await _tour_pages()
+
+func _verify_depth_features_in_run() -> void:
+	# This is deliberately the live campaign state, not an isolated fixture: the
+	# same company that accepted an inquiry must also reach a real set and face a
+	# rare quote whose strategic term is capped.
+	var grouped_slots := 0
+	for plot: Dictionary in Game.state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if not dc is Dictionary or str((dc as Dictionary).get("status", "")) != "operational":
+			continue
+		var members := Rules.set_bonus_slots(
+			dc as Dictionary,
+			DataRepository.get_table("racks"),
+			DataRepository.get_table("attachments"),
+		)
+		grouped_slots = maxi(grouped_slots, members.count(true))
+	_expect(grouped_slots >= 3, "the played campaign must naturally complete at least one same-kind powered row or column")
+
+	var probe_dc_id := _first_datacenter_id()
+	var market_before: Dictionary = Game.state.get("market", {}).duplicate(true)
+	var now := Game.simulation_time()
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": now, "end_at": now + _month_seconds}]
+	Game.state["market"]["previews"] = []
+	var standard := Game.contract_forecast(probe_dc_id, "gpu_company", "standard")
+	var strategic := Game.contract_forecast(probe_dc_id, "gpu_company", "strategic")
+	var cap := float(DataRepository.get_table("economy").get("contracts", {}).get("strategic_lock_cap", 2.5))
+	_expect(bool(standard.get("ok", false)) and float(standard.get("locked_market_multiplier", 0.0)) > cap, "the injected five-times rare event must remain fully lockable on a standard term in this run")
+	_expect(bool(strategic.get("ok", false)) and is_equal_approx(float(strategic.get("locked_market_multiplier", 0.0)), cap) and bool(strategic.get("lock_cap_applied", false)), "the same live rare quote must disclose and enforce the strategic 2.5x cap")
+	Game.state["market"] = market_before
+	_note("month %d: live campaign formed a %d-slot set and capped an injected rare strategic quote at x%.1f" % [_month, grouped_slots, cap])
 
 func _verify_construction_bays_in_run() -> void:
 	# Let any natural campaign work finish, then use the earned late-game cash to

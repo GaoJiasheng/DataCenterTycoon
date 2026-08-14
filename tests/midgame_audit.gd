@@ -82,7 +82,7 @@ func _ready() -> void:
 	main.call("_refresh")
 	main.call("_show_operations_hub")
 	await _shot("m2_task_center")
-	_assert_task_center(2)
+	_assert_task_center(3)
 	var fault_task := main.find_child("TaskAction_fault_mid_dc_0_1", true, false) as Button
 	if fault_task != null:
 		fault_task.pressed.emit()
@@ -320,7 +320,7 @@ func _assert_task_center(expected_count: int) -> void:
 	var operations := main.find_child("OperationsButton", true, false) as Button
 	var badge := operations.find_child("Badge", true, false) as PanelContainer if operations != null else null
 	var badge_value := badge.find_child("BadgeValue", true, false) as Label if badge != null else null
-	_expect(hub != null and list != null and list.get_child_count() == expected_count, "M2 task center must aggregate every actionable fault and renewal")
+	_expect(hub != null and list != null and list.get_child_count() == expected_count, "M2 task center must aggregate every actionable fault, renewal, and inquiry")
 	_expect(badge_value != null and int(badge_value.text) == expected_count and str(badge.get_meta("attention_tone", "")) == "fault", "M2 operations badge must equal actionable count and stay red while a fault exists")
 	if list != null:
 		for row: Node in list.get_children():

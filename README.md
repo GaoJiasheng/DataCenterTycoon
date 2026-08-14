@@ -24,6 +24,7 @@
 | [docs/06_gameplay_optimization_proposal.md](docs/06_gameplay_optimization_proposal.md) | 行情敏感度、网络大单、续约、独立上架、停机与多种子调平的实施记录 | 策划/程序 |
 | [docs/18_cozy_rework_spec.md](docs/18_cozy_rework_spec.md) | 「轻松化」改造实施规格：签约锁价、银行接管、退役收割、故障软化、免费改签（已落地） | 策划/程序 |
 | [docs/19_meta_progression_rework.md](docs/19_meta_progression_rework.md) | 公司路线、园区定位、客户关系/合约期限、行情复盘、董事会与企业典藏（已落地） | 策划/程序/美术 |
+| [docs/20_gameplay_depth_and_economy.md](docs/20_gameplay_depth_and_economy.md) | 中期询价、棋盘成组、稀有行情封顶、工程部扩编与经济归因（已落地） | 策划/程序 |
 
 ## 当前状态
 
@@ -32,7 +33,8 @@
 - [x] 正式美术 159 项、音频 23 项完整接入；地图、机房、导航、商店、事件特效、公司元进度和三套音乐均走运行时接口
 - [x] StoreKit provider、交易幂等、限购、恢复购买和激励视频原生桥接口
 - [x] 轻松向经营闭环：合约锁价/自动续约与永久免费改签、故障 40% 降效/4 小时自愈、残料回收/95% 自动退役、银行接管/重整托底
-- [x] 162 项 Godot 回归测试、双语各 41 状态竖屏视觉与排版审计、断言化 FTUE/中期流程审计、30 天三策略 × 20 种子模拟、iOS 导出与 App Store 自动门禁
+- [x] 中期深度闭环：永久询价单、棋盘同类成组、3 条稀有行情与战略约 ×2.5 封顶、2→5 工程部扩编
+- [x] 200 项 Godot 回归测试、双语各 45 状态竖屏视觉与排版审计、断言化 FTUE/中期流程审计、30 天三策略 × 20 种子模拟、iOS 导出与 App Store 自动门禁
 - [ ] 外部交付：P01 正式名称、P04 广告 SDK、Apple 账号/证书、商店截图和 TestFlight
 
 运行时已经使用正式视听资源；资源接口仍保留缺失回退，因此单张素材损坏或暂时移除不会阻止玩法逻辑启动。
