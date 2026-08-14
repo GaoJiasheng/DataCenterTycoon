@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "roadmap": {
+    "items": {
+      "first_facility": {"name_key": "ROADMAP_FIRST_FACILITY", "description_key": "ROADMAP_FIRST_FACILITY_DESC", "metric": "total_datacenters_built", "target": 1, "reward_gems": 3, "asset_id": "dc_t0_active"},
+      "campus_operator": {"name_key": "ROADMAP_CAMPUS_OPERATOR", "description_key": "ROADMAP_CAMPUS_OPERATOR_DESC", "metric": "total_datacenters_built", "target": 6, "reward_gems": 5, "asset_id": "campus_strategy"},
+      "cloud_transition": {"name_key": "ROADMAP_CLOUD_TRANSITION", "description_key": "ROADMAP_CLOUD_TRANSITION_DESC", "metric": "era", "target": 2, "reward_gems": 8, "asset_id": "ic_era2"},
+      "client_portfolio": {"name_key": "ROADMAP_CLIENT_PORTFOLIO", "description_key": "ROADMAP_CLIENT_PORTFOLIO_DESC", "metric": "unique_customers_served", "target": 4, "reward_gems": 10, "asset_id": "customer_portfolio"},
+      "global_network": {"name_key": "ROADMAP_GLOBAL_NETWORK", "description_key": "ROADMAP_GLOBAL_NETWORK_DESC", "metric": "network_level", "target": 4, "reward_gems": 12, "asset_id": "ic_network"},
+      "listed_group": {"name_key": "ROADMAP_LISTED_GROUP", "description_key": "ROADMAP_LISTED_GROUP_DESC", "metric": "prestige_count", "target": 1, "reward_gems": 20, "asset_id": "legacy_memorial"}
+    }
+  },
+  "campus_specializations": {
+    "hosting": {"name_key": "SPECIALIZATION_HOSTING", "description_key": "SPECIALIZATION_HOSTING_DESC", "asset_id": "client_internet", "income_multiplier": 1.06, "customer_ids": ["internet"], "requirements": {"rack_kind": "compute", "rack_count": 2}, "unlock_era": 1},
+    "cloud": {"name_key": "SPECIALIZATION_CLOUD", "description_key": "SPECIALIZATION_CLOUD_DESC", "asset_id": "client_cloud", "income_multiplier": 1.06, "customer_ids": ["cloud"], "requirements": {"unique_rack_kinds": 2}, "unlock_era": 2},
+    "ai_compute": {"name_key": "SPECIALIZATION_AI", "description_key": "SPECIALIZATION_AI_DESC", "asset_id": "client_gpu", "income_multiplier": 1.07, "customer_ids": ["gpu_company"], "requirements": {"rack_kind": "gpu", "rack_count": 2}, "unlock_era": 2},
+    "diversified": {"name_key": "SPECIALIZATION_DIVERSIFIED", "description_key": "SPECIALIZATION_DIVERSIFIED_DESC", "asset_id": "campus_strategy", "income_multiplier": 1.04, "requirements": {"unique_customers": 2}, "unlock_era": 1}
+  },
+  "relationships": {
+    "levels": [
+      {"id": "new", "name_key": "RELATIONSHIP_NEW", "service_seconds": 0, "income_multiplier": 1.00},
+      {"id": "familiar", "name_key": "RELATIONSHIP_FAMILIAR", "service_seconds": 43200, "income_multiplier": 1.01},
+      {"id": "trusted", "name_key": "RELATIONSHIP_TRUSTED", "service_seconds": 172800, "income_multiplier": 1.02},
+      {"id": "cornerstone", "name_key": "RELATIONSHIP_CORNERSTONE", "service_seconds": 432000, "income_multiplier": 1.03}
+    ]
+  },
+  "contract_durations": {
+    "flexible": {"name_key": "CONTRACT_DURATION_FLEXIBLE", "description_key": "CONTRACT_DURATION_FLEXIBLE_DESC", "months": 3, "income_multiplier": 0.97, "relationship_level_required": 0},
+    "standard": {"name_key": "CONTRACT_DURATION_STANDARD", "description_key": "CONTRACT_DURATION_STANDARD_DESC", "months": 6, "income_multiplier": 1.00, "relationship_level_required": 0},
+    "strategic": {"name_key": "CONTRACT_DURATION_STRATEGIC", "description_key": "CONTRACT_DURATION_STRATEGIC_DESC", "months": 12, "income_multiplier": 1.04, "relationship_level_required": 1}
+  },
+  "board_specialties": {
+    "max_rank": 5,
+    "items": {
+      "construction": {"name_key": "BOARD_CONSTRUCTION", "description_key": "BOARD_CONSTRUCTION_DESC", "asset_id": "ic_build", "construction_time_reduction_per_rank": 0.03},
+      "operations": {"name_key": "BOARD_OPERATIONS", "description_key": "BOARD_OPERATIONS_DESC", "asset_id": "ic_operations", "maintenance_reduction_per_rank": 0.02, "auto_repair_time_reduction_per_rank": 0.04},
+      "business": {"name_key": "BOARD_BUSINESS", "description_key": "BOARD_BUSINESS_DESC", "asset_id": "ic_contract", "relationship_growth_per_rank": 0.05, "income_multiplier_per_rank": 0.005}
+    }
+  },
+  "collection": {
+    "groups": {
+      "facilities": {"name_key": "COLLECTION_FACILITIES", "reward_gems": 5, "sources": ["buildings", "racks", "attachments"]},
+      "clients": {"name_key": "COLLECTION_CLIENTS", "reward_gems": 5, "sources": ["customers"]},
+      "market_history": {"name_key": "COLLECTION_MARKET_HISTORY", "reward_gems": 8, "sources": ["events"]},
+      "legacy": {"name_key": "COLLECTION_LEGACY", "reward_gems": 12, "items": [
+        {"id": "legacy:era2", "name_key": "COLLECTION_ERA2", "asset_id": "ic_era2"},
+        {"id": "legacy:era3", "name_key": "COLLECTION_ERA3", "asset_id": "ic_era3"},
+        {"id": "legacy:prestige", "name_key": "COLLECTION_PRESTIGE", "asset_id": "ic_prestige"},
+        {"id": "legacy:takeover", "name_key": "COLLECTION_TAKEOVER", "asset_id": "ic_bankrupt"}
+      ]}
+    }
+  }
+}

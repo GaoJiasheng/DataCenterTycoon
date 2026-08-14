@@ -25,7 +25,7 @@
 
 ## 存档模型
 
-当前 `save_version=2`，主档仍为 `user://save_v1.json`。v2 会把旧存档中占用全局队列的机柜工程迁移为机房内 `install_complete_at` 计时，并为既有机柜补齐 `enabled=true`。核心字段包括：
+当前 `save_version=3`，主档仍为 `user://save_v1.json`。v2 会把旧存档中占用全局队列的机柜工程迁移为机房内 `install_complete_at` 计时，并为既有机柜补齐 `enabled=true`；v3 为旧合约补齐期限/锁价字段，并加入永久元进度。核心字段包括：
 
 - `player`：现金、钻石、总收入、时代、网络、品牌倍率和累计建设数；
 - `plots`：地块与嵌套机房，机房包含 9 个机柜格、独立机柜安装计时/停机状态、供电、四边冷却、客户、续约窗口、寿命与状态；
@@ -33,6 +33,7 @@
 - `market`：事件、预告、每日噪声、两年行情环形历史与随机状态；
 - `bankruptcy`：正常/欠费/Game Over、债务和仅在线累计的抢救时限；
 - `entitlements`、`purchases`、`processed_transactions`：非消耗权益、限购次数和 StoreKit 交易幂等表；
+- `meta`：路线图领取、企业典藏发现/领取、园区定位、客户服务时长、行情决策、董事会点数、历代公司复盘与传承标记；
 - `inventory`、`technology`、`achievements`、`tutorial`、`settings`、`stats`。
 
 新增字段必须同时加入 `_new_state()` 与 `_ensure_state_shape()`；破坏性 schema 变化必须提升 `SaveManager.SAVE_VERSION` 并在 `migrate()` 中逐版本处理。
@@ -45,7 +46,7 @@
 
 ## 视听交付接口
 
-- 美术：`assets/art/manifest.json` 固定 134 个 ID；成品源目录为 `art-renders/visual/final/`。
+- 美术：`assets/art/manifest.json` 固定 159 个 ID；成品源目录为 `art-renders/visual/final/`。新增系统同样必须先交付正式渲染素材，不允许线框、几何图形或文字块充当原型占位。
 - 音频：`assets/audio/manifest.json` 固定 23 个 cue；成品源目录为 `art-renders/audio/final/`。标准按钮、Sheet、数字滚动、结果 toast、解锁演出与夜间环境层统一经 `AudioService` 调用，缺失 cue 静默跳过；页面/危机音乐使用 2 秒淡出淡入切换。
 - 导入：`python3 tools/import_assets.py --visual --audio`。
 - 验收：`python3 tools/check_assets.py --strict --audio`。

@@ -110,10 +110,12 @@ def build_manifest() -> list[Asset]:
         ("fx_coin", 192, "hard"),
         ("fx_glow_ring", 512, "hard_feather"),
         ("fx_confetti_set", 512, "hard_feather"),
-        ("fx_dust_puff", 256, "soft"),
     ]
     for name, size, matte in fx:
         assets.append(Asset("fx", name, f"{name}_source_v1.png", size, size, shadow=False, margin=0.02, matte=matte))
+    # Re-rendered as a wide, low construction sweep rather than a mushroom
+    # cloud.  Keep the v2 chroma source so rebuilding the delivery is lossless.
+    assets.append(Asset("fx", "fx_dust_puff", "fx_dust_puff_chroma_v2.png", 1024, 512, shadow=False, margin=0.02, matte="soft"))
 
     # 5 dialogue poses.
     for pose in ("normal", "happy", "worried", "alert", "thinking"):
@@ -156,7 +158,7 @@ def build_manifest() -> list[Asset]:
 
     # 6 store/marketing assets.
     assets.extend([
-        Asset("store", "app_icon", "app_icon_source_v1.png", 1024, 1024, transparent=False, margin=0),
+        Asset("store", "app_icon", "app_icon_source_v2.png", 1024, 1024, transparent=False, margin=0),
         Asset("store", "splash_bg", "splash_bg_source_v1.png", 1536, 2732, transparent=False, margin=0),
         Asset("store", "pack_starter", "pack_starter_source_v1.png", 512, 512, shadow=True, margin=0.04),
         Asset("store", "pack_builder", "pack_builder_source_v1.png", 512, 512, shadow=True, margin=0.04),
@@ -164,7 +166,16 @@ def build_manifest() -> list[Asset]:
         Asset("store", "noads_badge", "noads_badge_source_v1.png", 512, 512, shadow=False, margin=0.04),
     ])
 
-    assert len(assets) == 146, f"expected 146 assets, got {len(assets)}"
+    # Seven formal meta-progression illustrations. These are authored as full
+    # 2.5D game art, never geometric prototype placeholders.
+    for name in (
+        "company_roadmap", "campus_strategy", "customer_portfolio",
+        "market_review", "board_specialties", "company_collection",
+        "legacy_memorial",
+    ):
+        assets.append(Asset("meta", name, f"meta/{name}_chroma.png", 1024, 1024, shadow=False, margin=0.045, matte="soft"))
+
+    assert len(assets) == 153, f"expected 153 assets, got {len(assets)}"
     assert len({(a.category, a.name) for a in assets}) == len(assets)
     return assets
 

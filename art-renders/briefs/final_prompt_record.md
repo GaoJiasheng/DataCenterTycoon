@@ -110,7 +110,7 @@ Avoid: thin lines, flat vector art, emoji style, clip art, photorealism, gritty 
 ## §10 批次⑦ · 品牌面生成提示
 
 品牌面以既有 `app_icon.png` 为风格参考，由内置 `imagegen` 重绘；生成原稿替换
-`visual/work/app_icon_source_v1.png` 与 `visual/work/splash_bg_source_v1.png`，再经
+`visual/work/app_icon_source_v2.png` 与 `visual/work/splash_bg_source_v1.png`，再经
 `build_final_visuals.py --only store/...` 标准化为 App Store 规格。
 
 ### App Icon
@@ -121,6 +121,25 @@ Edit this into a premium iOS game app icon for Data Center Tycoon. Keep the same
 
 首稿四角出现黑色外露区，未接入；二次编辑保持主体不变，将奶油金圆框内缩约 3.5%，四角补为完整不透明的深天蓝品牌底色。最终 1024² 成品四角 RGB 均为蓝色，无透明或黑角。
 
+#### 2026-08-14 · iOS 圆角适配重设计
+
+旧稿把厚金色圆角框直接烘焙进源图，经过 iOS 系统圆角遮罩后形成双重边框。新版改为无边框、无预制圆角的全幅场景：主体缩入中央安全区，外侧仅保留可裁切的天空和草地。
+
+```text
+Use case: logo-brand
+Asset type: production iOS mobile game App Store icon, 1024×1024 source artwork
+Primary request: completely redesign the icon as one instantly readable charming compact blue data-center building, with a glowing amber server core and a small deliberate stack of polished gold coins at the front-right base. Full-bleed environment, no frame.
+Scene/backdrop: sky-blue to deep-cyan atmospheric background above a small lush grass base; simple crop-safe corners.
+Style/medium: top-tier polished rounded 3D casual mobile-game render, tactile painted materials, crisp silhouette, restrained detail.
+Composition/framing: centered three-quarter isometric building occupying about 68–72% of the canvas; all meaningful detail inside the central 70% safe area; readable at 60px.
+Constraints: opaque square source; no baked rounded corners; no border, inner frame, yellow outline, text, logo, watermark, badge, shield or corner hardware. iOS supplies the only rounded-square mask.
+```
+
+- ImageGen 原图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-2f6b936f-3d52-4e11-a5e5-33808ad46631.png`
+- 可复建源图：`visual/work/app_icon_source_v2.png`
+- 正式成品：`visual/final/store/app_icon.png`
+- 运行时与 iOS 导出资源：`../assets/art/store/app_icon.png`
+
 ### 启动屏
 
 ```text
@@ -128,3 +147,73 @@ Create a minimalist portrait mobile game launch-screen artwork derived from this
 ```
 
 Godot `boot_splash/bg_color` 同步为 `#8FBF5A`，避免载入前后边缘闪过旧的深蓝底色。
+
+## 2026-08-12 · 建造完成扬尘重绘
+
+使用内置 `imagegen`，以 `visual/final/buildings/dc_t1_active.png` 和旧效果实机截图作为风格/问题参考。首稿仍有较高的团状烟尘，人工审片未接入；第二稿按下列提示生成，经绿色键控去背并裁成 1024×512 宽幅透明贴图，替换 `fx_dust_puff`：
+
+```text
+Create one standalone premium mobile-game VFX sprite for a DATA CENTER BUILDING CONSTRUCTION COMPLETION reveal, matching the attached polished 2.5D isometric tycoon rendering. This replaces the bulky dust cloud visible in the second reference. Make an extremely LOW, THIN, GROUND-HUGGING dust skirt that sweeps outward horizontally along the building plinth. Maximum visible dust height must be less than 15% of the total sprite width. The entire central 45% of the sprite must remain empty/transparent so the building and its entrance are unobscured. Use wispy warm beige powder trails close to the ground, a few tiny concrete chips traveling outward, and sparse warm golden glints; no large round puffs and no dense opaque cluster. Natural irregular asymmetry with polished painterly volume and crisp game-ready edges. Absolutely NO mushroom cloud, NO explosion, NO fire, NO smoke column, NO billowing vertical cloud, NO perfect circle, NO ring, NO halo, NO radial line art, NO neon magenta/red, NO text, NO UI, NO building, NO ground plane, NO rectangular shadow. Wide horizontal composition centered with generous empty margins. Consistent light from upper left. Render against a perfectly flat solid chroma green #00FF00 background, no green spill on the effect. Square 1024x1024 image.
+```
+
+- ImageGen 原图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-1d764c03-3900-477a-8d4e-b267b6cca67a.png`
+- 可复建键控源图：`visual/work/fx_dust_puff_chroma_v2.png`
+- 美术交付：`visual/final/fx/fx_dust_puff.png`
+- 运行时资源：`../assets/art/fx/fx_dust_puff.png`
+- 实机比例前后对比：`../docs/ui_review/compare_construction_fx.png`
+
+## 2026-08-12 · 公司成长系统正式渲染
+
+以下七件均使用内置 `imagegen` 生成 1024² 源稿，采用相同的生产约束：premium polished 2.5D casual mobile-game render；chunky rounded blue, cream and warm-gold materials；upper-left warm light；单一清晰主体且安全留白；纯 `#ff00ff` 色键背景；no text, letters, numbers, logo, watermark, UI frame, wireframe, flat vector, geometric placeholder or rough prototype。色键源稿位于 `visual/work/meta/`，透明成品位于 `visual/final/meta/`。
+
+### `company_roadmap`
+
+```text
+Create exactly one premium 2.5D mobile tycoon milestone icon: a charming miniature blue-and-cream data-center campus connected by a gently rising golden road with three substantial gold milestone monuments, ending at a radiant blue-and-gold company crest. Tactile hand-painted volume, rounded architectural forms, warm windows, readable at small size, no floating line diagram.
+```
+
+### `campus_strategy`
+
+```text
+Create exactly one premium 2.5D campus strategy centerpiece: a compact isometric blue-and-cream technology campus model on a landscaped plinth, surrounded by four distinct sculpted specialization emblems for hosting, cloud, AI compute and diversification. Each emblem must be a fully rendered object with depth and material, not a line icon or geometric placeholder.
+```
+
+### `customer_portfolio`
+
+```text
+Create exactly one premium 2.5D customer portfolio object: an elegant blue leather contract folio opened around four different chunky enamel-and-gold client seals representing internet, mining, cloud and AI compute, with one cream ribbon and one gold clasp. All symbols are physical rendered badges, no text and no flat UI cards.
+```
+
+### `market_review`
+
+```text
+Create exactly one premium 2.5D market decision review trophy: a small blue data-center building beside a rolled cream market ledger, a substantial gold magnifying glass, and two polished blue/gold price tokens. Express thoughtful review and comparison through objects only; no chart lines, text, numbers, panels or placeholder geometry.
+```
+
+### `board_specialties`
+
+```text
+Create exactly one premium 2.5D board strategy centerpiece: a luxurious rounded blue-and-cream executive table with three substantial sculpted departmental crests—construction hammer, operations console, and business contract—set into gold mounts, plus a central laurel-topped data-center miniature. No letters, flat icons, wireframes or UI panels.
+```
+
+### `company_collection`
+
+```text
+Create exactly one premium 2.5D company collection cabinet: a polished royal-blue archive cabinet opened to reveal carefully arranged miniature data-center, server rack, client seal, market medal and legacy trophy collectibles, with cream shelves and warm gold fittings. Museum-quality tactile objects; no text labels, grids, outline drawings or placeholder blocks.
+```
+
+### `legacy_memorial`
+
+```text
+Create exactly one premium 2.5D legacy memorial world prop: a dignified blue-and-cream stone monument on an isometric landscaped base, topped with a gold laurel and a miniature glowing data-center building, accompanied by a small blue pennant and neatly trimmed flowers. It must look like a permanent celebratory campus landmark, not a UI badge, simple geometric plinth or line-art icon.
+```
+
+ImageGen 原图依次为：
+
+- `company_roadmap`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-05f49013-9607-45cd-9f50-aad31d6b0ef8.png`
+- `campus_strategy`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-9c789964-b1b0-4280-b00f-811c4d37dfa2.png`
+- `customer_portfolio`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-cf609068-8751-4742-924c-fdf02accef4e.png`
+- `market_review`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-6e698b5f-c3ee-4dbb-a80c-ff78f20a0bbb.png`
+- `board_specialties`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-dc3169eb-562a-4da0-86d3-4b963c3b9ba7.png`
+- `company_collection`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-bdf14f40-04d0-4253-95df-c8bbfaf1651e.png`
+- `legacy_memorial`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-47a6a8a4-9605-4117-8405-26eae0f4bc16.png`

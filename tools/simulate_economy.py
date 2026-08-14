@@ -26,6 +26,7 @@ CUSTOMERS = load("customers")["items"]
 EVENTS = load("events")["items"]
 ERAS = load("eras")["items"]
 TECHNOLOGY = load("technology")
+META = load("meta_progression")
 MONTH = ECONOMY["time"]["real_seconds_per_game_month"]
 YEAR = ECONOMY["time"]["real_seconds_per_game_year"]
 DAY = 86400
@@ -85,6 +86,8 @@ class Datacenter:
     contract_end_at: float = 0.0
     locked_market_multiplier: float = 1.0
     free_switch_available: bool = False
+    contract_duration_id: str = "standard"
+    contract_income_multiplier: float = 1.0
 
     @property
     def ready(self):
@@ -216,7 +219,12 @@ class Simulator:
         else:
             efficiency = 0.7 - (age - 0.9) * 3
         network = TECHNOLOGY["network"][str(self.network)]["income_multiplier"]
-        return subtotal * max(0, efficiency) * network * BUILDINGS[dc.building_id]["structure_multiplier"]
+        relationship = META["relationships"]["levels"][0]
+        served = self.customer_seconds.get(dc.customer, 0.0)
+        for level in META["relationships"]["levels"]:
+            if served >= level["service_seconds"]:
+                relationship = level
+        return subtotal * max(0, efficiency) * network * BUILDINGS[dc.building_id]["structure_multiplier"] * dc.contract_income_multiplier * relationship["income_multiplier"]
 
     def accrue(self):
         income = sum(self.dc_monthly_income(dc) for dc in self.dcs) * STEP / MONTH
@@ -395,11 +403,22 @@ class Simulator:
             return
         dc.customer = customer
         dc.locked_market_multiplier = self.market_multiplier(customer)
-        dc.contract_end_at = Simulator.now + ECONOMY["contracts"]["duration_seconds"]
+        relationship_index = 0
+        for index, level in enumerate(META["relationships"]["levels"]):
+            if self.customer_seconds.get(customer, 0.0) >= level["service_seconds"]:
+                relationship_index = index
+        # The reference cohorts retain the balanced six-month default. The
+        # flexible/strategic alternatives are verified below by a dedicated
+        # probe instead of silently turning every familiar client into a
+        # year-long boom lock and distorting the established 30-day baseline.
+        duration_id = "standard"
+        duration = META["contract_durations"][duration_id]
+        dc.contract_duration_id = duration_id
+        dc.contract_income_multiplier = duration["income_multiplier"]
+        dc.contract_end_at = Simulator.now + duration["months"] * MONTH
         dc.free_switch_available = False
 
     def update_contracts(self):
-        duration = ECONOMY["contracts"]["duration_seconds"]
         for dc in self.dcs:
             if dc.ready and not dc.customer:
                 if self.strategy == "idle":
@@ -414,10 +433,12 @@ class Simulator:
                         self.switch_to_best_customer(dc, available)
             if not dc.customer:
                 continue
+            duration = META["contract_durations"].get(dc.contract_duration_id, META["contract_durations"]["standard"])
+            duration_seconds = duration["months"] * MONTH
             if dc.contract_end_at <= 0:
-                dc.contract_end_at = dc.ready_at + duration
+                dc.contract_end_at = dc.ready_at + duration_seconds
             while Simulator.now >= dc.contract_end_at:
-                dc.contract_end_at += duration
+                dc.contract_end_at += duration_seconds
                 dc.locked_market_multiplier = self.market_multiplier(dc.customer)
                 dc.free_switch_available = True
             if self.strategy == "active" and dc.free_switch_available:
@@ -581,17 +602,28 @@ def contract_locking_probe():
     baseline = CUSTOMERS["mining"]["era_baseline"]["1"]
     dc = Datacenter(
         "dc_t0", 0.0, 0.0, ["rack_compute_t1"], customer="mining",
-        contract_end_at=ECONOMY["contracts"]["duration_seconds"],
+        contract_end_at=META["contract_durations"]["standard"]["months"] * MONTH,
         locked_market_multiplier=baseline,
     )
     sim.dcs = [dc]
     before = sim.dc_monthly_income(dc)
-    sim.events = [("mining_crash", ECONOMY["contracts"]["duration_seconds"] * 4)]
+    sim.events = [("mining_crash", META["contract_durations"]["standard"]["months"] * MONTH * 4)]
     during = sim.dc_monthly_income(dc)
     Simulator.now = dc.contract_end_at
     sim.update_contracts()
     after_renewal = sim.dc_monthly_income(dc)
     return math.isclose(before, during) and after_renewal < during and dc.free_switch_available
+
+
+def contract_terms_probe():
+    """Keep every authored term mechanically represented without changing cohorts."""
+    terms = META["contract_durations"]
+    return (
+        set(terms) == {"flexible", "standard", "strategic"}
+        and terms["flexible"]["months"] < terms["standard"]["months"] < terms["strategic"]["months"]
+        and terms["flexible"]["income_multiplier"] < terms["standard"]["income_multiplier"] < terms["strategic"]["income_multiplier"]
+        and terms["strategic"]["relationship_level_required"] > 0
+    )
 
 
 def retirement_harvest_probe():
@@ -616,6 +648,7 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
         (campus_layout(6)["type_id"] == "type_1" and campus_layout(7)["type_id"] == "type_2" and campus_layout(15)["campus_index"] == 2, "campus sequence partitions unlimited plots into a 6-slot starter page followed by 8-slot expansion pages"),
         (math.isclose(land_price(7) / round(ECONOMY["land"]["base_price"] * (1.0 + ECONOMY["land"]["growth_step"] * 6) ** ECONOMY["land"]["growth_exponent"]), 1.08, rel_tol=0.001), "expansion-campus land premium stays at the intended modest 8%"),
         (contract_locking_probe(), "mining downturn leaves an existing contract unchanged until automatic renewal"),
+        (contract_terms_probe(), "flexible, standard, and relationship-gated strategic terms preserve their authored risk/reward order"),
         (retirement_harvest_probe(), "normal retirement beats ruin scrap for every loadout at each 0.1% step from 60.0% through 99.9% lifespan"),
         (idle_fault_loss < 0.08, f"passive auto-repair curve loses {idle_fault_loss:.1%} versus the same-seed pre-A4 fault model (target <8%)"),
         (2 <= active_day_1[3] <= 3 and active_day_1[2] > 0, "day 1 active player has 2–3 data centers and positive cash"),
@@ -664,7 +697,7 @@ def main():
     parser.add_argument("--maintenance-t2-scale", type=float, default=None, help="Override the T2 calibration multiplier")
     parser.add_argument("--maintenance-t3-scale", type=float, default=None, help="Override the T3 calibration multiplier")
     parser.add_argument("--portfolio-threshold", type=float, default=0.60, help="Calibration-only active-bid viability threshold")
-    parser.add_argument("--active-prestige-reserve-step", type=float, default=2.2, help="Calibration-only reserve growth before first prestige")
+    parser.add_argument("--active-prestige-reserve-step", type=float, default=2.3, help="Calibration-only reserve growth before first prestige")
     parser.add_argument("--aggressive-session-seconds", type=float, default=7200.0, help="Calibration-only online time per aggressive session")
     parser.add_argument("--no-write", action="store_true", help="Do not replace the canonical CSV/SVG outputs")
     args = parser.parse_args()

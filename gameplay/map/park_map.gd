@@ -62,7 +62,6 @@ var target_buttons: Dictionary = {}
 var _ambient_time := 0.0
 var _active_art: Array[TextureRect] = []
 var _sway_art: Array[TextureRect] = []
-var _glow_art: Array[TextureRect] = []
 var _construction_labels: Array[Dictionary] = []
 var _countdown_accumulator := 0.0
 var _campus_bounds := Rect2()
@@ -158,11 +157,6 @@ func _process(delta: float) -> void:
 		var art := _sway_art[index]
 		if is_instance_valid(art) and art.is_visible_in_tree():
 			art.rotation = sin(_ambient_time * 0.72 + index * 1.31) * 0.012
-	for index: int in range(_glow_art.size()):
-		var glow := _glow_art[index]
-		if is_instance_valid(glow) and glow.is_visible_in_tree():
-			glow.modulate.a = 0.11 + sin(_ambient_time * 1.8 + index) * 0.045
-			glow.rotation = _ambient_time * (0.035 if index % 2 == 0 else -0.03)
 	_countdown_accumulator += delta
 	if _countdown_accumulator >= 1.0:
 		_countdown_accumulator = 0.0
@@ -224,7 +218,6 @@ func setup(plots: Array) -> void:
 	target_buttons.clear()
 	_active_art.clear()
 	_sway_art.clear()
-	_glow_art.clear()
 	_construction_labels.clear()
 	notify_user_input()
 	var owned_count := plots.size()
@@ -366,15 +359,26 @@ func play_construction_completion(plot_id: String) -> void:
 	var scaffold := _world_art_overlay(target, art, scaffold_texture, "ConstructionGhost")
 	art.modulate.a = 0.0
 	art.scale = Vector2.ONE * 0.90
-	for index: int in range(3):
-		_spawn_local_fx(
-			target,
-			"fx_dust_puff",
-			Vector2(-78.0 + float(index) * 78.0, 74.0 + absf(1.0 - float(index)) * 10.0),
-			Vector2(96, 96),
-			float(index) * 0.07,
-			"CompletionDust%d" % index
-		)
+	# One rendered, ground-hugging sweep replaces the old three duplicated
+	# mushroom-cloud puffs.  Its alpha is open in the middle, so the completed
+	# building remains the hero instead of disappearing behind construction FX.
+	var dust := _spawn_local_fx(
+		target,
+		"fx_dust_puff",
+		Vector2(0, 22),
+		Vector2(336, 168),
+		0.0,
+		"CompletionDustSweep"
+	)
+	if dust != null:
+		dust.scale = Vector2.ONE * 0.52
+		dust.modulate.a = 0.0
+		# Dust belongs at the plinth contact line, behind the finished building.
+		# Keeping it in the same z-plane and ordering it before the art avoids both
+		# foreground occlusion and the risk of a negative-z child disappearing
+		# behind the button's own world surface.
+		dust.z_index = art.z_index
+		target.move_child(dust, art.get_index())
 	var tween := target.create_tween().set_parallel(true)
 	tween.tween_property(art, "modulate:a", 1.0, 0.20)
 	tween.tween_property(art, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -395,11 +399,13 @@ func play_power_on(datacenter_id: String) -> void:
 	var dark_texture := AssetCatalog.texture(str(building.get("asset_prefix", "")) + "_dark")
 	var dark_art := _world_art_overlay(target, art, dark_texture, "PowerOnDarkGhost")
 	art.modulate.a = 0.0
-	var ring := _spawn_local_fx(target, "fx_glow_ring", Vector2.ZERO, Vector2(264, 264), 0.0, "PowerOnGlow")
-	if ring != null:
-		ring.position = target.size * 0.5 - ring.size * 0.5 + Vector2(0, 10)
+	# Power-on is a material change in the building art, not a magic spell.  The
+	# previous neon ring was visually unrelated to the 2.5D world and could land
+	# on top of the completion dust when queued work finished together.
+	art.self_modulate = Color(0.72, 0.82, 1.0, 1.0)
 	var tween := target.create_tween().set_parallel(true)
 	tween.tween_property(art, "modulate:a", 1.0, 0.60).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(art, "self_modulate", Color.WHITE, 0.60).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	if dark_art != null:
 		tween.tween_property(dark_art, "modulate:a", 0.0, 0.60).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		tween.finished.connect(dark_art.queue_free)
@@ -670,6 +676,12 @@ func _add_environment_props(plots: Array) -> void:
 				used_anchors.append(anchor)
 				campus_prop_count += 1
 		campus_prop_counts[campus_index] = campus_prop_count
+	if int(Game.state.get("stats", {}).get("prestige_count", 0)) > 0:
+		var memorial_dimensions := Vector2(156, 156)
+		var memorial := _add_world_prop("legacy_memorial", Vector2(world_size.x - memorial_dimensions.x - 26.0, CAMPUS_TOP + 18.0), memorial_dimensions, "legacy")
+		if memorial != null:
+			memorial.name = "CompanyLegacyMemorial"
+			memorial.set_meta("legacy_memorial", true)
 
 func _pylon_deco_position(plot_origin: Vector2, dimensions: Vector2, column: int) -> Vector2:
 	# Power fixtures mirror to the outer rear corner of their column. Keeping the
@@ -973,11 +985,13 @@ func _configure_construction_timer(button: Button, label: Label, construction: D
 	progress.show_percentage = false
 	progress.custom_minimum_size = Vector2(54, 16)
 	row.add_child(progress)
-	var started := float(construction.get("started_at", Game.simulation_time()))
-	var completed := float(construction.get("complete_at", started + 1.0))
-	progress.max_value = maxf(1.0, completed - started)
-	progress.value = clampf(Game.simulation_time() - started, 0.0, progress.max_value)
-	_construction_labels.append({"label": label, "progress": progress, "construction_id": str(construction.get("id", "")), "started_at": started, "complete_at": completed})
+	var duration := Game.construction_duration(construction)
+	var completed := float(construction.get("complete_at", Game.simulation_time()))
+	var remaining := maxf(0.0, completed - Game.simulation_time())
+	progress.max_value = duration
+	progress.value = clampf(duration - remaining, 0.0, duration)
+	progress.set_meta("duration_seconds", duration)
+	_construction_labels.append({"label": label, "progress": progress, "construction_id": str(construction.get("id", "")), "duration_seconds": duration, "complete_at": completed})
 
 func _campus_count_for_slots(slot_count: int) -> int:
 	return Rules.campus_count_for_slots(slot_count, DataRepository.get_table("economy"))
@@ -1054,6 +1068,10 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	button.name = "WorldPlotButton"
 	button.size = PLOT_SIZE
 	button.focus_mode = Control.FOCUS_NONE
+	# Preserve taps, but let unconsumed drag/pinch events bubble to ParkMap.  On a
+	# dense 10x10 campus there may be no grass between buildings, so STOP here
+	# effectively disabled the camera exactly when navigation mattered most.
+	button.mouse_filter = Control.MOUSE_FILTER_PASS
 	button.tooltip_text = caption
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(1, 1, 1, 0.0)
@@ -1100,20 +1118,6 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	button.add_child(view)
 	if asset_id.ends_with("_active"):
 		_active_art.append(view)
-		var glow_texture := AssetCatalog.texture("fx_glow_ring")
-		if glow_texture != null:
-			var glow := TextureRect.new()
-			glow.texture = glow_texture
-			glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			glow.position = Vector2(64, 108)
-			glow.size = Vector2(216, 112)
-			glow.pivot_offset = glow.size * 0.5
-			glow.modulate = Color(0.55, 0.92, 1.0, 0.13)
-			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			button.add_child(glow)
-			button.move_child(glow, 0)
-			_glow_art.append(glow)
 	var status_badge := PanelContainer.new()
 	status_badge.name = "SalePriceBadge" if badge_mode == "price" else "StatusBadge"
 	status_badge.add_theme_stylebox_override("panel", ThemeMaker.sale_price_badge() if badge_mode == "price" else ThemeMaker.world_badge(accent, badge_mode in ["add", "icon"]))
@@ -1266,13 +1270,14 @@ func _refresh_construction_labels() -> void:
 		var label := entry.get("label") as Label
 		if label == null or not is_instance_valid(label):
 			continue
-		var completed := float(entry.get("complete_at", Game.simulation_time()))
-		var started := float(entry.get("started_at", Game.simulation_time()))
+		var construction := Game.find_construction(str(entry.get("construction_id", "")))
+		var completed := float(construction.get("complete_at", entry.get("complete_at", Game.simulation_time())))
+		var duration := maxf(1.0, float(entry.get("duration_seconds", Game.construction_duration(construction))))
 		var remaining := maxf(0.0, completed - Game.simulation_time())
 		label.text = Game.format_duration(remaining)
 		var progress := entry.get("progress") as ProgressBar
 		if progress != null and is_instance_valid(progress):
-			progress.value = clampf(Game.simulation_time() - started, 0.0, maxf(1.0, completed - started))
+			progress.value = clampf(duration - remaining, 0.0, duration)
 
 func _animate_button(button: Button, target_scale: float) -> void:
 	var tween := button.create_tween()

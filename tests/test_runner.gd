@@ -14,13 +14,20 @@ func _ready() -> void:
 	await _run_asset_integration_tests()
 	AudioService.apply_settings({"music_enabled": false, "sfx_enabled": false})
 	await _run_ui_refresh_test()
+	await _run_operation_feedback_tests()
+	await _run_explained_action_contract_tests()
+	await _run_power_install_recovery_tests()
+	await _run_rewarded_progress_tests()
 	_run_rule_tests()
+	_run_market_save_compatibility_tests()
 	_run_gameplay_optimization_tests()
+	_run_meta_progression_tests()
 	_run_fault_softening_tests()
 	_run_initial_state_test()
 	_run_core_loop_test()
 	await _run_datacenter_board_tests()
 	await _run_wp4_decision_ui_tests()
+	await _run_contract_capacity_ui_tests()
 	await _run_wp6_presentation_tests()
 	_run_construction_controls_test()
 	_run_commerce_test()
@@ -43,11 +50,11 @@ func _run_data_tests() -> void:
 
 func _run_asset_integration_tests() -> void:
 	var art_items: Dictionary = AssetCatalog.manifest.get("items", {})
-	var art_loads := art_items.size() == 152
+	var art_loads := art_items.size() == 159
 	for item: Dictionary in art_items.values():
 		var path := str(item.get("path", ""))
 		art_loads = art_loads and ResourceLoader.exists(path) and load(path) is Texture2D
-	_expect(art_loads, "all 152 production textures import and load")
+	_expect(art_loads, "all 159 production textures import and load")
 	var audio_items: Dictionary = AudioService.manifest.get("items", {})
 	var audio_loads := audio_items.size() == 23
 	for cue_id: String in audio_items:
@@ -82,6 +89,48 @@ func _run_asset_integration_tests() -> void:
 	var next_campus_first: Vector2 = park_map.call("_plot_position", 6, 12)
 	var campus_center_x := park_map.world_size.x * 0.5 - ParkMap.PLOT_SIZE.x * 0.5
 	var campus_grid_ok := first_axis.is_equal_approx(Vector2(ParkMap.COLUMN_STEP, 0.0)) and is_equal_approx(left_top.y, right_top.y) and is_equal_approx(left_bottom.y, right_bottom.y) and (left_bottom - left_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and (right_bottom - right_top).is_equal_approx(Vector2(0, ParkMap.ROW_STEP)) and is_equal_approx(next_sale.x, campus_center_x) and is_equal_approx(next_sale.y, ParkMap.CAMPUS_TOP + ParkMap.ROW_STEP * 2.0) and paired_sale.is_equal_approx(Vector2(ParkMap.CAMPUS_LEFT + ParkMap.COLUMN_STEP, ParkMap.CAMPUS_TOP + ParkMap.ROW_STEP)) and next_campus_sale.is_equal_approx(Vector2(campus_center_x, ParkMap.CAMPUS_TOP)) and next_campus_first.is_equal_approx(Vector2(ParkMap.CAMPUS_LEFT, ParkMap.CAMPUS_TOP)) and bool(plot_button.get_meta("grid_slot", -1) == 0)
+	var camera_start := park_map.camera_offset
+	var touch_down := InputEventScreenTouch.new()
+	touch_down.index = 0
+	touch_down.position = Vector2(360, 720)
+	touch_down.pressed = true
+	park_map.call("_gui_input", touch_down)
+	var drag_out := InputEventScreenDrag.new()
+	drag_out.index = 0
+	drag_out.position = Vector2(324, 674)
+	drag_out.relative = Vector2(-36, -46)
+	park_map.call("_gui_input", drag_out)
+	var dragged_offset := park_map.camera_offset
+	var drag_back := InputEventScreenDrag.new()
+	drag_back.index = 0
+	drag_back.position = Vector2(342, 696)
+	drag_back.relative = Vector2(18, 22)
+	park_map.call("_gui_input", drag_back)
+	var panned_both_axes := dragged_offset.x < camera_start.x and dragged_offset.y < camera_start.y and park_map.camera_offset.x > dragged_offset.x and park_map.camera_offset.y > dragged_offset.y
+	touch_down.pressed = false
+	park_map.call("_gui_input", touch_down)
+	var zoom_start := park_map.zoom
+	var pinch_a := InputEventScreenTouch.new()
+	pinch_a.index = 0
+	pinch_a.position = Vector2(280, 720)
+	pinch_a.pressed = true
+	park_map.call("_gui_input", pinch_a)
+	var pinch_b := InputEventScreenTouch.new()
+	pinch_b.index = 1
+	pinch_b.position = Vector2(520, 720)
+	pinch_b.pressed = true
+	park_map.call("_gui_input", pinch_b)
+	var pinch_drag := InputEventScreenDrag.new()
+	pinch_drag.index = 1
+	pinch_drag.position = Vector2(580, 720)
+	pinch_drag.relative = Vector2(60, 0)
+	park_map.call("_gui_input", pinch_drag)
+	var camera_gesture_ok := panned_both_axes and park_map.zoom > zoom_start and plot_button.mouse_filter == Control.MOUSE_FILTER_PASS
+	pinch_a.pressed = false
+	pinch_b.pressed = false
+	park_map.call("_gui_input", pinch_a)
+	park_map.call("_gui_input", pinch_b)
+	park_map.reset_camera()
 	# The cinematic polish stays presentation-only and must clean up after itself.
 	Game.reset_for_tests()
 	Game.start_datacenter_construction("plot_1", "dc_t0")
@@ -89,7 +138,12 @@ func _run_asset_integration_tests() -> void:
 	park_map.setup(Game.state.get("plots", []))
 	await get_tree().process_frame
 	park_map.play_construction_completion("plot_1")
-	var construction_stage_ok := park_map.find_child("ConstructionGhost", true, false) != null and park_map.find_children("CompletionDust*", "TextureRect", true, false).size() == 3
+	var dust_sweeps := park_map.find_children("CompletionDust*", "TextureRect", true, false)
+	var construction_stage_ok := park_map.find_child("ConstructionGhost", true, false) != null and dust_sweeps.size() == 1
+	if construction_stage_ok:
+		var dust_sweep := dust_sweeps[0] as TextureRect
+		var completed_art := park_map.find_child("WorldArt", true, false) as TextureRect
+		construction_stage_ok = dust_sweep.name == "CompletionDustSweep" and dust_sweep.size.x > dust_sweep.size.y and dust_sweep.texture == AssetCatalog.texture("fx_dust_puff") and completed_art != null and dust_sweep.get_index() < completed_art.get_index()
 	await get_tree().create_timer(0.82).timeout
 	construction_stage_ok = construction_stage_ok and park_map.find_child("ConstructionGhost", true, false) == null and park_map.find_children("CompletionDust*", "TextureRect", true, false).is_empty()
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
@@ -106,7 +160,7 @@ func _run_asset_integration_tests() -> void:
 		var powered_art := active_art[0] as TextureRect
 		window_breath_ok = powered_art.scale.is_equal_approx(Vector2.ONE) and powered_art.self_modulate.r >= 1.0 and powered_art.self_modulate.r <= 1.06
 	park_map.play_power_on(str(dc.get("id", "")))
-	var power_stage_ok := park_map.find_child("PowerOnDarkGhost", true, false) != null and park_map.find_child("PowerOnGlow", true, false) != null
+	var power_stage_ok := park_map.find_child("PowerOnDarkGhost", true, false) != null and park_map.find_child("PowerOnGlow", true, false) == null
 	await get_tree().create_timer(0.72).timeout
 	power_stage_ok = power_stage_ok and park_map.find_child("PowerOnDarkGhost", true, false) == null and park_map.find_child("PowerOnGlow", true, false) == null
 	park_map.set("_idle_seconds", ParkMap.CAMERA_BREATH_DELAY + 2.0)
@@ -115,7 +169,7 @@ func _run_asset_integration_tests() -> void:
 	var camera_breath_ok := bool(park_map.get("_camera_breathing")) and park_map.content.scale.x > park_map.zoom and park_map.content.scale.x <= park_map.zoom * 1.021
 	park_map.notify_user_input()
 	camera_breath_ok = camera_breath_ok and park_map.content.scale.is_equal_approx(Vector2.ONE * park_map.zoom)
-	campus_grid_ok = campus_grid_ok and construction_stage_ok and power_stage_ok and window_breath_ok and camera_breath_ok
+	campus_grid_ok = campus_grid_ok and camera_gesture_ok and construction_stage_ok and power_stage_ok and window_breath_ok and camera_breath_ok
 	_expect(campus_grid_ok, "campus grid and presentation-only world transitions stay deterministic and self-cleaning")
 	park_map.queue_free()
 	await get_tree().process_frame
@@ -202,6 +256,241 @@ func _run_ui_refresh_test() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
+func _run_operation_feedback_tests() -> void:
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	Game.state["tutorial"]["completed"] = true
+	Game.buy_next_plot()
+	Game.buy_next_plot()
+	Game.buy_next_plot()
+	var first := Game.start_datacenter_construction("plot_1", "dc_t0")
+	var second := Game.start_datacenter_construction("plot_2", "dc_t1")
+	var rejected := Game.start_datacenter_construction("plot_3", "dc_t1")
+	var service_dc := _test_datacenter("feedback_dc", "dc_t1")
+	Game.state["plots"][3]["datacenter"] = service_dc
+	Game.state["plots"][3]["status"] = "operational"
+	var rejected_power := Game.install_power("feedback_dc", "power_t1")
+	var rejected_cooler := Game.install_cooler("feedback_dc", "north", "cool_air_t1")
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.call("_refresh")
+	main.call("_show_building_picker", "plot_3")
+	await get_tree().process_frame
+	main.call("_handle_result", rejected, {"plot_id": "plot_3", "operation": "datacenter"})
+	await get_tree().process_frame
+	var toast := main.get("toast_label") as Label
+	var feedback_layer := main.get("feedback_layer") as CanvasLayer
+	var picker := main.find_child("BuildingPicker", true, false) as CanvasItem
+	var queue_feedback_ok := bool(first.get("ok", false)) and bool(second.get("ok", false)) and str(rejected.get("reason", "")) == "queue_full"
+	queue_feedback_ok = queue_feedback_ok and str(rejected_power.get("reason", "")) == "queue_full" and str(rejected_cooler.get("reason", "")) == "queue_full"
+	queue_feedback_ok = queue_feedback_ok and toast != null and toast.visible and feedback_layer != null and feedback_layer.layer > 0 and toast.z_index > (picker.z_index if picker != null else 0)
+	queue_feedback_ok = queue_feedback_ok and "2/2" in toast.text and Game.format_duration(300.0) in toast.text and toast.autowrap_mode != TextServer.AUTOWRAP_OFF
+	service_dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "installing", "install_complete_at": Game.simulation_time() + 240.0}
+	service_dc["racks"][1] = {"rack_id": "rack_storage_t1", "status": "installing", "install_complete_at": Game.simulation_time() + 480.0}
+	var rejected_rack := Game.install_rack("feedback_dc", 3, "rack_compute_t1")
+	main.call("_handle_result", rejected_rack, {"datacenter_id": "feedback_dc", "slot": 3, "operation": "rack"})
+	queue_feedback_ok = queue_feedback_ok and str(rejected_rack.get("reason", "")) == "rack_install_limit" and Game.format_duration(240.0) in toast.text
+	# A second rapid failure must replace and restart the feedback lifetime.  The
+	# old implementation left both fade tweens alive, so the first click could
+	# hide the message raised by the second click.
+	main.call("_handle_result", {"ok": false, "reason": "not_enough_cash"})
+	await get_tree().create_timer(1.8).timeout
+	queue_feedback_ok = queue_feedback_ok and toast.visible and toast.text == tr("REASON_NOT_ENOUGH_CASH")
+	_expect(queue_feedback_ok, "rejected operations stay visible above sheets and rapid retries restart friendly feedback")
+
+	var reasons := [
+		"already_owned", "building_tier_too_low", "construction_in_progress", "construction_missing",
+		"contract_capacity_required", "cooler_slots_full", "datacenter_missing", "datacenter_unavailable", "invalid_edge", "invalid_slot",
+		"locked", "not_an_upgrade", "not_enough_cash", "not_enough_gems", "not_faulted", "not_ruined", "power_required",
+		"plot_unavailable", "prestige_locked", "product_unavailable", "purchase_limit", "purchase_pending",
+		"queue_full", "rack_install_limit", "rack_unavailable", "reward_limit", "reward_pending",
+		"reward_unavailable", "slot_empty", "slot_locked", "slot_occupied", "ticket_unavailable",
+		"too_new_to_retire", "tutorial_building_retired", "unknown",
+	]
+	var original_locale := TranslationServer.get_locale()
+	var all_reasons_localized := true
+	for locale: String in ["en", "zh_CN"]:
+		TranslationServer.set_locale(locale)
+		for reason: String in reasons:
+			var copy := str(main.call("_reason_text", reason))
+			all_reasons_localized = all_reasons_localized and not copy.is_empty() and copy != reason and not copy.begins_with("REASON_")
+	TranslationServer.set_locale(original_locale)
+	_expect(all_reasons_localized, "every core operation rejection has readable English and Chinese copy")
+	main.queue_free()
+	await get_tree().process_frame
+
+func _run_explained_action_contract_tests() -> void:
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["era"] = 1
+	Game.state["player"]["network_level"] = 2
+	Game.state["player"]["cash"] = 500000.0
+	Game.state["entitlements"]["noads"] = true
+	var now := Game.simulation_time()
+	Game.state["construction_queue"] = [{
+		"id": "feedback_limit_job", "type": "datacenter", "started_at": now,
+		"complete_at": now + 600.0, "ad_uses": 2,
+	}]
+	var dc := _test_datacenter("feedback_entry_dc", "dc_t0")
+	dc["power_unit"] = "power_t1"
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.call("_navigate", "tech")
+	main.call("_refresh")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var explained_locked: Array[Node] = []
+	for node: Node in main.find_children("*", "Button", true, false):
+		if str(node.get_meta("unavailable_reason", "")) == "locked":
+			explained_locked.append(node)
+	var locked_buttons_tappable := explained_locked.size() >= 2
+	for node: Node in explained_locked:
+		locked_buttons_tappable = locked_buttons_tappable and not (node as Button).disabled and not (node as Button).pressed.get_connections().is_empty()
+	var era_copy := str(main.call("_failure_message", "locked", {"unlock_era": 2}))
+	_expect(locked_buttons_tappable and "2" in era_copy, "locked technology actions stay tappable and explain their exact unlock era")
+
+	main.call("_navigate", "build")
+	main.call("_refresh")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var limited_reward: Button = null
+	for node: Node in main.find_children("*", "Button", true, false):
+		if str(node.get_meta("unavailable_reason", "")) == "reward_limit":
+			limited_reward = node as Button
+			break
+	_expect(limited_reward != null and not limited_reward.disabled and not limited_reward.pressed.get_connections().is_empty(), "exhausted reward actions remain tappable so the limit is explained")
+
+	main.call("_navigate", "store")
+	main.call("_refresh")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var owned_product := main.find_child("StoreBuy_noads", true, false) as Button
+	_expect(owned_product != null and not owned_product.disabled and str(owned_product.get_meta("unavailable_reason", "")) == "already_owned", "owned store actions explain their terminal state instead of silently disabling")
+
+	main.call("_navigate", "map")
+	main.call("_refresh")
+	await get_tree().process_frame
+	main.call("_show_rack_picker", dc["id"], 2)
+	await get_tree().process_frame
+	var toast := main.get("toast_label") as Label
+	var guarded_entries_ok := toast != null and toast.text == tr("REASON_SLOT_LOCKED") and main.find_child("ActionSheetOverlay", true, false) == null
+	main.call("_show_attachment_picker", "missing_dc", "power", "")
+	await get_tree().process_frame
+	guarded_entries_ok = guarded_entries_ok and toast.text == tr("REASON_DATACENTER_MISSING")
+	main.call("_show_rack_actions", dc["id"], 12)
+	await get_tree().process_frame
+	guarded_entries_ok = guarded_entries_ok and toast.text == tr("REASON_INVALID_SLOT")
+	main.call("_open_datacenter_detail", "missing_dc", "contracts")
+	await get_tree().process_frame
+	guarded_entries_ok = guarded_entries_ok and toast.text == tr("REASON_DATACENTER_MISSING") and str(main.get("active_page")) == "map"
+	_expect(guarded_entries_ok, "stale data-center rack attachment and contract entry points always return visible guidance")
+
+	main.queue_free()
+	await get_tree().process_frame
+
+func _run_power_install_recovery_tests() -> void:
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["cash"] = 1500.0
+	var dc := _test_datacenter("power_recovery_dc", "dc_t1")
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.call("_open_datacenter_detail", dc["id"], "board")
+	main.call("_refresh")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var power_slot := main.find_child("PowerSlot", true, false) as Button
+	var power_usage := main.find_child("BoardPowerUsage", true, false) as RichTextLabel
+	_expect(power_slot != null and "$600" in power_slot.text and power_usage != null and str(power_usage.get_meta("display_copy", "")) == tr("POWER_UNPOWERED_HINT"), "an unpowered room presents a price-disclosed one-tap T1 recovery action")
+
+	var now := Game.simulation_time()
+	Game.state["construction_queue"] = [
+		{"id": "power_blocker_a", "type": "datacenter", "started_at": now, "complete_at": now + 300.0},
+		{"id": "power_blocker_b", "type": "datacenter", "started_at": now, "complete_at": now + 600.0},
+	]
+	var cash_before := float(Game.state["player"]["cash"])
+	if power_slot != null:
+		power_slot.pressed.emit()
+	await get_tree().process_frame
+	var blocker := main.find_child("ActionSheetOverlay", true, false) as Control
+	var queue_action := main.find_child("Choice_queue", true, false) as Button
+	var blocker_status := main.find_child("ActionSheetStatus", true, false) as Label
+	_expect(blocker != null and queue_action != null and blocker_status != null and "2/2" in blocker_status.text, "a full queue explains why transformer installation cannot start and offers the queue action")
+	_expect(is_equal_approx(float(Game.state["player"]["cash"]), cash_before) and _pending_power_job_for_test(dc["id"]).is_empty(), "a blocked transformer tap never spends cash or creates a hidden project")
+	queue_action.pressed.emit()
+	await get_tree().create_timer(0.35).timeout
+	_expect(str(main.get("active_page")) == "build" and main.find_child("ActionSheetOverlay", true, false) == null, "the blocker action takes the player directly to the construction queue")
+
+	Game.state["construction_queue"] = []
+	main.call("_on_power_slot_selected", dc["id"])
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var pending := _pending_power_job_for_test(dc["id"])
+	power_slot = main.find_child("PowerSlot", true, false) as Button
+	power_usage = main.find_child("BoardPowerUsage", true, false) as RichTextLabel
+	# The build page does not contain a board; reopen it to verify that the same
+	# control now reports progress rather than continuing to say Install.
+	main.call("_open_datacenter_detail", dc["id"], "board")
+	main.call("_refresh")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	power_slot = main.find_child("PowerSlot", true, false) as Button
+	power_usage = main.find_child("BoardPowerUsage", true, false) as RichTextLabel
+	_expect(not pending.is_empty() and is_equal_approx(float(Game.state["player"]["cash"]), 900.0), "the normal first-transformer tap starts T1 immediately and charges exactly its disclosed price")
+	_expect(power_slot != null and power_slot.text == tr("INSTALLING") and power_usage != null and bool(power_usage.get_meta("power_pending", false)) and str(power_usage.get_meta("display_copy", "")) != tr("POWER_UNPOWERED_HINT"), "a pending transformer replaces the dead dark-room state with visible installation progress")
+	main.queue_free()
+	await get_tree().process_frame
+
+func _pending_power_job_for_test(datacenter_id: String) -> Dictionary:
+	for queued: Dictionary in Game.state.get("construction_queue", []):
+		if str(queued.get("type", "")) == "power" and str(queued.get("datacenter_id", "")) == datacenter_id:
+			return queued
+	return {}
+
+func _run_rewarded_progress_tests() -> void:
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["cash"] = 10000.0
+	Game.state["entitlements"]["noads"] = true
+	var result := Game.start_datacenter_construction("plot_1", "dc_t1")
+	var item: Dictionary = result.get("construction", {})
+	Game.advance_time(160.0, false)
+	var reward := Game.request_reward("construction:%s" % item.get("id", ""))
+	var remaining := float(item.get("complete_at", 0.0)) - Game.simulation_time()
+	_expect(bool(reward.get("ok", false)) and int(item.get("ad_uses", 0)) == 1 and is_equal_approx(float(item.get("duration_seconds", 0.0)), 3600.0) and absf(remaining - 1640.0) < 0.1, "a 30-minute reward advances a one-hour project while preserving its original duration")
+	# Simulate an upgraded save whose rewarded project predates duration_seconds.
+	item.erase("duration_seconds")
+	Game._ensure_state_shape()
+	_expect(is_equal_approx(float(item.get("duration_seconds", 0.0)), 3600.0), "legacy rewarded projects reconstruct their authored duration instead of treating the shortened end time as total work")
+
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.call("_refresh")
+	await get_tree().process_frame
+	var world_progress := main.find_child("ConstructionProgress", true, false) as ProgressBar
+	var world_fraction := world_progress.value / world_progress.max_value if world_progress != null else 0.0
+	main.call("_navigate", "build")
+	main.call("_refresh")
+	await get_tree().process_frame
+	var queue_progress := main.find_child("QueueConstructionProgress", true, false) as ProgressBar
+	var queue_fraction := queue_progress.value / queue_progress.max_value if queue_progress != null else 0.0
+	_expect(world_progress != null and world_fraction > 0.53 and world_fraction < 0.56, "the park construction bar counts rewarded minutes as completed progress")
+	_expect(queue_progress != null and queue_fraction > 0.53 and queue_fraction < 0.56, "the construction queue shows roughly fifty-four percent after 2m40s elapsed plus a 30-minute reward")
+	main.queue_free()
+	await get_tree().process_frame
+
 func _run_rule_tests() -> void:
 	var economy: Dictionary = DataRepository.get_table("economy")
 	_expect(is_equal_approx(Rules.land_price(2, economy), 965.0), "second plot price follows the bounded power curve")
@@ -222,6 +511,84 @@ func _run_rule_tests() -> void:
 	var future := GameClock.wall_time() + 100
 	_expect(bool(GameClock.elapsed_since(future, future).get("rollback", false)), "wall-clock rollback is rejected")
 	_expect(int(SaveManager.migrate({"save_version": 0}).get("save_version", 0)) == SaveManager.SAVE_VERSION, "legacy save migrates to current schema")
+
+func _run_meta_progression_tests() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["total_datacenters_built"] = 1
+	var gems_before := int(Game.state["player"].get("gems", 0))
+	var roadmap := Game.claim_roadmap_reward("first_facility")
+	var roadmap_repeat := Game.claim_roadmap_reward("first_facility")
+	_expect(bool(roadmap.get("ok", false)) and int(Game.state["player"].get("gems", 0)) == gems_before + 3 and not bool(roadmap_repeat.get("ok", false)), "roadmap rewards a permanent milestone exactly once")
+
+	var dc := _test_datacenter("dc_meta", "dc_t1")
+	dc["power_unit"] = "power_t2"
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	dc["racks"][1] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	Game.state["meta"]["seen_customers"]["internet"] = true
+	var strategic_locked := Game.sign_contract(dc["id"], "internet", "strategic")
+	Game.state["meta"]["customer_service_seconds"]["internet"] = 43200.0
+	var strategic := Game.sign_contract(dc["id"], "internet", "strategic")
+	var term_seconds := float(dc.get("contract_end_at", 0.0)) - Game.simulation_time()
+	_expect(not bool(strategic_locked.get("ok", false)) and strategic_locked.get("reason", "") == "relationship_required" and bool(strategic.get("ok", false)) and is_equal_approx(float(dc.get("contract_income_multiplier", 0.0)), 1.04) and is_equal_approx(term_seconds, 12.0 * 7200.0), "strategic contracts require familiarity and then lock twelve months at the authored premium")
+	var before_service := float(Game.state["meta"]["customer_service_seconds"]["internet"])
+	Game.advance_time(240.0, false)
+	_expect(float(Game.state["meta"]["customer_service_seconds"]["internet"]) > before_service and float(Rules.relationship_level("internet", Game.state, Game.data).get("income_multiplier", 0.0)) >= 1.01, "customer relationships grow through service and never decay")
+
+	var specialization := Game.set_campus_specialization(0, "hosting")
+	var status := Rules.campus_specialization_status(0, "hosting", Game.state, Game.data)
+	_expect(bool(specialization.get("ok", false)) and bool(status.get("active", false)) and Rules.campus_specialization_income_multiplier(dc, Game.state, Game.data) > 1.0, "a campus specialization activates only from its real layout conditions")
+
+	Game.state["stats"]["prestige_count"] = 2
+	var board_a := Game.allocate_board_point("construction")
+	var board_b := Game.allocate_board_point("business")
+	var board_full := Game.allocate_board_point("operations")
+	_expect(bool(board_a.get("ok", false)) and bool(board_b.get("ok", false)) and not bool(board_full.get("ok", false)) and Game.board_points_available() == 0, "one permanent board point is available per completed company legacy")
+
+	Game.call("_discover", "buildings", "dc_t0")
+	Game.call("_discover", "racks", "rack_compute_t1")
+	Game.call("_discover", "attachments", "power_t1")
+	var facility_status := Game.collection_group_status("facilities")
+	_expect(bool(facility_status.get("ok", false)) and int(facility_status.get("discovered", 0)) >= 3 and int(facility_status.get("total", 0)) > int(facility_status.get("discovered", 0)), "company collection counts only assets actually encountered")
+
+	var meta_snapshot: Dictionary = Game.state["meta"].duplicate(true)
+	Game._ensure_state_shape()
+	_expect(Game.state["meta"].has("collection_claimed") and Game.state["meta"].has("discovered") and Game.state["meta"]["roadmap_claimed"] == meta_snapshot["roadmap_claimed"], "meta progression survives state-shape migration without losing claims")
+
+func _run_market_save_compatibility_tests() -> void:
+	Game.reset_for_tests()
+	# JSON parses whole numbers as floats. This is the exact shape loaded from an
+	# on-device save, and must still resolve the string-keyed era price table.
+	Game.state["player"]["era"] = 1.0
+	Game.state["player"]["network_level"] = 1.0
+	Game.state["technology"]["repair_team"] = 1.0
+	Game.state["market"]["noise"]["internet"] = 0.0
+	Game.state["market"]["history"]["internet"] = [
+		{"at": 0.0, "value": 0.0},
+		{"at": 240.0, "value": 0.0},
+	]
+	Game.state["market"].erase("quote_schema_version")
+	var market := Market.new()
+	market.ensure_state(Game.state, Game.data)
+	var quote := Game.market_multiplier("internet")
+	var repaired_history: Array = Game.state["market"]["history"]["internet"]
+	_expect(quote > 0.0 and is_equal_approx(float(Game.state["market"]["noise"]["internet"]), 1.0) and repaired_history.is_empty(), "float-shaped saves restore positive market quotes and discard impossible zero history")
+
+	var dc := _test_datacenter("dc_float_progression", "dc_t1")
+	dc["power_unit"] = "power_t1"
+	dc["coolers"] = {"north": "cool_air_t1"}
+	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	dc["customer_id"] = "internet"
+	dc["locked_market_multiplier"] = 1.0
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var float_progression_income := Game.datacenter_monthly_income(dc)
+	Game.state["player"]["era"] = 1
+	Game.state["player"]["network_level"] = 1
+	var integer_progression_income := Game.datacenter_monthly_income(dc)
+	_expect(float_progression_income > 0.0 and is_equal_approx(float_progression_income, integer_progression_income), "saved float era and network levels preserve the same positive rack income as a fresh session")
 
 func _run_gameplay_optimization_tests() -> void:
 	var market := Market.new()
@@ -399,6 +766,7 @@ func _run_fault_softening_tests() -> void:
 func _run_wp4_decision_ui_tests() -> void:
 	Game.reset_for_tests()
 	Game.last_offline_report = {}
+	Game.state["tutorial"]["completed"] = true
 	var dc := _test_datacenter("dc_wp4_contract", "dc_t1")
 	dc["power_unit"] = "power_t2"
 	dc["coolers"] = {"north": "cool_air_t2"}
@@ -422,8 +790,57 @@ func _run_wp4_decision_ui_tests() -> void:
 	_expect(float(projection.get("projected", 0.0)) > float(projection.get("current", 0.0)), "prestige card projects a positive permanent brand gain")
 	main.call("_on_market_event_started", "shopping_festival")
 	await get_tree().process_frame
-	var banner := main.find_child("MarketEventBanner", true, false) as Button
-	_expect(banner != null and not banner.pressed.get_connections().is_empty(), "market transitions push an actionable top banner into the live HUD")
+	var notice := main.find_child("WorldNews", true, false) as PanelContainer
+	var switcher := main.find_child("CampusSwitcher", true, false) as PanelContainer
+	var legacy_banner := main.find_child("MarketEventBanner", true, false)
+	var safe_band_gap := notice != null and switcher != null and not notice.get_global_rect().intersects(switcher.get_global_rect())
+	var notice_contract := notice != null and notice.visible and str(notice.get_meta("destination", "")) == "market" and bool(notice.get_meta("transient_market_notice", false)) and not notice.gui_input.get_connections().is_empty() and legacy_banner == null and safe_band_gap
+	_expect(notice_contract, "market transitions merge into one actionable safe-band notice visible=%s destination=%s transient=%s connections=%d legacy=%s notice=%s switcher=%s" % [str(notice.visible if notice != null else false), str(notice.get_meta("destination", "") if notice != null else "missing"), str(notice.get_meta("transient_market_notice", false) if notice != null else false), notice.gui_input.get_connections().size() if notice != null else 0, str(legacy_banner), str(notice.get_global_rect() if notice != null else Rect2()), str(switcher.get_global_rect() if switcher != null else Rect2())])
+	main.queue_free()
+	await get_tree().process_frame
+
+func _run_contract_capacity_ui_tests() -> void:
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["era"] = 1.0
+	Game.state["player"]["network_level"] = 1.0
+	var dc := _test_datacenter("dc_empty_contract", "dc_t1")
+	dc["power_unit"] = "power_t1"
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.call("_open_datacenter_detail", dc["id"], "contracts")
+	main.call("_refresh")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var guide := main.find_child("ContractCapacityGuide", true, false) as PanelContainer
+	var message := main.find_child("ContractCapacityMessage", true, false) as Label
+	var rate := main.find_child("MarketRate_internet", true, false) as Label
+	var projection := main.find_child("ContractProjection_internet", true, false) as Label
+	var configure := main.find_child("ContractConfigureRacks", true, false) as Button
+	var contract_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+	var contract_cards := main.find_children("Contract_*", "Button", true, false)
+	var contract_scroll_range := contract_scroll.get_v_scroll_bar() if contract_scroll != null else null
+	var touch_scroll_contract := contract_scroll != null and contract_scroll_range != null and contract_scroll_range.max_value > contract_scroll_range.page and int(contract_scroll.scroll_deadzone) == 12 and bool(contract_scroll.get_meta("touch_scroll_enabled", false)) and not contract_cards.is_empty()
+	for contract_card_node: Node in contract_cards:
+		var contract_card := contract_card_node as Button
+		touch_scroll_contract = touch_scroll_contract and contract_card.mouse_filter == Control.MOUSE_FILTER_PASS and contract_card.action_mode == BaseButton.ACTION_MODE_BUTTON_RELEASE and bool(contract_card.get_meta("scroll_drag_passthrough", false))
+	_expect(guide != null and str(guide.get_meta("capacity_state", "")) == "empty" and message != null and configure != null, "an empty data center explains that racks are the sellable capacity and exposes a direct configuration action")
+	_expect(rate != null and not rate.text.contains("×0.00") and projection != null and projection.text == tr("CONTRACT_PROJECTED_AFTER_RACK"), "the empty contract page keeps a valid market quote and replaces misleading zero revenue with the rack prerequisite")
+	_expect(touch_scroll_contract, "contract customer cards pass iOS drags to their touch-scroll page while remaining release-to-select actions")
+	main.call("_sign_contract", dc["id"], "internet")
+	await get_tree().process_frame
+	var feedback := main.get("toast_label") as Label
+	var action_sheet := main.find_child("ActionSheetOverlay", true, false)
+	_expect(str(dc.get("customer_id", "")).is_empty() and action_sheet == null and feedback != null and feedback.text == tr("REASON_CONTRACT_CAPACITY_REQUIRED"), "tapping a contract without online racks returns a friendly earning-path explanation instead of a zero-income confirmation")
+	if configure != null:
+		configure.emit_signal("pressed")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_expect(str(main.get("active_page")) == "detail" and str(main.get("_detail_focus")) == "board", "the contract capacity action routes directly to rack configuration")
 	main.queue_free()
 	await get_tree().process_frame
 
@@ -451,7 +868,27 @@ func _run_wp6_presentation_tests() -> void:
 	Game.state["bankruptcy"] = {"status": "arrears", "debt": 250.0, "arrears_online_seconds": 120.0, "rescue_uses": 0, "rescue_day": -1}
 	main.call("_on_bankruptcy_state_changed", "arrears")
 	await get_tree().process_frame
-	_expect(main.find_child("ArrearsBanner", true, false) != null and main.find_child("ArrearsVignette", true, false) != null and main.find_child("ArrearsProgress", true, false) != null, "arrears stays visible as a timed HUD crisis rather than a dismissible toast")
+	var arrears_close := main.find_child("ArrearsCloseButton", true, false) as Button
+	_expect(main.find_child("ArrearsBanner", true, false) != null and main.find_child("ArrearsVignette", true, false) != null and main.find_child("ArrearsProgress", true, false) != null and arrears_close != null and arrears_close.custom_minimum_size.x >= ThemeMaker.TOUCH_MIN, "arrears opens as a timed HUD crisis with an explicit phone-sized close route")
+	if arrears_close != null:
+		arrears_close.emit_signal("pressed")
+	await get_tree().process_frame
+	main.call("_refresh_arrears_hud")
+	await get_tree().process_frame
+	_expect(main.find_child("ArrearsBanner", true, false) == null and bool(main.get("_arrears_banner_dismissed")), "dismissed arrears HUD stays collapsed for the current debt episode instead of rebuilding over management")
+	# Reopen a new episode, then reproduce the TestFlight report exactly: a
+	# maxed-out daily rescue must explain the limit and get out of the way.
+	Game.state["reward_limits"]["rescue_day"] = int(GameClock.wall_time() / 86400)
+	Game.state["reward_limits"]["rescue_uses"] = int(DataRepository.get_table("economy").get("bankruptcy", {}).get("rescue_uses_per_real_day", 3))
+	main.call("_on_bankruptcy_state_changed", "arrears")
+	await get_tree().process_frame
+	var maxed_rescue := main.find_child("ArrearsRescueButton", true, false) as Button
+	var maxed_rescue_route_present := maxed_rescue != null
+	if maxed_rescue != null:
+		maxed_rescue.emit_signal("pressed")
+	await get_tree().process_frame
+	var limit_feedback := main.get("toast_label") as Label
+	_expect(maxed_rescue_route_present and main.find_child("ArrearsBanner", true, false) == null and limit_feedback != null and limit_feedback.text == tr("REASON_REWARD_LIMIT"), "a maxed emergency-fund claim gives a clear limit message and automatically collapses the blocking crisis card")
 	Game.state["bankruptcy"]["status"] = "normal"
 	main.call("_on_bankruptcy_state_changed", "normal")
 	main.call("_show_era_overlay", 2, DataRepository.get_entry("eras", "2"))

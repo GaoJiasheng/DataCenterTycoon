@@ -93,6 +93,26 @@ def validate_references():
         ERRORS.append("economy/land: unbounded geometric growth_factor is forbidden for a hundred-center park")
     if not math.isclose(float(land.get("growth_step", 0)), 0.55) or not math.isclose(float(land.get("growth_exponent", 0)), 1.5):
         ERRORS.append("economy/land: expected the bounded 0.55-step / 1.50-exponent power curve")
+    meta = DATA.get("meta_progression", {})
+    durations = meta.get("contract_durations", {})
+    if set(durations) != {"flexible", "standard", "strategic"}:
+        ERRORS.append("meta_progression/contract_durations: expected flexible, standard, and strategic")
+    expected_terms = {"flexible": (3, 0.97), "standard": (6, 1.0), "strategic": (12, 1.04)}
+    for duration_id, (months, multiplier) in expected_terms.items():
+        item = durations.get(duration_id, {})
+        if int(item.get("months", 0)) != months or not math.isclose(float(item.get("income_multiplier", 0)), multiplier):
+            ERRORS.append(f"meta_progression/contract_durations/{duration_id}: expected {months} months at {multiplier:.2f}x")
+    relationship_levels = meta.get("relationships", {}).get("levels", [])
+    if len(relationship_levels) != 4 or any(float(level.get("income_multiplier", 0)) < 1.0 for level in relationship_levels):
+        ERRORS.append("meta_progression/relationships: expected four non-punitive relationship levels")
+    specialties = meta.get("campus_specializations", {})
+    if set(specialties) != {"hosting", "cloud", "ai_compute", "diversified"}:
+        ERRORS.append("meta_progression/campus_specializations: expected four defined campus strategies")
+    if any(not 1.0 <= float(item.get("income_multiplier", 0)) <= 1.08 for item in specialties.values()):
+        ERRORS.append("meta_progression/campus_specializations: multipliers must remain in the 1.00–1.08 comfort band")
+    board = meta.get("board_specialties", {})
+    if int(board.get("max_rank", 0)) != 5 or set(board.get("items", {})) != {"construction", "operations", "business"}:
+        ERRORS.append("meta_progression/board_specialties: expected three five-rank permanent specialties")
 
 
 def validate_localization():
@@ -123,6 +143,29 @@ def validate_localization():
     for type_id, definition in DATA["economy"].get("campuses", {}).get("types", {}).items():
         if definition.get("name_key") not in keys:
             ERRORS.append(f"economy/campuses/{type_id}: localization key {definition.get('name_key')} missing")
+    meta = DATA.get("meta_progression", {})
+    for item_id, item in meta.get("roadmap", {}).get("items", {}).items():
+        for field in ("name_key", "description_key"):
+            if item.get(field) not in keys:
+                ERRORS.append(f"meta_progression/roadmap/{item_id}: localization key {item.get(field)} missing")
+    for item_id, item in meta.get("campus_specializations", {}).items():
+        for field in ("name_key", "description_key"):
+            if item.get(field) not in keys:
+                ERRORS.append(f"meta_progression/campus_specializations/{item_id}: localization key {item.get(field)} missing")
+    for item_id, item in meta.get("contract_durations", {}).items():
+        for field in ("name_key", "description_key"):
+            if item.get(field) not in keys:
+                ERRORS.append(f"meta_progression/contract_durations/{item_id}: localization key {item.get(field)} missing")
+    for level in meta.get("relationships", {}).get("levels", []):
+        if level.get("name_key") not in keys:
+            ERRORS.append(f"meta_progression/relationships: localization key {level.get('name_key')} missing")
+    for item_id, item in meta.get("board_specialties", {}).get("items", {}).items():
+        for field in ("name_key", "description_key"):
+            if item.get(field) not in keys:
+                ERRORS.append(f"meta_progression/board_specialties/{item_id}: localization key {item.get(field)} missing")
+    for group_id, group in meta.get("collection", {}).get("groups", {}).items():
+        if group.get("name_key") not in keys:
+            ERRORS.append(f"meta_progression/collection/{group_id}: localization key {group.get('name_key')} missing")
 
 
 def validate_manifest():
@@ -130,8 +173,8 @@ def validate_manifest():
     manifest = json.loads((ROOT / "assets/art/manifest.json").read_text(encoding="utf-8"))
     ids = [asset_id for group in manifest["groups"] for asset_id in group["ids"]]
     ART_IDS = set(ids) | set(manifest.get("items", {}))
-    if len(ids) != 152:
-        ERRORS.append(f"art manifest has {len(ids)} IDs, expected 152")
+    if len(ids) != 159:
+        ERRORS.append(f"art manifest has {len(ids)} IDs, expected 159")
     if len(ids) != len(set(ids)):
         ERRORS.append("art manifest contains duplicate IDs")
 
@@ -144,6 +187,8 @@ def validate_asset_references():
         "road_iso_a", "road_iso_b", "road_iso_cross", "dc_interior_bg", "slot_empty", "slot_locked",
         "ic_operations", "ic_pointer_hand", "ic_server",
         "guide_normal", "guide_happy", "guide_worried", "guide_alert", "guide_thinking",
+        "company_roadmap", "campus_strategy", "customer_portfolio", "market_review",
+        "board_specialties", "company_collection", "legacy_memorial",
     }
     for item in DATA["buildings"]["items"].values():
         expected.update(item["asset_prefix"] + suffix for suffix in ("_construction", "_active", "_dark", "_aged", "_decayed", "_ruin"))
@@ -182,7 +227,7 @@ def main():
         for error in ERRORS:
             print("ERROR:", error)
         return 1
-    print(f"Validated {len(DATA)} data tables, localization, and 152 art IDs.")
+    print(f"Validated {len(DATA)} data tables, localization, and {len(ART_IDS)} art IDs.")
     return 0
 
 

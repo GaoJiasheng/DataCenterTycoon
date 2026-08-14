@@ -12,6 +12,7 @@ const DATA_FILES := {
 	"achievements": "res://data/achievements.json",
 	"store": "res://data/store.json",
 	"tutorial": "res://data/tutorial.json",
+	"meta_progression": "res://data/meta_progression.json",
 }
 
 var tables: Dictionary = {}

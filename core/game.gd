@@ -145,7 +145,9 @@ func monthly_maintenance() -> float:
 	for plot: Dictionary in state.get("plots", []):
 		if plot.get("datacenter") is Dictionary:
 			result += Rules.datacenter_maintenance(plot["datacenter"], data.get("buildings", {}))
-	return result
+	var operations_rank := int(state.get("meta", {}).get("board_allocations", {}).get("operations", 0))
+	var per_rank := float(data.get("meta_progression", {}).get("board_specialties", {}).get("items", {}).get("operations", {}).get("maintenance_reduction_per_rank", 0.0))
+	return result * maxf(0.75, 1.0 - float(operations_rank) * per_rank)
 
 func net_worth() -> float:
 	return Rules.total_net_worth(state, data)
@@ -177,7 +179,7 @@ func start_datacenter_construction(plot_id: String, building_id: String) -> Dict
 	var cost := float(building.get("cost", 0.0))
 	if not _spend_cash(cost):
 		return _failure("not_enough_cash")
-	var build_seconds := _tutorial_duration(building, "tutorial_build_seconds", float(building.get("build_seconds", 0.0)))
+	var build_seconds := _tutorial_duration(building, "tutorial_build_seconds", float(building.get("build_seconds", 0.0))) * _board_construction_time_multiplier()
 	var item := _queue_item("datacenter", build_seconds)
 	item.merge({"plot_id": plot_id, "building_id": building_id, "cost": cost})
 	state["construction_queue"].append(item)
@@ -195,6 +197,11 @@ func _tutorial_duration(entry: Dictionary, override_key: String, fallback: float
 	if bool(state.get("tutorial", {}).get("completed", false)):
 		return fallback
 	return float(entry.get(override_key, fallback))
+
+func _board_construction_time_multiplier() -> float:
+	var rank := int(state.get("meta", {}).get("board_allocations", {}).get("construction", 0))
+	var per_rank := float(data.get("meta_progression", {}).get("board_specialties", {}).get("items", {}).get("construction", {}).get("construction_time_reduction_per_rank", 0.0))
+	return maxf(0.75, 1.0 - float(rank) * per_rank)
 
 func install_rack(datacenter_id: String, slot: int, rack_id: String) -> Dictionary:
 	var dc := find_datacenter(datacenter_id)
@@ -228,7 +235,7 @@ func install_rack(datacenter_id: String, slot: int, rack_id: String) -> Dictiona
 		"status": "installing",
 		"enabled": true,
 		"started_at": started,
-		"install_complete_at": started + _tutorial_duration(rack, "tutorial_install_seconds", float(rack.get("install_seconds", 0.0))),
+		"install_complete_at": started + _tutorial_duration(rack, "tutorial_install_seconds", float(rack.get("install_seconds", 0.0))) * _board_construction_time_multiplier(),
 		"ad_uses": 0,
 		"cost": cost,
 	}
@@ -272,28 +279,205 @@ func install_cooler(datacenter_id: String, edge: String, cooler_id: String) -> D
 		return _failure("invalid_edge")
 	return _install_attachment(datacenter_id, cooler_id, "cooler", edge)
 
-func sign_contract(datacenter_id: String, customer_id: String) -> Dictionary:
+func sign_contract(datacenter_id: String, customer_id: String, duration_id: String = "standard") -> Dictionary:
 	var dc := find_datacenter(datacenter_id)
 	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(customer_id, {})
 	if dc.is_empty() or dc.get("status", "") != "operational":
 		return _failure("datacenter_unavailable")
 	if customer.is_empty() or int(customer.get("unlock_era", 1)) > int(state["player"].get("era", 1)) or int(customer.get("minimum_network_level", 1)) > int(state["player"].get("network_level", 1)):
 		return _failure("locked")
+	var duration: Dictionary = data.get("meta_progression", {}).get("contract_durations", {}).get(duration_id, {})
+	if duration.is_empty():
+		return _failure("contract_duration_unavailable")
+	if int(Rules.relationship_level(customer_id, state, data).get("index", 0)) < int(duration.get("relationship_level_required", 0)):
+		return _failure("relationship_required")
 	var previous := str(dc.get("customer_id", ""))
-	if previous == customer_id:
+	if previous == customer_id and str(dc.get("contract_duration_id", "standard")) == duration_id:
 		return _success({"breach_fee": 0.0, "unchanged": true, "locked_market_multiplier": float(dc.get("locked_market_multiplier", contract_market_multiplier(customer_id)))})
 	var fee := contract_switch_fee(datacenter_id, customer_id)
+	var previous_monthly := datacenter_monthly_income(dc)
 	if not previous.is_empty() and previous != customer_id:
 		if not _spend_cash(fee):
 			return _failure("not_enough_cash")
 	dc["customer_id"] = customer_id
 	dc["locked_market_multiplier"] = contract_market_multiplier(customer_id)
-	dc["contract_end_at"] = simulation_time() + float(data.get("economy", {}).get("contracts", {}).get("duration_seconds", 43200.0))
+	dc["contract_duration_id"] = duration_id
+	dc["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
+	dc["contract_end_at"] = simulation_time() + _contract_duration_seconds(duration_id)
 	dc["free_switch_available"] = false
+	_record_contract_decision(dc, previous, customer_id, duration_id, fee, previous_monthly)
+	state["meta"]["seen_customers"][customer_id] = true
 	state["stats"]["contracts_signed"] = int(state["stats"].get("contracts_signed", 0)) + 1
 	_tutorial_event("contract_signed")
 	_commit_action("contract_signed")
-	return _success({"breach_fee": fee})
+	return _success({"breach_fee": fee, "duration_id": duration_id})
+
+func _contract_duration_seconds(duration_id: String) -> float:
+	var duration: Dictionary = data.get("meta_progression", {}).get("contract_durations", {}).get(duration_id, {})
+	var month_seconds := float(data.get("economy", {}).get("time", {}).get("real_seconds_per_game_month", 7200.0))
+	return maxf(month_seconds, float(duration.get("months", 6)) * month_seconds)
+
+func contract_forecast(datacenter_id: String, customer_id: String, duration_id: String = "standard") -> Dictionary:
+	var dc := find_datacenter(datacenter_id)
+	var duration: Dictionary = data.get("meta_progression", {}).get("contract_durations", {}).get(duration_id, {})
+	if dc.is_empty() or duration.is_empty():
+		return _failure("contract_duration_unavailable")
+	var current := datacenter_monthly_income(dc)
+	var simulated := dc.duplicate(true)
+	simulated["customer_id"] = customer_id
+	simulated["locked_market_multiplier"] = contract_market_multiplier(customer_id)
+	simulated["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
+	var projected := Rules.datacenter_income_per_month(simulated, state, data, func(id: String) -> float: return market_multiplier(id))
+	var fee := contract_switch_fee(datacenter_id, customer_id)
+	var months := float(duration.get("months", 6))
+	var gain := (projected - current) * months - fee
+	var payback := fee / maxf(0.01, projected - current) if projected > current and fee > 0.0 else 0.0
+	return _success({"current": current, "projected": projected, "fee": fee, "months": months, "term_gain": gain, "payback_months": payback, "duration_id": duration_id})
+
+func _record_contract_decision(dc: Dictionary, previous_customer: String, customer_id: String, duration_id: String, fee: float, previous_monthly: float) -> void:
+	var decisions: Array = state.get("meta", {}).get("market_decisions", [])
+	decisions.push_front({
+		"signed_at": simulation_time(),
+		"datacenter_id": str(dc.get("id", "")),
+		"previous_customer_id": previous_customer,
+		"customer_id": customer_id,
+		"duration_id": duration_id,
+		"fee": fee,
+		"locked_market_multiplier": float(dc.get("locked_market_multiplier", 1.0)),
+		"latest_market_multiplier": contract_market_multiplier(customer_id),
+		"observed_at": simulation_time(),
+		"previous_monthly": previous_monthly,
+		"signed_monthly": datacenter_monthly_income(dc),
+	})
+	if decisions.size() > 12:
+		decisions.resize(12)
+	state["meta"]["market_decisions"] = decisions
+
+func _refresh_market_decision_outcomes() -> void:
+	for decision: Dictionary in state.get("meta", {}).get("market_decisions", []):
+		var customer_id := str(decision.get("customer_id", ""))
+		if customer_id.is_empty():
+			continue
+		decision["latest_market_multiplier"] = contract_market_multiplier(customer_id)
+		decision["observed_at"] = simulation_time()
+
+func set_campus_specialization(campus_index: int, specialization_id: String) -> Dictionary:
+	var specialization: Dictionary = data.get("meta_progression", {}).get("campus_specializations", {}).get(specialization_id, {})
+	if specialization.is_empty():
+		return _failure("specialization_missing")
+	if int(specialization.get("unlock_era", 1)) > int(state.get("player", {}).get("era", 1)):
+		return _failure("locked")
+	state["meta"]["campus_specializations"][str(campus_index)] = specialization_id
+	_commit_action("campus_specialization_changed")
+	return _success({"campus_index": campus_index, "specialization_id": specialization_id})
+
+func allocate_board_point(specialty_id: String) -> Dictionary:
+	var item: Dictionary = data.get("meta_progression", {}).get("board_specialties", {}).get("items", {}).get(specialty_id, {})
+	if item.is_empty():
+		return _failure("board_specialty_missing")
+	var available := board_points_available()
+	if available <= 0:
+		return _failure("board_points_empty")
+	var max_rank := int(data.get("meta_progression", {}).get("board_specialties", {}).get("max_rank", 5))
+	var current := int(state["meta"]["board_allocations"].get(specialty_id, 0))
+	if current >= max_rank:
+		return _failure("board_rank_max")
+	state["meta"]["board_allocations"][specialty_id] = current + 1
+	_commit_action("board_point_allocated")
+	return _success({"specialty_id": specialty_id, "rank": current + 1})
+
+func reset_board_points() -> Dictionary:
+	state["meta"]["board_allocations"] = {"construction": 0, "operations": 0, "business": 0}
+	_commit_action("board_points_reset")
+	return _success()
+
+func board_points_available() -> int:
+	var spent := 0
+	for value: Variant in state.get("meta", {}).get("board_allocations", {}).values():
+		spent += int(value)
+	return maxi(0, int(state.get("stats", {}).get("prestige_count", 0)) - spent)
+
+func claim_roadmap_reward(item_id: String) -> Dictionary:
+	var item: Dictionary = data.get("meta_progression", {}).get("roadmap", {}).get("items", {}).get(item_id, {})
+	if item.is_empty():
+		return _failure("roadmap_item_missing")
+	if bool(state.get("meta", {}).get("roadmap_claimed", {}).get(item_id, false)):
+		return _failure("already_claimed")
+	if _meta_metric(str(item.get("metric", ""))) < float(item.get("target", INF)):
+		return _failure("roadmap_incomplete")
+	state["meta"]["roadmap_claimed"][item_id] = true
+	var reward := int(item.get("reward_gems", 0))
+	state["player"]["gems"] = int(state["player"].get("gems", 0)) + reward
+	_commit_action("roadmap_reward_claimed")
+	return _success({"reward_gems": reward})
+
+func collection_group_status(group_id: String) -> Dictionary:
+	var group: Dictionary = data.get("meta_progression", {}).get("collection", {}).get("groups", {}).get(group_id, {})
+	if group.is_empty():
+		return _failure("collection_group_missing")
+	var discovered := 0
+	var total := 0
+	for source_name: Variant in group.get("sources", []):
+		var source := str(source_name)
+		for item_id: String in data.get(source, {}).get("items", {}):
+			total += 1
+			if _collection_item_discovered(source, item_id):
+				discovered += 1
+	for item_variant: Variant in group.get("items", []):
+		if not item_variant is Dictionary:
+			continue
+		total += 1
+		if _legacy_collection_item_discovered(str((item_variant as Dictionary).get("id", ""))):
+			discovered += 1
+	return _success({
+		"group_id": group_id,
+		"discovered": discovered,
+		"total": total,
+		"complete": total > 0 and discovered >= total,
+		"claimed": bool(state.get("meta", {}).get("collection_claimed", {}).get(group_id, false)),
+		"reward_gems": int(group.get("reward_gems", 0)),
+	})
+
+func claim_collection_reward(group_id: String) -> Dictionary:
+	var status := collection_group_status(group_id)
+	if not bool(status.get("ok", false)):
+		return status
+	if bool(status.get("claimed", false)):
+		return _failure("already_claimed")
+	if not bool(status.get("complete", false)):
+		return _failure("collection_incomplete")
+	state["meta"]["collection_claimed"][group_id] = true
+	var reward := int(status.get("reward_gems", 0))
+	state["player"]["gems"] = int(state["player"].get("gems", 0)) + reward
+	_commit_action("collection_reward_claimed")
+	return _success({"reward_gems": reward})
+
+func _collection_item_discovered(source: String, item_id: String) -> bool:
+	if source == "customers":
+		return bool(state.get("meta", {}).get("seen_customers", {}).get(item_id, false))
+	if source == "events":
+		return bool(state.get("meta", {}).get("seen_events", {}).get(item_id, false))
+	return bool(state.get("meta", {}).get("discovered", {}).get("%s:%s" % [source, item_id], false))
+
+func _legacy_collection_item_discovered(item_id: String) -> bool:
+	match item_id:
+		"legacy:era2": return int(state.get("player", {}).get("era", 1)) >= 2
+		"legacy:era3": return int(state.get("player", {}).get("era", 1)) >= 3
+		"legacy:prestige": return int(state.get("stats", {}).get("prestige_count", 0)) >= 1
+		"legacy:takeover": return int(state.get("stats", {}).get("bank_takeovers", 0)) >= 1 or bool(state.get("meta", {}).get("legacy_flags", {}).get("takeover", false))
+	return false
+
+func _discover(source: String, item_id: String) -> void:
+	if item_id.is_empty():
+		return
+	state["meta"]["discovered"]["%s:%s" % [source, item_id]] = true
+
+func _meta_metric(metric: String) -> float:
+	if metric == "unique_customers_served":
+		return float(state.get("meta", {}).get("seen_customers", {}).size())
+	if state.get("player", {}).has(metric):
+		return float(state["player"].get(metric, 0.0))
+	return float(state.get("stats", {}).get(metric, 0.0))
 
 func contract_switch_fee(datacenter_id: String, customer_id: String) -> float:
 	var dc := find_datacenter(datacenter_id)
@@ -467,6 +651,7 @@ func prestige() -> Dictionary:
 	var raw_gain := 1.0 + float(config.get("log_coefficient", 0.15)) * log(maxf(1.0, worth / float(config.get("net_worth_anchor", 100000.0)))) / log(10.0)
 	var gain := clampf(raw_gain, float(config.get("minimum_gain", 1.05)), float(config.get("maximum_gain", 1.6)))
 	var kept := _account_state_snapshot()
+	var company_summary := company_legacy_summary()
 	kept.merge({
 		"era": int(state["player"].get("era", 1)),
 		"network_level": int(state["player"].get("network_level", 1)),
@@ -482,12 +667,49 @@ func prestige() -> Dictionary:
 	state["player"]["network_level"] = kept["network_level"]
 	state["player"]["brand_multiplier"] = kept["brand_multiplier"]
 	state["stats"]["prestige_count"] = kept["prestige_count"]
+	state["meta"]["company_history"].push_front(company_summary)
+	if state["meta"]["company_history"].size() > 10:
+		state["meta"]["company_history"].resize(10)
 	state["tutorial"] = kept["tutorial"]
 	state["flags"] = kept["flags"]
 	_market.ensure_state(state, data)
 	AudioService.play_sfx("sfx_prestige")
 	_commit_action("prestige")
 	return _success({"liquidated_net_worth": worth, "gain": gain, "brand_multiplier": kept["brand_multiplier"]})
+
+func company_legacy_summary() -> Dictionary:
+	var best_campus := -1
+	var best_income := 0.0
+	var campus_totals := {}
+	for plot: Dictionary in state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if not dc is Dictionary:
+			continue
+		var layout := Rules.campus_layout_for_plot(int(plot.get("index", 1)), data.get("economy", {}))
+		var campus_index := int(layout.get("campus_index", 0))
+		campus_totals[campus_index] = float(campus_totals.get(campus_index, 0.0)) + datacenter_monthly_income(dc)
+	for campus_index: int in campus_totals:
+		if float(campus_totals[campus_index]) > best_income:
+			best_income = float(campus_totals[campus_index])
+			best_campus = campus_index
+	var longest_customer := ""
+	var longest_seconds := 0.0
+	for customer_id: String in state.get("meta", {}).get("customer_service_seconds", {}):
+		var served := float(state["meta"]["customer_service_seconds"].get(customer_id, 0.0))
+		if served > longest_seconds:
+			longest_seconds = served
+			longest_customer = customer_id
+	return {
+		"prestige_number": int(state.get("stats", {}).get("prestige_count", 0)) + 1,
+		"total_revenue": float(state.get("player", {}).get("total_revenue", 0.0)),
+		"net_worth": net_worth(),
+		"datacenters_built": int(state.get("player", {}).get("total_datacenters_built", 0)),
+		"best_campus": best_campus,
+		"best_campus_income": best_income,
+		"longest_customer_id": longest_customer,
+		"longest_customer_seconds": longest_seconds,
+		"market_decision": state.get("meta", {}).get("market_decisions", []).front() if not state.get("meta", {}).get("market_decisions", []).is_empty() else {},
+	}
 
 func request_reward(placement: String) -> Dictionary:
 	var allowed := _can_request_reward(placement)
@@ -650,8 +872,24 @@ func _accrue_income(seconds: float) -> float:
 	var earned := monthly_income() * seconds / month_seconds
 	state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + earned
 	state["player"]["total_revenue"] = float(state["player"].get("total_revenue", 0.0)) + earned
+	_accrue_customer_relationships(seconds)
 	_try_clear_arrears()
 	return earned
+
+func _accrue_customer_relationships(seconds: float) -> void:
+	var active_counts := {}
+	for plot: Dictionary in state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if dc is Dictionary and str((dc as Dictionary).get("status", "")) == "operational":
+			var customer_id := str((dc as Dictionary).get("customer_id", ""))
+			if not customer_id.is_empty() and datacenter_monthly_income(dc) > 0.0:
+				active_counts[customer_id] = int(active_counts.get(customer_id, 0)) + 1
+	var business_rank := int(state.get("meta", {}).get("board_allocations", {}).get("business", 0))
+	var per_rank := float(data.get("meta_progression", {}).get("board_specialties", {}).get("items", {}).get("business", {}).get("relationship_growth_per_rank", 0.0))
+	var growth_multiplier := 1.0 + float(business_rank) * per_rank
+	for customer_id: String in active_counts:
+		var credited := seconds * minf(3.0, float(active_counts[customer_id])) * growth_multiplier
+		state["meta"]["customer_service_seconds"][customer_id] = float(state["meta"]["customer_service_seconds"].get(customer_id, 0.0)) + credited
 
 func _process_due(financial: bool, offline: bool, report: Dictionary) -> void:
 	var now := simulation_time()
@@ -660,10 +898,13 @@ func _process_due(financial: bool, offline: bool, report: Dictionary) -> void:
 	_process_repairs_and_faults(now, report)
 	for notice: Dictionary in _market.process_due(state, data):
 		report.get("events", []).append(notice)
+		if not str(notice.get("event_id", "")).is_empty():
+			state["meta"]["seen_events"][str(notice.get("event_id", ""))] = true
 		match notice.get("type", ""):
 			"event_previewed": EventBus.market_event_previewed.emit(notice.get("event_id", ""))
 			"event_started": EventBus.market_event_started.emit(notice.get("event_id", ""))
 			"event_ended": EventBus.market_event_ended.emit(notice.get("event_id", ""))
+	_refresh_market_decision_outcomes()
 	# Renew only after applying market transitions at this exact boundary so the
 	# new locked rate reflects events that have just started or ended.
 	_process_contract_renewals(now, report)
@@ -711,6 +952,7 @@ func _complete_datacenter(item: Dictionary) -> void:
 	plot["status"] = "operational"
 	plot.erase("construction_id")
 	state["player"]["total_datacenters_built"] = int(state["player"].get("total_datacenters_built", 0)) + 1
+	_discover("buildings", str(item.get("building_id", "")))
 	if item.get("building_id", "") == "dc_t1":
 		state["flags"]["standard_built"] = true
 	AudioService.play_sfx("sfx_build_complete")
@@ -721,6 +963,7 @@ func _complete_rack(item: Dictionary) -> void:
 	if dc.is_empty() or slot < 0 or slot >= 9:
 		return
 	dc["racks"][slot] = {"rack_id": item.get("rack_id", ""), "status": "active", "enabled": true, "installed_at": float(item.get("complete_at", simulation_time())), "fault_at": -1.0}
+	_discover("racks", str(item.get("rack_id", "")))
 	_reschedule_dc_faults(dc)
 	_tutorial_event("rack_installed")
 	AudioService.play_sfx("sfx_rack_install")
@@ -751,6 +994,7 @@ func _complete_rack_installation(dc: Dictionary, slot: int, now: float, report: 
 	installed["enabled"] = bool(installed.get("enabled", true))
 	installed["installed_at"] = float(installed.get("install_complete_at", now))
 	installed["fault_at"] = -1.0
+	_discover("racks", str(installed.get("rack_id", "")))
 	for key: String in ["started_at", "install_complete_at", "ad_uses", "cost", "construction_id"]:
 		installed.erase(key)
 	_reschedule_dc_faults(dc)
@@ -770,6 +1014,7 @@ func _complete_attachment(item: Dictionary, kind: String) -> void:
 	else:
 		dc["coolers"][item.get("edge", "north")] = item.get("attachment_id", "")
 		_tutorial_event("cooler_installed")
+	_discover("attachments", str(item.get("attachment_id", "")))
 	_reschedule_dc_faults(dc)
 
 func _process_repairs_and_faults(now: float, report: Dictionary) -> void:
@@ -796,18 +1041,18 @@ func _process_repairs_and_faults(now: float, report: Dictionary) -> void:
 				elif float(installed.get("fault_at", INF)) <= now:
 					installed["status"] = "faulted"
 					installed["fault_at"] = -1.0
-					installed["auto_repair_at"] = now + float(data.get("economy", {}).get("faults", {}).get("auto_repair_seconds", 14400.0))
+					installed["auto_repair_at"] = now + float(data.get("economy", {}).get("faults", {}).get("auto_repair_seconds", 14400.0)) * _board_auto_repair_time_multiplier()
 					var fault := {"datacenter_id": dc.get("id", ""), "slot": slot}
 					report.get("faults", []).append(fault)
 					EventBus.rack_fault_occurred.emit(dc.get("id", ""), slot)
 					AudioService.play_sfx("sfx_fault")
 
 func _process_contract_renewals(now: float, report: Dictionary) -> void:
-	var duration := float(data.get("economy", {}).get("contracts", {}).get("duration_seconds", 43200.0))
 	for plot: Dictionary in state.get("plots", []):
 		var dc: Variant = plot.get("datacenter")
 		if not dc is Dictionary or str(dc.get("customer_id", "")).is_empty():
 			continue
+		var duration := _contract_duration_seconds(str(dc.get("contract_duration_id", "standard")))
 		while float(dc.get("contract_end_at", INF)) <= now:
 			dc["contract_end_at"] = float(dc.get("contract_end_at", now)) + duration
 			dc["locked_market_multiplier"] = contract_market_multiplier(str(dc.get("customer_id", "")))
@@ -958,6 +1203,7 @@ func _process_bank_takeover(report: Dictionary = {}, force: bool = false, notify
 	bankruptcy["last_takeover"] = settlement.duplicate(true)
 	bankruptcy["takeover_notice_pending"] = true
 	state["stats"]["bank_takeovers"] = int(state["stats"].get("bank_takeovers", 0)) + 1
+	state["meta"]["legacy_flags"]["takeover"] = true
 	state["stats"]["datacenters_bank_sold"] = int(state["stats"].get("datacenters_bank_sold", 0)) + sold.size()
 	state["stats"]["debt_forgiven"] = float(state["stats"].get("debt_forgiven", 0.0)) + forgiven
 	if report.has("takeovers"):
@@ -1032,7 +1278,7 @@ func _install_attachment(datacenter_id: String, attachment_id: String, kind: Str
 	var net_cost := maxf(0.0, float(attachment.get("cost", 0.0)) - refund)
 	if not _spend_cash(net_cost):
 		return _failure("not_enough_cash")
-	var item := _queue_item(kind, _tutorial_duration(attachment, "tutorial_install_seconds", float(attachment.get("install_seconds", 0.0))))
+	var item := _queue_item(kind, _tutorial_duration(attachment, "tutorial_install_seconds", float(attachment.get("install_seconds", 0.0))) * _board_construction_time_multiplier())
 	item.merge({"datacenter_id": datacenter_id, "attachment_id": attachment_id, "edge": edge, "old_id": old_id, "cost": net_cost})
 	state["construction_queue"].append(item)
 	_commit_action("attachment_started")
@@ -1116,7 +1362,40 @@ func _cancel_jobs_for_datacenter(datacenter_id: String) -> float:
 
 func _queue_item(type: String, duration: float) -> Dictionary:
 	var started := simulation_time()
-	return {"id": _next_id("job"), "type": type, "started_at": started, "complete_at": started + duration, "ad_uses": 0}
+	return {"id": _next_id("job"), "type": type, "started_at": started, "complete_at": started + duration, "duration_seconds": duration, "ad_uses": 0}
+
+func construction_duration(item: Dictionary) -> float:
+	var stored := float(item.get("duration_seconds", 0.0))
+	if stored > 0.0:
+		return stored
+	var interval := maxf(1.0, float(item.get("complete_at", 0.0)) - float(item.get("started_at", 0.0)))
+	match str(item.get("type", "")):
+		"datacenter":
+			var building := DataRepository.get_entry("buildings", str(item.get("building_id", "")))
+			return _legacy_project_duration(building, "build_seconds", "tutorial_build_seconds", interval)
+		"power", "cooler":
+			var attachment := DataRepository.get_entry("attachments", str(item.get("attachment_id", "")))
+			return _legacy_project_duration(attachment, "install_seconds", "tutorial_install_seconds", interval)
+		"network":
+			return maxf(1.0, float(DataRepository.get_table("technology").get("network", {}).get(str(int(item.get("level", 1))), {}).get("build_seconds", interval)))
+	return interval
+
+func _legacy_project_duration(entry: Dictionary, standard_key: String, tutorial_key: String, current_interval: float) -> float:
+	if entry.is_empty():
+		return current_interval
+	var standard := maxf(1.0, float(entry.get(standard_key, current_interval)))
+	var tutorial := float(entry.get(tutorial_key, 0.0))
+	# Old saves did not persist their original duration. A live tutorial job can
+	# still be distinguished by its short authored interval; every rewarded
+	# normal project uses the standard duration as its progress denominator.
+	if not bool(state.get("tutorial", {}).get("completed", false)) and tutorial > 0.0 and current_interval <= tutorial + 0.01:
+		return tutorial
+	return standard
+
+func _ensure_construction_durations() -> void:
+	for item: Dictionary in state.get("construction_queue", []):
+		if float(item.get("duration_seconds", 0.0)) <= 0.0:
+			item["duration_seconds"] = construction_duration(item)
 
 func _next_id(prefix: String) -> String:
 	state["next_id"] = int(state.get("next_id", 1)) + 1
@@ -1130,8 +1409,13 @@ func _spend_cash(amount: float) -> bool:
 	return true
 
 func _repair_time_multiplier() -> float:
-	var level := str(state.get("technology", {}).get("repair_team", 1))
+	var level := str(int(state.get("technology", {}).get("repair_team", 1)))
 	return float(data.get("technology", {}).get("upgrades", {}).get("repair_team", {}).get("levels", {}).get(level, {}).get("repair_time_multiplier", 1.0))
+
+func _board_auto_repair_time_multiplier() -> float:
+	var rank := int(state.get("meta", {}).get("board_allocations", {}).get("operations", 0))
+	var per_rank := float(data.get("meta_progression", {}).get("board_specialties", {}).get("items", {}).get("operations", {}).get("auto_repair_time_reduction_per_rank", 0.0))
+	return maxf(0.5, 1.0 - float(rank) * per_rank)
 
 func _random() -> float:
 	var current := int(state.get("market", {}).get("rng_state", 73471))
@@ -1378,7 +1662,7 @@ func _ensure_state_shape() -> void:
 	for key: String in defaults:
 		if not state.has(key):
 			state[key] = defaults[key]
-	for section: String in ["player", "clock", "bankruptcy", "tutorial", "inventory", "settings", "stats", "flags", "technology", "entitlements", "achievements", "purchases", "processed_transactions", "reward_limits"]:
+	for section: String in ["player", "clock", "bankruptcy", "tutorial", "inventory", "settings", "stats", "flags", "technology", "entitlements", "achievements", "purchases", "processed_transactions", "reward_limits", "meta"]:
 		if not state.get(section) is Dictionary:
 			state[section] = defaults.get(section, {})
 		for key: String in defaults.get(section, {}):
@@ -1387,6 +1671,7 @@ func _ensure_state_shape() -> void:
 	if legacy_manual_repairs >= 0:
 		state["stats"]["faults_repaired_manual"] = legacy_manual_repairs
 		state["stats"].erase("faults_repaired")
+	_ensure_construction_durations()
 	_migrate_legacy_rack_installations()
 	for plot: Dictionary in state.get("plots", []):
 		var dc: Variant = plot.get("datacenter")
@@ -1395,6 +1680,19 @@ func _ensure_state_shape() -> void:
 		var customer_id := str(dc.get("customer_id", ""))
 		if not customer_id.is_empty() and not dc.has("locked_market_multiplier"):
 			dc["locked_market_multiplier"] = contract_market_multiplier(customer_id)
+		if not customer_id.is_empty():
+			if not dc.has("contract_duration_id"):
+				dc["contract_duration_id"] = "standard"
+			if not dc.has("contract_income_multiplier"):
+				dc["contract_income_multiplier"] = 1.0
+			state["meta"]["seen_customers"][customer_id] = true
+		_discover("buildings", str(dc.get("building_id", "")))
+		for installed: Variant in dc.get("racks", []):
+			if installed is Dictionary and not installed.is_empty():
+				_discover("racks", str((installed as Dictionary).get("rack_id", "")))
+		_discover("attachments", str(dc.get("power_unit", "")))
+		for cooler_id: Variant in dc.get("coolers", {}).values():
+			_discover("attachments", str(cooler_id))
 		if dc.has("renewal_window_end_at"):
 			if float(dc.get("renewal_window_end_at", 0.0)) > simulation_time():
 				dc["free_switch_available"] = true
@@ -1452,6 +1750,19 @@ func _new_state() -> Dictionary:
 		"technology": {"repair_team": 1, "auto_retirement": false},
 		"flags": {"standard_built": false, "last_presented_era": 1},
 		"achievements": {},
+		"meta": {
+			"roadmap_claimed": {},
+			"collection_claimed": {},
+			"discovered": {},
+			"campus_specializations": {},
+			"customer_service_seconds": {"internet": 0.0, "mining": 0.0, "cloud": 0.0, "gpu_company": 0.0},
+			"seen_customers": {},
+			"seen_events": {},
+			"market_decisions": [],
+			"board_allocations": {"construction": 0, "operations": 0, "business": 0},
+			"company_history": [],
+			"legacy_flags": {},
+		},
 		"entitlements": {},
 		"purchases": {},
 		"processed_transactions": {},
@@ -1482,6 +1793,7 @@ func _account_state_snapshot() -> Dictionary:
 		"purchases": state.get("purchases", {}).duplicate(true),
 		"processed_transactions": state.get("processed_transactions", {}).duplicate(true),
 		"settings": state.get("settings", {}).duplicate(true),
+		"meta": state.get("meta", {}).duplicate(true),
 	}
 
 func _restore_account_state(snapshot: Dictionary) -> void:
@@ -1490,6 +1802,6 @@ func _restore_account_state(snapshot: Dictionary) -> void:
 	state["player"]["gems"] = int(snapshot.get("gems", state["player"].get("gems", 0)))
 	state["player"]["brand_multiplier"] = float(snapshot.get("brand_multiplier", state["player"].get("brand_multiplier", 1.0)))
 	state["stats"]["prestige_count"] = int(snapshot.get("prestige_count", 0))
-	for key: String in ["inventory", "achievements", "entitlements", "purchases", "processed_transactions", "settings"]:
+	for key: String in ["inventory", "achievements", "entitlements", "purchases", "processed_transactions", "settings", "meta"]:
 		if snapshot.get(key) is Dictionary:
 			state[key] = snapshot[key].duplicate(true)

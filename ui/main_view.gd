@@ -2,12 +2,6 @@ extends Control
 
 const ThemeMaker := preload("res://ui/theme_factory.gd")
 
-# Market banners are tracked by group rather than by name. A banner raised while
-# the previous one was still in the tree — two market events landing together —
-# used to lose its name to Godot's sibling de-duplication, after which nothing
-# could find it: it never got replaced, never got retired on navigation, and
-# simply stacked up.
-const MARKET_BANNER_GROUP := "market_event_banner"
 const Widgets := preload("res://ui/widgets.gd")
 const ChartScene := preload("res://ui/market_chart.gd")
 const ParkMapScene := preload("res://gameplay/map/park_map.gd")
@@ -68,7 +62,9 @@ var operations_badge_label: Label
 var queue_badge_label: Label
 var fx_layer: FxLayer
 var page_host: Control
+var feedback_layer: CanvasLayer
 var toast_label: Label
+var _toast_tween: Tween
 var nav_buttons: Dictionary = {}
 var active_page := "map"
 var selected_datacenter_id := ""
@@ -84,6 +80,9 @@ var _page_scroll_cache: Dictionary = {}
 var _era_overlay_queue: Array[int] = []
 var _era_overlay_open := false
 var _pending_market_banner: Dictionary = {}
+var _news_notice_message := ""
+var _news_notice_token := 0
+var _news_gesture := {"active": false, "start_x": 0.0}
 var _last_map_signature := ""
 var _rendered_page := ""
 var _display_cash := NAN
@@ -102,6 +101,7 @@ var _tutorial_world_focus_id := ""
 var _retire_tutorial_awake := false
 var _retire_notice_collapsed := false
 var _retire_notice_token := 0
+var _arrears_banner_dismissed := false
 var _music_target := ""
 var _music_fade_tween: Tween
 var _night_amb_countdown := 0.0
@@ -378,24 +378,39 @@ func _build_shell() -> void:
 	add_child(tutorial_overlay)
 	_build_tutorial_dormant_hint()
 
+	# A separate canvas guarantees operational feedback paints above every world
+	# drawer and modal. z_index alone is not a cross-canvas ordering contract.
+	feedback_layer = CanvasLayer.new()
+	feedback_layer.name = "OperationFeedbackLayer"
+	feedback_layer.layer = 40
+	add_child(feedback_layer)
 	toast_label = _label("", 25, Color.WHITE)
+	toast_label.name = "OperationFeedback"
 	toast_label.visible = false
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	toast_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	toast_label.position = Vector2(-330, -230)
-	toast_label.size = Vector2(660, 84)
+	toast_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	toast_label.max_lines_visible = 2
+	toast_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Operational feedback must remain readable above drawers, action sheets and
+	# tutorial dimming.  The old z=0 label sat behind the building picker, making
+	# a correctly rejected third construction look like a dead button.
+	toast_label.z_index = 220
+	toast_label.size = Vector2(700, 112)
+	toast_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	toast_label.position = Vector2(52, 1320)
 	toast_label.add_theme_stylebox_override("normal", ThemeMaker.panel(Color(0.05, 0.08, 0.13, 0.94), ThemeMaker.COLORS.sky, 2, 20))
-	add_child(toast_label)
+	feedback_layer.add_child(toast_label)
 
 func _build_campus_switcher(stage: Control) -> void:
 	campus_switcher = PanelContainer.new()
 	campus_switcher.name = "CampusSwitcher"
 	campus_switcher.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	campus_switcher.offset_left = 106
-	campus_switcher.offset_top = 166
+	campus_switcher.offset_top = 178
 	campus_switcher.offset_right = -106
-	campus_switcher.offset_bottom = 262
+	campus_switcher.offset_bottom = 274
 	campus_switcher.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("162b40"), 0.94, 24, Color(ThemeMaker.COLORS.ivory, 0.34)))
 	campus_switcher.mouse_filter = Control.MOUSE_FILTER_STOP
 	campus_switcher.visible = false
@@ -484,8 +499,13 @@ func _select_campus_tab(index: int) -> void:
 func _show_campus_overview() -> void:
 	if park_map == null:
 		return
-	var choices: Array[Dictionary] = []
 	var active_index := park_map.active_campus_index()
+	var choices: Array[Dictionary] = [{
+		"id": "strategy_%d" % active_index,
+		"text": tr("CAMPUS_STRATEGY"),
+		"asset": "campus_strategy",
+		"color": ThemeMaker.COLORS.sky,
+	}]
 	for summary: Dictionary in park_map.campus_summaries():
 		var campus_index := int(summary.get("index", 0))
 		var alert_count := int(summary.get("alert_count", 0))
@@ -504,9 +524,33 @@ func _show_campus_overview() -> void:
 			"color": ThemeMaker.COLORS.green.darkened(0.20) if campus_index == active_index else Color("29445c"),
 		})
 	_present_action_sheet(tr("CAMPUS_OVERVIEW"), tr("CAMPUS_OVERVIEW_SUBTITLE"), choices, func(choice: String) -> void:
-		if choice.begins_with("campus_"):
+		if choice.begins_with("strategy_"):
+			_show_campus_strategy(int(choice.trim_prefix("strategy_")))
+		elif choice.begins_with("campus_"):
 			park_map.focus_campus(int(choice.trim_prefix("campus_")))
 	)
+
+func _show_campus_strategy(campus_index: int) -> void:
+	var specializations: Dictionary = DataRepository.get_table("meta_progression").get("campus_specializations", {})
+	var selected_id := str(Game.state.get("meta", {}).get("campus_specializations", {}).get(str(campus_index), ""))
+	var choices: Array[Dictionary] = []
+	for specialization_id: String in specializations:
+		var specialization: Dictionary = specializations[specialization_id]
+		var status := Rules.campus_specialization_status(campus_index, specialization_id, Game.state, Game.data)
+		var selected := specialization_id == selected_id
+		var active := selected and bool(status.get("active", false))
+		var bonus := int(round((float(specialization.get("income_multiplier", 1.0)) - 1.0) * 100.0))
+		var state_text := tr("CAMPUS_STRATEGY_ACTIVE_SHORT") % bonus if active else (tr("CAMPUS_STRATEGY_SELECTED_SHORT") if selected else tr("CAMPUS_STRATEGY_FREE_SHORT") % bonus)
+		choices.append({
+			"id": specialization_id,
+			"asset": str(specialization.get("asset_id", "campus_strategy")),
+			"height": 104,
+			"text": "%s · %s" % [tr(str(specialization.get("name_key", ""))), state_text],
+			"color": ThemeMaker.COLORS.green if active else (ThemeMaker.COLORS.sky if selected else Color("29445c")),
+		})
+	_present_action_sheet(tr("CAMPUS_STRATEGY"), tr("CAMPUS_STRATEGY_SUBTITLE"), choices, func(choice: String) -> void:
+		_handle_result(Game.set_campus_specialization(campus_index, choice))
+	, ThemeMaker.COLORS.cyan)
 
 func _connect_events() -> void:
 	EventBus.state_changed.connect(_on_state_changed)
@@ -541,7 +585,7 @@ func _refresh_hud() -> void:
 	_maybe_show_periodic_income(cash)
 	_animate_hud_number(cash_label, cash, true)
 	_animate_hud_number(gems_label, gems, false)
-	var era: Dictionary = DataRepository.get_entry("eras", str(player.get("era", 1)))
+	var era: Dictionary = DataRepository.get_entry("eras", str(int(player.get("era", 1))))
 	company_label.text = str(int(player.get("era", 1)))
 	var company_button := find_child("CompanyButton", true, false) as Button
 	if company_button != null:
@@ -549,8 +593,13 @@ func _refresh_hud() -> void:
 	era_icon.texture = AssetCatalog.texture("ic_era%d" % int(player.get("era", 1)))
 	news_label.text = _news_text()
 	var market: Dictionary = Game.state.get("market", {})
-	var has_news: bool = not market.get("active", []).is_empty() or not market.get("previews", []).is_empty()
+	var has_news: bool = not _news_notice_message.is_empty() or not market.get("active", []).is_empty() or not market.get("previews", []).is_empty()
 	news_panel.visible = active_page == "map" and has_news
+	news_panel.set_meta("destination", "market")
+	news_panel.set_meta("swipe_dismiss_enabled", true)
+	news_panel.set_meta("transient_market_notice", not _news_notice_message.is_empty())
+	var news_accent := ThemeMaker.COLORS.orange if not _news_notice_message.is_empty() else Color(ThemeMaker.COLORS.ivory, 0.34)
+	news_panel.add_theme_stylebox_override("panel", ThemeMaker.glass_panel(Color("2e2419"), 0.90, 20, news_accent))
 	_refresh_campus_switcher()
 	var queue_size: int = Game.state.get("construction_queue", []).size()
 	queue_badge_label.text = str(queue_size)
@@ -850,8 +899,23 @@ func _on_cash_chip_input(event: InputEvent) -> void:
 		_navigate("store")
 
 func _on_news_input(event: InputEvent) -> void:
-	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
-		_navigate("market")
+	var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed)
+	var released: bool = (event is InputEventScreenTouch and not event.pressed) or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed)
+	if pressed:
+		_news_gesture["active"] = true
+		_news_gesture["start_x"] = _pointer_position(event).x
+	elif event is InputEventScreenDrag and bool(_news_gesture.get("active", false)):
+		var drag_delta := maxf(0.0, event.position.x - float(_news_gesture.get("start_x", 0.0)))
+		news_panel.modulate.a = 1.0 - minf(drag_delta / 520.0, 0.28)
+	elif released and bool(_news_gesture.get("active", false)):
+		_news_gesture["active"] = false
+		var delta := _pointer_position(event).x - float(_news_gesture.get("start_x", 0.0))
+		news_panel.modulate.a = 1.0
+		if delta >= 80.0 and bool(news_panel.get_meta("transient_market_notice", false)):
+			news_panel.accept_event()
+			_dismiss_market_notice()
+		elif absf(delta) < 18.0:
+			_navigate("market")
 
 func _show_operations_hub() -> void:
 	var parts := _create_world_sheet("OperationsHub", 1560)
@@ -971,6 +1035,7 @@ func _run_operations_task(task: Dictionary) -> void:
 		"renewal": _open_datacenter_detail(datacenter_id, "contracts")
 		"retire": _show_datacenter_context(datacenter_id)
 		"market": _navigate("market")
+		_: _handle_result({"ok": false, "reason": "unknown"})
 
 func _operation_module_card(module: Dictionary, action: Callable, compact: bool = false) -> Button:
 	var card := Button.new()
@@ -1073,7 +1138,8 @@ func _build_construction_page() -> Control:
 			actions.add_child(_button("%s · %d" % [tr("INSTANT_TICKET"), tickets], _use_ticket.bind(str(item.get("id", ""))), ThemeMaker.COLORS.yellow.darkened(0.25)))
 		var max_ads := int(DataRepository.get_table("economy").get("construction", {}).get("max_ads_per_project", 2))
 		var ad_button := _button("%s\n-30m · %d/%d" % [tr("WATCH_AD"), int(item.get("ad_uses", 0)), max_ads], _reward_job.bind(str(item.get("id", ""))), ThemeMaker.COLORS.purple)
-		ad_button.disabled = int(item.get("ad_uses", 0)) >= max_ads
+		if int(item.get("ad_uses", 0)) >= max_ads:
+			_mark_explained_unavailable(ad_button, "reward_limit")
 		actions.add_child(ad_button)
 		box.add_child(card)
 	return _wrap_scroll(box)
@@ -1082,6 +1148,8 @@ func _build_datacenter_page() -> Control:
 	var dc := Game.find_datacenter(selected_datacenter_id)
 	if dc.is_empty():
 		active_page = "map"
+		call_deferred("_handle_result", {"ok": false, "reason": "datacenter_missing"})
+		call_deferred("_request_full_refresh")
 		return Control.new()
 	var box := _page_box()
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
@@ -1128,11 +1196,14 @@ func _create_datacenter_board(datacenter_id: String) -> DatacenterBoard:
 	board.setup(datacenter_id)
 	board.rack_slot_selected.connect(_on_board_rack_slot_selected)
 	board.cooler_slot_selected.connect(func(dc_id: String, edge: String) -> void: _show_attachment_picker(dc_id, "cooler", edge))
-	board.power_slot_selected.connect(func(dc_id: String) -> void: _show_attachment_picker(dc_id, "power", ""))
+	board.power_slot_selected.connect(_on_power_slot_selected)
 	return board
 
 func _on_board_rack_slot_selected(datacenter_id: String, slot: int) -> void:
 	var dc := Game.find_datacenter(datacenter_id)
+	if dc.is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_missing"})
+		return
 	var racks: Array = dc.get("racks", [])
 	if slot < racks.size() and racks[slot] is Dictionary and not racks[slot].is_empty():
 		_show_rack_actions(datacenter_id, slot)
@@ -1149,7 +1220,7 @@ func _build_infrastructure_management(dc: Dictionary, progress: float) -> Contro
 	attachments.add_theme_constant_override("v_separation", 10)
 	section.add_child(attachments)
 	var power_text := tr(DataRepository.get_entry("attachments", str(dc.get("power_unit", ""))).get("name_key", "UNPOWERED"))
-	var power_button := _button(power_text, _show_attachment_picker.bind(str(dc.get("id", "")), "power", ""), ThemeMaker.COLORS.yellow.darkened(0.2))
+	var power_button := _button(power_text, _on_power_slot_selected.bind(str(dc.get("id", ""))), ThemeMaker.COLORS.yellow.darkened(0.2))
 	power_button.custom_minimum_size.y = 118
 	if str(dc.get("power_unit", "")).is_empty():
 		_set_button_asset(power_button, "ic_power", 54)
@@ -1193,6 +1264,7 @@ func _retirement_decision(dc: Dictionary, progress: float) -> VBoxContainer:
 func _build_contract_management(dc: Dictionary) -> Control:
 	var section := VBoxContainer.new()
 	section.add_theme_constant_override("separation", ThemeMaker.GROUP_GAP)
+	var capacity_state := _contract_capacity_state(dc)
 	var current_customer := str(dc.get("customer_id", ""))
 	var client_name := tr(DataRepository.get_entry("customers", current_customer).get("name_key", "CONTRACT_NONE"))
 	var timing_text := ""
@@ -1221,6 +1293,8 @@ func _build_contract_management(dc: Dictionary) -> Control:
 		rates.add_child(Widgets.chip(tr("CONTRACT_MARKET_RATE") % Game.market_multiplier(current_customer), ThemeMaker.COLORS.cyan))
 		summary_box.add_child(rates)
 	section.add_child(summary)
+	if capacity_state != "ready":
+		section.add_child(_contract_capacity_guide(dc, capacity_state))
 	var contracts := VBoxContainer.new()
 	contracts.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	section.add_child(contracts)
@@ -1230,12 +1304,60 @@ func _build_contract_management(dc: Dictionary) -> Control:
 		contracts.add_child(_contract_customer_card(dc, customer_id, customer, current_customer, available))
 	return section
 
+func _contract_capacity_state(dc: Dictionary) -> String:
+	var racks: Array = dc.get("racks", [])
+	var powered := Rules.powered_slots(dc, Game.data.get("racks", {}), Game.data.get("attachments", {}))
+	var has_rack := false
+	var installing := false
+	for slot: int in range(mini(racks.size(), powered.size())):
+		var installed: Variant = racks[slot]
+		if not installed is Dictionary or installed.is_empty():
+			continue
+		has_rack = true
+		var status := str((installed as Dictionary).get("status", "active"))
+		if status == "installing":
+			installing = true
+		elif status in ["active", "faulted"] and powered[slot]:
+			return "ready"
+	if installing:
+		return "pending"
+	return "offline" if has_rack else "empty"
+
+func _contract_capacity_guide(dc: Dictionary, capacity_state: String) -> PanelContainer:
+	var guide := Widgets.flat_card(Color(ThemeMaker.COLORS.cyan, 0.55))
+	guide.name = "ContractCapacityGuide"
+	guide.set_meta("capacity_state", capacity_state)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	guide.add_child(box)
+	var title := _label(tr("CONTRACT_CAPACITY_TITLE"), ThemeMaker.TYPE_SCALE.heading, ThemeMaker.COLORS.cream)
+	title.name = "ContractCapacityTitle"
+	title.max_lines_visible = 1
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	box.add_child(title)
+	var message_key := "CONTRACT_CAPACITY_PENDING" if capacity_state == "pending" else ("CONTRACT_CAPACITY_OFFLINE" if capacity_state == "offline" else "CONTRACT_CAPACITY_EMPTY")
+	var message := _label(tr(message_key), ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+	message.name = "ContractCapacityMessage"
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(message)
+	var configure := _button(tr("CONTRACT_CONFIGURE_RACKS"), _open_datacenter_detail.bind(str(dc.get("id", "")), "board"), ThemeMaker.COLORS.sky)
+	configure.name = "ContractConfigureRacks"
+	box.add_child(configure)
+	return guide
+
 func _contract_customer_card(dc: Dictionary, customer_id: String, customer: Dictionary, current_customer: String, available: bool) -> Button:
 	var serving := customer_id == current_customer
 	var action := _sign_contract.bind(str(dc.get("id", "")), customer_id) if available else _show_toast.bind(_customer_unlock_text(customer))
 	var card := Button.new()
 	card.name = "Contract_%s" % customer_id
 	card.focus_mode = Control.FOCUS_NONE
+	# Contract cards live inside PageScroll.  The default Button mouse filter
+	# consumes ScreenDrag before ScrollContainer can see it, which makes the
+	# customer list look scrollable while remaining frozen on iOS.  PASS keeps
+	# the release-to-select behaviour and hands an actual drag to the parent.
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+	card.set_meta("scroll_drag_passthrough", true)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.pressed.connect(action)
 	card.set_meta("glossy_button", false)
@@ -1277,12 +1399,21 @@ func _contract_customer_card(dc: Dictionary, customer_id: String, customer: Dict
 		badge_label.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
 		top.add_child(badge)
 	if available:
+		var relationship := Rules.relationship_level(customer_id, Game.state, Game.data)
+		var relationship_label := _label(tr("RELATIONSHIP_STATUS") % [tr(str(relationship.get("name_key", "RELATIONSHIP_NEW"))), float(relationship.get("income_multiplier", 1.0))], ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+		relationship_label.max_lines_visible = 1
+		relationship_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		copy.add_child(relationship_label)
 		var trend := _market_trend(customer_id)
 		var trend_percent := float(trend.get("percent", 0.0))
 		var value := _label("×%.2f  %s %+.1f%%" % [Game.market_multiplier(customer_id), str(trend.get("arrow", "→")), trend_percent], 32, ThemeMaker.COLORS.red if trend_percent > 0.05 else ThemeMaker.COLORS.green)
+		value.name = "MarketRate_%s" % customer_id
 		ThemeMaker.apply_numeric_text(value)
 		copy.add_child(value)
-		var projected := _label(tr("CONTRACT_PROJECTED") % Game.format_number(_projected_datacenter_income(dc, customer_id)), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.yellow)
+		var capacity_ready := _contract_capacity_state(dc) == "ready"
+		var projection_copy := tr("CONTRACT_PROJECTED") % Game.format_number(_projected_datacenter_income(dc, customer_id)) if capacity_ready else tr("CONTRACT_PROJECTED_AFTER_RACK")
+		var projected := _label(projection_copy, ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.yellow)
+		projected.name = "ContractProjection_%s" % customer_id
 		projected.max_lines_visible = 1
 		projected.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		copy.add_child(projected)
@@ -1312,10 +1443,12 @@ func _fit_contract_card_height(card: Button, content: Control) -> void:
 		return
 	card.custom_minimum_size.y = maxf(ThemeMaker.TOUCH_MIN, content.get_combined_minimum_size().y + ThemeMaker.GROUP_PADDING * 2.0)
 
-func _projected_datacenter_income(dc: Dictionary, customer_id: String) -> float:
+func _projected_datacenter_income(dc: Dictionary, customer_id: String, duration_id: String = "standard") -> float:
 	var simulated := dc.duplicate(true)
 	simulated["customer_id"] = customer_id
 	simulated["locked_market_multiplier"] = Game.contract_market_multiplier(customer_id)
+	var duration: Dictionary = DataRepository.get_table("meta_progression").get("contract_durations", {}).get(duration_id, {})
+	simulated["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	return Rules.datacenter_income_per_month(simulated, Game.state, Game.data, func(id: String) -> float: return Game.market_multiplier(id))
 
 func _market_trend(customer_id: String) -> Dictionary:
@@ -1338,6 +1471,7 @@ func _customer_unlock_text(customer: Dictionary) -> String:
 func _build_market_page() -> Control:
 	var box := _page_box()
 	box.add_child(_system_page_header(tr("NAV_MARKET"), tr("MARKET_SIGNING_ADVISOR"), "ic_market_up"))
+	box.add_child(_meta_hero("market_review", tr("MARKET_REVIEW"), tr("MARKET_REVIEW_SUBTITLE")))
 	var chart_card := _card()
 	var chart_box := VBoxContainer.new()
 	chart_box.add_theme_constant_override("separation", 10)
@@ -1378,7 +1512,31 @@ func _build_market_page() -> Control:
 	for customer_id: String in DataRepository.get_table("customers").get("items", {}):
 		var customer := DataRepository.get_entry("customers", customer_id)
 		customers.add_child(_customer_market_card(customer_id, customer))
+	box.add_child(_build_market_review_section())
 	return _wrap_scroll(box)
+
+func _build_market_review_section() -> Control:
+	var section := VBoxContainer.new()
+	section.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	section.add_child(_section_title(tr("MARKET_REVIEW"), tr("MARKET_REVIEW_SUBTITLE")))
+	var decisions: Array = Game.state.get("meta", {}).get("market_decisions", [])
+	if decisions.is_empty():
+		section.add_child(_status_card("market_review", tr("MARKET_REVIEW_EMPTY"), ThemeMaker.COLORS.cyan, true))
+		return section
+	for index: int in range(mini(5, decisions.size())):
+		var decision: Dictionary = decisions[index]
+		var customer := DataRepository.get_entry("customers", str(decision.get("customer_id", "")))
+		var row := Widgets.flat_card()
+		var box := HBoxContainer.new()
+		box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+		row.add_child(box)
+		box.add_child(_icon_view(str(customer.get("asset_id", "customer_portfolio")), Vector2(58, 58)))
+		var copy := _label(tr("MARKET_REVIEW_ROW") % [tr(str(customer.get("name_key", ""))), float(decision.get("locked_market_multiplier", 1.0)), float(decision.get("latest_market_multiplier", decision.get("locked_market_multiplier", 1.0))), Game.format_number(float(decision.get("signed_monthly", 0.0)))], ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.cream)
+		copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(copy)
+		section.add_child(row)
+	return section
 
 func _market_legend_button(chart: MarketChart, customer_id: String, customer: Dictionary) -> Button:
 	var color: Color = ChartScene.CUSTOMER_COLORS.get(customer_id, ThemeMaker.COLORS.sky)
@@ -1409,11 +1567,19 @@ func _build_tech_page() -> Control:
 	var box := _page_box()
 	box.add_child(_system_page_header(tr("NAV_TECH"), tr("COMPANY_OVERVIEW"), "ic_tech"))
 	box.add_child(_segmented_control([
+		{"id": "roadmap", "label": tr("META_TAB_ROADMAP"), "asset": "company_roadmap"},
 		{"id": "upgrades", "label": tr("UPGRADE"), "asset": "ic_tech"},
-		{"id": "achievements", "label": tr("ACHIEVEMENTS"), "asset": "ic_contract"},
+		{"id": "collection", "label": tr("META_TAB_COLLECTION"), "asset": "company_collection"},
+		{"id": "board", "label": tr("META_TAB_BOARD"), "asset": "board_specialties"},
 	], _tech_section, _set_tech_section))
-	if _tech_section == "achievements":
-		box.add_child(_build_achievements_section())
+	if _tech_section == "roadmap":
+		box.add_child(_build_roadmap_section())
+		return _wrap_scroll(box)
+	if _tech_section in ["collection", "achievements"]:
+		box.add_child(_build_collection_section())
+		return _wrap_scroll(box)
+	if _tech_section == "board":
+		box.add_child(_build_board_section())
 		return _wrap_scroll(box)
 	var player: Dictionary = Game.state.get("player", {})
 	var era_id := int(player.get("era", 1))
@@ -1430,8 +1596,9 @@ func _build_tech_page() -> Control:
 	var next_network: Dictionary = DataRepository.get_table("technology").get("network", {}).get(str(network_level + 1), {})
 	if not next_network.is_empty():
 		var network_cost := float(next_network.get("cost", 0.0))
-		var network_button := _button("%s %s · $%s" % [tr("UPGRADE"), tr(next_network.get("name_key", "")), Game.format_number(network_cost)], _upgrade_network, ThemeMaker.COLORS.sky)
-		network_button.disabled = not Game.is_unlocked(next_network)
+		var network_button := _button("%s %s · $%s" % [tr("UPGRADE"), tr(next_network.get("name_key", "")), Game.format_number(network_cost)], _upgrade_network.bind(int(next_network.get("unlock_era", era_id))), ThemeMaker.COLORS.sky)
+		if not Game.is_unlocked(next_network):
+			_mark_explained_unavailable(network_button, "locked", {"unlock_era": int(next_network.get("unlock_era", era_id))})
 		Widgets.affordable_style(network_button, network_cost)
 		network_box.add_child(network_button)
 	box.add_child(network_card)
@@ -1444,8 +1611,10 @@ func _build_tech_page() -> Control:
 	var next_repair: Dictionary = DataRepository.get_table("technology").get("upgrades", {}).get("repair_team", {}).get("levels", {}).get(str(repair_level + 1), {})
 	if not next_repair.is_empty():
 		var repair_cost := float(next_repair.get("cost", 0.0))
-		var repair_button := _button("%s · $%s" % [tr("UPGRADE"), Game.format_number(repair_cost)], _upgrade_repair, ThemeMaker.COLORS.green)
-		repair_button.disabled = not Game.is_unlocked(next_repair)
+		var repair_unlock_era := int(next_repair.get("unlock_era", era_id))
+		var repair_button := _button("%s · $%s" % [tr("UPGRADE"), Game.format_number(repair_cost)], _upgrade_repair.bind(repair_unlock_era), ThemeMaker.COLORS.green)
+		if not Game.is_unlocked(next_repair):
+			_mark_explained_unavailable(repair_button, "locked", {"unlock_era": repair_unlock_era})
 		Widgets.affordable_style(repair_button, repair_cost)
 		repair_box.add_child(repair_button)
 	box.add_child(repair_card)
@@ -1461,13 +1630,179 @@ func _build_tech_page() -> Control:
 		auto_box.add_child(_label(tr("STORE_OWNED"), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.green))
 	else:
 		var auto_cost := float(auto_level.get("cost", 15000.0))
-		var auto_button := _button("%s · $%s" % [tr("BUY"), Game.format_number(auto_cost)], _purchase_auto_retirement, ThemeMaker.COLORS.green)
-		auto_button.disabled = not Game.is_unlocked(auto_level)
+		var auto_unlock_era := int(auto_level.get("unlock_era", era_id))
+		var auto_button := _button("%s · $%s" % [tr("BUY"), Game.format_number(auto_cost)], _purchase_auto_retirement.bind(auto_unlock_era), ThemeMaker.COLORS.green)
+		if not Game.is_unlocked(auto_level):
+			_mark_explained_unavailable(auto_button, "locked", {"unlock_era": auto_unlock_era})
 		Widgets.affordable_style(auto_button, auto_cost)
 		auto_box.add_child(auto_button)
 	box.add_child(auto_card)
 	box.add_child(_build_prestige_card(player))
 	return _wrap_scroll(box)
+
+func _meta_hero(asset_id: String, title_text: String, body_text: String) -> Control:
+	var card := Widgets.flat_card(Color(ThemeMaker.COLORS.sky, 0.32))
+	card.name = "MetaHero_%s" % asset_id
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", ThemeMaker.GROUP_PADDING)
+	card.add_child(row)
+	row.add_child(_icon_view(asset_id, Vector2(188, 188)))
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.alignment = BoxContainer.ALIGNMENT_CENTER
+	copy.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	row.add_child(copy)
+	var title := _label(title_text, ThemeMaker.TYPE_SCALE.heading, ThemeMaker.COLORS.cream)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.add_child(title)
+	var body := _label(body_text, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.add_child(body)
+	return card
+
+func _build_roadmap_section() -> Control:
+	var section := VBoxContainer.new()
+	section.add_theme_constant_override("separation", ThemeMaker.GROUP_GAP)
+	section.add_child(_meta_hero("company_roadmap", tr("COMPANY_ROADMAP"), tr("COMPANY_ROADMAP_SUBTITLE")))
+	for item_id: String in DataRepository.get_table("meta_progression").get("roadmap", {}).get("items", {}):
+		var item: Dictionary = DataRepository.get_table("meta_progression")["roadmap"]["items"][item_id]
+		var current := Game.call("_meta_metric", str(item.get("metric", ""))) as float
+		var target := float(item.get("target", 1.0))
+		var claimed := bool(Game.state.get("meta", {}).get("roadmap_claimed", {}).get(item_id, false))
+		var card := Widgets.flat_card(ThemeMaker.COLORS.green if claimed else Color(ThemeMaker.COLORS.sky, 0.34))
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+		card.add_child(box)
+		box.add_child(_feature_heading(str(item.get("asset_id", "company_roadmap")), tr(str(item.get("name_key", ""))), tr(str(item.get("description_key", ""))), ThemeMaker.COLORS.green if claimed else ThemeMaker.COLORS.cyan))
+		var progress := ProgressBar.new()
+		progress.max_value = target
+		progress.value = minf(current, target)
+		progress.show_percentage = false
+		progress.custom_minimum_size.y = 26
+		box.add_child(progress)
+		var footer := HBoxContainer.new()
+		footer.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+		box.add_child(footer)
+		var progress_label := _label(tr("ROADMAP_PROGRESS") % [int(minf(current, target)), int(target)], ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+		progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		footer.add_child(progress_label)
+		if claimed:
+			footer.add_child(Widgets.chip(tr("ROADMAP_CLAIMED"), ThemeMaker.COLORS.green))
+		elif current >= target:
+			var claim := _button(tr("ROADMAP_CLAIM") % int(item.get("reward_gems", 0)), _claim_roadmap.bind(item_id), ThemeMaker.COLORS.green)
+			claim.custom_minimum_size = Vector2(250, 88)
+			footer.add_child(claim)
+		section.add_child(card)
+	return section
+
+func _claim_roadmap(item_id: String) -> void:
+	_handle_result(Game.claim_roadmap_reward(item_id))
+	_request_full_refresh()
+
+func _build_collection_section() -> Control:
+	var section := VBoxContainer.new()
+	section.add_theme_constant_override("separation", ThemeMaker.GROUP_GAP)
+	section.add_child(_meta_hero("company_collection", tr("COMPANY_COLLECTION"), tr("COMPANY_COLLECTION_SUBTITLE")))
+	var groups: Dictionary = DataRepository.get_table("meta_progression").get("collection", {}).get("groups", {})
+	for group_id: String in groups:
+		section.add_child(_collection_group_card(group_id, groups[group_id]))
+	section.add_child(_build_achievements_section())
+	return section
+
+func _collection_group_card(group_id: String, group: Dictionary) -> Control:
+	var status := Game.collection_group_status(group_id)
+	var card := Widgets.flat_card(ThemeMaker.COLORS.green if bool(status.get("complete", false)) else Color(ThemeMaker.COLORS.sky, 0.28))
+	card.name = "Collection_%s" % group_id
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	card.add_child(box)
+	box.add_child(_section_title(tr(str(group.get("name_key", ""))), tr("COLLECTION_PROGRESS") % [int(status.get("discovered", 0)), int(status.get("total", 0))]))
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	box.add_child(grid)
+	for source_variant: Variant in group.get("sources", []):
+		var source := str(source_variant)
+		for item_id: String in DataRepository.get_table(source).get("items", {}):
+			var item := DataRepository.get_entry(source, item_id)
+			var discovered := Game.call("_collection_item_discovered", source, item_id) as bool
+			var asset_id := str(item.get("asset_id", item.get("asset_prefix", "")))
+			if item.has("asset_prefix"):
+				asset_id += "_active"
+			grid.add_child(_collection_tile(asset_id, tr(str(item.get("name_key", ""))), discovered))
+	for legacy_variant: Variant in group.get("items", []):
+		if legacy_variant is Dictionary:
+			var legacy: Dictionary = legacy_variant
+			grid.add_child(_collection_tile(str(legacy.get("asset_id", "legacy_memorial")), tr(str(legacy.get("name_key", ""))), Game.call("_legacy_collection_item_discovered", str(legacy.get("id", ""))) as bool))
+	if bool(status.get("complete", false)) and not bool(status.get("claimed", false)):
+		box.add_child(_button(tr("COLLECTION_CLAIM") % int(status.get("reward_gems", 0)), _claim_collection.bind(group_id), ThemeMaker.COLORS.green))
+	elif bool(status.get("claimed", false)):
+		box.add_child(_status_card("ic_check", tr("COLLECTION_COMPLETE"), ThemeMaker.COLORS.green, true))
+	return card
+
+func _collection_tile(asset_id: String, title_text: String, discovered: bool) -> Control:
+	var tile := VBoxContainer.new()
+	tile.custom_minimum_size = Vector2(0, 126)
+	tile.alignment = BoxContainer.ALIGNMENT_CENTER
+	var icon := _icon_view(asset_id, Vector2(70, 70))
+	icon.modulate = Color.WHITE if discovered else Color(0.28, 0.33, 0.40, 0.78)
+	tile.add_child(icon)
+	var label := _label(title_text if discovered else "?", 16, ThemeMaker.COLORS.cream if discovered else Color("8090a0"))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.max_lines_visible = 1
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	tile.add_child(label)
+	return tile
+
+func _claim_collection(group_id: String) -> void:
+	_handle_result(Game.claim_collection_reward(group_id))
+	_request_full_refresh()
+
+func _build_board_section() -> Control:
+	var section := VBoxContainer.new()
+	section.add_theme_constant_override("separation", ThemeMaker.GROUP_GAP)
+	section.add_child(_meta_hero("board_specialties", tr("BOARD_SPECIALTIES"), tr("BOARD_SPECIALTIES_SUBTITLE")))
+	section.add_child(_status_card("ic_prestige", tr("BOARD_POINTS_AVAILABLE") % Game.board_points_available(), ThemeMaker.COLORS.purple, true))
+	var config: Dictionary = DataRepository.get_table("meta_progression").get("board_specialties", {})
+	var max_rank := int(config.get("max_rank", 5))
+	for specialty_id: String in config.get("items", {}):
+		var item: Dictionary = config["items"][specialty_id]
+		var rank := int(Game.state.get("meta", {}).get("board_allocations", {}).get(specialty_id, 0))
+		var card := Widgets.flat_card(Color(ThemeMaker.COLORS.purple, 0.32))
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+		card.add_child(box)
+		box.add_child(_feature_heading(str(item.get("asset_id", "board_specialties")), tr(str(item.get("name_key", ""))), tr(str(item.get("description_key", ""))), ThemeMaker.COLORS.purple.lightened(0.18)))
+		box.add_child(_label(tr("BOARD_RANK") % [rank, max_rank], ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.cyan))
+		var invest := _button(tr("BOARD_ADD_POINT"), _allocate_board_point.bind(specialty_id), ThemeMaker.COLORS.purple)
+		invest.custom_minimum_size.y = 88
+		box.add_child(invest)
+		section.add_child(card)
+	if int(Game.state.get("stats", {}).get("prestige_count", 0)) > 0:
+		section.add_child(_button(tr("BOARD_RESET"), _reset_board_points, Color("29445c")))
+	section.add_child(_build_company_history())
+	return section
+
+func _allocate_board_point(specialty_id: String) -> void:
+	_handle_result(Game.allocate_board_point(specialty_id))
+	_request_full_refresh()
+
+func _reset_board_points() -> void:
+	_handle_result(Game.reset_board_points())
+	_request_full_refresh()
+
+func _build_company_history() -> Control:
+	var section := VBoxContainer.new()
+	section.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	section.add_child(_section_title(tr("COMPANY_HISTORY"), ""))
+	var history: Array = Game.state.get("meta", {}).get("company_history", [])
+	if history.is_empty():
+		section.add_child(_status_card("legacy_memorial", tr("COMPANY_HISTORY_EMPTY"), ThemeMaker.COLORS.cyan, true))
+		return section
+	for summary: Dictionary in history:
+		section.add_child(_status_card("legacy_memorial", tr("COMPANY_HISTORY_ROW") % [int(summary.get("prestige_number", 1)), Game.format_number(float(summary.get("total_revenue", 0.0))), int(summary.get("datacenters_built", 0))], ThemeMaker.COLORS.yellow, true))
+	return section
 
 func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, player: Dictionary) -> Control:
 	var card := _card()
@@ -1586,6 +1921,7 @@ func _build_prestige_card(player: Dictionary) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	margin.add_child(box)
+	box.add_child(_meta_hero("board_specialties", tr("BOARD_SPECIALTIES"), tr("BOARD_SPECIALTIES_SUBTITLE")))
 	box.add_child(_feature_heading("ic_prestige", tr("PRESTIGE"), tr("PRESTIGE_EST_GAIN") % float(projection.get("projected", 1.0)) if unlocked else tr("PRESTIGE_LOCKED") % minimum, ThemeMaker.COLORS.purple))
 	var progress := ProgressBar.new()
 	progress.name = "PrestigeProgressBar"
@@ -1797,10 +2133,10 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 		card.modulate = Color(0.62, 0.66, 0.70, 0.90)
 		buy_button.text = tr("STORE_OWNED")
 		_set_button_asset(buy_button, "ic_check", 38)
-		buy_button.disabled = true
+		_mark_explained_unavailable(buy_button, str(purchase_state.get("reason", "already_owned")))
 	elif OS.get_name() == "iOS" and not Monetization.is_product_available(product_id):
-		buy_button.text = "…"
-		buy_button.disabled = true
+		buy_button.text = tr("STORE_UNAVAILABLE")
+		_mark_explained_unavailable(buy_button, "product_unavailable")
 	card_box.add_child(buy_button)
 	return card
 
@@ -2375,6 +2711,8 @@ func _on_tutorial_target_activated() -> void:
 	)
 
 func _news_text() -> String:
+	if not _news_notice_message.is_empty():
+		return _news_notice_message
 	var market: Dictionary = Game.state.get("market", {})
 	if not market.get("active", []).is_empty():
 		var event := DataRepository.get_entry("events", str(market["active"][0].get("event_id", "")))
@@ -2492,9 +2830,13 @@ func _open_first_datacenter_contracts() -> void:
 		if dc is Dictionary and not (dc as Dictionary).is_empty() and str((dc as Dictionary).get("status", "")) != "ruined":
 			_open_datacenter_detail(str((dc as Dictionary).get("id", "")), "contracts")
 			return
-	_show_toast(tr("CONTRACT_NO_DC"))
+	_handle_result({"ok": false, "reason": "datacenter_missing"})
 
 func _show_rack_picker(datacenter_id: String, slot: int) -> void:
+	var validation := _rack_slot_install_entry_result(datacenter_id, slot)
+	if not bool(validation.get("ok", false)):
+		_handle_result(validation, {"datacenter_id": datacenter_id, "slot": slot, "operation": "rack"})
+		return
 	var choices: Array[Dictionary] = []
 	for rack_id: String in DataRepository.get_table("racks").get("items", {}):
 		var rack := DataRepository.get_entry("racks", rack_id)
@@ -2513,13 +2855,23 @@ func _show_rack_picker(datacenter_id: String, slot: int) -> void:
 					_rack_trait_label(float(rack.get("market_sensitivity", 1.0))),
 				],
 			})
+	if choices.is_empty():
+		_handle_result({"ok": false, "reason": "locked"})
+		return
 	_show_choice(tr("INSTALL"), choices, func(rack_id: String) -> void: _preview_rack_install(datacenter_id, slot, rack_id), "rack_slot_0")
 
 func _preview_rack_install(datacenter_id: String, slot: int, rack_id: String) -> void:
+	var validation := _rack_slot_install_entry_result(datacenter_id, slot)
+	if not bool(validation.get("ok", false)):
+		_handle_result(validation, {"datacenter_id": datacenter_id, "slot": slot, "operation": "rack"})
+		return
+	var rack := DataRepository.get_entry("racks", rack_id)
+	if rack.is_empty() or not Game.is_unlocked(rack):
+		_handle_result({"ok": false, "reason": "locked"})
+		return
 	var board := _visible_datacenter_board(datacenter_id)
 	if board != null:
 		board.set_placement_preview(slot, rack_id)
-	var rack := DataRepository.get_entry("racks", rack_id)
 	var state := board.placement_state_for_slot(slot, rack_id) if board != null else {}
 	var hint := str(state.get("hint", ""))
 	var body := "%s\n%s\n%s: %s   %s: %s   %s: $%s/%s" % [
@@ -2530,11 +2882,32 @@ func _preview_rack_install(datacenter_id: String, slot: int, rack_id: String) ->
 	]
 	var confirm_install := func(choice: String) -> void:
 		if choice == "confirm":
-			_handle_result(Game.install_rack(datacenter_id, slot, rack_id))
+			_handle_result(Game.install_rack(datacenter_id, slot, rack_id), {"datacenter_id": datacenter_id, "slot": slot, "operation": "rack"})
 	_present_action_sheet(tr("INSTALL"), body, [{"id": "confirm", "text": "%s · $%s" % [tr("CONFIRM"), Game.format_number(Game.rack_purchase_cost(rack_id))], "color": ThemeMaker.COLORS.green}], confirm_install, ThemeMaker.COLORS.cyan, "rack_slot_0")
 	var overlay := find_child("ActionSheetOverlay", true, false)
 	if overlay != null and board != null:
 		overlay.tree_exiting.connect(board.clear_placement_preview)
+
+func _rack_slot_install_entry_result(datacenter_id: String, slot: int) -> Dictionary:
+	var dc := Game.find_datacenter(datacenter_id)
+	if dc.is_empty():
+		return {"ok": false, "reason": "datacenter_missing"}
+	if str(dc.get("status", "")) != "operational":
+		return {"ok": false, "reason": "datacenter_unavailable"}
+	var racks: Array = dc.get("racks", [])
+	if slot < 0 or slot >= racks.size():
+		return {"ok": false, "reason": "invalid_slot"}
+	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
+	var unlocked := false
+	for unlocked_slot: Variant in building.get("unlocked_slots", []):
+		if int(unlocked_slot) == slot:
+			unlocked = true
+			break
+	if not unlocked:
+		return {"ok": false, "reason": "slot_locked"}
+	if racks[slot] is Dictionary and not (racks[slot] as Dictionary).is_empty():
+		return {"ok": false, "reason": "slot_occupied"}
+	return {"ok": true}
 
 func _visible_datacenter_board(datacenter_id: String) -> DatacenterBoard:
 	for node: Node in find_children("*", "", true, false):
@@ -2812,6 +3185,7 @@ func _end_sheet_drag(drag: Dictionary, overlay: CanvasItem, sheet: Control, rese
 func _show_datacenter_context(datacenter_id: String) -> void:
 	var dc := Game.find_datacenter(datacenter_id)
 	if dc.is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_missing"})
 		return
 	selected_datacenter_id = datacenter_id
 	park_map.focus_target(datacenter_id)
@@ -2886,10 +3260,12 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 	var powered := not str(dc.get("power_unit", "")).is_empty()
 	var contract_action := func() -> void:
 		var live_dc := Game.find_datacenter(datacenter_id)
-		if not str(live_dc.get("power_unit", "")).is_empty():
+		if live_dc.is_empty():
+			_handle_result({"ok": false, "reason": "datacenter_missing"})
+		elif not str(live_dc.get("power_unit", "")).is_empty():
 			_dismiss_world_sheet(overlay, _open_datacenter_detail.bind(datacenter_id, "contracts"))
 		else:
-			_show_toast(tr("BOARD_INSTALL_POWER"))
+			_handle_result({"ok": false, "reason": "power_required"}, {"datacenter_id": datacenter_id, "operation": "contract"})
 	var contract_button := _button(tr("SIGN_CONTRACT"), contract_action, ThemeMaker.COLORS.sky if powered else Color("6f7b88"))
 	contract_button.name = "ContractCTA"
 	_set_button_asset(contract_button, "ic_contract", 42)
@@ -3010,7 +3386,88 @@ func _show_plot_purchase() -> void:
 		"buy_plot"
 	)
 
+func _on_power_slot_selected(datacenter_id: String) -> void:
+	var dc := Game.find_datacenter(datacenter_id)
+	if dc.is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_missing"})
+		return
+	if str(dc.get("status", "")) != "operational":
+		_handle_result({"ok": false, "reason": "datacenter_unavailable"})
+		return
+	# Upgrades still need a choice.  The FTUE also deliberately teaches the
+	# attachment picker, so only a normal player's first transformer is the
+	# low-friction, one-tap path.
+	if not str(dc.get("power_unit", "")).is_empty() or _tutorial_requires_power_picker():
+		_show_attachment_picker(datacenter_id, "power", "")
+		return
+	var pending := _pending_attachment_job(datacenter_id, "power")
+	if not pending.is_empty():
+		_show_power_install_blocker("construction_in_progress", pending)
+		return
+	var starter := DataRepository.get_entry("attachments", "power_t1")
+	if starter.is_empty() or not Game.is_unlocked(starter):
+		_handle_result({"ok": false, "reason": "locked"}, {"unlock_era": int(starter.get("unlock_era", 1))})
+		return
+	var result: Dictionary = Game.install_power(datacenter_id, "power_t1")
+	var reason := str(result.get("reason", ""))
+	if not bool(result.get("ok", false)) and reason in ["queue_full", "construction_in_progress"]:
+		_show_power_install_blocker(reason, _pending_attachment_job(datacenter_id, "power"))
+		return
+	_handle_result(result, {"datacenter_id": datacenter_id, "kind": "power", "operation": "attachment"})
+
+func _tutorial_requires_power_picker() -> bool:
+	var tutorial: Dictionary = Game.state.get("tutorial", {})
+	if bool(tutorial.get("completed", false)):
+		return false
+	var steps: Array = DataRepository.get_table("tutorial").get("steps", [])
+	var index := int(tutorial.get("step", 0))
+	return index >= 0 and index < steps.size() and str((steps[index] as Dictionary).get("id", "")) == "power"
+
+func _pending_attachment_job(datacenter_id: String, kind: String, edge: String = "") -> Dictionary:
+	for queued: Dictionary in Game.state.get("construction_queue", []):
+		if str(queued.get("datacenter_id", "")) != datacenter_id or str(queued.get("type", "")) != kind:
+			continue
+		if kind != "cooler" or str(queued.get("edge", "")) == edge:
+			return queued
+	return {}
+
+func _show_power_install_blocker(reason: String, pending: Dictionary = {}) -> void:
+	var body := _failure_message(reason)
+	if not pending.is_empty():
+		var remaining := maxf(0.0, float(pending.get("complete_at", Game.simulation_time())) - Game.simulation_time())
+		body = tr("POWER_INSTALL_PENDING") % Game.format_duration(remaining)
+	var choices: Array[Dictionary] = [{
+		"id": "queue",
+		"text": tr("VIEW_QUEUE"),
+		"color": ThemeMaker.COLORS.orange,
+		"asset": "ic_clock",
+	}]
+	_present_action_sheet(tr("POWER_INSTALL_BLOCKED"), body, choices, func(choice: String) -> void:
+		if choice == "queue":
+			_open_build_queue_from_context()
+	, ThemeMaker.COLORS.orange)
+
+func _open_build_queue_from_context() -> void:
+	var context := find_child("DatacenterContext", true, false) as CanvasItem
+	if context != null:
+		_dismiss_world_sheet(context, _navigate.bind("build"))
+	else:
+		_navigate("build")
+
 func _show_attachment_picker(datacenter_id: String, kind: String, edge: String) -> void:
+	var dc := Game.find_datacenter(datacenter_id)
+	if dc.is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_missing"})
+		return
+	if str(dc.get("status", "")) != "operational":
+		_handle_result({"ok": false, "reason": "datacenter_unavailable"})
+		return
+	if kind not in ["power", "cooler"]:
+		_handle_result({"ok": false, "reason": "unknown"})
+		return
+	if kind == "cooler" and not Rules.COOLER_EDGES.has(edge):
+		_handle_result({"ok": false, "reason": "invalid_edge"})
+		return
 	var choices: Array[Dictionary] = []
 	for attachment_id: String in DataRepository.get_table("attachments").get("items", {}):
 		var item := DataRepository.get_entry("attachments", attachment_id)
@@ -3020,15 +3477,32 @@ func _show_attachment_picker(datacenter_id: String, kind: String, edge: String) 
 			# left bare numbers with no way to tell capacity from cooling.
 			var stat := "%s %s" % [tr("STAT_CAPACITY"), Game.format_number(float(item.get("capacity", 0.0)))] if kind == "power" else "%s %s · %s" % [tr("STAT_COOLING_OUTPUT"), Game.format_number(float(item.get("cooling", 0.0))), tr("STAT_COVERAGE") % 3]
 			choices.append({"id": attachment_id, "height": 108, "cost": float(item.get("cost", 0.0)), "text": "%s · $%s\n%s" % [tr(item.get("name_key", "")), Game.format_number(float(item.get("cost", 0.0))), stat]})
+	if choices.is_empty():
+		_handle_result({"ok": false, "reason": "locked"})
+		return
 	var install_attachment := func(attachment_id: String) -> void:
 		var result: Dictionary = Game.install_power(datacenter_id, attachment_id) if kind == "power" else Game.install_cooler(datacenter_id, edge, attachment_id)
-		_handle_result(result)
+		_handle_result(result, {"datacenter_id": datacenter_id, "kind": kind, "edge": edge, "operation": "attachment"})
 		if bool(result.get("ok", false)) and kind == "cooler":
 			_play_fx_at_world("fx_snowflake", datacenter_id, 170)
 	_show_choice(tr("INSTALL"), choices, install_attachment, "install_power" if kind == "power" else "install_cooler")
 
 func _show_rack_actions(datacenter_id: String, slot: int) -> void:
-	var installed: Dictionary = Game.find_datacenter(datacenter_id).get("racks", [])[slot]
+	var dc := Game.find_datacenter(datacenter_id)
+	if dc.is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_missing"})
+		return
+	if str(dc.get("status", "")) != "operational":
+		_handle_result({"ok": false, "reason": "datacenter_unavailable"})
+		return
+	var racks: Array = dc.get("racks", [])
+	if slot < 0 or slot >= racks.size():
+		_handle_result({"ok": false, "reason": "invalid_slot"})
+		return
+	if not racks[slot] is Dictionary or (racks[slot] as Dictionary).is_empty():
+		_handle_result({"ok": false, "reason": "slot_empty"})
+		return
+	var installed: Dictionary = racks[slot]
 	var rack := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
 	var choices: Array[Dictionary] = []
 	var body := ""
@@ -3154,6 +3628,7 @@ func _present_action_sheet(title_text: String, body: String, choices: Array[Dict
 		, choice_color)
 		choice_button.name = "Choice_%s" % choice_id
 		choice_button.set_meta("choice_id", choice_id)
+		choice_button.set_meta("choice_available", bool(choice.get("available", true)))
 		if choice.has("asset"):
 			_set_button_asset(choice_button, str(choice.get("asset", "")), 64)
 		if hold_seconds > 0.0:
@@ -3430,12 +3905,14 @@ func _offline_events_summary(report: Dictionary) -> String:
 
 func _confirm_prestige() -> void:
 	var projection := _prestige_projection()
-	var body := "%s\n%s\n%s" % [
+	var summary := Game.company_legacy_summary()
+	var body := "%s\n%s\n%s\n%s" % [
+		tr("LEGACY_RECAP_BODY") % [Game.format_number(float(summary.get("total_revenue", 0.0))), Game.format_number(float(summary.get("net_worth", 0.0))), int(summary.get("datacenters_built", 0))],
 		tr("PRESTIGE_GAIN_DETAIL") % [float(projection.get("current", 1.0)), float(projection.get("projected", 1.0))],
 		tr("PRESTIGE_KEEP_LIST"),
 		tr("PRESTIGE_LIQUIDATE") % Game.format_number(float(projection.get("worth", 0.0))),
 	]
-	_present_action_sheet(tr("PRESTIGE"), body, [{"id": "continue", "text": tr("PRESTIGE_CONTINUE"), "color": ThemeMaker.COLORS.purple}], func(choice: String) -> void:
+	_present_action_sheet(tr("LEGACY_RECAP"), body, [{"id": "continue", "text": tr("PRESTIGE_CONTINUE"), "color": ThemeMaker.COLORS.purple, "asset": "legacy_memorial"}], func(choice: String) -> void:
 		if choice == "continue":
 			_present_action_sheet(tr("PRESTIGE_FINAL_TITLE"), tr("PRESTIGE_FINAL_WARNING"), [{"id": "confirm", "text": tr("PRESTIGE_HOLD_CONFIRM"), "color": ThemeMaker.COLORS.red, "hold_seconds": 1.2}], func(final_choice: String) -> void:
 				if final_choice == "confirm":
@@ -3509,6 +3986,9 @@ func _open_datacenter(datacenter_id: String) -> void:
 	_show_datacenter_context(datacenter_id)
 
 func _open_datacenter_detail(datacenter_id: String, focus: String = "racks") -> void:
+	if Game.find_datacenter(datacenter_id).is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_missing"})
+		return
 	selected_datacenter_id = datacenter_id
 	_detail_focus = "board" if focus in ["racks", "infrastructure"] else focus
 	active_page = "detail"
@@ -3530,24 +4010,61 @@ func _retire(datacenter_id: String) -> void:
 func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 	var dc := Game.find_datacenter(datacenter_id)
 	if dc.is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_missing"})
 		return
 	if str(dc.get("power_unit", "")).is_empty():
-		_show_toast(tr("BOARD_INSTALL_POWER"))
+		_handle_result({"ok": false, "reason": "power_required"}, {"datacenter_id": datacenter_id, "operation": "contract"})
 		return
-	var fee := Game.contract_switch_fee(datacenter_id, customer_id)
-	var current := Game.datacenter_monthly_income(dc)
-	var projected := _projected_datacenter_income(dc, customer_id)
+	if _contract_capacity_state(dc) != "ready":
+		_handle_result({"ok": false, "reason": "contract_capacity_required"}, {"datacenter_id": datacenter_id, "operation": "contract"})
+		return
+	if not bool(Game.state.get("tutorial", {}).get("completed", false)):
+		_confirm_contract_duration(datacenter_id, customer_id, "standard")
+		return
+	var relationship := Rules.relationship_level(customer_id, Game.state, Game.data)
+	var relationship_index := int(relationship.get("index", 0))
+	var choices: Array[Dictionary] = []
+	for duration_id: String in DataRepository.get_table("meta_progression").get("contract_durations", {}):
+		var duration: Dictionary = DataRepository.get_table("meta_progression")["contract_durations"][duration_id]
+		var forecast := Game.contract_forecast(datacenter_id, customer_id, duration_id)
+		var available := relationship_index >= int(duration.get("relationship_level_required", 0))
+		var term_value := float(forecast.get("projected", 0.0)) * float(forecast.get("months", 0.0)) - float(forecast.get("fee", 0.0))
+		choices.append({
+			"id": duration_id,
+			"height": 126,
+			"asset": "customer_portfolio" if available else "ic_lock",
+			"available": available,
+			"text": "%s\n%s\n%s" % [tr(str(duration.get("name_key", ""))), tr(str(duration.get("description_key", ""))), tr("CONTRACT_TERM_PROJECTION") % [Game.format_number(float(forecast.get("projected", 0.0))), Game.format_number(term_value)]],
+			"color": Color("29445c") if available else Color("475466"),
+		})
+	_present_action_sheet(tr("CONTRACT_CHOOSE_DURATION"), tr("RELATIONSHIP_STATUS") % [tr(str(relationship.get("name_key", "RELATIONSHIP_NEW"))), float(relationship.get("income_multiplier", 1.0))], choices, func(duration_id: String) -> void:
+		var duration: Dictionary = DataRepository.get_table("meta_progression").get("contract_durations", {}).get(duration_id, {})
+		if relationship_index < int(duration.get("relationship_level_required", 0)):
+			_handle_result({"ok": false, "reason": "relationship_required"})
+			return
+		_confirm_contract_duration(datacenter_id, customer_id, duration_id)
+	, ThemeMaker.COLORS.cyan, "contract_internet")
+
+func _confirm_contract_duration(datacenter_id: String, customer_id: String, duration_id: String) -> void:
+	var dc := Game.find_datacenter(datacenter_id)
+	if dc.is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_missing"})
+		return
+	var forecast := Game.contract_forecast(datacenter_id, customer_id, duration_id)
+	var current := float(forecast.get("current", 0.0))
+	var projected := float(forecast.get("projected", 0.0))
+	var fee := float(forecast.get("fee", 0.0))
 	var percent := (projected / maxf(0.01, current) - 1.0) * 100.0 if current > 0.0 else 100.0
 	var body := tr("CONTRACT_CONFIRM_DELTA") % [Game.format_number(current), Game.format_number(projected), percent]
 	body += "\n" + (tr("CONTRACT_FREE_SWITCH") if fee <= 0.0 else tr("CONTRACT_BREACH_FEE") % Game.format_number(fee))
-	body += "\n" + tr("CONTRACT_TERM_INFO")
+	body += "\n" + tr("CONTRACT_TERM_GAIN") % Game.format_number(float(forecast.get("term_gain", 0.0)))
 	var confirm_contract := func(choice: String) -> void:
 		if choice == "confirm":
-			_complete_contract_signing(datacenter_id, customer_id)
+			_complete_contract_signing(datacenter_id, customer_id, duration_id)
 	_present_action_sheet(tr("SWITCH_CONTRACT"), body, [{"id": "confirm", "text": "%s · %s" % [tr("CONFIRM"), tr("CONTRACT_PROJECTED") % Game.format_number(projected)], "color": ThemeMaker.COLORS.green}], confirm_contract, ThemeMaker.COLORS.cyan, "contract_internet")
 
-func _complete_contract_signing(datacenter_id: String, customer_id: String) -> void:
-	var result := Game.sign_contract(datacenter_id, customer_id)
+func _complete_contract_signing(datacenter_id: String, customer_id: String, duration_id: String = "standard") -> void:
+	var result := Game.sign_contract(datacenter_id, customer_id, duration_id)
 	_handle_result(result)
 	if bool(result.get("ok", false)):
 		var source := park_map.world_position_of(datacenter_id) if park_map != null else Vector2.ZERO
@@ -3562,18 +4079,21 @@ func _reward_job(construction_id: String) -> void:
 func _use_ticket(construction_id: String) -> void:
 	_handle_result(Game.use_instant_build_ticket(construction_id))
 
-func _upgrade_network() -> void:
-	_handle_result(Game.upgrade_network())
+func _upgrade_network(unlock_era: int = 0) -> void:
+	_handle_result(Game.upgrade_network(), {"unlock_era": unlock_era})
 
-func _upgrade_repair() -> void:
-	_handle_result(Game.upgrade_repair_team())
+func _upgrade_repair(unlock_era: int = 0) -> void:
+	_handle_result(Game.upgrade_repair_team(), {"unlock_era": unlock_era})
 
-func _purchase_auto_retirement() -> void:
-	_handle_result(Game.purchase_auto_retirement())
+func _purchase_auto_retirement(unlock_era: int = 0) -> void:
+	_handle_result(Game.purchase_auto_retirement(), {"unlock_era": unlock_era})
 
 func _purchase(product_id: String) -> void:
 	# StoreKit completion owns the final success/failure toast and its semantic
 	# sound. Avoid a second generic success chime while the transaction is pending.
+	if OS.get_name() == "iOS" and not Monetization.is_product_available(product_id):
+		_handle_result({"ok": false, "reason": "product_unavailable"})
+		return
 	var result := Game.purchase(product_id)
 	if not bool(result.get("ok", false)):
 		_handle_result(result)
@@ -3593,14 +4113,28 @@ func _on_setting_toggled(enabled: bool, setting_key: String) -> void:
 func _run_action(action: Callable) -> void:
 	_handle_result(action.call())
 
-func _handle_result(result: Dictionary) -> void:
+func _mark_explained_unavailable(button: Button, reason: String, context: Dictionary = {}) -> void:
+	# Never use Button.disabled for a gameplay restriction on mobile.  A muted
+	# button remains an 88u touch target and its existing action can surface the
+	# authoritative gameplay failure through _handle_result.
+	button.set_meta("availability_locked", true)
+	button.set_meta("unavailable_reason", reason)
+	button.set_meta("unavailable_context", context.duplicate(true))
+	ThemeMaker.apply_button_role(button, "disabled")
+	button.modulate = Color(0.82, 0.86, 0.90, 1.0)
+
+func _handle_result(result: Dictionary, context: Dictionary = {}) -> void:
 	if bool(result.get("ok", false)):
 		_haptic(HAPTIC_MEDIUM)
 		_show_toast(tr("TOAST_CONSTRUCTION_STARTED") if result.has("construction") or result.has("rack_installation") else tr("CONFIRM"), "sfx_success_chime")
 		if result.has("plot_id"):
 			_deferred_focus_world_target(str(result.get("plot_id", "")))
 	else:
-		_show_toast(_reason_text(str(result.get("reason", "unknown"))), "sfx_error_thud")
+		_haptic(HAPTIC_LIGHT)
+		var reason := str(result.get("reason", "unknown"))
+		_show_toast(_failure_message(reason, context), "sfx_error_thud")
+		if reason == "queue_full":
+			_pulse_queue_feedback()
 	_request_hud_refresh()
 
 func _deferred_focus_world_target(target_id: String) -> void:
@@ -3613,17 +4147,56 @@ func _deferred_focus_world_target(target_id: String) -> void:
 
 func _reason_text(reason: String) -> String:
 	var keys := {
-		"not_enough_cash": "NOT_ENOUGH_CASH", "not_enough_gems": "NOT_ENOUGH_GEMS", "locked": "LOCKED",
-		"queue_full": "REASON_QUEUE_FULL", "slot_locked": "LOCKED", "slot_occupied": "INSTALLING",
-		"rack_install_limit": "REASON_RACK_INSTALL_LIMIT", "rack_unavailable": "LOCKED",
-		"too_new_to_retire": "LIFESPAN", "cooler_slots_full": "LOCKED", "building_tier_too_low": "LOCKED",
+		"not_enough_cash": "REASON_NOT_ENOUGH_CASH", "not_enough_gems": "REASON_NOT_ENOUGH_GEMS", "locked": "REASON_LOCKED",
+		"power_required": "REASON_POWER_REQUIRED", "contract_capacity_required": "REASON_CONTRACT_CAPACITY_REQUIRED",
+		"queue_full": "REASON_QUEUE_FULL", "plot_unavailable": "REASON_PLOT_UNAVAILABLE",
+		"tutorial_building_retired": "REASON_TUTORIAL_BUILDING_RETIRED",
+		"datacenter_missing": "REASON_DATACENTER_MISSING", "datacenter_unavailable": "REASON_DATACENTER_UNAVAILABLE",
+		"slot_locked": "REASON_SLOT_LOCKED", "slot_occupied": "REASON_SLOT_OCCUPIED", "slot_empty": "REASON_SLOT_EMPTY",
+		"invalid_slot": "REASON_INVALID_SLOT", "invalid_edge": "REASON_INVALID_EDGE",
+		"rack_install_limit": "REASON_RACK_INSTALL_LIMIT", "rack_unavailable": "REASON_RACK_UNAVAILABLE",
+		"too_new_to_retire": "REASON_TOO_NEW_TO_RETIRE", "cooler_slots_full": "REASON_COOLER_SLOTS_FULL", "building_tier_too_low": "REASON_BUILDING_TIER_TOO_LOW",
 		"construction_in_progress": "REASON_IN_PROGRESS", "not_an_upgrade": "REASON_NOT_UPGRADE",
-		"reward_unavailable": "LOCKED", "reward_limit": "REASON_REWARD_LIMIT", "ticket_unavailable": "REASON_TICKET",
+		"construction_missing": "REASON_CONSTRUCTION_MISSING", "not_faulted": "REASON_NOT_FAULTED", "not_ruined": "REASON_NOT_RUINED",
+		"prestige_locked": "REASON_PRESTIGE_LOCKED",
+		"relationship_required": "REASON_RELATIONSHIP_REQUIRED", "board_points_empty": "REASON_BOARD_POINTS_EMPTY",
+		"board_rank_max": "REASON_BOARD_RANK_MAX", "already_claimed": "REASON_ALREADY_CLAIMED",
+		"collection_incomplete": "REASON_COLLECTION_INCOMPLETE",
+		"reward_unavailable": "REASON_REWARD_UNAVAILABLE", "reward_limit": "REASON_REWARD_LIMIT", "ticket_unavailable": "REASON_TICKET",
 		"reward_pending": "REASON_IN_PROGRESS",
 		"already_owned": "REASON_ALREADY_OWNED", "purchase_limit": "REASON_ALREADY_OWNED", "purchase_pending": "REASON_PURCHASE_PENDING",
-		"product_unavailable": "LOCKED",
+		"product_unavailable": "REASON_PRODUCT_UNAVAILABLE", "unknown": "REASON_UNKNOWN",
 	}
-	return tr(keys.get(reason, reason))
+	return tr(keys.get(reason, "REASON_UNKNOWN"))
+
+func _failure_message(reason: String, context: Dictionary = {}) -> String:
+	if reason == "locked" and int(context.get("unlock_era", 0)) > 0:
+		return tr("REASON_LOCKED_ERA") % int(context.get("unlock_era", 0))
+	if reason == "queue_full":
+		var queue: Array = Game.state.get("construction_queue", [])
+		var capacity := int(DataRepository.get_table("economy").get("construction", {}).get("base_queue_capacity", 2))
+		var earliest := INF
+		for item: Dictionary in queue:
+			earliest = minf(earliest, float(item.get("complete_at", INF)))
+		var remaining := maxf(0.0, earliest - Game.simulation_time()) if earliest < INF else 0.0
+		return tr("REASON_QUEUE_FULL_DETAIL") % [queue.size(), capacity, Game.format_duration(remaining)]
+	if reason == "rack_install_limit":
+		var dc := Game.find_datacenter(str(context.get("datacenter_id", "")))
+		var earliest := INF
+		for installed: Variant in dc.get("racks", []):
+			if installed is Dictionary and str((installed as Dictionary).get("status", "")) == "installing":
+				earliest = minf(earliest, float((installed as Dictionary).get("install_complete_at", INF)))
+		if earliest < INF:
+			return tr("REASON_RACK_INSTALL_LIMIT_DETAIL") % Game.format_duration(maxf(0.0, earliest - Game.simulation_time()))
+	return _reason_text(reason)
+
+func _pulse_queue_feedback() -> void:
+	if task_button == null or not is_instance_valid(task_button) or not task_button.is_visible_in_tree():
+		return
+	task_button.pivot_offset = task_button.size * 0.5
+	var tween := task_button.create_tween()
+	tween.tween_property(task_button, "scale", Vector2.ONE * 1.08, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(task_button, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _on_state_changed(reason: String) -> void:
 	if reason in ["tick", "offline_advance"]:
@@ -3701,8 +4274,10 @@ func _on_market_event_started(event_id: String) -> void:
 		# The event banner, market page and per-building benefit badge are the
 		# semantic feedback; a context-free world coin is actively misleading.
 		"coin_boom": pass
-		"ai_model_boom": _play_fx("fx_glow_ring")
-		_: _play_fx("fx_glow_ring", 260)
+		# Market news already owns the semantic feedback.  A context-free neon
+		# ring over the campus looked like a second construction explosion.
+		"ai_model_boom": pass
+		_: pass
 
 func _on_market_event_ended(event_id: String) -> void:
 	_show_market_banner(event_id, false)
@@ -3727,14 +4302,14 @@ func _market_banner_would_be_buried() -> bool:
 			return true
 	return false
 
-# Also retires a banner the player navigated away from: a four-second alert
-# raised on the map used to ride along on top of whatever page opened next.
+# A system page owns the canvas.  Clear the temporary wording there; the market
+# state itself remains available when the player comes back to the map.
 func _sync_market_banner() -> void:
 	if _market_banner_would_be_buried():
 		# A full-screen modal will pass; the banner is only retired when the
 		# player has actually navigated off the map.
 		if active_page != "map":
-			_retire_market_banners()
+			_dismiss_market_notice(false)
 		return
 	if _pending_market_banner.is_empty():
 		return
@@ -3742,117 +4317,43 @@ func _sync_market_banner() -> void:
 	_pending_market_banner = {}
 	_present_market_banner(str(pending.get("event_id", "")), bool(pending.get("started", false)))
 
-# Rests clear of the whole top band. The news strip and the campus pager appear
-# and disappear on their own schedule, so a banner parked at a fixed height — or
-# measured against whatever happened to be visible when it spawned — ends up
-# sitting on one of them. Measured off global rects: the band lives inside the
-# safe-area stage while the banner is parented to the view, so their raw offsets
-# are not in the same coordinate space.
-func _market_banner_rest_y() -> float:
-	var rest := 130.0
-	var band: Array[Control] = [news_panel, campus_switcher]
-	# The campus name plate belongs to the world but reads as a label, not
-	# scenery — half-covering it looks like a bug. Buildings below it are fair
-	# game for a passing toast.
-	if park_map != null:
-		for node: Node in park_map.find_children("CampusMarker_*", "Control", true, false):
-			var marker := node as Control
-			if marker != null and marker.is_visible_in_tree():
-				band.append(marker)
-	for control: Control in band:
-		if control == null:
-			continue
-		rest = maxf(rest, control.get_global_rect().end.y - global_position.y + 12.0)
-	return rest
-
 func _reflow_market_banners() -> void:
-	var rest_y := _market_banner_rest_y()
-	for node: Node in get_tree().get_nodes_in_group(MARKET_BANNER_GROUP):
-		var banner := node as Control
-		if banner == null or banner.get_parent() != self:
-			continue
-		banner.set_meta("rest_y", rest_y)
-		# Do not interrupt the off-screen entrance. Once visible, keep the live
-		# banner below a campus page whose bounds or camera framing just changed.
-		if banner.position.y >= 0.0:
-			banner.position.y = rest_y
+	# The unified notice is permanently anchored in the safe top band.
+	pass
 
 func _retire_market_banners() -> void:
-	for node: Node in get_tree().get_nodes_in_group(MARKET_BANNER_GROUP):
-		if node.get_parent() != self:
-			continue
-		remove_child(node)
-		node.queue_free()
+	_dismiss_market_notice(false)
 
 func _present_market_banner(event_id: String, started: bool) -> void:
-	_retire_market_banners()
 	var event := DataRepository.get_entry("events", event_id)
-	var message := tr("MARKET_EVENT_STARTED" if started else "MARKET_EVENT_ENDED") % tr(event.get("name_key", ""))
-	var banner := _button(message, Callable(), ThemeMaker.COLORS.orange if started else ThemeMaker.COLORS.sky)
-	banner.name = "MarketEventBanner"
-	banner.add_to_group(MARKET_BANNER_GROUP)
-	banner.set_meta("destination", "market")
-	banner.set_meta("swipe_dismiss_enabled", true)
-	banner.pressed.connect(_open_market_from_banner.bind(banner))
-	banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	banner.offset_left = 44
-	banner.offset_top = -110
-	banner.offset_right = -44
-	banner.offset_bottom = -18
-	banner.z_index = 96
-	_set_button_asset(banner, "ic_market_up", 42)
-	add_child(banner)
-	_wire_market_banner_swipe(banner)
-	var rest_y := _market_banner_rest_y()
-	banner.set_meta("rest_y", rest_y)
-	var tween := create_tween()
-	banner.set_meta("lifecycle_tween", tween)
-	tween.tween_property(banner, "position:y", rest_y, 0.30).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(4.0)
-	tween.tween_property(banner, "position:y", -120.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tween.tween_callback(banner.queue_free)
+	_news_notice_token += 1
+	var token := _news_notice_token
+	_news_notice_message = tr("MARKET_EVENT_STARTED" if started else "MARKET_EVENT_ENDED") % tr(event.get("name_key", ""))
+	_refresh_hud()
+	if news_panel != null:
+		news_panel.modulate.a = 0.74
+		var pulse := news_panel.create_tween()
+		pulse.tween_property(news_panel, "modulate:a", 1.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	get_tree().create_timer(4.0).timeout.connect(_expire_market_notice.bind(token))
 
-func _open_market_from_banner(banner: Button) -> void:
-	if is_instance_valid(banner) and not bool(banner.get_meta("swipe_dismissing", false)):
-		_navigate("market")
+func _expire_market_notice(token: int) -> void:
+	if token == _news_notice_token:
+		_dismiss_market_notice()
 
-func _wire_market_banner_swipe(banner: Button) -> void:
-	var state := {"active": false, "start_x": 0.0, "base_x": 0.0}
-	banner.gui_input.connect(func(event: InputEvent) -> void:
-		var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed)
-		var released: bool = (event is InputEventScreenTouch and not event.pressed) or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed)
-		if pressed:
-			state["active"] = true
-			state["start_x"] = _pointer_position(event).x
-			state["base_x"] = banner.position.x
-		elif event is InputEventScreenDrag and bool(state["active"]):
-			var delta := maxf(0.0, event.position.x - float(state["start_x"]))
-			banner.position.x = float(state["base_x"]) + minf(delta, 220.0)
-			banner.modulate.a = 1.0 - minf(delta / 420.0, 0.45)
-		elif released and bool(state["active"]):
-			state["active"] = false
-			var delta := _pointer_position(event).x - float(state["start_x"])
-			if delta >= 80.0:
-				banner.set_meta("swipe_dismissing", true)
-				banner.accept_event()
-				_dismiss_market_banner(banner)
-			else:
-				var settle := banner.create_tween().set_parallel(true)
-				settle.tween_property(banner, "position:x", float(state["base_x"]), 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-				settle.tween_property(banner, "modulate:a", 1.0, 0.14)
-	)
+func _dismiss_market_notice(refresh: bool = true) -> void:
+	_news_notice_token += 1
+	_news_notice_message = ""
+	if news_panel != null:
+		news_panel.modulate.a = 1.0
+		news_panel.scale = Vector2.ONE
+		news_panel.set_meta("transient_market_notice", false)
+	if refresh and is_node_ready():
+		_refresh_hud()
 
-func _dismiss_market_banner(banner: Button) -> void:
-	if not is_instance_valid(banner) or bool(banner.get_meta("dismissing", false)):
-		return
-	banner.set_meta("dismissing", true)
-	var lifecycle: Variant = banner.get_meta("lifecycle_tween", null)
-	if lifecycle is Tween and (lifecycle as Tween).is_valid():
-		(lifecycle as Tween).kill()
-	var tween := banner.create_tween().set_parallel(true)
-	tween.tween_property(banner, "position:x", banner.position.x + 360.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tween.tween_property(banner, "modulate:a", 0.0, 0.18)
-	tween.chain().tween_callback(banner.queue_free)
+# Kept as a compatibility route for older audit helpers; there is no longer a
+# separate banner node to remove.
+func _dismiss_market_banner(_banner: Control = null) -> void:
+	_dismiss_market_notice()
 
 func _on_reward_granted(_placement: String, _payload: Dictionary) -> void:
 	AudioService.play_sfx("sfx_cash")
@@ -3931,13 +4432,19 @@ func _show_pending_bankruptcy_state() -> void:
 
 func _on_bankruptcy_state_changed(status: String) -> void:
 	if status == "arrears":
+		# A new arrears episode may alert the player once.  Refreshes inside the
+		# same episode must respect an explicit dismissal and never rebuild the
+		# blocking banner over whichever management page they are using.
+		_arrears_banner_dismissed = false
 		_show_toast(tr("BANKRUPTCY_WARNING"))
 		_play_music("music_crisis")
 		_show_arrears_hud()
 	elif status == "normal":
+		_arrears_banner_dismissed = false
 		_clear_crisis_hud()
 		_play_music("music_main")
 	elif status == "takeover":
+		_arrears_banner_dismissed = false
 		_clear_crisis_hud()
 		_play_music("music_main")
 		_show_bank_takeover_overlay()
@@ -3947,6 +4454,9 @@ func _refresh_arrears_hud() -> void:
 	if status != "arrears":
 		if status == "normal":
 			_clear_crisis_hud()
+		return
+	if _arrears_banner_dismissed:
+		_clear_crisis_hud()
 		return
 	var banner := find_child("ArrearsBanner", true, false) as PanelContainer
 	if banner == null:
@@ -3969,7 +4479,7 @@ func _refresh_arrears_hud() -> void:
 		progress.value = elapsed
 
 func _show_arrears_hud() -> void:
-	if find_child("ArrearsBanner", true, false) != null:
+	if _arrears_banner_dismissed or find_child("ArrearsBanner", true, false) != null:
 		return
 	var vignette := PanelContainer.new()
 	vignette.name = "ArrearsVignette"
@@ -4021,6 +4531,10 @@ func _show_arrears_hud() -> void:
 	var time_left := _label("", ThemeMaker.TYPE_SCALE.caption, Color("ffe7bf"))
 	time_left.name = "ArrearsTime"
 	copy.add_child(time_left)
+	var close := Widgets.close_button(_dismiss_arrears_hud)
+	close.name = "ArrearsCloseButton"
+	close.tooltip_text = tr("CLOSE")
+	top.add_child(close)
 	var progress := ProgressBar.new()
 	progress.name = "ArrearsProgress"
 	progress.show_percentage = false
@@ -4038,7 +4552,7 @@ func _show_arrears_hud() -> void:
 	progress.add_theme_stylebox_override("background", progress_background)
 	progress.add_theme_stylebox_override("fill", progress_fill)
 	box.add_child(progress)
-	var rescue := Widgets.button(tr("ARREARS_RESCUE"), func() -> void: _handle_result(Game.request_reward("arrears_rescue")), "primary")
+	var rescue := Widgets.button(tr("ARREARS_RESCUE"), _claim_arrears_rescue, "primary")
 	rescue.name = "ArrearsRescueButton"
 	_set_button_asset(rescue, "ic_play_ad", 36)
 	box.add_child(rescue)
@@ -4053,10 +4567,26 @@ func _fit_arrears_banner(banner: PanelContainer) -> void:
 		return
 	banner.offset_bottom = banner.offset_top + banner.get_combined_minimum_size().y
 
+func _claim_arrears_rescue() -> void:
+	var result := Game.request_reward("arrears_rescue")
+	_handle_result(result)
+	# Once the daily route is exhausted, the explanation toast is the useful
+	# feedback.  Keeping the emergency card pinned above the page only traps the
+	# player behind an action that cannot succeed, so collapse it immediately.
+	if not bool(result.get("ok", false)) and str(result.get("reason", "")) == "reward_limit":
+		_dismiss_arrears_hud()
+
+func _dismiss_arrears_hud() -> void:
+	_arrears_banner_dismissed = true
+	_clear_crisis_hud()
+
 func _clear_crisis_hud() -> void:
 	for node_name: String in ["ArrearsBanner", "ArrearsVignette"]:
 		var node := find_child(node_name, true, false)
 		if node != null:
+			if node is Control:
+				(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+				(node as Control).visible = false
 			node.queue_free()
 
 func _show_bank_takeover_overlay() -> void:
@@ -4187,14 +4717,34 @@ func _on_purchase_completed(_product_id: String, success: bool, _message: String
 func _show_toast(message: String, cue_id: String = "") -> void:
 	if not cue_id.is_empty():
 		AudioService.play_sfx(cue_id)
+	if _toast_tween != null and _toast_tween.is_valid():
+		_toast_tween.kill()
+	var is_error := cue_id == "sfx_error_thud"
 	toast_label.text = message
-	toast_label.position.y = -352.0 if tutorial_overlay != null and tutorial_overlay.visible else -230.0
+	var viewport_size := get_viewport_rect().size
+	toast_label.position.x = (viewport_size.x - toast_label.size.x) * 0.5
+	# Errors belong in the open middle safe band: above bottom drawers and below
+	# the HUD/tutorial copy. Success confirmations stay near the primary action.
+	toast_label.position.y = viewport_size.y * 0.42 if is_error or (tutorial_overlay != null and tutorial_overlay.visible) else viewport_size.y - 300.0
+	toast_label.add_theme_font_size_override("font_size", 23 if is_error else 25)
+	toast_label.add_theme_color_override("font_color", Color.WHITE)
+	toast_label.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+	toast_label.add_theme_constant_override("outline_size", 3)
+	toast_label.add_theme_stylebox_override("normal", ThemeMaker.panel(
+		Color("3b2516") if is_error else Color(0.05, 0.08, 0.13, 0.96),
+		ThemeMaker.COLORS.orange if is_error else ThemeMaker.COLORS.sky,
+		3 if is_error else 2,
+		22
+	))
 	toast_label.modulate = Color.WHITE
+	toast_label.pivot_offset = toast_label.size * 0.5
+	toast_label.scale = Vector2.ONE * 0.97
 	toast_label.visible = true
-	var tween := create_tween()
-	tween.tween_interval(1.6)
-	tween.tween_property(toast_label, "modulate:a", 0.0, 0.35)
-	tween.tween_callback(func() -> void: toast_label.visible = false)
+	_toast_tween = toast_label.create_tween()
+	_toast_tween.tween_property(toast_label, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_toast_tween.tween_interval(3.2 if is_error else 1.6)
+	_toast_tween.tween_property(toast_label, "modulate:a", 0.0, 0.35)
+	_toast_tween.tween_callback(func() -> void: toast_label.visible = false)
 
 func _play_fx(asset_id: String, extent: float = -1.0) -> void:
 	var texture := AssetCatalog.texture(asset_id)
@@ -4558,6 +5108,10 @@ func _wrap_scroll(content: Control) -> Control:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# A short deadzone distinguishes a deliberate card tap from a vertical swipe
+	# without making the phone list feel sticky.
+	scroll.scroll_deadzone = 12
+	scroll.set_meta("touch_scroll_enabled", true)
 	ThemeMaker.apply_system_scrollbar(scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
@@ -4610,10 +5164,20 @@ func _segmented_control(items: Array, selected_id: String, callback: Callable) -
 		var item_id := str(item.get("id", ""))
 		var selected := item_id == selected_id
 		var button := _button(str(item.get("label", item_id)), callback.bind(item_id), ThemeMaker.COLORS.sky if selected else Color("1b3046"))
+		button.name = "Segment_%s" % item_id
 		button.custom_minimum_size.y = 88
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.add_theme_font_size_override("font_size", 20)
-		if item.has("asset"):
+		button.add_theme_font_size_override("font_size", 18 if items.size() >= 4 else 20)
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		button.tooltip_text = str(item.get("label", item_id))
+		button.add_theme_color_override("font_color", Color.WHITE)
+		button.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+		button.add_theme_constant_override("outline_size", 3)
+		# Four-way company navigation is intentionally typographic. Repeating a
+		# rendered icon beside every short label made the phone-width control busy
+		# and consumed the exact space English needs; the selected page hero owns
+		# the illustration instead.
+		if item.has("asset") and items.size() < 4:
 			_set_button_asset(button, str(item.get("asset", "")), 36)
 		if selected:
 			var indicator := ColorRect.new()
@@ -4880,20 +5444,25 @@ func _asset_preview(asset_id: String, fallback_text: String, color: Color, heigh
 func _progress_for_job(item: Dictionary) -> Control:
 	var box := VBoxContainer.new()
 	var progress := ProgressBar.new()
+	progress.name = "QueueConstructionProgress"
 	progress.show_percentage = false
 	progress.custom_minimum_size.y = 34
-	var started := float(item.get("started_at", Game.simulation_time()))
-	var completed := float(item.get("complete_at", started + 1.0))
-	progress.max_value = maxf(1.0, completed - started)
-	progress.value = clampf(Game.simulation_time() - started, 0.0, progress.max_value)
+	var duration := Game.construction_duration(item)
+	progress.max_value = duration
+	var remaining := maxf(0.0, float(item.get("complete_at", Game.simulation_time())) - Game.simulation_time())
+	progress.value = clampf(duration - remaining, 0.0, duration)
+	progress.set_meta("duration_seconds", duration)
+	progress.set_meta("remaining_seconds", remaining)
 	box.add_child(progress)
-	var remaining_label := _label(tr("COMPLETE_IN") % Game.format_duration(maxf(0.0, completed - Game.simulation_time())), 20, ThemeMaker.COLORS.cyan)
+	var remaining_label := _label(tr("COMPLETE_IN") % Game.format_duration(remaining), 20, ThemeMaker.COLORS.cyan)
 	box.add_child(remaining_label)
 	box.set_meta("live_update", func() -> void:
 		if not is_instance_valid(progress) or not is_instance_valid(remaining_label):
 			return
-		progress.value = clampf(Game.simulation_time() - started, 0.0, progress.max_value)
-		remaining_label.text = tr("COMPLETE_IN") % Game.format_duration(maxf(0.0, completed - Game.simulation_time()))
+		var live_remaining := maxf(0.0, float(item.get("complete_at", Game.simulation_time())) - Game.simulation_time())
+		progress.value = clampf(duration - live_remaining, 0.0, duration)
+		progress.set_meta("remaining_seconds", live_remaining)
+		remaining_label.text = tr("COMPLETE_IN") % Game.format_duration(live_remaining)
 	)
 	return box
 

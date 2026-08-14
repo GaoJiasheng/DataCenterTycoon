@@ -1,6 +1,6 @@
 extends Node
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const SAVE_PATH := "user://save_v1.json"
 const TEMP_PATH := "user://save_v1.tmp"
 const BACKUP_COUNT := 3
@@ -49,6 +49,8 @@ func migrate(raw_state: Dictionary) -> Dictionary:
 		migrated["save_version"] = 1
 	if version < 2:
 		migrated["save_version"] = 2
+	if version < 3:
+		migrated["save_version"] = 3
 	return migrated
 
 func _read_json(path: String) -> Dictionary:

@@ -1,6 +1,98 @@
 keys,en,zh_CN
 DATE_FORMAT,Year %d · Month %d · Day %d,第 %d 年 · 第 %d 月 · 第 %d 天
 APP_TITLE,Data Center Tycoon,机房大亨
+META_TAB_ROADMAP,Goals,路线
+META_TAB_COLLECTION,Archive,典藏
+META_TAB_BOARD,Board,董事
+COMPANY_ROADMAP,Company Roadmap,公司路线图
+COMPANY_ROADMAP_SUBTITLE,Permanent goals make every expansion count,永久目标让每次扩建都有意义
+ROADMAP_FIRST_FACILITY,First Facility,第一座机房
+ROADMAP_FIRST_FACILITY_DESC,Complete your first data center,完成第一座数据中心
+ROADMAP_CAMPUS_OPERATOR,Campus Operator,园区经营者
+ROADMAP_CAMPUS_OPERATOR_DESC,Build six data centers,累计建设六座机房
+ROADMAP_CLOUD_TRANSITION,Cloud Transition,迈入云时代
+ROADMAP_CLOUD_TRANSITION_DESC,Advance to Era 2,公司进入时代二
+ROADMAP_CLIENT_PORTFOLIO,Client Portfolio,客户组合
+ROADMAP_CLIENT_PORTFOLIO_DESC,Serve four different customers,服务四类不同客户
+ROADMAP_GLOBAL_NETWORK,Global Network,全球网络
+ROADMAP_GLOBAL_NETWORK_DESC,Upgrade the network to level four,将网络升级到四级
+ROADMAP_LISTED_GROUP,Listed Group,上市集团
+ROADMAP_LISTED_GROUP_DESC,Complete your first company legacy,完成第一次公司传承
+ROADMAP_PROGRESS,%d / %d,进度 %d / %d
+ROADMAP_CLAIM,Claim · %d gems,领取 · %d 钻石
+ROADMAP_CLAIMED,Reward claimed,奖励已领取
+ROADMAP_READY,Milestone complete,里程碑已完成
+CAMPUS_STRATEGY,Campus Strategy,园区定位
+CAMPUS_STRATEGY_SUBTITLE,Choose a free focus and activate it through your layout,免费选择定位并通过经营条件激活
+CAMPUS_STRATEGY_CURRENT,Current · %s,当前定位 · %s
+CAMPUS_STRATEGY_UNSET,No specialization selected,尚未选择定位
+CAMPUS_STRATEGY_ACTIVE,Active · income +%d%%,已激活 · 收入 +%d%%
+CAMPUS_STRATEGY_INACTIVE,Selected · complete the conditions to activate,已选择 · 满足条件后激活
+CAMPUS_STRATEGY_FREE,Switch for free,免费切换
+CAMPUS_STRATEGY_ACTIVE_SHORT,Active · +%d%%,已激活 · +%d%%
+CAMPUS_STRATEGY_SELECTED_SHORT,Selected · conditions pending,已选择 · 待达成
+CAMPUS_STRATEGY_FREE_SHORT,Choose free · +%d%%,免费选择 · +%d%%
+SPECIALIZATION_HOSTING,Hosting Hub,托管枢纽
+SPECIALIZATION_HOSTING_DESC,Two compute racks activate +6% Internet-provider income,配置两个计算机柜后互联网厂商收入 +6%
+SPECIALIZATION_CLOUD,Cloud Exchange,云服务枢纽
+SPECIALIZATION_CLOUD_DESC,Two rack types activate +6% Cloud-provider income,配置两类机柜后云厂商收入 +6%
+SPECIALIZATION_AI,AI Compute Cluster,AI 算力集群
+SPECIALIZATION_AI_DESC,Two GPU racks activate +7% AI-company income,配置两个 GPU 机柜后 AI 公司收入 +7%
+SPECIALIZATION_DIVERSIFIED,Diversified Campus,多元园区
+SPECIALIZATION_DIVERSIFIED_DESC,Two customer types activate +4% income across the campus,服务两类客户后全园区收入 +4%
+RELATIONSHIP_NEW,New Partner,新客户
+RELATIONSHIP_FAMILIAR,Familiar Partner,熟悉伙伴
+RELATIONSHIP_TRUSTED,Trusted Partner,信赖伙伴
+RELATIONSHIP_CORNERSTONE,Cornerstone Partner,基石伙伴
+RELATIONSHIP_STATUS,Relationship · %s · ×%.2f,关系 · %s · ×%.2f
+CONTRACT_CHOOSE_DURATION,Choose Contract Term,选择合约期限
+CONTRACT_DURATION_FLEXIBLE,Flexible · 3 months,灵活合约 · 3 个月
+CONTRACT_DURATION_FLEXIBLE_DESC,Short commitment · income ×0.97,短期灵活 · 收入 ×0.97
+CONTRACT_DURATION_STANDARD,Standard · 6 months,标准合约 · 6 个月
+CONTRACT_DURATION_STANDARD_DESC,Balanced term · income ×1.00,期限均衡 · 收入 ×1.00
+CONTRACT_DURATION_STRATEGIC,Strategic · 12 months,战略合约 · 12 个月
+CONTRACT_DURATION_STRATEGIC_DESC,Familiar relationship required · income ×1.04,需达到熟悉关系 · 收入 ×1.04
+CONTRACT_TERM_PROJECTION,$%s/mo · term value $%s,每月 $%s · 合约价值 $%s
+CONTRACT_TERM_GAIN,Net term change · $%s,合约期净变化 · $%s
+MARKET_REVIEW,Decision Review,决策复盘
+MARKET_REVIEW_SUBTITLE,Compare the price you locked with what followed,对照签约锁价与后续市场结果
+MARKET_REVIEW_EMPTY,Your contract decisions will be recorded here,签约决策会记录在这里
+MARKET_REVIEW_ROW,%s · locked ×%.2f vs now ×%.2f · $%s/mo,%s · 锁价 ×%.2f / 当前 ×%.2f · 每月 $%s
+BOARD_SPECIALTIES,Board Specialties,董事会专长
+BOARD_SPECIALTIES_SUBTITLE,Every legacy grants one permanent strategy point,每次公司传承获得一个永久策略点
+BOARD_POINTS_AVAILABLE,Available points · %d,可用点数 · %d
+BOARD_RANK,Rank %d / %d,等级 %d / %d
+BOARD_ADD_POINT,Invest one point,投入 1 点
+BOARD_RESET,Reset allocation,重置分配
+BOARD_CONSTRUCTION,Construction Division,建设委员会
+BOARD_CONSTRUCTION_DESC,Each rank reduces construction time by 3%,每级缩短 3% 建设时间
+BOARD_OPERATIONS,Operations Division,运营委员会
+BOARD_OPERATIONS_DESC,Each rank cuts upkeep 2% and auto-repair time 4%,每级降低 2% 维护费并缩短 4% 自动维修时间
+BOARD_BUSINESS,Business Division,商务委员会
+BOARD_BUSINESS_DESC,Each rank accelerates relationships 5% and raises income 0.5%,每级加快 5% 客户关系并提升 0.5% 收入
+COMPANY_COLLECTION,Company Collection,企业典藏
+COMPANY_COLLECTION_SUBTITLE,Every real facility client and market chapter leaves a record,每座设施、每位客户与每段行情都会留下记录
+COLLECTION_FACILITIES,Facility Archive,设施档案
+COLLECTION_CLIENTS,Client Archive,客户档案
+COLLECTION_MARKET_HISTORY,Market Archive,行情档案
+COLLECTION_LEGACY,Legacy Archive,传承档案
+COLLECTION_PROGRESS,%d / %d discovered,已发现 %d / %d
+COLLECTION_CLAIM,Complete set · claim %d gems,完成整套 · 领取 %d 钻石
+COLLECTION_COMPLETE,Collection complete,整套已完成
+COLLECTION_ERA2,Cloud-era chapter,云时代篇章
+COLLECTION_ERA3,Intelligence-era chapter,智能时代篇章
+COLLECTION_PRESTIGE,Company legacy,公司传承
+COLLECTION_TAKEOVER,Bank restructuring,银行重整
+COMPANY_HISTORY,Company Memorial,公司纪念册
+COMPANY_HISTORY_EMPTY,Complete a legacy to preserve a company recap here,完成公司传承后会在此永久保存经营复盘
+COMPANY_HISTORY_ROW,Company %d · revenue $%s · %d facilities,第 %d 家公司 · 营收 $%s · %d 座机房
+LEGACY_RECAP,Company Recap,公司复盘
+LEGACY_RECAP_BODY,Revenue $%s · net worth $%s · %d facilities,累计营收 $%s · 净资产 $%s · %d 座机房
+REASON_RELATIONSHIP_REQUIRED,Build a familiar relationship before choosing this strategic term,先把客户关系提升到熟悉伙伴再选择战略合约
+REASON_BOARD_POINTS_EMPTY,Complete another company legacy to earn a board point,完成下一次公司传承以获得董事会点数
+REASON_BOARD_RANK_MAX,This specialty is already at maximum rank,该专长已达到最高等级
+REASON_ALREADY_CLAIMED,This reward has already been claimed,该奖励已经领取
+REASON_COLLECTION_INCOMPLETE,Discover every entry in this archive before claiming,集齐该档案中的全部条目后即可领取
 NAV_MAP,Park,园区
 NAV_BUILD,Build,建设
 NAV_MARKET,Market,行情
@@ -77,6 +169,12 @@ CONTRACT_FREE_SWITCH,Free switch,免费换约
 CONTRACT_LOCKED_RATE,Signed ×%.2f,签约价 ×%.2f
 CONTRACT_MARKET_RATE,Market now ×%.2f,当前行情 ×%.2f
 CONTRACT_PROJECTED,Projected $%s / month,预计 $%s / 月
+CONTRACT_PROJECTED_AFTER_RACK,Income starts when a rack comes online,机柜上线后开始产生收入
+CONTRACT_CAPACITY_TITLE,No sellable capacity yet,还没有可售算力
+CONTRACT_CAPACITY_EMPTY,Install and enable a rack to start earning.,安装并启用至少一台机柜，签约后即可产生收入。
+CONTRACT_CAPACITY_PENDING,Rack installation is underway. Income starts when it is online.,机柜正在安装，完成上线后即可产生收入。
+CONTRACT_CAPACITY_OFFLINE,No rack is online. Enable one or upgrade the transformer.,当前没有可用机柜，请启用机柜或升级变压器。
+CONTRACT_CONFIGURE_RACKS,Configure racks,去配置机柜
 CONTRACT_IN_SERVICE,In service,服务中
 CONTRACT_FIT_TOOLTIP,Compute %.2f · Storage %.2f · GPU %.2f,算力 %.2f · 存储 %.2f · GPU %.2f
 CONTRACT_CONFIRM_DELTA,Current $%s / month → $%s / month (%+.1f%%),当前 $%s / 月 → $%s / 月（%+.1f%%）
@@ -104,6 +202,7 @@ STORE_BEST_VALUE,Best value,最划算
 STORE_BONUS_PCT,+%d%% bonus,+%d%% 加送
 STORE_PACK_CONTENTS,%d Gems · $%s cash · %d tickets,%d 钻石 · $%s 现金 · %d 张完工券
 STORE_OWNED,Owned,已拥有
+STORE_UNAVAILABLE,Unavailable,暂不可购买
 NOT_ENOUGH_CASH,Not enough cash,现金不足
 NOT_ENOUGH_GEMS,Not enough gems,钻石不足
 LOCKED,Locked,未解锁
@@ -221,6 +320,10 @@ RACK_GPU_T2,High-density GPU Rack,高密 GPU 机柜
 POWER_T1,Transformer T1,变压器 T1
 POWER_T2,Substation T2,变电站 T2
 POWER_T3,High-voltage Station T3,高压站 T3
+POWER_QUICK_INSTALL,Install T1 · $%s,安装 T1 · $%s
+POWER_UNPOWERED_HINT,Off · Tap Install T1,未通电 · 点击安装 T1
+POWER_INSTALL_PENDING,Transformer installation · %s remaining,变压器安装中 · 剩余 %s
+POWER_INSTALL_BLOCKED,Transformer cannot start yet,变压器暂时无法开工
 COOL_AIR_T1,Air Cooling T1,风冷 T1
 COOL_AIR_T2,Air Cooling T2,风冷 T2
 COOL_LIQUID_T1,Liquid Cooling T1,液冷 T1
@@ -327,6 +430,34 @@ REASON_REWARD_LIMIT,Reward limit reached,已达到奖励次数上限
 REASON_TICKET,No instant build tickets,没有立即完工券
 REASON_ALREADY_OWNED,Already purchased,已购买
 REASON_PURCHASE_PENDING,Purchase is already in progress,购买正在处理中
+REASON_QUEUE_FULL_DETAIL,Queue full (%d/%d). Next slot in %s. Open the build queue to wait or speed up.,建设队列已满（%d/%d）。最快 %s 后空位，可在建设队列等待或加速。
+REASON_RACK_INSTALL_LIMIT_DETAIL,Two racks are already being installed here. The next slot opens in %s.,该机房已有两台机柜正在安装。最快 %s 后可以继续上架。
+REASON_NOT_ENOUGH_CASH,Not enough cash. Let income accumulate or choose a lower-cost project.,现金不足。可以先积累收入，或选择成本更低的项目。
+REASON_NOT_ENOUGH_GEMS,Not enough gems. Earn more or visit the store.,钻石不足。可以继续游玩获取，或前往商店补充。
+REASON_LOCKED,This item has not been unlocked yet.,该项目尚未解锁。
+REASON_LOCKED_ERA,Unlocks in Era %d. Keep growing revenue to advance.,时代 %d 解锁。继续提升收入即可进入下一时代。
+REASON_PLOT_UNAVAILABLE,This plot is no longer available. Choose another empty plot.,这块土地当前不可用，请选择其他空地。
+REASON_TUTORIAL_BUILDING_RETIRED,The starter container has completed its lesson. Choose a standard data center.,教学集装箱已经完成使命，请选择标准机房。
+REASON_DATACENTER_MISSING,This data center no longer exists. Return to the park and choose another one.,这座机房已不存在，请返回园区选择其他机房。
+REASON_DATACENTER_UNAVAILABLE,This data center is not ready for that operation yet.,这座机房当前无法执行该操作，请等待建设完成。
+REASON_SLOT_LOCKED,This rack slot is locked. Upgrade the data center to unlock it.,该机柜位尚未解锁，请先升级机房等级。
+REASON_SLOT_OCCUPIED,This rack slot is already occupied or being installed.,该机柜位已有设备或正在安装。
+REASON_SLOT_EMPTY,There is no installed rack in this slot.,这个机柜位目前没有可操作的设备。
+REASON_INVALID_SLOT,This rack slot is unavailable. Choose a highlighted slot.,这个机柜位不可用，请选择已点亮的位置。
+REASON_INVALID_EDGE,This cooling position is unavailable. Choose a highlighted edge.,这个制冷位置不可用，请选择已点亮的边缘。
+REASON_RACK_UNAVAILABLE,This rack is not ready for that operation.,这台机柜当前无法执行该操作。
+REASON_TOO_NEW_TO_RETIRE,This data center is still healthy. It can be retired after aging begins.,这座机房还很健康，进入老化期后才能退役。
+REASON_COOLER_SLOTS_FULL,All cooling positions are occupied. Upgrade an installed cooler instead.,制冷位已经占满，请升级已有制冷设备。
+REASON_BUILDING_TIER_TOO_LOW,This device requires a higher-tier data center.,该设备需要更高等级的机房。
+REASON_CONSTRUCTION_MISSING,This project has already finished or is no longer in the queue.,该工程已经完成，或已不在建设队列中。
+REASON_NOT_FAULTED,This rack is operating normally and does not need repair.,这台机柜运行正常，无需维修。
+REASON_NOT_RUINED,This data center is still operational and cannot be cleared as scrap.,这座机房仍在运行，不能按残料清理。
+REASON_PRESTIGE_LOCKED,The company has not reached the listing requirement yet.,公司尚未达到上市重组条件。
+REASON_REWARD_UNAVAILABLE,This reward is not available right now.,当前没有可领取的奖励。
+REASON_PRODUCT_UNAVAILABLE,This product is not available in the current store.,该商品当前不可购买。
+REASON_UNKNOWN,The operation could not be completed. Please try again.,操作未能完成，请稍后重试。
+REASON_POWER_REQUIRED,Install a transformer before signing a contract.,请先安装变压器，再签订客户合约。
+REASON_CONTRACT_CAPACITY_REQUIRED,Bring at least one rack online before signing. That rack supplies the capacity you sell.,请先让至少一台机柜上线再签约；机柜提供的算力才是你的收入来源。
 BOARD_POWER_USAGE,Power %s / %s,供电 %s / %s
 BOARD_POWER_LABEL,Power,供电
 BOARD_OVERHEAT_HINT,This slot will overheat,此位置会过热

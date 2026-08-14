@@ -305,7 +305,7 @@ func _assert_unpowered_copy_and_drawer_lock() -> void:
 	var usage := main.find_child("BoardPowerUsage", true, false) as RichTextLabel
 	var hint := main.find_child("ContractPowerHint", true, false) as Label
 	var drawer := main.find_child("DatacenterContext", true, false)
-	_expect(usage != null and not bool(usage.get_meta("power_installed", true)) and str(usage.get_meta("display_copy", "")) == tr("UNPOWERED"), "B5 an unpowered board must say unpowered instead of 0 / 0")
+	_expect(usage != null and not bool(usage.get_meta("power_installed", true)) and str(usage.get_meta("display_copy", "")) == tr("POWER_UNPOWERED_HINT"), "B5 an unpowered board must present the install recovery path instead of 0 / 0")
 	_expect(hint != null and hint.text == tr("BOARD_INSTALL_POWER"), "B5 first power instruction must say install, not upgrade")
 	_expect(drawer != null and bool(drawer.get_meta("tutorial_lock_close", false)), "E2 tutorial drawer drag-dismiss must be locked")
 

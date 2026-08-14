@@ -263,14 +263,15 @@ func _assert_market_benefit_drawer(event_id: String, multiplier: float) -> void:
 	_expect(label != null and (label.text.contains("剩") or label.text.to_lower().contains("left")), "M8 drawer benefit feedback must include a live remaining-time cue")
 
 func _assert_market_banner_route_and_swipe() -> void:
-	var banner := main.find_child("MarketEventBanner", true, false) as Button
-	_expect(banner != null and str(banner.get_meta("destination", "")) == "market", "M11 event banner must explicitly route to the market page")
-	_expect(banner != null and bool(banner.get_meta("swipe_dismiss_enabled", false)) and not banner.gui_input.get_connections().is_empty(), "M11 event banner must expose a connected right-swipe dismiss gesture")
-	if banner == null:
+	var notice := main.find_child("WorldNews", true, false) as PanelContainer
+	_expect(notice != null and str(notice.get_meta("destination", "")) == "market", "M11 unified event notice must explicitly route to the market page")
+	_expect(notice != null and bool(notice.get_meta("swipe_dismiss_enabled", false)) and bool(notice.get_meta("transient_market_notice", false)) and not notice.gui_input.get_connections().is_empty(), "M11 unified event notice must expose a connected right-swipe dismiss gesture")
+	_expect(main.find_child("MarketEventBanner", true, false) == null, "M11 must not create a second banner over the campus")
+	if notice == null:
 		return
-	main.call("_dismiss_market_banner", banner)
-	await get_tree().create_timer(0.3).timeout
-	_expect(not is_instance_valid(banner), "M11 dismissed event banner must leave the scene instead of blocking the map")
+	main.call("_dismiss_market_notice")
+	await get_tree().process_frame
+	_expect(is_instance_valid(notice) and not bool(notice.get_meta("transient_market_notice", false)), "M11 dismissing the transient message must fall back to the permanent safe-band news surface")
 
 func _assert_retirement_decision(dc: Dictionary) -> void:
 	var button := main.find_child("RetireButton", true, false) as Button

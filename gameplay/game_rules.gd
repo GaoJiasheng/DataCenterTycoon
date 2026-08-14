@@ -206,17 +206,103 @@ static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dict
 	if kinds.size() >= int(customer.get("diversity_required_kinds", 999)):
 		result *= float(customer.get("diversity_multiplier", 1.0))
 	var player: Dictionary = game_state.get("player", {})
-	var network_level := str(player.get("network_level", 1))
+	# JSON persists integral progression values as floats. Normalize before using
+	# them as string keys ("1", not "1.0").
+	var network_level := str(int(player.get("network_level", 1)))
 	var network: Dictionary = data.get("technology", {}).get("network", {}).get(network_level, {})
-	var era: Dictionary = data.get("eras", {}).get("items", {}).get(str(player.get("era", 1)), {})
+	var era: Dictionary = data.get("eras", {}).get("items", {}).get(str(int(player.get("era", 1))), {})
 	result *= aging_efficiency(progress)
 	result *= float(network.get("income_multiplier", 1.0))
 	result *= float(era.get("income_multiplier", 1.0))
 	result *= float(player.get("brand_multiplier", 1.0))
 	result *= float(building.get("structure_multiplier", 1.0))
+	result *= float(datacenter.get("contract_income_multiplier", 1.0))
+	result *= relationship_income_multiplier(customer_id, game_state, data)
+	result *= campus_specialization_income_multiplier(datacenter, game_state, data)
+	result *= board_business_income_multiplier(game_state, data)
 	if game_state.get("bankruptcy", {}).get("status", "normal") == "arrears":
 		result *= float(data.get("economy", {}).get("bankruptcy", {}).get("arrears_income_multiplier", 0.5))
 	return result
+
+static func relationship_level(customer_id: String, game_state: Dictionary, data: Dictionary) -> Dictionary:
+	var service_seconds := float(game_state.get("meta", {}).get("customer_service_seconds", {}).get(customer_id, 0.0))
+	var levels: Array = data.get("meta_progression", {}).get("relationships", {}).get("levels", [])
+	var selected := {"index": 0, "id": "new", "service_seconds": 0.0, "income_multiplier": 1.0}
+	for index: int in range(levels.size()):
+		var level: Dictionary = levels[index]
+		if service_seconds >= float(level.get("service_seconds", INF)):
+			selected = level.duplicate(true)
+			selected["index"] = index
+	return selected
+
+static func relationship_income_multiplier(customer_id: String, game_state: Dictionary, data: Dictionary) -> float:
+	return float(relationship_level(customer_id, game_state, data).get("income_multiplier", 1.0))
+
+static func campus_specialization_income_multiplier(datacenter: Dictionary, game_state: Dictionary, data: Dictionary) -> float:
+	var plot_index := 0
+	for plot: Dictionary in game_state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if dc is Dictionary and str((dc as Dictionary).get("id", "")) == str(datacenter.get("id", "")):
+			plot_index = int(plot.get("index", 1))
+			break
+	if plot_index <= 0:
+		return 1.0
+	var layout := campus_layout_for_plot(plot_index, data.get("economy", {}))
+	var campus_index := int(layout.get("campus_index", 0))
+	var specialization_id := str(game_state.get("meta", {}).get("campus_specializations", {}).get(str(campus_index), ""))
+	if specialization_id.is_empty():
+		return 1.0
+	var specialization: Dictionary = data.get("meta_progression", {}).get("campus_specializations", {}).get(specialization_id, {})
+	if specialization.is_empty() or not _campus_specialization_requirements_met(campus_index, specialization, game_state, data):
+		return 1.0
+	var customer_ids: Array = specialization.get("customer_ids", [])
+	if not customer_ids.is_empty() and str(datacenter.get("customer_id", "")) not in customer_ids:
+		return 1.0
+	return float(specialization.get("income_multiplier", 1.0))
+
+static func campus_specialization_status(campus_index: int, specialization_id: String, game_state: Dictionary, data: Dictionary) -> Dictionary:
+	var specialization: Dictionary = data.get("meta_progression", {}).get("campus_specializations", {}).get(specialization_id, {})
+	if specialization.is_empty():
+		return {"active": false, "reason": "missing"}
+	if int(specialization.get("unlock_era", 1)) > int(game_state.get("player", {}).get("era", 1)):
+		return {"active": false, "reason": "locked"}
+	return {"active": _campus_specialization_requirements_met(campus_index, specialization, game_state, data), "reason": "ready"}
+
+static func _campus_specialization_requirements_met(campus_index: int, specialization: Dictionary, game_state: Dictionary, data: Dictionary) -> bool:
+	var rack_kind_counts := {"compute": 0, "storage": 0, "gpu": 0}
+	var unique_kinds := {}
+	var unique_customers := {}
+	for plot: Dictionary in game_state.get("plots", []):
+		var layout := campus_layout_for_plot(int(plot.get("index", 1)), data.get("economy", {}))
+		if int(layout.get("campus_index", -1)) != campus_index:
+			continue
+		var dc: Variant = plot.get("datacenter")
+		if not dc is Dictionary:
+			continue
+		var customer_id := str((dc as Dictionary).get("customer_id", ""))
+		if not customer_id.is_empty():
+			unique_customers[customer_id] = true
+		for installed: Variant in (dc as Dictionary).get("racks", []):
+			if not installed is Dictionary or installed.is_empty() or str((installed as Dictionary).get("status", "")) not in ["active", "faulted"]:
+				continue
+			var rack: Dictionary = data.get("racks", {}).get("items", {}).get(str((installed as Dictionary).get("rack_id", "")), {})
+			var kind := str(rack.get("kind", ""))
+			if not kind.is_empty():
+				rack_kind_counts[kind] = int(rack_kind_counts.get(kind, 0)) + 1
+				unique_kinds[kind] = true
+	var requirements: Dictionary = specialization.get("requirements", {})
+	if requirements.has("rack_kind") and int(rack_kind_counts.get(str(requirements.get("rack_kind", "")), 0)) < int(requirements.get("rack_count", 0)):
+		return false
+	if unique_kinds.size() < int(requirements.get("unique_rack_kinds", 0)):
+		return false
+	if unique_customers.size() < int(requirements.get("unique_customers", 0)):
+		return false
+	return true
+
+static func board_business_income_multiplier(game_state: Dictionary, data: Dictionary) -> float:
+	var rank := int(game_state.get("meta", {}).get("board_allocations", {}).get("business", 0))
+	var per_rank := float(data.get("meta_progression", {}).get("board_specialties", {}).get("items", {}).get("business", {}).get("income_multiplier_per_rank", 0.0))
+	return 1.0 + float(rank) * per_rank
 
 static func datacenter_maintenance(datacenter: Dictionary, buildings: Dictionary) -> float:
 	if datacenter.get("status", "") != "operational":

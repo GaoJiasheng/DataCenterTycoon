@@ -132,6 +132,13 @@ func _state_fingerprint() -> String:
 	if dc.is_empty():
 		return ""
 	var parts := PackedStringArray([str(dc.get("power_unit", "")), JSON.stringify(dc.get("coolers", {}))])
+	var pending_power := _pending_power_job()
+	if not pending_power.is_empty():
+		# Refresh a visible transformer countdown in ten-second buckets.  This
+		# keeps the recovery state alive without returning to per-tick board
+		# reconstruction, which is noticeable on dense mobile pages.
+		var remaining_bucket := ceili(maxf(0.0, float(pending_power.get("complete_at", Game.simulation_time())) - Game.simulation_time()) / 10.0)
+		parts.append("power_pending:%d" % remaining_bucket)
 	for installed: Variant in dc.get("racks", []):
 		if installed is Dictionary:
 			var entry: Dictionary = installed
@@ -449,10 +456,18 @@ func _add_power_meter(dc: Dictionary) -> void:
 	power.focus_mode = Control.FOCUS_NONE
 	ThemeMaker.apply_compact_button(power, ThemeMaker.COLORS.yellow)
 	var power_id := str(dc.get("power_unit", ""))
-	power.icon = AssetCatalog.texture("ic_power" if power_id.is_empty() else power_id + "_active")
+	var pending_power := _pending_power_job()
+	var power_pending := power_id.is_empty() and not pending_power.is_empty()
+	power.icon = AssetCatalog.texture("ic_clock" if power_pending else ("ic_power" if power_id.is_empty() else power_id + "_active"))
 	power.expand_icon = true
 	power.add_theme_constant_override("icon_max_width", 48)
-	power.text = tr("INSTALL") if power_id.is_empty() else tr(DataRepository.get_entry("attachments", power_id).get("name_key", "POWERED"))
+	if power_pending:
+		power.text = tr("INSTALLING")
+	elif power_id.is_empty():
+		var starter_cost := float(DataRepository.get_entry("attachments", "power_t1").get("cost", 0.0))
+		power.text = tr("POWER_QUICK_INSTALL") % Game.format_number(starter_cost)
+	else:
+		power.text = tr(DataRepository.get_entry("attachments", power_id).get("name_key", "POWERED"))
 	power.pressed.connect(func() -> void: power_slot_selected.emit(datacenter_id))
 	row.add_child(power)
 	var meter_box := VBoxContainer.new()
@@ -473,15 +488,22 @@ func _add_power_meter(dc: Dictionary) -> void:
 	usage.add_text("%s  " % tr("BOARD_POWER_LABEL"))
 	usage.pop()
 	var numeric_usage := ""
+	var display_copy := ""
 	if power_id.is_empty():
-		usage.add_text(tr("UNPOWERED"))
+		display_copy = tr("POWER_UNPOWERED_HINT")
+		if power_pending:
+			var remaining := maxf(0.0, float(pending_power.get("complete_at", Game.simulation_time())) - Game.simulation_time())
+			display_copy = tr("POWER_INSTALL_PENDING") % Game.format_duration(remaining)
+		usage.add_text(display_copy)
 	else:
 		usage.push_font(ThemeMaker.font_numeric(), ThemeMaker.TYPE_SCALE.caption)
 		numeric_usage = "%s / %s" % [Game.format_number(used), Game.format_number(capacity)]
+		display_copy = numeric_usage
 		usage.add_text(numeric_usage)
 		usage.pop()
 	usage.set_meta("power_installed", not power_id.is_empty())
-	usage.set_meta("display_copy", tr("UNPOWERED") if power_id.is_empty() else numeric_usage)
+	usage.set_meta("power_pending", power_pending)
+	usage.set_meta("display_copy", display_copy)
 	usage.set_meta("numeric_usage", numeric_usage)
 	usage.set_meta("numeric_font", ThemeMaker.font_numeric())
 	meter_box.add_child(usage)
@@ -503,12 +525,24 @@ func _add_power_meter(dc: Dictionary) -> void:
 	progress.add_theme_stylebox_override("fill", meter_fill)
 	progress.max_value = maxf(1.0, maxf(capacity, used))
 	progress.value = used
+	if power_pending:
+		var duration := Game.construction_duration(pending_power)
+		var remaining := maxf(0.0, float(pending_power.get("complete_at", Game.simulation_time())) - Game.simulation_time())
+		progress.max_value = duration
+		progress.value = clampf(duration - remaining, 0.0, duration)
+		progress.set_meta("duration_seconds", duration)
 	if used > capacity:
 		progress.modulate = ThemeMaker.COLORS.red
 		var warning_tween := progress.create_tween().set_loops()
 		warning_tween.tween_property(progress, "modulate:a", 0.48, 0.30).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		warning_tween.tween_property(progress, "modulate:a", 1.0, 0.30).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	meter_box.add_child(progress)
+
+func _pending_power_job() -> Dictionary:
+	for queued: Dictionary in Game.state.get("construction_queue", []):
+		if str(queued.get("type", "")) == "power" and str(queued.get("datacenter_id", "")) == datacenter_id:
+			return queued
+	return {}
 
 func _power_demand(dc: Dictionary) -> float:
 	var result := 0.0

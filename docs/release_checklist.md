@@ -10,14 +10,14 @@
 
 ## Automated gates
 
-- [x] `python3 tools/validate_data.py`（2026-08-03：11 表、双语、152 art IDs）
-- [x] `godot --headless --path . tests/test_runner.tscn`（2026-08-03：103 passed）
-- [x] `godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=en`（2026-08-03：30 态、990×2151 通过）
-- [x] `godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN`（2026-08-03：30 态、990×2151 通过）
-- [x] `godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn`（2026-08-10：100 座机房分为 13 个园区页，仅 6 个当前页对象可见；average 6.33ms / p95 10.57ms / 朝向统一 / 零节点增长）
+- [x] `python3 tools/validate_data.py`（2026-08-12：12 表、双语、159 art IDs）
+- [x] `godot --headless --path . tests/test_runner.tscn`（2026-08-12：162 passed）
+- [x] `godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=en`（2026-08-12：41 态、990×2151 通过）
+- [x] `godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN`（2026-08-12：41 态、990×2151 通过）
+- [x] `godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn`（2026-08-12：100 座机房分为 13 个园区页，仅 6 个当前页对象可见；average 6.42ms / p95 6.88ms / 朝向统一 / 零节点增长）
 - [ ] iPhone 12 与 iPhone 17 各跑一次 Instruments：六机房 + 金币并发保持 60fps；本项不能用桌面烟测替代
-- [x] `python3 tools/simulate_economy.py`（2026-08-02：三类 30 天路径与多 seed 门禁通过；两项调优提示不阻塞）
-- [x] `python3 tools/check_assets.py --strict --audio`（2026-08-03：152 art / 4 font / 23 audio）
+- [x] `python3 tools/simulate_economy.py`（2026-08-12：三类 30 天 × 20 seed 全部门禁通过）
+- [x] `python3 tools/check_assets.py --strict --audio`（2026-08-12：159 art / 6 font / 23 audio）
 - [ ] `python3 tools/check_app_store_assets.py`
 - [ ] `python3 tools/check_release.py`
 - [ ] Godot iOS Xcode-project ZIP export completes without warnings; Xcode Archive then signs/uploads the app

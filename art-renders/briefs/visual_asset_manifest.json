@@ -1070,9 +1070,9 @@
   {
     "category": "fx",
     "name": "fx_dust_puff",
-    "source": "fx_dust_puff_source_v1.png",
-    "width": 256,
-    "height": 256,
+    "source": "fx_dust_puff_chroma_v2.png",
+    "width": 1024,
+    "height": 512,
     "transparent": true,
     "shadow": false,
     "margin": 0.02,
@@ -1682,7 +1682,7 @@
   {
     "category": "store",
     "name": "app_icon",
-    "source": "app_icon_source_v1.png",
+    "source": "app_icon_source_v2.png",
     "width": 1024,
     "height": 1024,
     "transparent": false,
@@ -1750,5 +1750,89 @@
     "margin": 0.04,
     "matte": "hard",
     "output": "visual/final/store/noads_badge.png"
+  },
+  {
+    "category": "meta",
+    "name": "company_roadmap",
+    "source": "meta/company_roadmap_chroma.png",
+    "width": 1024,
+    "height": 1024,
+    "transparent": true,
+    "shadow": false,
+    "margin": 0.045,
+    "matte": "soft",
+    "output": "visual/final/meta/company_roadmap.png"
+  },
+  {
+    "category": "meta",
+    "name": "campus_strategy",
+    "source": "meta/campus_strategy_chroma.png",
+    "width": 1024,
+    "height": 1024,
+    "transparent": true,
+    "shadow": false,
+    "margin": 0.045,
+    "matte": "soft",
+    "output": "visual/final/meta/campus_strategy.png"
+  },
+  {
+    "category": "meta",
+    "name": "customer_portfolio",
+    "source": "meta/customer_portfolio_chroma.png",
+    "width": 1024,
+    "height": 1024,
+    "transparent": true,
+    "shadow": false,
+    "margin": 0.045,
+    "matte": "soft",
+    "output": "visual/final/meta/customer_portfolio.png"
+  },
+  {
+    "category": "meta",
+    "name": "market_review",
+    "source": "meta/market_review_chroma.png",
+    "width": 1024,
+    "height": 1024,
+    "transparent": true,
+    "shadow": false,
+    "margin": 0.045,
+    "matte": "soft",
+    "output": "visual/final/meta/market_review.png"
+  },
+  {
+    "category": "meta",
+    "name": "board_specialties",
+    "source": "meta/board_specialties_chroma.png",
+    "width": 1024,
+    "height": 1024,
+    "transparent": true,
+    "shadow": false,
+    "margin": 0.045,
+    "matte": "soft",
+    "output": "visual/final/meta/board_specialties.png"
+  },
+  {
+    "category": "meta",
+    "name": "company_collection",
+    "source": "meta/company_collection_chroma.png",
+    "width": 1024,
+    "height": 1024,
+    "transparent": true,
+    "shadow": false,
+    "margin": 0.045,
+    "matte": "soft",
+    "output": "visual/final/meta/company_collection.png"
+  },
+  {
+    "category": "meta",
+    "name": "legacy_memorial",
+    "source": "meta/legacy_memorial_chroma.png",
+    "width": 1024,
+    "height": 1024,
+    "transparent": true,
+    "shadow": false,
+    "margin": 0.045,
+    "matte": "soft",
+    "output": "visual/final/meta/legacy_memorial.png"
   }
 ]

@@ -1267,7 +1267,7 @@
       0,
       0
     ],
-    "bytes": 207659,
+    "bytes": 203897,
     "pass": true
   },
   {
@@ -1298,7 +1298,7 @@
       0,
       0
     ],
-    "bytes": 183228,
+    "bytes": 184876,
     "pass": true
   },
   {
@@ -1380,9 +1380,9 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      134,
+      136,
       30,
-      377,
+      376,
       481
     ],
     "corner_alpha": [
@@ -1391,7 +1391,7 @@
       0,
       0
     ],
-    "bytes": 232264,
+    "bytes": 226051,
     "pass": true
   },
   {
@@ -1411,9 +1411,9 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      134,
+      136,
       30,
-      377,
+      376,
       481
     ],
     "corner_alpha": [
@@ -1422,7 +1422,7 @@
       0,
       0
     ],
-    "bytes": 213830,
+    "bytes": 216531,
     "pass": true
   },
   {
@@ -2017,12 +2017,12 @@
       1024,
       1024
     ],
-    "mode": "RGB",
-    "png_color_type": 2,
+    "mode": "P",
+    "png_color_type": 3,
     "transparent_required": false,
     "alpha_bbox": null,
     "corner_alpha": [],
-    "bytes": 1490212,
+    "bytes": 775855,
     "pass": true
   },
   {
@@ -2721,24 +2721,24 @@
   {
     "category": "fx",
     "name": "fx_dust_puff",
-    "source": "fx_dust_puff_source_v1.png",
+    "source": "fx_dust_puff_chroma_v2.png",
     "output": "visual/final/fx/fx_dust_puff.png",
     "expected_size": [
-      256,
-      256
+      1024,
+      512
     ],
     "actual_size": [
-      256,
-      256
+      1024,
+      512
     ],
     "mode": "RGBA",
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      5,
-      21,
-      251,
-      234
+      22,
+      270,
+      1004,
+      472
     ],
     "corner_alpha": [
       0,
@@ -2746,7 +2746,7 @@
       0,
       0
     ],
-    "bytes": 67107,
+    "bytes": 139526,
     "pass": true
   },
   {
@@ -3448,9 +3448,9 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      108,
+      104,
       23,
-      403,
+      408,
       489
     ],
     "corner_alpha": [
@@ -3459,7 +3459,7 @@
       0,
       0
     ],
-    "bytes": 177378,
+    "bytes": 151673,
     "pass": true
   },
   {
@@ -4068,9 +4068,9 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      42,
+      27,
       23,
-      469,
+      485,
       489
     ],
     "corner_alpha": [
@@ -4079,7 +4079,7 @@
       0,
       0
     ],
-    "bytes": 298817,
+    "bytes": 291406,
     "pass": true
   },
   {
@@ -4099,10 +4099,10 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
+      29,
       23,
-      32,
-      476,
-      480
+      482,
+      489
     ],
     "corner_alpha": [
       0,
@@ -4110,7 +4110,7 @@
       0,
       0
     ],
-    "bytes": 262040,
+    "bytes": 288173,
     "pass": true
   },
   {
@@ -4130,9 +4130,9 @@
     "png_color_type": 6,
     "transparent_required": true,
     "alpha_bbox": [
-      78,
+      31,
       23,
-      433,
+      480,
       489
     ],
     "corner_alpha": [
@@ -4141,7 +4141,7 @@
       0,
       0
     ],
-    "bytes": 306172,
+    "bytes": 282337,
     "pass": true
   },
   {
@@ -4302,7 +4302,7 @@
   {
     "category": "store",
     "name": "app_icon",
-    "source": "app_icon_source_v1.png",
+    "source": "app_icon_source_v2.png",
     "output": "visual/final/store/app_icon.png",
     "expected_size": [
       1024,
@@ -4317,7 +4317,7 @@
     "transparent_required": false,
     "alpha_bbox": null,
     "corner_alpha": [],
-    "bytes": 1314260,
+    "bytes": 1348140,
     "pass": true
   },
   {
@@ -4463,6 +4463,223 @@
       0
     ],
     "bytes": 311798,
+    "pass": true
+  },
+  {
+    "category": "meta",
+    "name": "company_roadmap",
+    "source": "meta/company_roadmap_chroma.png",
+    "output": "visual/final/meta/company_roadmap.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      46,
+      93,
+      978,
+      930
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1155265,
+    "pass": true
+  },
+  {
+    "category": "meta",
+    "name": "campus_strategy",
+    "source": "meta/campus_strategy_chroma.png",
+    "output": "visual/final/meta/campus_strategy.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      62,
+      46,
+      961,
+      978
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1360558,
+    "pass": true
+  },
+  {
+    "category": "meta",
+    "name": "customer_portfolio",
+    "source": "meta/customer_portfolio_chroma.png",
+    "output": "visual/final/meta/customer_portfolio.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      46,
+      157,
+      978,
+      866
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1183579,
+    "pass": true
+  },
+  {
+    "category": "meta",
+    "name": "market_review",
+    "source": "meta/market_review_chroma.png",
+    "output": "visual/final/meta/market_review.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      46,
+      85,
+      978,
+      939
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 984904,
+    "pass": true
+  },
+  {
+    "category": "meta",
+    "name": "board_specialties",
+    "source": "meta/board_specialties_chroma.png",
+    "output": "visual/final/meta/board_specialties.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      181,
+      46,
+      842,
+      978
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 936926,
+    "pass": true
+  },
+  {
+    "category": "meta",
+    "name": "company_collection",
+    "source": "meta/company_collection_chroma.png",
+    "output": "visual/final/meta/company_collection.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      60,
+      46,
+      964,
+      978
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1305292,
+    "pass": true
+  },
+  {
+    "category": "meta",
+    "name": "legacy_memorial",
+    "source": "meta/legacy_memorial_chroma.png",
+    "output": "visual/final/meta/legacy_memorial.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      46,
+      107,
+      978,
+      917
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 888252,
     "pass": true
   }
 ]

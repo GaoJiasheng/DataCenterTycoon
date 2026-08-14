@@ -454,28 +454,23 @@ func _assert_invariants() -> void:
 		_expect(float(item.get("complete_at", 0.0)) >= float(item.get("started_at", 0.0)), "month %d: a queued job finishes before it starts" % _month)
 	_assert_top_strip_does_not_stack()
 
-# The news strip, the campus pager and the market banner all live in the same
-# band under the currency bar. Checked where the banner comes to rest, not
-# mid-slide: passing over them on the way in is the animation, parking on them
-# is the bug.
+# Market transitions must reuse the permanent safe-band news surface.  A second
+# banner would stack below it and cover the first row of campus buildings.
 func _assert_top_strip_does_not_stack() -> void:
 	var banners := _live_market_banners()
-	_expect(banners.size() <= 1, "month %d: %d market banners are stacked on the map" % [_month, banners.size()])
-	if banners.is_empty():
+	_expect(banners.is_empty(), "month %d: a legacy market banner is covering the campus" % _month)
+	var notice := main.find_child("WorldNews", true, false) as Control
+	if notice == null or not notice.is_visible_in_tree():
 		return
-	var banner := banners[0]
-	var resting := banner.get_global_rect()
-	resting.position.y = float(banner.get_meta("rest_y", resting.position.y))
-	var band: Array[String] = ["WorldNews", "CampusSwitcher", "CampusMarker_0"]
-	for other_name: String in band:
+	for other_name: String in ["CampusSwitcher", "CampusMarker_0"]:
 		var other := main.find_child(other_name, true, false) as Control
 		if other == null or not other.is_visible_in_tree():
 			continue
-		_expect(not resting.intersects(other.get_global_rect()), "month %d: the market banner rests on top of %s" % [_month, other_name])
+		_expect(not notice.get_global_rect().intersects(other.get_global_rect()), "month %d: the unified market notice overlaps %s" % [_month, other_name])
 
 func _live_market_banners() -> Array[Control]:
 	var live: Array[Control] = []
-	for node: Node in get_tree().get_nodes_in_group("market_event_banner"):
+	for node: Node in main.find_children("MarketEventBanner", "", true, false):
 		var banner := node as Control
 		if banner != null and banner.is_visible_in_tree():
 			live.append(banner)

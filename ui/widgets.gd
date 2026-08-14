@@ -187,7 +187,11 @@ static func affordable_style(button: Button, cost: float) -> void:
 		button.set_meta("affordability_base_text", button.text)
 	var base_text := str(button.get_meta("affordability_base_text", button.text))
 	var cash := float(Game.state.get("player", {}).get("cash", 0.0))
-	var affordable := cash + 0.001 >= cost and not button.disabled
+	# Access locks stay tappable on mobile: pressing them must explain what is
+	# missing instead of silently swallowing the input.  The metadata only
+	# lowers the visual hierarchy; the gameplay method remains authoritative.
+	var access_available := not bool(button.get_meta("availability_locked", false))
+	var affordable := cash + 0.001 >= cost and access_available and not button.disabled
 	button.set_meta("affordable", affordable)
 	button.set_meta("purchase_cost", cost)
 	var old_pulse: Variant = button.get_meta("affordability_pulse") if button.has_meta("affordability_pulse") else null
@@ -210,11 +214,12 @@ static func affordable_style(button: Button, cost: float) -> void:
 			ThemeMaker.apply_button_role(button, "primary")
 		else:
 			ThemeMaker.apply_button_role(button, "disabled")
-			var shortfall := maxf(0.0, cost - cash)
-			var shortfall_copy := TranslationServer.translate("AFFORD_SHORTFALL") % Game.format_number(shortfall)
-			button.text = "%s\n%s" % [base_text, shortfall_copy]
-			var line_count := button.text.count("\n") + 1
-			button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, float(line_count * 30 + 28))
+			if access_available:
+				var shortfall := maxf(0.0, cost - cash)
+				var shortfall_copy := TranslationServer.translate("AFFORD_SHORTFALL") % Game.format_number(shortfall)
+				button.text = "%s\n%s" % [base_text, shortfall_copy]
+				var line_count := button.text.count("\n") + 1
+				button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, float(line_count * 30 + 28))
 	if affordable:
 		var pulse := button.create_tween().set_loops()
 		pulse.tween_property(button, "modulate", Color(1.08, 1.08, 1.08, 1.0), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)

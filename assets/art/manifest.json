@@ -60,10 +60,11 @@
     {"directory": "map", "size": [384, 384], "alpha": true, "ids": ["deco_tree"]},
     {"directory": "map", "size": [256, 256], "alpha": true, "ids": ["deco_bush"]},
     {"directory": "map", "size": [1536, 2048], "alpha": false, "ids": ["dc_interior_bg"]},
-    {"directory": "fx", "size": [256, 256], "alpha": true, "ids": ["fx_wind_streak", "fx_frost_patch", "fx_smoke_puff", "fx_dust_puff"]},
+    {"directory": "fx", "size": [256, 256], "alpha": true, "ids": ["fx_wind_streak", "fx_frost_patch", "fx_smoke_puff"]},
     {"directory": "fx", "size": [128, 128], "alpha": true, "ids": ["fx_snowflake", "fx_spark"]},
     {"directory": "fx", "size": [192, 192], "alpha": true, "ids": ["fx_coin"]},
     {"directory": "fx", "size": [512, 512], "alpha": true, "ids": ["fx_glow_ring", "fx_confetti_set"]},
+    {"directory": "fx", "size": [1024, 512], "alpha": true, "ids": ["fx_dust_puff"]},
     {"directory": "characters", "size": [768, 1024], "alpha": true, "ids": ["guide_normal", "guide_happy", "guide_worried", "guide_alert", "guide_thinking"]},
     {"directory": "customers", "size": [384, 384], "alpha": true, "ids": ["client_internet", "client_mining", "client_cloud", "client_gpu"]},
     {"directory": "ui", "size": [1024, 1024], "alpha": true, "ids": ["panel_main", "panel_dark"]},
@@ -83,6 +84,7 @@
     },
     {"directory": "store", "size": [1024, 1024], "alpha": false, "ids": ["app_icon"]},
     {"directory": "store", "size": [1536, 2732], "alpha": false, "ids": ["splash_bg"]},
+    {"directory": "meta", "size": [1024, 1024], "alpha": true, "ids": ["company_roadmap", "campus_strategy", "customer_portfolio", "market_review", "board_specialties", "company_collection", "legacy_memorial"]},
     {"directory": "store", "size": [512, 512], "alpha": true, "ids": ["pack_starter", "pack_builder", "pack_tycoon", "noads_badge"]}
   ]
 }

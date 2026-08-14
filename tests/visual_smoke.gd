@@ -1,6 +1,8 @@
 extends Node
 
 const MAIN_SCENE := preload("res://main.tscn")
+const Market := preload("res://gameplay/market_system.gd")
+const ThemeMaker := preload("res://ui/theme_factory.gd")
 const OUTPUT_ROOT_PREFIX := "/tmp/data_center_tycoon_visual_"
 const PREVIEW_SIZE := Vector2i(990, 2151)
 
@@ -37,18 +39,63 @@ func _ready() -> void:
 	main.call("_show_building_picker", "plot_1")
 	await get_tree().create_timer(0.35).timeout
 	valid = (await _capture(main, "build_drawer")) and valid
+	# Reproduce a full two-project queue while the next build choice is open. The
+	# error must render above the drawer and explain both capacity and next step.
+	var feedback_now := Game.simulation_time()
+	Game.state["construction_queue"] = [
+		{"id": "visual_queue_1", "type": "datacenter", "started_at": feedback_now, "complete_at": feedback_now + 300.0},
+		{"id": "visual_queue_2", "type": "power", "started_at": feedback_now, "complete_at": feedback_now + 600.0},
+	]
+	main.call("_handle_result", {"ok": false, "reason": "queue_full"}, {"operation": "datacenter"})
+	var live_feedback := main.find_child("OperationFeedback", true, false) as Label
+	var feedback_rect := live_feedback.get_global_rect() if live_feedback != null else Rect2()
+	print("VISUAL_SMOKE: operation feedback visible=%s rect=%s alpha=%.2f text=%s" % [str(live_feedback.is_visible_in_tree() if live_feedback != null else false), str(feedback_rect), live_feedback.modulate.a if live_feedback != null else 0.0, live_feedback.text if live_feedback != null else "missing"])
+	if live_feedback == null or not live_feedback.is_visible_in_tree() or not feedback_rect.intersects(Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)) or not "2/2" in live_feedback.text:
+		push_error("VISUAL_SMOKE: operation error is not visible above the build drawer")
+		valid = false
+	valid = (await _capture(main, "operation_error", false)) and valid
+	Game.state["construction_queue"] = []
+	var toast := main.get("toast_label") as Label
+	if toast != null:
+		toast.visible = false
+	var toast_tween: Tween = main.get("_toast_tween") as Tween
+	if toast_tween != null and toast_tween.is_valid():
+		toast_tween.kill()
 	var building_picker := main.find_child("BuildingPicker", true, false)
 	if building_picker != null:
 		building_picker.queue_free()
 		await get_tree().process_frame
 	main.park_map.reset_camera()
+	# Rewarded time must count as completed work. Stage the exact reported case:
+	# a one-hour Standard Data Center, 2m40s of natural time, then a -30m video.
+	# The queue must show 27m20s remaining and roughly 54% progress, not ~9%.
+	var rewarded_now := Game.simulation_time()
+	Game.state["construction_queue"] = [{
+		"id": "visual_rewarded_progress",
+		"type": "datacenter",
+		"plot_id": "plot_1",
+		"building_id": "dc_t1",
+		"started_at": rewarded_now - 160.0,
+		"complete_at": rewarded_now + 1640.0,
+		"duration_seconds": 3600.0,
+		"ad_uses": 1,
+	}]
+	main.call("_navigate", "build")
+	valid = (await _capture(main, "construction_rewarded_progress")) and valid
+	Game.state["construction_queue"] = []
+	main.call("_navigate", "map")
 	Game.start_datacenter_construction("plot_1", "dc_t0")
 	main.call("_navigate", "build")
 	valid = (await _capture(main, "construction_queue")) and valid
 	Game.advance_time(300.0, false)
 	main.call("_navigate", "map")
-	# Capture the settled building rather than the intentional completion squash.
-	await get_tree().create_timer(0.65).timeout
+	# Keep a dedicated review frame for the live completion effect.  This makes
+	# regressions back to rings, duplicated clouds or building-covering FX visible
+	# in every bilingual screenshot audit rather than only in motion.
+	await get_tree().create_timer(0.42).timeout
+	valid = (await _capture(main, "construction_complete_fx", false)) and valid
+	# Then capture the settled building after every temporary node has left.
+	await get_tree().create_timer(0.45).timeout
 	valid = (await _capture(main, "map_built")) and valid
 	await get_tree().create_timer(0.9).timeout
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
@@ -65,7 +112,7 @@ func _ready() -> void:
 	else:
 		Game.advance_time(300.0, false)
 		await get_tree().create_timer(0.40).timeout
-		var power_transition_live: bool = main.park_map.find_child("PowerOnDarkGhost", true, false) != null and main.park_map.find_child("PowerOnGlow", true, false) != null
+		var power_transition_live: bool = main.park_map.find_child("PowerOnDarkGhost", true, false) != null and main.park_map.find_child("PowerOnGlow", true, false) == null
 		if not power_transition_live:
 			push_error("VISUAL_SMOKE: dark-to-active power-on transition did not start")
 			valid = false
@@ -143,6 +190,37 @@ func _ready() -> void:
 	if dc_context != null:
 		dc_context.queue_free()
 		await get_tree().process_frame
+	# Reproduce the on-device JSON shape that previously turned era 1 into the
+	# missing key "1.0", then review the no-rack earning guidance before staging
+	# the fully equipped board used by later states.
+	dc["power_unit"] = "power_t1"
+	Game.state["player"]["era"] = 1.0
+	Game.state["player"]["network_level"] = 1.0
+	for customer_id: String in ["internet", "mining"]:
+		Game.state["market"]["noise"][customer_id] = 0.0
+		Game.state["market"]["history"][customer_id] = [
+			{"at": 0.0, "value": 0.0},
+			{"at": 240.0, "value": 0.0},
+		]
+	Game.state["market"].erase("quote_schema_version")
+	Market.new().ensure_state(Game.state, Game.data)
+	main.call("_open_datacenter_detail", str(dc.get("id", "")), "contracts")
+	valid = (await _capture(main, "dc_contracts_empty")) and valid
+	dc["power_unit"] = ""
+	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
+	valid = (await _capture(main, "dc_board_unpowered")) and valid
+	var power_blocked_now := Game.simulation_time()
+	Game.state["construction_queue"] = [
+		{"id": "visual_power_block_a", "type": "datacenter", "started_at": power_blocked_now, "complete_at": power_blocked_now + 300.0},
+		{"id": "visual_power_block_b", "type": "datacenter", "started_at": power_blocked_now, "complete_at": power_blocked_now + 600.0},
+	]
+	main.call("_on_power_slot_selected", str(dc.get("id", "")))
+	valid = (await _capture(main, "power_install_blocked", false)) and valid
+	Game.state["construction_queue"] = []
+	var power_blocker := main.find_child("ActionSheetOverlay", true, false)
+	if power_blocker != null:
+		power_blocker.queue_free()
+		await get_tree().process_frame
 	dc["power_unit"] = "power_t1"
 	dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": false, "fault_at": -1.0}
 	dc["racks"][1] = {"rack_id": "rack_storage_t1", "status": "installing", "enabled": true, "started_at": Game.simulation_time(), "install_complete_at": Game.simulation_time() + 90.0, "ad_uses": 0}
@@ -206,8 +284,28 @@ func _ready() -> void:
 	valid = (await _capture(main, "market_active")) and valid
 	_fill_market_history(730)
 	valid = (await _capture(main, "market_rich")) and valid
+	# Meta-progression states use their real rendered illustrations and live data.
+	main.call("_navigate", "tech")
+	main.call("_set_tech_section", "roadmap")
+	valid = (await _capture(main, "company_roadmap")) and valid
+	main.call("_set_tech_section", "collection")
+	valid = (await _capture(main, "company_collection")) and valid
+	var original_prestige_count := int(Game.state["stats"].get("prestige_count", 0))
+	Game.state["stats"]["prestige_count"] = 2
+	main.call("_set_tech_section", "board")
+	valid = (await _capture(main, "board_specialties")) and valid
+	main.call("_navigate", "map")
+	main.call("_show_campus_strategy", 0)
+	valid = (await _capture(main, "campus_strategy", false)) and valid
+	var strategy_sheet := main.find_child("ActionSheetOverlay", true, false)
+	if strategy_sheet != null:
+		strategy_sheet.queue_free()
+		await get_tree().process_frame
+	Game.state["stats"]["prestige_count"] = original_prestige_count
 	for page: String in ["tech", "store", "settings"]:
 		main.call("_navigate", page)
+		if page == "tech":
+			main.call("_set_tech_section", "upgrades")
 		valid = (await _capture(main, page)) and valid
 		if page == "store":
 			valid = (await _scroll_survives_tick(main)) and valid
@@ -246,7 +344,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 31 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
+	print("VISUAL_SMOKE: %s 41 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:
@@ -276,6 +374,16 @@ func _fill_market_history(point_count: int) -> void:
 
 func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	print("VISUAL_SMOKE: rendering %s" % name)
+	# The review atlas should show the authored screen, not an unrelated reward
+	# toast emitted by fixture setup in an earlier state. operation_error is the
+	# one deliberate feedback-state capture.
+	if name != "operation_error":
+		var toast := main.get("toast_label") as Label
+		if toast != null:
+			toast.visible = false
+		var toast_tween := main.get("_toast_tween") as Tween
+		if toast_tween != null and toast_tween.is_valid():
+			toast_tween.kill()
 	if refresh:
 		main.call("_refresh")
 	for _frame: int in range(3):
@@ -351,6 +459,13 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if node != null and node.is_visible_in_tree():
 			controls.append(node)
 	var valid := true
+	if state_name == "construction_rewarded_progress":
+		var progress := main.find_child("QueueConstructionProgress", true, false) as ProgressBar
+		var fraction := progress.value / progress.max_value if progress != null and progress.max_value > 0.0 else -1.0
+		var remaining := float(progress.get_meta("remaining_seconds", -1.0)) if progress != null else -1.0
+		if progress == null or not progress.is_visible_in_tree() or fraction < 0.53 or fraction > 0.56 or absf(remaining - 1640.0) > 2.0:
+			push_error("VISUAL_SMOKE: rewarded one-hour construction must show ~54%% progress and 27m20s remaining; fraction=%.3f remaining=%.1f" % [fraction, remaining])
+			valid = false
 	if state_name == "map":
 		var power_metrics := _asset_palette_metrics("ic_power")
 		if float(power_metrics.get("gold_ratio", 0.0)) < 0.30 or float(power_metrics.get("used_aspect", 1.0)) > 0.78:
@@ -519,7 +634,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if hole_style == null or hole_style.get_border_width(SIDE_TOP) != 4 or shared_radius != 32 or mask_radius != shared_radius or border_layers != 1 or hole_style.border_color.is_equal_approx(ThemeFactory.COLORS.yellow):
 			push_error("VISUAL_SMOKE: FTUE spotlight is not the single cyan 4u/32u rounded frame")
 			valid = false
-	if state_name in ["dc_contracts", "contract_comparison", "market_empty", "market_active", "market_rich"]:
+	if state_name in ["dc_contracts_empty", "dc_contracts", "contract_comparison", "market_empty", "market_active", "market_rich"]:
 		for node: Node in main.find_children("*", "Button", true, false):
 			var contract_button := node as Button
 			if contract_button != null and contract_button.is_visible_in_tree() and contract_button.text.contains("0.00"):
@@ -530,6 +645,14 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			if market_label != null and market_label.is_visible_in_tree() and market_label.text.contains("0.00"):
 				push_error("VISUAL_SMOKE: locked customer exposes a zero multiplier: %s" % market_label.text)
 				valid = false
+	if state_name == "dc_contracts_empty":
+		var capacity_guide := main.find_child("ContractCapacityGuide", true, false) as PanelContainer
+		var configure_racks := main.find_child("ContractConfigureRacks", true, false) as Button
+		var internet_rate := main.find_child("MarketRate_internet", true, false) as Label
+		var internet_projection := main.find_child("ContractProjection_internet", true, false) as Label
+		if capacity_guide == null or str(capacity_guide.get_meta("capacity_state", "")) != "empty" or configure_racks == null or configure_racks.size.y < 88.0 or internet_rate == null or internet_rate.text.contains("×0.00") or internet_projection == null or internet_projection.text != tr("CONTRACT_PROJECTED_AFTER_RACK"):
+			push_error("VISUAL_SMOKE: empty contract page does not explain the online-rack earning prerequisite with a valid market quote")
+			valid = false
 	if state_name == "action_sheet":
 		var drag_handle := main.find_child("SheetDragHandle", true, false) as Control
 		var sheet_close := main.find_child("SheetCloseButton", true, false) as Button
@@ -694,6 +817,13 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if contract_hint == null or contract_cta == null or str(contract_cta.get_meta("button_role", "")) == "primary":
 			push_error("VISUAL_SMOKE: unpowered context does not explain why contracts are unavailable")
 			valid = false
+	if state_name == "dc_board_unpowered":
+		var quick_power := main.find_child("PowerSlot", true, false) as Button
+		var unpowered_usage := main.find_child("BoardPowerUsage", true, false) as RichTextLabel
+		var unpowered_meter := main.find_child("BoardPowerMeter", true, false) as ProgressBar
+		if quick_power == null or not "$600" in quick_power.text or unpowered_usage == null or str(unpowered_usage.get_meta("display_copy", "")) != tr("POWER_UNPOWERED_HINT") or bool(unpowered_usage.get_meta("power_pending", true)) or unpowered_meter == null:
+			push_error("VISUAL_SMOKE: unpowered board does not expose the price-disclosed one-tap recovery path")
+			valid = false
 	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing"]:
 		var board := main.find_child("DatacenterBoard", true, false)
 		var power_meter := main.find_child("BoardPowerMeter", true, false)
@@ -817,6 +947,21 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 	if state_name == "achievements" and main.find_children("AchievementProgress_*", "ProgressBar", true, false).size() != DataRepository.get_table("achievements").get("items", {}).size():
 		push_error("VISUAL_SMOKE: achievement cards do not expose per-goal progress")
 		valid = false
+	if state_name in ["company_roadmap", "company_collection", "board_specialties"]:
+		var segments := main.find_children("Segment_*", "Button", true, false)
+		if segments.size() != 4:
+			push_error("VISUAL_SMOKE: company navigation must expose four complete tabs")
+			valid = false
+		for segment_node: Node in segments:
+			var segment := segment_node as Button
+			if segment.text_overrun_behavior != TextServer.OVERRUN_TRIM_ELLIPSIS or segment.text != segment.tooltip_text or segment.get_theme_constant("outline_size") < 3:
+				push_error("VISUAL_SMOKE: company tab is clipped or lacks readable high-contrast text: %s" % segment.name)
+				valid = false
+	if state_name == "contract_comparison":
+		var strategic := main.find_child("Choice_strategic", true, false) as Button
+		if strategic == null or bool(strategic.get_meta("choice_available", true)) or strategic.icon != AssetCatalog.texture("ic_lock"):
+			push_error("VISUAL_SMOKE: relationship-gated strategic term lacks a visible lock cue")
+			valid = false
 	if state_name == "rack_picker":
 		var rack_choice_count := 0
 		for choice_node: Node in main.find_children("Choice_rack_*", "Button", true, false):
@@ -876,7 +1021,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: offline reward repeats a final amount while the headline is still rolling")
 			valid = false
 	if state_name == "arrears":
-		var crisis_nodes := [main.find_child("ArrearsBanner", true, false), main.find_child("ArrearsVignette", true, false), main.find_child("ArrearsProgress", true, false), main.find_child("ArrearsRescueButton", true, false)]
+		var crisis_nodes := [main.find_child("ArrearsBanner", true, false), main.find_child("ArrearsVignette", true, false), main.find_child("ArrearsProgress", true, false), main.find_child("ArrearsRescueButton", true, false), main.find_child("ArrearsCloseButton", true, false)]
 		if crisis_nodes.any(func(node: Variant) -> bool: return node == null):
 			push_error("VISUAL_SMOKE: arrears state lacks its persistent crisis HUD nodes=%s" % str(crisis_nodes))
 			valid = false
@@ -884,13 +1029,14 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			var arrears_banner := crisis_nodes[0] as PanelContainer
 			var arrears_progress := crisis_nodes[2] as ProgressBar
 			var arrears_button := crisis_nodes[3] as Button
+			var arrears_close := crisis_nodes[4] as Button
 			var shell_header := main.find_child("ShellHeader", true, false) as Control
 			var banner_rect := arrears_banner.get_global_rect().grow(1.0)
 			var content_fits := banner_rect.encloses(arrears_progress.get_global_rect()) and banner_rect.encloses(arrears_button.get_global_rect())
 			var clears_hud := shell_header == null or not arrears_banner.get_global_rect().intersects(shell_header.get_global_rect())
 			var crisis_style := arrears_banner.get_theme_stylebox("panel") as StyleBoxFlat
 			var crisis_is_opaque := crisis_style != null and crisis_style.bg_color.a >= 0.95
-			if arrears_banner.size.y + 1.0 < arrears_banner.get_combined_minimum_size().y or arrears_progress.size.y < 40.0 or arrears_button.text != tr("ARREARS_RESCUE") or not content_fits or not clears_hud or not crisis_is_opaque:
+			if arrears_banner.size.y + 1.0 < arrears_banner.get_combined_minimum_size().y or arrears_progress.size.y < 40.0 or arrears_button.text != tr("ARREARS_RESCUE") or arrears_close.custom_minimum_size.x < ThemeMaker.TOUCH_MIN or not content_fits or not clears_hud or not crisis_is_opaque:
 				push_error("VISUAL_SMOKE: arrears HUD is compressed or truncates its rescue action")
 				valid = false
 	if state_name == "era_unlock":
@@ -961,7 +1107,7 @@ func _viewport_bounded_surfaces_are_safe(main: Node, state_name: String) -> bool
 		if not viewport_rect.encloses(surface_rect):
 			push_error("VISUAL_SMOKE: %s viewport-bounded surface escapes the phone: %s rect=%s viewport=%s" % [state_name, surface.name, surface_rect, viewport_rect])
 			valid = false
-	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing"]:
+	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing", "dc_board_unpowered"]:
 		var board_stage := main.find_child("BoardStage", true, false) as Control
 		var page_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
 		if board_stage == null or page_scroll == null:
@@ -1171,7 +1317,13 @@ func _typography_and_touch_are_safe(main: Node, state_name: String) -> bool:
 			valid = false
 	for node: Node in main.find_children("*", "Button", true, false):
 		var button := node as Button
-		if button == null or not button.is_visible_in_tree() or button.disabled:
+		if button == null or not button.is_visible_in_tree():
+			continue
+		# A disabled control is a silent dead end on touch devices. Restricted
+		# gameplay actions must stay tappable and surface their localized reason.
+		if button.disabled:
+			push_error("VISUAL_SMOKE: %s contains silently disabled action %s" % [state_name, button.name])
+			valid = false
 			continue
 		var minimum_touch := 64.0 if button.toggle_mode else 88.0
 		if button.size.x + 1.0 < minimum_touch or button.size.y + 1.0 < minimum_touch:

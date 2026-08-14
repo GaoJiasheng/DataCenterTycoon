@@ -1,19 +1,41 @@
 class_name MarketSystem
 extends RefCounted
 
+const QUOTE_SCHEMA_VERSION := 1
+
 func ensure_state(game_state: Dictionary, data: Dictionary) -> void:
 	var market: Dictionary = game_state.get("market", {})
 	var economy: Dictionary = data.get("economy", {})
 	var day_seconds := float(economy.get("time", {}).get("real_seconds_per_game_day", 240.0))
-	if not market.has("noise"):
+	if not market.get("noise") is Dictionary:
 		market["noise"] = {}
-		for customer_id: String in data.get("customers", {}).get("items", {}):
+	for customer_id: String in data.get("customers", {}).get("items", {}):
+		# Older JSON saves can contain an explicit zero here. A missing sample is
+		# neutral market noise, never a total loss of customer demand.
+		if float(market["noise"].get(customer_id, 0.0)) <= 0.0:
 			market["noise"][customer_id] = 1.0
+	if not market.get("history") is Dictionary:
+		market["history"] = {}
 	if not market.has("next_noise_at"):
 		market["next_noise_at"] = float(game_state.get("clock", {}).get("simulation_seconds", 0.0)) + day_seconds
 	if not market.has("next_event_at") or float(market.get("next_event_at", 0.0)) > 1000000000.0:
 		market["next_event_at"] = float(economy.get("time", {}).get("real_seconds_per_game_month", 7200.0))
 	game_state["market"] = market
+	if int(market.get("quote_schema_version", 0)) < QUOTE_SCHEMA_VERSION:
+		# A previous save-loading bug looked up era 1.0 as the string "1.0" and
+		# wrote zeroes into the chart. Drop those impossible points once per save
+		# so the UI shows a neutral trend instead of a fake -100% crash.
+		var player_era := int(game_state.get("player", {}).get("era", 1))
+		for customer_id: String in data.get("customers", {}).get("items", {}):
+			var customer: Dictionary = data.get("customers", {}).get("items", {}).get(customer_id, {})
+			if int(customer.get("unlock_era", 1)) > player_era:
+				continue
+			var clean_history: Array = []
+			for point: Variant in market["history"].get(customer_id, []):
+				if point is Dictionary and float((point as Dictionary).get("value", 0.0)) > 0.0:
+					clean_history.append(point)
+			market["history"][customer_id] = clean_history
+		market["quote_schema_version"] = QUOTE_SCHEMA_VERSION
 
 func process_due(game_state: Dictionary, data: Dictionary) -> Array[Dictionary]:
 	ensure_state(game_state, data)
@@ -78,17 +100,30 @@ func next_transition_after(game_state: Dictionary, after: float, include_noise: 
 
 func customer_multiplier(customer_id: String, game_state: Dictionary, data: Dictionary, include_noise: bool = true) -> float:
 	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(customer_id, {})
-	var era := str(game_state.get("player", {}).get("era", 1))
+	var era_number := int(game_state.get("player", {}).get("era", 1))
+	var era := str(era_number)
 	var result := float(customer.get("era_baseline", {}).get(era, 0.0))
 	if result <= 0.0:
-		return 0.0
+		if customer.is_empty() or int(customer.get("unlock_era", 1)) > era_number:
+			return 0.0
+		# Valid, unlocked customers must always have a usable quote. Fall back to
+		# the latest earlier baseline (or neutral 1.0 for malformed legacy data).
+		for fallback_era: int in range(era_number - 1, 0, -1):
+			result = float(customer.get("era_baseline", {}).get(str(fallback_era), 0.0))
+			if result > 0.0:
+				break
+		if result <= 0.0:
+			result = 1.0
 	var market: Dictionary = game_state.get("market", {})
 	if include_noise:
-		result *= float(market.get("noise", {}).get(customer_id, 1.0))
+		var noise := float(market.get("noise", {}).get(customer_id, 1.0))
+		result *= noise if noise > 0.0 else 1.0
 	for active: Dictionary in market.get("active", []):
 		var event_data: Dictionary = data.get("events", {}).get("items", {}).get(active.get("event_id", ""), {})
-		result *= float(event_data.get("all_customer_multiplier", 1.0))
-		result *= float(event_data.get("customer_multipliers", {}).get(customer_id, 1.0))
+		var broad_multiplier := float(event_data.get("all_customer_multiplier", 1.0))
+		var customer_multiplier := float(event_data.get("customer_multipliers", {}).get(customer_id, 1.0))
+		result *= broad_multiplier if broad_multiplier > 0.0 else 1.0
+		result *= customer_multiplier if customer_multiplier > 0.0 else 1.0
 	return result
 
 func purchase_multiplier(kind: String, game_state: Dictionary, data: Dictionary) -> float:
