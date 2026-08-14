@@ -82,6 +82,10 @@
   "cooling": {
     "ambient_per_slot": 1
   },
+  "layout": {
+    "set_bonus_multiplier": 1.10,
+    "set_size": 3
+  },
   "bankruptcy": {
     "arrears_income_multiplier": 0.5,
     "takeover_after_online_seconds": 21600,

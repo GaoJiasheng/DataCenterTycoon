@@ -75,6 +75,19 @@ def land_price(plot_index):
     return round(land["base_price"] * growth_base ** land["growth_exponent"] * multiplier)
 
 
+def set_bonus_indices(racks):
+    """Mirror Rules.set_bonus_slots for the simulator's always-powered loadouts."""
+    result = set()
+    lines = ((0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8))
+    for line in lines:
+        if any(slot >= len(racks) or not racks[slot] for slot in line):
+            continue
+        kinds = {RACKS[racks[slot]]["kind"] for slot in line}
+        if len(kinds) == 1:
+            result.update(line)
+    return result
+
+
 @dataclass
 class Datacenter:
     building_id: str
@@ -208,13 +221,16 @@ class Simulator:
         subtotal = 0
         kinds = set()
         raw_market = dc.locked_market_multiplier
+        set_members = set_bonus_indices(dc.racks)
+        set_multiplier = ECONOMY["layout"]["set_bonus_multiplier"]
         for index, rack_id in enumerate(dc.racks):
             fault_multiplier = (ECONOMY["faults"]["faulted_income_multiplier"] if self.cozy_faults else 0.0) if index in dc.faulted else 1.0
             rack = RACKS[rack_id]
             kinds.add(rack["kind"])
             sensitivity = rack.get("market_sensitivity", 1.0)
             effective_market = max(0, 1 + (raw_market - 1) * sensitivity)
-            subtotal += rack["income_per_month"] * customer["fit"][rack["kind"]] * effective_market * fault_multiplier
+            layout_multiplier = set_multiplier if index in set_members else 1.0
+            subtotal += rack["income_per_month"] * customer["fit"][rack["kind"]] * effective_market * fault_multiplier * layout_multiplier
         if len(kinds) >= customer.get("diversity_required_kinds", 999):
             subtotal *= customer.get("diversity_multiplier", 1)
         age = max(0, Simulator.now - dc.built_at) / BUILDINGS[dc.building_id]["lifespan_seconds"]
@@ -644,6 +660,21 @@ def strategic_lock_cap_probe():
     )
 
 
+def layout_set_probe():
+    racks = ["rack_compute_t2"] * 3 + ["rack_storage_t2"] * 3 + ["rack_gpu_t1"] * 3
+    members = set_bonus_indices(racks)
+    sim = Simulator("active", 37)
+    Simulator.now = 0.0
+    dc = Datacenter("dc_t3", 0.0, 0.0, racks, customer="cloud", locked_market_multiplier=1.0)
+    with_set = sim.dc_monthly_income(dc)
+    original = ECONOMY["layout"]["set_bonus_multiplier"]
+    ECONOMY["layout"]["set_bonus_multiplier"] = 1.0
+    without_set = sim.dc_monthly_income(dc)
+    ECONOMY["layout"]["set_bonus_multiplier"] = original
+    diversity = CUSTOMERS["cloud"].get("diversity_multiplier", 1.0)
+    return len(members) == 9 and math.isclose(diversity, 1.15) and math.isclose(with_set, without_set * original)
+
+
 def rare_event_frequency_probe(seed_count=20, draws_per_seed=1000):
     eligible = [
         (event_id, event) for event_id, event in EVENTS.items()
@@ -695,6 +726,7 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
         (contract_locking_probe(), "mining downturn leaves an existing contract unchanged until automatic renewal"),
         (contract_terms_probe(), "flexible, standard, and relationship-gated strategic terms preserve their authored risk/reward order"),
         (strategic_lock_cap_probe(), "five-times rare quotes remain uncapped for flexible/standard terms and cap strategic locks at 2.5x"),
+        (layout_set_probe(), "three same-kind rows receive one 1.10x set bonus while retaining the cloud 1.15x diversity bonus"),
         (rare_frequency_ok, f"rare-event share is {rare_observed:.2%} versus authored {rare_expected:.2%} (within ±50%)"),
         (active_idle_net_ratio <= 25.0, f"active/idle day-30 net-worth ratio is {active_idle_net_ratio:.2f}x (target <=25x)"),
         (retirement_harvest_probe(), "normal retirement beats ruin scrap for every loadout at each 0.1% step from 60.0% through 99.9% lifespan"),
@@ -733,6 +765,8 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
     print(f"{'PASS' if aggressive.arrears else 'TUNE'}: aggressive arrears={aggressive.arrears}; minimum maintenance coverage={coverage:.2f}x")
     diversified = all(len({RACKS[rack]["kind"] for rack in loadout[0]}) >= 2 for key, loadout in LOADOUTS.items() if key != "dc_t0")
     print(f"{'PASS' if diversified else 'TUNE'}: every post-tutorial reference loadout uses at least two rack kinds")
+    grouped = all(bool(set_bonus_indices(loadout[0])) for key, loadout in LOADOUTS.items() if key != "dc_t0")
+    print(f"{'PASS' if grouped else 'TUNE'}: every post-tutorial reference loadout preserves diversity while forming at least one same-kind row")
 
 
 def main():

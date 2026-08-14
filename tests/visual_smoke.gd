@@ -2,6 +2,7 @@ extends Node
 
 const MAIN_SCENE := preload("res://main.tscn")
 const Market := preload("res://gameplay/market_system.gd")
+const Rules := preload("res://gameplay/game_rules.gd")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
 const OUTPUT_ROOT_PREFIX := "/tmp/data_center_tycoon_visual_"
 const PREVIEW_SIZE := Vector2i(990, 2151)
@@ -230,6 +231,32 @@ func _ready() -> void:
 	dc["free_switch_available"] = true
 	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
 	valid = (await _capture(main, "dc_board")) and valid
+	var set_fixture := {
+		"building_id": dc.get("building_id", ""),
+		"power_unit": dc.get("power_unit", ""),
+		"coolers": dc.get("coolers", {}).duplicate(true),
+		"racks": dc.get("racks", []).duplicate(true),
+	}
+	dc["building_id"] = "dc_t3"
+	dc["power_unit"] = "power_t2"
+	dc["coolers"] = {"north": "cool_air_t1"}
+	var set_racks: Array = []
+	set_racks.resize(9)
+	set_racks.fill(null)
+	for slot: int in [0, 1, 2]:
+		set_racks[slot] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true, "fault_at": -1.0}
+	for slot: int in [3, 4]:
+		set_racks[slot] = {"rack_id": "rack_storage_t1", "status": "active", "enabled": true, "fault_at": -1.0}
+	dc["racks"] = set_racks
+	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
+	var set_board := main.call("_visible_datacenter_board", str(dc.get("id", ""))) as DatacenterBoard
+	if set_board != null:
+		set_board.call("set_placement_preview", 5, "rack_storage_t1")
+	valid = (await _capture(main, "dc_board_set_bonus", false)) and valid
+	dc["building_id"] = set_fixture["building_id"]
+	dc["power_unit"] = set_fixture["power_unit"]
+	dc["coolers"] = set_fixture["coolers"]
+	dc["racks"] = set_fixture["racks"]
 	dc["power_unit"] = "power_t2"
 	dc["racks"][4] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true, "fault_at": -1.0}
 	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
@@ -347,7 +374,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 42 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
+	print("VISUAL_SMOKE: %s 43 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:
@@ -394,14 +421,17 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	if name == "era_unlock":
 		await get_tree().create_timer(1.25).timeout
 	await get_tree().create_timer(0.24).timeout
-	if name == "dc_board_placing":
+	if name in ["dc_board_placing", "dc_board_set_bonus"]:
 		# A pending live-page refresh may replace the board during the capture
 		# delay. Apply the preview to the final visible board immediately before
 		# layout validation so the nine-state gate is deterministic.
 		var selected_id := str(main.get("selected_datacenter_id"))
 		var live_board := main.call("_visible_datacenter_board", selected_id) as DatacenterBoard
 		if live_board != null:
-			live_board.set_placement_preview(3, "rack_gpu_t1")
+			if name == "dc_board_set_bonus":
+				live_board.set_placement_preview(5, "rack_storage_t1")
+			else:
+				live_board.set_placement_preview(3, "rack_gpu_t1")
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
@@ -827,7 +857,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if quick_power == null or not "$600" in quick_power.text or unpowered_usage == null or str(unpowered_usage.get_meta("display_copy", "")) != tr("POWER_UNPOWERED_HINT") or bool(unpowered_usage.get_meta("power_pending", true)) or unpowered_meter == null:
 			push_error("VISUAL_SMOKE: unpowered board does not expose the price-disclosed one-tap recovery path")
 			valid = false
-	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing"]:
+	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing", "dc_board_set_bonus"]:
 		var board := main.find_child("DatacenterBoard", true, false)
 		var power_meter := main.find_child("BoardPowerMeter", true, false)
 		if board == null or power_meter == null:
@@ -840,23 +870,32 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if coverage_count != 3:
 			push_error("VISUAL_SMOKE: %s expected three north-cooler coverage tiles, got %d" % [state_name, coverage_count])
 			valid = false
-		if state_name == "dc_board_placing" and main.find_children("PlacementState", "", true, false).size() != 9:
+		if state_name in ["dc_board_placing", "dc_board_set_bonus"] and main.find_children("PlacementState", "", true, false).size() != 9:
 			push_error("VISUAL_SMOKE: placement preview does not classify all nine slots")
 			valid = false
 		var placement_badges := main.find_children("PlacementState", "PanelContainer", true, false)
 		for placement_node: Node in placement_badges:
 			var placement_state := str(placement_node.get_meta("placement_state", ""))
-			var should_show := placement_state in ["ok", "heat", "power"]
-			if placement_state not in ["ok", "heat", "power", "locked", "occupied"] or (placement_node as Control).visible != should_show:
+			var should_show := placement_state in ["ok", "heat", "power", "set_bonus"]
+			if placement_state not in ["ok", "heat", "power", "set_bonus", "locked", "occupied"] or (placement_node as Control).visible != should_show:
 				push_error("VISUAL_SMOKE: placement preview state is not semantically visible: %s" % placement_state)
 				valid = false
 		for symbol_node: Node in main.find_children("PlacementSymbol", "Label", true, false):
 			if (symbol_node as Label).text not in ["✓", "⚡", "♨"]:
 				push_error("VISUAL_SMOKE: placement preview uses an illegal text badge %s" % (symbol_node as Label).text)
 				valid = false
-		if state_name != "dc_board_placing" and not placement_badges.is_empty():
+		if state_name not in ["dc_board_placing", "dc_board_set_bonus"] and not placement_badges.is_empty():
 			push_error("VISUAL_SMOKE: non-placement board retains placement badges")
 			valid = false
+		if state_name == "dc_board_set_bonus":
+			var selected_dc := Game.find_datacenter(str(main.get("selected_datacenter_id")))
+			var authoritative_members := Rules.set_bonus_slots(selected_dc, DataRepository.get_table("racks"), DataRepository.get_table("attachments"))
+			var set_preview_visible := false
+			for placement_node: Node in placement_badges:
+				set_preview_visible = set_preview_visible or str(placement_node.get_meta("placement_state", "")) == "set_bonus"
+			if authoritative_members.count(true) != 3 or main.find_children("SetBonusLine_*", "Line2D", true, false).size() != 1 or main.find_children("SetBonusBadge_*", "PanelContainer", true, false).size() != 1 or not set_preview_visible:
+				push_error("VISUAL_SMOKE: set-bonus board must share one authoritative row, one glow/badge, and a visible completion preview")
+				valid = false
 		if state_name == "dc_board":
 			var compute_neutral_floor := {"rack_compute_t1_active": 0.14, "rack_compute_t1_dark": 0.08, "rack_compute_t2_active": 0.17, "rack_compute_t2_dark": 0.12}
 			for compute_asset: String in compute_neutral_floor:
@@ -889,8 +928,11 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		for cooler_node: Node in main.find_children("Cooler_*", "Button", true, false):
 			if str(cooler_node.get_meta("cooler_state", "")) == "locked":
 				locked_coolers += 1
-		if locked_coolers != 3:
-			push_error("VISUAL_SMOKE: T0 board expected three locked cooler slots, got %d" % locked_coolers)
+		var selected_dc := Game.find_datacenter(str(main.get("selected_datacenter_id")))
+		var selected_building := DataRepository.get_entry("buildings", str(selected_dc.get("building_id", "")))
+		var expected_locked_coolers := 4 - int(selected_building.get("cooler_slots", 0))
+		if locked_coolers != expected_locked_coolers:
+			push_error("VISUAL_SMOKE: board expected %d locked cooler slots, got %d" % [expected_locked_coolers, locked_coolers])
 			valid = false
 		if power_meter != null and (power_meter as Control).size.y < 40.0:
 			push_error("VISUAL_SMOKE: board power meter is below 40u")
@@ -1117,7 +1159,7 @@ func _viewport_bounded_surfaces_are_safe(main: Node, state_name: String) -> bool
 		if not viewport_rect.encloses(surface_rect):
 			push_error("VISUAL_SMOKE: %s viewport-bounded surface escapes the phone: %s rect=%s viewport=%s" % [state_name, surface.name, surface_rect, viewport_rect])
 			valid = false
-	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing", "dc_board_unpowered"]:
+	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing", "dc_board_set_bonus", "dc_board_unpowered"]:
 		var board_stage := main.find_child("BoardStage", true, false) as Control
 		var page_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
 		if board_stage == null or page_scroll == null:

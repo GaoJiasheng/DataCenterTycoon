@@ -77,6 +77,11 @@ def validate_references():
         ERRORS.append("economy/aging: normal attachment recovery cannot trail ruin scrap")
     if float(aging.get("rack_refund_ratio", 0)) < 0.5:
         ERRORS.append("economy/aging: normal rack recovery cannot trail the 50% ruin scrap rule")
+    layout = DATA["economy"].get("layout", {})
+    if int(layout.get("set_size", 0)) != 3:
+        ERRORS.append("economy/layout: set_size must remain three for the 3x3 rack board")
+    if not 1.0 <= float(layout.get("set_bonus_multiplier", 0)) <= 1.25:
+        ERRORS.append("economy/layout: set_bonus_multiplier must stay within 1.00–1.25")
     auto_retirement = DATA["technology"].get("upgrades", {}).get("auto_retirement", {}).get("levels", {}).get("1", {})
     if float(auto_retirement.get("cost", 0)) != 15000 or int(auto_retirement.get("unlock_era", 0)) != 2:
         ERRORS.append("technology/auto_retirement: expected one Era 2 level costing 15000")

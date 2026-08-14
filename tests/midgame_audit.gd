@@ -7,6 +7,7 @@ extends Node
 # remain available for manual visual review:
 #   godot --headless --path . tests/midgame_audit.tscn
 const MAIN_SCENE := preload("res://main.tscn")
+const Rules := preload("res://gameplay/game_rules.gd")
 const OUT := "/tmp/dct_mid_"
 
 var main: Node
@@ -23,6 +24,13 @@ func _ready() -> void:
 	add_child(main)
 	await _shot("m0_daily_map_overview")
 	_assert_building_variants()
+	var set_dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	set_dc["racks"][2] = {"rack_id": "rack_compute_t1", "status": "active", "installed_at": Game.simulation_time(), "fault_at": -1.0, "enabled": true}
+	main.call("_open_datacenter", str(set_dc.get("id", "")))
+	await _shot("m0_set_bonus_drawer")
+	_assert_set_bonus_authority(set_dc)
+	_close("DatacenterContext")
+	await get_tree().process_frame
 	# --- fault flow ---
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
 	var dc_id := str(dc.get("id", ""))
@@ -218,6 +226,14 @@ func _assert_building_variants() -> void:
 		var first: Dictionary = seen[0]
 		var second: Dictionary = seen[1]
 		_expect(not bool(first.get("flip", true)) and not bool(second.get("flip", true)) and absf(float(first.get("hue", 0.0)) - float(second.get("hue", 0.0))) <= 4.1 and first.get("material") is ShaderMaterial and second.get("material") is ShaderMaterial, "M12 every building must keep the authored isometric orientation; color variation stays below four degrees")
+
+func _assert_set_bonus_authority(dc: Dictionary) -> void:
+	var members := Rules.set_bonus_slots(dc, DataRepository.get_table("racks"), DataRepository.get_table("attachments"))
+	var income_value := main.find_child("DatacenterIncomeValue", true, false) as Label
+	var expected_income := Game.format_number(Game.datacenter_monthly_income(dc))
+	_expect(members.count(true) == 3, "B2 mid-game fixture must form exactly one authoritative same-kind row")
+	_expect(main.find_children("SetBonusLine_*", "Line2D", true, false).size() == 1 and main.find_children("SetBonusBadge_*", "PanelContainer", true, false).size() == 1, "B2 authoritative set membership must render one matching glow and one +10% badge")
+	_expect(income_value != null and income_value.text.contains(expected_income), "B2 drawer monthly income must display the same authoritative formula that owns the set bonus")
 
 func _assert_alert_badge(alert_type: String, expected_tone: String, breathing: bool) -> void:
 	var badge := _alert_badge(alert_type)

@@ -744,6 +744,65 @@ func _run_gameplay_depth_tests() -> void:
 	Game._ensure_state_shape()
 	_expect(is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), 5.0), "loading a legacy strategic contract never retroactively clamps its saved lock rate")
 
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	dc = _test_datacenter("dc_set_bonus", "dc_t3")
+	dc["power_unit"] = "power_t3"
+	dc["coolers"] = {"north": "cool_liquid_t2", "south": "cool_liquid_t2", "east": "cool_liquid_t2", "west": "cool_liquid_t2"}
+	dc["customer_id"] = "cloud"
+	dc["locked_market_multiplier"] = 1.0
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var racks_table: Dictionary = Game.data["racks"]
+	var attachments_table: Dictionary = Game.data["attachments"]
+	var authored_set_multiplier := float(Game.data["economy"]["layout"]["set_bonus_multiplier"])
+	for slot: int in [0, 1, 2]:
+		dc["racks"][slot] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	var row_members := Rules.set_bonus_slots(dc, racks_table, attachments_table)
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = 1.0
+	var row_base_income := Game.datacenter_monthly_income(dc)
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = authored_set_multiplier
+	var row_set_income := Game.datacenter_monthly_income(dc)
+	_expect(row_members[0] and row_members[1] and row_members[2] and row_members.count(true) == 3 and is_equal_approx(row_set_income, row_base_income * authored_set_multiplier), "a complete powered same-kind row grants every member exactly the authored ten-percent bonus")
+
+	dc["racks"].fill(null)
+	for slot: int in [0, 3, 6]:
+		dc["racks"][slot] = {"rack_id": "rack_storage_t1", "status": "active", "enabled": true}
+	var column_members := Rules.set_bonus_slots(dc, racks_table, attachments_table)
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = 1.0
+	var column_base_income := Game.datacenter_monthly_income(dc)
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = authored_set_multiplier
+	var column_set_income := Game.datacenter_monthly_income(dc)
+	_expect(column_members[0] and column_members[3] and column_members[6] and column_members.count(true) == 3 and is_equal_approx(column_set_income, column_base_income * authored_set_multiplier), "a complete powered same-kind column grants every member exactly the authored ten-percent bonus")
+
+	dc["racks"].fill(null)
+	for slot: int in [0, 1, 2, 3, 6]:
+		dc["racks"][slot] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	var cross_members := Rules.set_bonus_slots(dc, racks_table, attachments_table)
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = 1.0
+	var cross_base_income := Game.datacenter_monthly_income(dc)
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = authored_set_multiplier
+	var cross_set_income := Game.datacenter_monthly_income(dc)
+	_expect(cross_members.count(true) == 5 and is_equal_approx(cross_set_income, cross_base_income * authored_set_multiplier), "an intersecting row and column mark their union but never stack the center rack bonus")
+
+	dc["racks"][2] = null
+	_expect(Rules.set_bonus_slots(dc, racks_table, attachments_table).count(true) == 3, "removing one row member immediately removes only that row bonus while preserving an independent column")
+	dc["racks"][2] = {"rack_id": "rack_compute_t1", "status": "installing", "enabled": true}
+	_expect(Rules.set_bonus_slots(dc, racks_table, attachments_table).count(true) == 3, "an installing rack breaks its line without disturbing another complete line")
+	dc["racks"][2] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": false}
+	_expect(Rules.set_bonus_slots(dc, racks_table, attachments_table).count(true) == 3, "a paused rack breaks its line without disturbing another complete line")
+	dc["power_unit"] = ""
+	_expect(Rules.set_bonus_slots(dc, racks_table, attachments_table).count(true) == 0, "unpowered racks cannot form a set")
+	dc["power_unit"] = "power_t3"
+	dc["racks"][2] = {"rack_id": "rack_compute_t1", "status": "faulted", "enabled": true}
+	cross_members = Rules.set_bonus_slots(dc, racks_table, attachments_table)
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = 1.0
+	var faulted_base_income := Game.datacenter_monthly_income(dc)
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = authored_set_multiplier
+	var faulted_set_income := Game.datacenter_monthly_income(dc)
+	_expect(cross_members.count(true) == 5 and is_equal_approx(faulted_set_income, faulted_base_income * authored_set_multiplier), "a faulted rack keeps set membership and applies degradation before the single set multiplier")
+	Game.data["economy"]["layout"]["set_bonus_multiplier"] = authored_set_multiplier
+
 func _test_datacenter(id: String, building_id: String) -> Dictionary:
 	var racks: Array = []
 	racks.resize(9)

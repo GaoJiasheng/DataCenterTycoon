@@ -96,6 +96,9 @@ func placement_state_for_slot(slot: int, rack_id: String = "") -> Dictionary:
 		return {"state": "power", "symbol": "power", "hint": power_hint, "color": ThemeMaker.SEMANTIC.get("danger", ThemeMaker.COLORS.red)}
 	if bool(runtime.get("overheated", false)):
 		return {"state": "heat", "symbol": "heat", "hint": tr("BOARD_OVERHEAT_HINT"), "color": ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)}
+	var set_members := Rules.set_bonus_slots(simulated, DataRepository.get_table("racks"), DataRepository.get_table("attachments"))
+	if set_members[slot]:
+		return {"state": "set_bonus", "symbol": "set", "hint": tr("BOARD_PLACE_SET"), "color": ThemeMaker.COLORS.purple}
 	return {"state": "ok", "symbol": "ok", "hint": tr("BOARD_PLACE_OK"), "color": ThemeMaker.SEMANTIC.get("success", ThemeMaker.COLORS.green)}
 
 func tutorial_target_rect(focus: String) -> Rect2:
@@ -167,6 +170,7 @@ func _rebuild() -> void:
 	call_deferred("_update_stage_scale")
 	_add_interior(stage)
 	_add_coverage(stage, dc)
+	_add_set_bonus(stage, dc)
 	_add_slots(stage, dc)
 	_add_coolers(stage, dc)
 	_add_power_meter(dc)
@@ -207,10 +211,46 @@ func _add_coverage(stage: Control, dc: Dictionary) -> void:
 			stage.add_child(frost)
 			frost.create_tween().tween_property(frost, "scale:x", 1.0, 0.30).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 
+func _add_set_bonus(stage: Control, dc: Dictionary) -> void:
+	var lines := Rules.set_bonus_lines(dc, DataRepository.get_table("racks"), DataRepository.get_table("attachments"))
+	for line_index: int in range(lines.size()):
+		var line: Array = lines[line_index]
+		var glow := Line2D.new()
+		glow.name = "SetBonusLine_%d" % line_index
+		glow.width = 12.0
+		glow.default_color = Color(ThemeMaker.COLORS.purple, 0.48)
+		glow.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		glow.end_cap_mode = Line2D.LINE_CAP_ROUND
+		glow.joint_mode = Line2D.LINE_JOINT_ROUND
+		for slot: int in line:
+			glow.add_point(_cell_position(slot) + CELL_SIZE * 0.5)
+		stage.add_child(glow)
+		var badge := PanelContainer.new()
+		badge.name = "SetBonusBadge_%d" % line_index
+		badge.custom_minimum_size = Vector2(72, 36)
+		badge.size = Vector2(72, 36)
+		var last_center := _cell_position(int(line[-1])) + CELL_SIZE * 0.5
+		# Keep the line-end reward entirely inside the authored 3×3 floor. The old
+		# outside placement was clipped by the responsive page at phone width.
+		badge.position = last_center + (Vector2(8, -65) if line_index < 3 else Vector2(-36, 8))
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("31244d"), ThemeMaker.COLORS.purple, 2, 18))
+		var label := Label.new()
+		label.text = "+10%"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", 16)
+		label.add_theme_color_override("font_color", Color.WHITE)
+		label.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+		label.add_theme_constant_override("outline_size", 3)
+		badge.add_child(label)
+		stage.add_child(badge)
+
 func _add_slots(stage: Control, dc: Dictionary) -> void:
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
 	var unlocked := _unlocked_slots(building)
 	var racks: Array = dc.get("racks", [])
+	var set_members := Rules.set_bonus_slots(dc, DataRepository.get_table("racks"), DataRepository.get_table("attachments"))
 	for slot: int in range(9):
 		var button := Button.new()
 		button.name = "RackSlot%d" % slot
@@ -236,6 +276,9 @@ func _add_slots(stage: Control, dc: Dictionary) -> void:
 			elif bool(runtime.get("overheated", false)):
 				fill = Color(ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange), 0.35)
 				border = ThemeMaker.SEMANTIC.get("warning", ThemeMaker.COLORS.orange)
+			elif set_members[slot]:
+				fill = Color(ThemeMaker.COLORS.purple, 0.20)
+				border = ThemeMaker.COLORS.purple
 		elif open:
 			fill = ThemeMaker.SURFACE_GROUP
 			border = Color("8db8d5", 0.54)
@@ -375,7 +418,7 @@ func _add_preview_badge(button: Button, state: Dictionary) -> void:
 	badge.add_theme_stylebox_override("panel", badge_style)
 	# Placement verdicts read as art icons rather than glyphs. The shipped font
 	# subsets have no ⚡/♨ coverage, so on device the badges came up empty.
-	var icon_id := {"power": "ic_power", "heat": "ic_heat", "ok": "ic_check"}.get(symbol, "") as String
+	var icon_id := {"power": "ic_power", "heat": "ic_heat", "ok": "ic_check", "set": "ic_market_up"}.get(symbol, "") as String
 	var texture := AssetCatalog.texture(icon_id) if not icon_id.is_empty() else null
 	if texture != null:
 		var view := TextureRect.new()
@@ -579,6 +622,7 @@ func _show_rack_tooltip(slot: int, anchor: Control) -> void:
 	var installed: Dictionary = dc.get("racks", [])[slot]
 	var rack := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
 	var runtime := Rules.rack_runtime_status(dc, slot, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
+	var set_members := Rules.set_bonus_slots(dc, DataRepository.get_table("racks"), DataRepository.get_table("attachments"))
 	_tooltip = PanelContainer.new()
 	_tooltip.name = "RackTooltip"
 	_tooltip.position = anchor.position + Vector2(-12, -116)
@@ -586,12 +630,13 @@ func _show_rack_tooltip(slot: int, anchor: Control) -> void:
 	_tooltip.z_index = 20
 	_tooltip.add_theme_stylebox_override("panel", ThemeMaker.flat_group_box(ThemeMaker.COLORS.cyan))
 	var label := Label.new()
-	label.text = "%s\n%s %s · %s %s · %s %s\n$%s" % [
+	label.text = "%s\n%s %s · %s %s · %s %s\n$%s%s" % [
 		tr(rack.get("name_key", "")),
 		tr("STAT_POWER_DRAW"), Game.format_number(float(rack.get("power", 0.0))),
 		tr("STAT_HEAT_OUTPUT"), Game.format_number(float(rack.get("heat", 0.0))),
 		tr("STAT_COOLED"), Game.format_number(float(runtime.get("cooling", 0.0))),
 		Game.format_number(float(rack.get("income_per_month", 0.0))),
+		"\n%s" % tr("RACK_SET_BONUS_CONTRIBUTION") if set_members[slot] else "",
 	]
 	label.add_theme_font_size_override("font_size", ThemeMaker.TYPE_SCALE.caption)
 	label.add_theme_constant_override("line_spacing", ThemeMaker.TEXT_LINE_SPACING)

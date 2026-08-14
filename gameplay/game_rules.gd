@@ -165,6 +165,44 @@ static func rack_runtime_status(datacenter: Dictionary, slot: int, racks_table: 
 		"heat": float(rack.get("heat", 0.0)),
 	}
 
+static func set_bonus_lines(datacenter: Dictionary, racks_table: Dictionary, attachments_table: Dictionary) -> Array:
+	var result: Array = []
+	var powered := powered_slots(datacenter, racks_table, attachments_table)
+	var racks: Array = datacenter.get("racks", [])
+	var lines := [
+		[0, 1, 2], [3, 4, 5], [6, 7, 8],
+		[0, 3, 6], [1, 4, 7], [2, 5, 8],
+	]
+	for line: Array in lines:
+		var kind := ""
+		var complete := true
+		for slot: int in line:
+			if slot >= racks.size() or not racks[slot] is Dictionary or racks[slot].is_empty() or not powered[slot]:
+				complete = false
+				break
+			var installed: Dictionary = racks[slot]
+			if str(installed.get("status", "active")) not in ["active", "faulted"]:
+				complete = false
+				break
+			var rack: Dictionary = racks_table.get("items", {}).get(installed.get("rack_id", ""), {})
+			var slot_kind := str(rack.get("kind", ""))
+			if slot_kind.is_empty() or (not kind.is_empty() and slot_kind != kind):
+				complete = false
+				break
+			kind = slot_kind
+		if complete:
+			result.append(line.duplicate())
+	return result
+
+static func set_bonus_slots(datacenter: Dictionary, racks_table: Dictionary, attachments_table: Dictionary) -> Array[bool]:
+	var result: Array[bool] = []
+	result.resize(9)
+	result.fill(false)
+	for line: Array in set_bonus_lines(datacenter, racks_table, attachments_table):
+		for slot: int in line:
+			result[slot] = true
+	return result
+
 static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dictionary, data: Dictionary, market_multiplier: Callable) -> float:
 	if datacenter.get("status", "") != "operational":
 		return 0.0
@@ -184,6 +222,8 @@ static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dict
 	var result := 0.0
 	var kinds: Dictionary = {}
 	var powered := powered_slots(datacenter, racks_table, attachments)
+	var set_members := set_bonus_slots(datacenter, racks_table, attachments)
+	var set_multiplier := float(data.get("economy", {}).get("layout", {}).get("set_bonus_multiplier", 1.10))
 	var racks: Array = datacenter.get("racks", [])
 	for slot: int in range(mini(9, racks.size())):
 		if not racks[slot] is Dictionary or racks[slot].is_empty() or not powered[slot]:
@@ -202,7 +242,8 @@ static func datacenter_income_per_month(datacenter: Dictionary, game_state: Dict
 		var sensitivity := float(rack.get("market_sensitivity", 1.0))
 		var effective_market_multiplier := maxf(0.0, 1.0 + (raw_market_multiplier - 1.0) * sensitivity)
 		var fault_multiplier := float(data.get("economy", {}).get("faults", {}).get("faulted_income_multiplier", 0.4)) if rack_status == "faulted" else 1.0
-		result += float(rack.get("income_per_month", 0.0)) * float(customer.get("fit", {}).get(kind, 0.0)) * overheat_multiplier * effective_market_multiplier * fault_multiplier
+		var layout_multiplier := set_multiplier if set_members[slot] else 1.0
+		result += float(rack.get("income_per_month", 0.0)) * float(customer.get("fit", {}).get(kind, 0.0)) * overheat_multiplier * effective_market_multiplier * fault_multiplier * layout_multiplier
 	if kinds.size() >= int(customer.get("diversity_required_kinds", 999)):
 		result *= float(customer.get("diversity_multiplier", 1.0))
 	var player: Dictionary = game_state.get("player", {})

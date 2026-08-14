@@ -474,6 +474,9 @@ BOARD_NEED_POWER,Upgrade the transformer first,需要先升级变压器
 BOARD_INSTALL_POWER,Install a transformer first,先安装变压器
 BOARD_UPGRADE_POWER,Upgrade the transformer first,需要先升级变压器
 BOARD_PLACE_OK,Cooling and power are sufficient,制冷与供电充足
+BOARD_PLACE_SET,Completes a rack set · +10%,组成同类机柜组 · +10%
+RACK_SET_BONUS,Rack set +10%,成组加成 +10%
+RACK_SET_BONUS_CONTRIBUTION,Set contribution +10% income,成组贡献 +10% 收入
 RACK_TRAIT_STABLE,Stable returns,收益稳定
 RACK_TRAIT_BALANCED,Balanced exposure,均衡收益
 RACK_TRAIT_VOLATILE,Moves with the market,随行情波动
