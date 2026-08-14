@@ -854,11 +854,19 @@ func _operations_tasks(include_market: bool = true) -> Array[Dictionary]:
 				"subtitle": tr("TASK_RETIRE_SUBTITLE") % [Game.format_number(Rules.retirement_value(dc, now, Game.data)), Game.format_number(Game.datacenter_monthly_income(dc))],
 				"action": tr("TASK_GO_DECIDE"),
 			})
+	var open_inquiries: Array = Game.state.get("inquiries", {}).get("open", [])
+	if not open_inquiries.is_empty():
+		tasks.append({
+			"id": "inquiry", "type": "inquiry", "priority": 3,
+			"datacenter_id": "", "slot": -1, "asset": "ic_contract", "accent": ThemeMaker.COLORS.yellow,
+			"title": tr("INQUIRY_NEW_TASK"),
+			"subtitle": tr("INQUIRY_NEW_TASK_SUBTITLE") % open_inquiries.size(), "action": tr("INQUIRY_NEW_TASK_ACTION"),
+		})
 	if include_market:
 		for active: Dictionary in Game.state.get("market", {}).get("active", []):
 			var event := DataRepository.get_entry("events", str(active.get("event_id", "")))
 			tasks.append({
-				"id": "market:%s" % str(active.get("event_id", "")), "type": "market", "priority": 3,
+				"id": "market:%s" % str(active.get("event_id", "")), "type": "market", "priority": 4,
 				"datacenter_id": "", "slot": -1, "asset": "ic_market_up", "accent": ThemeMaker.COLORS.green,
 				"title": tr("TASK_MARKET_TITLE") % tr(event.get("name_key", "NAV_MARKET")),
 				"subtitle": tr("TASK_MARKET_SUBTITLE"), "action": tr("TASK_VIEW_MARKET"),
@@ -1038,7 +1046,7 @@ func _run_operations_task(task: Dictionary) -> void:
 		"fault": _show_rack_actions(datacenter_id, int(task.get("slot", -1)))
 		"renewal": _open_datacenter_detail(datacenter_id, "contracts")
 		"retire": _show_datacenter_context(datacenter_id)
-		"market": _navigate("market")
+		"market", "inquiry": _navigate("market")
 		_: _handle_result({"ok": false, "reason": "unknown"})
 
 func _operation_module_card(module: Dictionary, action: Callable, compact: bool = false) -> Button:
@@ -1497,6 +1505,8 @@ func _build_market_page() -> Control:
 			rare_row.add_child(rare_copy)
 			box.add_child(rare_banner)
 			break
+	if _inquiries_enabled():
+		box.add_child(_build_inquiry_section())
 	var chart_card := _card()
 	var chart_box := VBoxContainer.new()
 	chart_box.add_theme_constant_override("separation", 10)
@@ -1539,6 +1549,158 @@ func _build_market_page() -> Control:
 		customers.add_child(_customer_market_card(customer_id, customer))
 	box.add_child(_build_market_review_section())
 	return _wrap_scroll(box)
+
+func _inquiries_enabled() -> bool:
+	var minimum := int(DataRepository.get_table("inquiries").get("settings", {}).get("min_datacenters_built", 2))
+	return bool(Game.state.get("tutorial", {}).get("completed", false)) and int(Game.state.get("player", {}).get("total_datacenters_built", 0)) >= minimum
+
+func _build_inquiry_section() -> Control:
+	var section := VBoxContainer.new()
+	section.name = "InquiryBoard"
+	section.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	section.add_child(_section_title(tr("INQUIRY_BOARD"), tr("INQUIRY_BOARD_HINT")))
+	var open: Array = Game.state.get("inquiries", {}).get("open", [])
+	if open.is_empty():
+		section.add_child(_status_card("ic_contract", tr("INQUIRY_EMPTY"), ThemeMaker.COLORS.cyan, true))
+		return section
+	var cards := VBoxContainer.new()
+	cards.name = "InquiryCards"
+	cards.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	section.add_child(cards)
+	for inquiry: Dictionary in open:
+		cards.add_child(_inquiry_card(inquiry))
+	return section
+
+func _inquiry_card(inquiry: Dictionary) -> Control:
+	var template := DataRepository.get_table("inquiries").get("items", {}).get(str(inquiry.get("template_id", "")), {}) as Dictionary
+	var customer := DataRepository.get_entry("customers", str(template.get("customer_id", "")))
+	var card := Widgets.flat_card(ThemeMaker.COLORS.yellow)
+	card.name = "InquiryCard_%s" % str(inquiry.get("id", ""))
+	card.set_meta("inquiry_id", str(inquiry.get("id", "")))
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	card.add_child(box)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	box.add_child(top)
+	top.add_child(_icon_view(str(customer.get("asset_id", "ic_contract")), Vector2(68, 68)))
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.add_theme_constant_override("separation", 4)
+	top.add_child(copy)
+	var title := _label(tr(str(template.get("name_key", "INQUIRY_BOARD"))), ThemeMaker.TYPE_SCALE.heading, ThemeMaker.COLORS.cream)
+	title.name = "InquiryTitle"
+	title.max_lines_visible = 1
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	ThemeMaker.apply_text_role(title, "title")
+	copy.add_child(title)
+	var description := _label(tr(str(template.get("description_key", ""))), ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+	description.max_lines_visible = 1
+	description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	copy.add_child(description)
+	var best_quote := _best_inquiry_offer(str(inquiry.get("id", "")))
+	var requirement := _label(_inquiry_requirement_text(template, best_quote.get("evaluation", {})), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.green if bool(best_quote.get("eligible", false)) else ThemeMaker.COLORS.orange)
+	requirement.name = "InquiryRequirement"
+	requirement.max_lines_visible = 1
+	requirement.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	box.add_child(requirement)
+	var duration := DataRepository.get_table("meta_progression").get("contract_durations", {}).get(str(template.get("duration_id", "standard")), {}) as Dictionary
+	var bonus_text := "$%s" % Game.format_number(float(best_quote.get("bonus", 0.0))) if bool(best_quote.get("eligible", false)) else "—"
+	var terms := _label(tr("INQUIRY_TERMS") % [tr(str(duration.get("name_key", "CONTRACT_DURATION_STANDARD"))), int(round((float(template.get("premium", 1.0)) - 1.0) * 100.0)), bonus_text], ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.yellow)
+	terms.name = "InquiryTerms"
+	terms.max_lines_visible = 1
+	terms.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	box.add_child(terms)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	box.add_child(actions)
+	var review := Widgets.button(tr("INQUIRY_VIEW_DATACENTERS"), _show_inquiry_datacenter_picker.bind(str(inquiry.get("id", ""))), "secondary")
+	review.name = "InquiryReview_%s" % str(inquiry.get("id", ""))
+	review.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	review.mouse_filter = Control.MOUSE_FILTER_PASS
+	review.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+	actions.add_child(review)
+	var decline := Widgets.button(tr("INQUIRY_DECLINE"), _decline_inquiry.bind(str(inquiry.get("id", ""))), "ghost")
+	decline.name = "InquiryDecline_%s" % str(inquiry.get("id", ""))
+	decline.custom_minimum_size.x = 184
+	decline.mouse_filter = Control.MOUSE_FILTER_PASS
+	decline.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+	actions.add_child(decline)
+	return card
+
+func _best_inquiry_offer(inquiry_id: String) -> Dictionary:
+	var best: Dictionary = {}
+	for plot: Dictionary in Game.state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if not dc is Dictionary or str((dc as Dictionary).get("status", "")) != "operational":
+			continue
+		var quote := Game.inquiry_offer(inquiry_id, str((dc as Dictionary).get("id", "")))
+		if bool(quote.get("eligible", false)) and (best.is_empty() or float(quote.get("projected", 0.0)) > float(best.get("projected", 0.0))):
+			best = quote
+		elif best.is_empty():
+			best = quote
+	return best
+
+func _inquiry_requirement_text(template: Dictionary, evaluation: Dictionary) -> String:
+	var requirements: Dictionary = template.get("requirements", {})
+	var current := 0
+	var target := 0
+	for check: Dictionary in evaluation.get("checks", []):
+		if str(check.get("kind", "")) == "operational":
+			continue
+		current = int(check.get("current", 0))
+		target = int(check.get("target", 0))
+		break
+	if requirements.has("rack_kind"):
+		var kind := str(requirements.get("rack_kind", "compute"))
+		var kind_key: String = {"compute": "RACK_KIND_COMPUTE", "storage": "RACK_KIND_STORAGE", "gpu": "RACK_KIND_GPU"}.get(kind, "RACK_KIND_COMPUTE")
+		return tr("INQUIRY_REQUIREMENT_RACK") % [tr(kind_key), current, int(requirements.get("rack_count", 0))]
+	if requirements.has("unique_rack_kinds"):
+		return tr("INQUIRY_REQUIREMENT_UNIQUE") % [current, int(requirements.get("unique_rack_kinds", 0))]
+	if requirements.has("network_level"):
+		return tr("INQUIRY_REQUIREMENT_NETWORK") % [current, int(requirements.get("network_level", 1))]
+	if requirements.has("relationship_level"):
+		return tr("INQUIRY_REQUIREMENT_RELATIONSHIP") % [current, int(requirements.get("relationship_level", 0))]
+	if requirements.has("specialization"):
+		var specialization_id := str(requirements.get("specialization", ""))
+		var specialization := DataRepository.get_table("meta_progression").get("campus_specializations", {}).get(specialization_id, {}) as Dictionary
+		return tr("INQUIRY_REQUIREMENT_SPECIALIZATION") % [tr(str(specialization.get("name_key", "CAMPUS_STRATEGY_UNSET"))), tr("INQUIRY_REQUIREMENT_READY") if current >= 1 else tr("INQUIRY_REQUIREMENT_PENDING")]
+	return tr("INQUIRY_REQUIREMENT_READY")
+
+func _show_inquiry_datacenter_picker(inquiry_id: String) -> void:
+	var choices: Array[Dictionary] = []
+	var quotes := {}
+	for plot: Dictionary in Game.state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if not dc is Dictionary or str((dc as Dictionary).get("status", "")) != "operational":
+			continue
+		var dc_id := str((dc as Dictionary).get("id", ""))
+		var building := DataRepository.get_entry("buildings", str((dc as Dictionary).get("building_id", "")))
+		var quote := Game.inquiry_offer(inquiry_id, dc_id)
+		quotes[dc_id] = quote
+		var label := tr("INQUIRY_DC_READY") % [tr(str(building.get("name_key", "DC_DETAIL"))), Game.format_number(float(quote.get("projected", 0.0))), Game.format_number(float(quote.get("bonus", 0.0)))] if bool(quote.get("eligible", false)) else tr("INQUIRY_DC_BLOCKED") % [tr(str(building.get("name_key", "DC_DETAIL"))), _inquiry_requirement_text(DataRepository.get_table("inquiries").get("items", {}).get(str(quote.get("template_id", "")), {}), quote.get("evaluation", {}))]
+		choices.append({"id": dc_id, "text": label, "asset": str(building.get("asset_prefix", "dc_t0")) + "_active", "available": bool(quote.get("eligible", false)), "color": ThemeMaker.COLORS.green if bool(quote.get("eligible", false)) else Color("40516a")})
+	if choices.is_empty():
+		_handle_result({"ok": false, "reason": "datacenter_unavailable"})
+		return
+	_present_action_sheet(tr("INQUIRY_ACCEPT_TITLE"), tr("INQUIRY_BOARD_HINT"), choices, func(datacenter_id: String) -> void:
+		var quote: Dictionary = quotes.get(datacenter_id, {})
+		if not bool(quote.get("eligible", false)):
+			_handle_result({"ok": false, "reason": "inquiry_requirements"})
+			return
+		var result := Game.accept_inquiry(inquiry_id, datacenter_id, quote)
+		if bool(result.get("ok", false)):
+			_show_toast(tr("INQUIRY_ACCEPTED") % Game.format_number(float(result.get("bonus", 0.0))), "sfx_success_chime")
+		else:
+			_handle_result(result)
+	)
+
+func _decline_inquiry(inquiry_id: String) -> void:
+	var result := Game.decline_inquiry(inquiry_id)
+	if bool(result.get("ok", false)):
+		_show_toast(tr("INQUIRY_DECLINED"))
+	else:
+		_handle_result(result)
 
 func _build_market_review_section() -> Control:
 	var section := VBoxContainer.new()
@@ -3876,6 +4038,8 @@ func _offline_event_rows(report: Dictionary) -> Array[Dictionary]:
 		rows.append({"type": "fault", "icon": "ic_warning", "count": report["faults"].size(), "key": "FAULTED", "datacenter_id": str(fault.get("datacenter_id", "")), "slot": int(fault.get("slot", -1))})
 	if not report.get("events", []).is_empty():
 		rows.append({"type": "market", "icon": "ic_market_up", "count": report["events"].size(), "key": "NAV_MARKET"})
+	if not report.get("inquiries", []).is_empty():
+		rows.append({"type": "inquiry", "icon": "ic_contract", "count": report["inquiries"].size(), "label": tr("INQUIRY_OFFLINE_MILESTONE") % report["inquiries"].size()})
 	if not report.get("aging", []).is_empty():
 		var auto_entries: Array[Dictionary] = []
 		var regular_entries: Array[Dictionary] = []
@@ -3905,7 +4069,7 @@ func _run_offline_event(item: Dictionary) -> void:
 				_show_rack_actions(dc_id, slot)
 			else:
 				_show_datacenter_context(dc_id)
-		"market": _navigate("market")
+		"market", "inquiry": _navigate("market")
 		"auto_retired": _navigate("map")
 		"aging": _show_datacenter_context(str(item.get("datacenter_id", "")))
 		_:
@@ -3938,6 +4102,7 @@ func _offline_events_summary(report: Dictionary) -> String:
 	if not report.get("completed", []).is_empty(): lines.append("%d %s" % [report["completed"].size(), tr("TOAST_CONSTRUCTION_COMPLETE")])
 	if not report.get("faults", []).is_empty(): lines.append("%d %s" % [report["faults"].size(), tr("FAULTED")])
 	if not report.get("events", []).is_empty(): lines.append("%d %s" % [report["events"].size(), tr("NAV_MARKET")])
+	if not report.get("inquiries", []).is_empty(): lines.append(tr("INQUIRY_OFFLINE_MILESTONE") % report["inquiries"].size())
 	var renewed_count := 0
 	var has_free_switch := false
 	for contract: Dictionary in report.get("contracts", []):
@@ -4216,6 +4381,8 @@ func _reason_text(reason: String) -> String:
 		"reward_pending": "REASON_IN_PROGRESS",
 		"already_owned": "REASON_ALREADY_OWNED", "purchase_limit": "REASON_ALREADY_OWNED", "purchase_pending": "REASON_PURCHASE_PENDING",
 		"product_unavailable": "REASON_PRODUCT_UNAVAILABLE", "unknown": "REASON_UNKNOWN",
+		"inquiry_unavailable": "REASON_INQUIRY_UNAVAILABLE", "inquiry_requirements": "REASON_INQUIRY_REQUIREMENTS",
+		"inquiry_quote_stale": "REASON_INQUIRY_QUOTE_STALE",
 	}
 	return tr(keys.get(reason, "REASON_UNKNOWN"))
 
@@ -4451,7 +4618,7 @@ func _on_world_alert_selected(datacenter_id: String, alert_type: String, slot: i
 func _offline_report_is_material(report: Dictionary) -> bool:
 	if float(report.get("elapsed_seconds", 0.0)) < 60.0:
 		return false
-	return float(report.get("income", 0.0)) >= 1.0 or not report.get("completed", []).is_empty() or not report.get("faults", []).is_empty() or not report.get("events", []).is_empty() or not report.get("contracts", []).is_empty() or not report.get("aging", []).is_empty()
+	return float(report.get("income", 0.0)) >= 1.0 or not report.get("completed", []).is_empty() or not report.get("faults", []).is_empty() or not report.get("events", []).is_empty() or not report.get("inquiries", []).is_empty() or not report.get("contracts", []).is_empty() or not report.get("aging", []).is_empty()
 
 func _on_era_unlocked(era_id: int) -> void:
 	_play_fx("fx_confetti_set", 680)

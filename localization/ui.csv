@@ -494,3 +494,49 @@ ERA_LOCKED,Locked,未解锁
 ERA_DONE,Done,已完成
 TUTORIAL_REBUILD_SITE,Your site is gone — build a data center first.,机房不在了，先重新建一座。
 TUTORIAL_INSTALL_WAIT,Installing — %s left.,安装中 · 剩 %s。
+ROADMAP_FIRST_INQUIRY,First tailored deal,首次定向合作
+ROADMAP_FIRST_INQUIRY_DESC,Accept one optional inquiry,接受 1 份可选询价单
+INQUIRY_GPU_SURGE,Sovereign GPU reservation,主权算力预订
+INQUIRY_GPU_SURGE_DESC,An AI client needs a proven four-GPU deployment.,AI 客户希望锁定一座具备 4 个 GPU 机柜的机房。
+INQUIRY_CLOUD_FRAME,Full-stack cloud frame,全栈云底座
+INQUIRY_CLOUD_FRAME_DESC,A cloud provider wants three rack types under one roof.,云厂商希望在同一机房部署三类机柜。
+INQUIRY_MINING_RUSH,Mining capacity window,矿场算力窗口
+INQUIRY_MINING_RUSH_DESC,A mining client is ready to pay for two GPU racks.,挖矿客户愿意为两个 GPU 机柜支付溢价。
+INQUIRY_INTERNET_ANCHOR,Anchor hosting agreement,核心托管协议
+INQUIRY_INTERNET_ANCHOR_DESC,A trusted internet client proposes a long-term partnership.,长期服务的互联网客户提出战略合作。
+INQUIRY_EDGE_DELIVERY,Edge delivery expansion,边缘分发扩容
+INQUIRY_EDGE_DELIVERY_DESC,An internet client needs a level-two network connection.,互联网客户需要二级网络接入能力。
+INQUIRY_CLOUD_CERTIFICATION,Certified cloud campus,认证云服务园区
+INQUIRY_CLOUD_CERTIFICATION_DESC,A cloud provider is looking for an active cloud specialization.,云厂商正在寻找已激活云服务定位的园区。
+INQUIRY_AI_PILOT,AI pilot cluster,AI 试点集群
+INQUIRY_AI_PILOT_DESC,An AI client wants a mixed two-type rack deployment.,AI 客户希望试用两类机柜组成的混合部署。
+INQUIRY_STORAGE_ARCHIVE,Archive storage tranche,归档存储批次
+INQUIRY_STORAGE_ARCHIVE_DESC,A cloud provider needs three storage racks for an archive project.,云厂商需要三个存储机柜承接归档项目。
+INQUIRY_BOARD,Client inquiries,客户询价单
+INQUIRY_BOARD_HINT,Optional offers wait for you forever · no countdown and no penalty,所有报价永久保留 · 无倒计时且拒绝无惩罚
+INQUIRY_EMPTY,No open inquiry right now,当前暂无新询价
+INQUIRY_TERMS,%s · Premium +%d%% · Bonus %s,%s · 溢价 +%d%% · 签约金 %s
+INQUIRY_REQUIREMENT_RACK,%s %d/%d,%s %d/%d
+INQUIRY_REQUIREMENT_UNIQUE,Rack types %d/%d,机柜类型 %d/%d
+INQUIRY_REQUIREMENT_NETWORK,Network level %d/%d,网络等级 %d/%d
+INQUIRY_REQUIREMENT_RELATIONSHIP,Relationship level %d/%d,客户关系 %d/%d
+INQUIRY_REQUIREMENT_SPECIALIZATION,%s specialization %s,%s定位 %s
+INQUIRY_REQUIREMENT_READY,Conditions met,条件已满足
+INQUIRY_REQUIREMENT_PENDING,Conditions not met,条件尚未满足
+INQUIRY_VIEW_DATACENTERS,Choose a data center,选择承接机房
+INQUIRY_DECLINE,Pass for now,暂不承接
+INQUIRY_ACCEPT_TITLE,Assign this inquiry,分配询价单
+INQUIRY_DC_READY,%s · %s/mo · bonus %s,%s · %s/月 · 签约金 %s
+INQUIRY_DC_BLOCKED,%s · %s,%s · %s
+INQUIRY_ACCEPTED,Deal signed · bonus %s,合作已签订 · 签约金 %s
+INQUIRY_DECLINED,Passed · this slot returns in two game months,已暂缓 · 该位置将在 2 个游戏月后补位
+INQUIRY_NEW_TASK,New client inquiry,新的客户询价
+INQUIRY_NEW_TASK_SUBTITLE,%d optional offer(s) waiting · never expires,%d 份可选报价待处理 · 永不过期
+INQUIRY_NEW_TASK_ACTION,Review,查看
+INQUIRY_OFFLINE_MILESTONE,%d new client inquiry(s) arrived,离线期间收到 %d 份新询价
+REASON_INQUIRY_UNAVAILABLE,This inquiry has already been handled.,这份询价单已经处理。
+REASON_INQUIRY_REQUIREMENTS,Choose a data center that meets every listed condition.,请选择满足全部条件的机房。
+REASON_INQUIRY_QUOTE_STALE,The offer changed while it was open. Review the current quote and try again.,报价打开期间发生了变化，请查看最新报价后重试。
+RACK_KIND_COMPUTE,Compute racks,计算机柜
+RACK_KIND_STORAGE,Storage racks,存储机柜
+RACK_KIND_GPU,GPU racks,GPU 机柜

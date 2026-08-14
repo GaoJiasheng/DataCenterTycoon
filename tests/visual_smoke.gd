@@ -312,6 +312,20 @@ func _ready() -> void:
 	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": now - 300.0, "end_at": now + 6900.0}]
 	Game.state["market"]["previews"] = []
 	valid = (await _capture(main, "rare_event_banner")) and valid
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["total_datacenters_built"] = 2
+	Game.state["player"]["network_level"] = 2
+	Game.state["inquiries"]["open"] = [
+		{"id": "visual_inquiry_edge", "template_id": "edge_delivery", "slot": 0, "arrived_at": now},
+		{"id": "visual_inquiry_mining", "template_id": "mining_rush", "slot": 1, "arrived_at": now},
+	]
+	valid = (await _capture(main, "inquiry_board")) and valid
+	main.call("_show_inquiry_datacenter_picker", "visual_inquiry_edge")
+	valid = (await _capture(main, "inquiry_accept_sheet", false)) and valid
+	var inquiry_sheet := main.find_child("ActionSheetOverlay", true, false)
+	if inquiry_sheet != null:
+		inquiry_sheet.queue_free()
+		await get_tree().process_frame
 	_fill_market_history(730)
 	valid = (await _capture(main, "market_rich")) and valid
 	# Meta-progression states use their real rendered illustrations and live data.
@@ -374,7 +388,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 43 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
+	print("VISUAL_SMOKE: %s 45 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:
@@ -498,6 +512,17 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		var remaining := float(progress.get_meta("remaining_seconds", -1.0)) if progress != null else -1.0
 		if progress == null or not progress.is_visible_in_tree() or fraction < 0.53 or fraction > 0.56 or absf(remaining - 1640.0) > 2.0:
 			push_error("VISUAL_SMOKE: rewarded one-hour construction must show ~54%% progress and 27m20s remaining; fraction=%.3f remaining=%.1f" % [fraction, remaining])
+			valid = false
+	if state_name == "inquiry_board":
+		var inquiry_board := main.find_child("InquiryBoard", true, false)
+		var inquiry_cards := main.find_children("InquiryCard_*", "PanelContainer", true, false)
+		if inquiry_board == null or inquiry_cards.size() != 2 or not inquiry_board.find_children("*", "ProgressBar", true, false).is_empty():
+			push_error("VISUAL_SMOKE: inquiry board must render two persistent cards with no expiry countdown or progress bar")
+			valid = false
+	if state_name == "inquiry_accept_sheet":
+		var inquiry_sheet := main.find_child("ActionSheetOverlay", true, false)
+		if inquiry_sheet == null or inquiry_sheet.find_children("Choice_*", "Button", true, false).is_empty():
+			push_error("VISUAL_SMOKE: inquiry assignment sheet must expose data-center choices")
 			valid = false
 	if state_name == "map":
 		var power_metrics := _asset_palette_metrics("ic_power")

@@ -124,6 +124,42 @@ def validate_references():
         ERRORS.append("meta_progression/campus_specializations: expected four defined campus strategies")
     if any(not 1.0 <= float(item.get("income_multiplier", 0)) <= 1.08 for item in specialties.values()):
         ERRORS.append("meta_progression/campus_specializations: multipliers must remain in the 1.00–1.08 comfort band")
+
+    inquiries = DATA.get("inquiries", {})
+    inquiry_settings = inquiries.get("settings", {})
+    expected_settings = {
+        "max_open": 3,
+        "arrival_months_min": 4,
+        "arrival_months_max": 8,
+        "decline_cooldown_months": 2,
+        "min_datacenters_built": 2,
+    }
+    for field, expected in expected_settings.items():
+        if not math.isclose(float(inquiry_settings.get(field, -1)), float(expected)):
+            ERRORS.append(f"inquiries/settings: {field} must equal {expected}")
+    required_inquiry_fields = {
+        "customer_id", "requirements", "duration_id", "premium", "bonus_months",
+        "bonus_service_seconds", "weight", "unlock_era", "minimum_network_level",
+        "name_key", "description_key",
+    }
+    forbidden_time_fields = {"expires_at", "remaining_seconds", "duration_seconds", "refresh_at"}
+    for inquiry_id, inquiry in inquiries.get("items", {}).items():
+        missing = required_inquiry_fields - set(inquiry)
+        if missing:
+            ERRORS.append(f"inquiries/{inquiry_id}: missing fields {sorted(missing)}")
+        if inquiry.get("customer_id") not in customers:
+            ERRORS.append(f"inquiries/{inquiry_id}: missing customer {inquiry.get('customer_id')}")
+        if inquiry.get("duration_id") not in durations:
+            ERRORS.append(f"inquiries/{inquiry_id}: missing duration {inquiry.get('duration_id')}")
+        if not 1.0 <= float(inquiry.get("premium", 0)) <= 1.5:
+            ERRORS.append(f"inquiries/{inquiry_id}: premium must remain within 1.00–1.50")
+        if float(inquiry.get("bonus_months", 0)) <= 0 or float(inquiry.get("weight", 0)) <= 0:
+            ERRORS.append(f"inquiries/{inquiry_id}: bonus_months and weight must be positive")
+        if forbidden_time_fields.intersection(inquiry):
+            ERRORS.append(f"inquiries/{inquiry_id}: inquiries must never expire or refresh on a countdown")
+    first_inquiry = meta.get("roadmap", {}).get("items", {}).get("first_inquiry", {})
+    if first_inquiry.get("metric") != "inquiries_accepted" or int(first_inquiry.get("target", 0)) != 1 or int(first_inquiry.get("reward_gems", 0)) != 5:
+        ERRORS.append("meta_progression/roadmap/first_inquiry: expected one acceptance for five gems")
     board = meta.get("board_specialties", {})
     if int(board.get("max_rank", 0)) != 5 or set(board.get("items", {})) != {"construction", "operations", "business"}:
         ERRORS.append("meta_progression/board_specialties: expected three five-rank permanent specialties")
@@ -177,6 +213,10 @@ def validate_localization():
         for field in ("name_key", "description_key"):
             if item.get(field) not in keys:
                 ERRORS.append(f"meta_progression/board_specialties/{item_id}: localization key {item.get(field)} missing")
+    for item_id, item in DATA.get("inquiries", {}).get("items", {}).items():
+        for field in ("name_key", "description_key"):
+            if item.get(field) not in keys:
+                ERRORS.append(f"inquiries/{item_id}: localization key {item.get(field)} missing")
     for group_id, group in meta.get("collection", {}).get("groups", {}).items():
         if group.get("name_key") not in keys:
             ERRORS.append(f"meta_progression/collection/{group_id}: localization key {group.get('name_key')} missing")

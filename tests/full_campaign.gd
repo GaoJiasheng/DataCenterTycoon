@@ -69,6 +69,7 @@ func _run_campaign() -> void:
 	var seen := {2: false, 3: false}
 	var handled_fault := false
 	var handled_renewal := false
+	var handled_inquiry := false
 	var retired := false
 	for month: int in range(MAX_MONTHS):
 		_month = month + 1
@@ -89,6 +90,10 @@ func _run_campaign() -> void:
 			if handled_renewal:
 				_note("month %d: used a saved free switch after automatic renewal" % _month)
 		retired = _play_one_month() or retired
+		if not handled_inquiry:
+			handled_inquiry = _handle_any_inquiry()
+			if handled_inquiry:
+				_note("month %d: accepted a persistent inquiry at its exact displayed premium" % _month)
 		main.call("_refresh")
 		await get_tree().process_frame
 		if _month % 12 == 0:
@@ -116,6 +121,7 @@ func _run_campaign() -> void:
 	_expect(bool(seen[3]), "a played campaign must reach era 3 within %d game months" % MAX_MONTHS)
 	_expect(handled_fault, "no fault ever surfaced across the whole campaign — the repair loop is unreachable")
 	_expect(handled_renewal, "no automatic renewal or free-switch opportunity ever surfaced — the contract loop is unreachable")
+	_expect(handled_inquiry, "no eligible persistent inquiry was accepted across the whole campaign")
 	_expect(retired, "no site ever became old enough to retire — the rebuild loop is unreachable")
 	_expect(str(Game.state.get("bankruptcy", {}).get("status", "normal")) in ["normal", "arrears"], "a reasonably played campaign never enters an unreachable failure state")
 	_expect(_era_overlays_seen >= 2, "both era unlocks must announce themselves (saw %d)" % _era_overlays_seen)
@@ -364,6 +370,35 @@ func _handle_any_renewal() -> bool:
 		var target := _best_customer(entry)
 		_expect(bool(Game.sign_contract(dc_id, target).get("ok", false)), "using a saved free switch must succeed")
 		return true
+	return false
+
+func _handle_any_inquiry() -> bool:
+	for inquiry: Dictionary in Game.state.get("inquiries", {}).get("open", []):
+		var inquiry_id := str(inquiry.get("id", ""))
+		for plot: Dictionary in Game.state.get("plots", []):
+			var dc: Variant = plot.get("datacenter")
+			if not dc is Dictionary or str((dc as Dictionary).get("status", "")) != "operational":
+				continue
+			var dc_id := str((dc as Dictionary).get("id", ""))
+			var quote := Game.inquiry_offer(inquiry_id, dc_id)
+			if not bool(quote.get("ok", false)) or not bool(quote.get("eligible", false)):
+				continue
+			var before_cash := _cash()
+			var expected_bonus := float(quote.get("bonus", 0.0))
+			var expected_income := float(quote.get("projected", 0.0))
+			var result := Game.accept_inquiry(inquiry_id, dc_id, quote)
+			_expect(bool(result.get("ok", false)), "an eligible inquiry must accept through the authoritative contract path")
+			if not bool(result.get("ok", false)):
+				return false
+			var signed := Game.find_datacenter(dc_id)
+			_expect(is_equal_approx(float(signed.get("locked_market_multiplier", 0.0)), float(quote.get("locked_market_multiplier", -1.0))), "accepted inquiry must lock the displayed market multiplier")
+			# The service-time gift can cross a relationship threshold at the same
+			# instant as signing, so the authoritative result may be higher than the
+			# pre-sign quote; it may never be lower than the promised projection.
+			_expect(Game.datacenter_monthly_income(signed) + 1.0 >= expected_income, "accepted inquiry income must include at least its displayed premium forecast")
+			_expect(absf(_cash() - before_cash - expected_bonus) <= 1.0, "accepted inquiry must credit its displayed signing bonus exactly once")
+			_expect(int(Game.state.get("stats", {}).get("inquiries_accepted", 0)) >= 1, "accepted inquiry must advance its permanent roadmap statistic")
+			return true
 	return false
 
 # Coming back after a night away must pay out and must not corrupt anything.

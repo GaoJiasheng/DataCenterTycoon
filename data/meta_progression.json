@@ -7,7 +7,8 @@
       "cloud_transition": {"name_key": "ROADMAP_CLOUD_TRANSITION", "description_key": "ROADMAP_CLOUD_TRANSITION_DESC", "metric": "era", "target": 2, "reward_gems": 8, "asset_id": "ic_era2"},
       "client_portfolio": {"name_key": "ROADMAP_CLIENT_PORTFOLIO", "description_key": "ROADMAP_CLIENT_PORTFOLIO_DESC", "metric": "unique_customers_served", "target": 4, "reward_gems": 10, "asset_id": "customer_portfolio"},
       "global_network": {"name_key": "ROADMAP_GLOBAL_NETWORK", "description_key": "ROADMAP_GLOBAL_NETWORK_DESC", "metric": "network_level", "target": 4, "reward_gems": 12, "asset_id": "ic_network"},
-      "listed_group": {"name_key": "ROADMAP_LISTED_GROUP", "description_key": "ROADMAP_LISTED_GROUP_DESC", "metric": "prestige_count", "target": 1, "reward_gems": 20, "asset_id": "legacy_memorial"}
+      "listed_group": {"name_key": "ROADMAP_LISTED_GROUP", "description_key": "ROADMAP_LISTED_GROUP_DESC", "metric": "prestige_count", "target": 1, "reward_gems": 20, "asset_id": "legacy_memorial"},
+      "first_inquiry": {"name_key": "ROADMAP_FIRST_INQUIRY", "description_key": "ROADMAP_FIRST_INQUIRY_DESC", "metric": "inquiries_accepted", "target": 1, "reward_gems": 5, "asset_id": "ic_contract"}
     }
   },
   "campus_specializations": {

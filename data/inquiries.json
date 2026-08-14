@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "settings": {
+    "max_open": 3,
+    "arrival_months_min": 4,
+    "arrival_months_max": 8,
+    "decline_cooldown_months": 2,
+    "min_datacenters_built": 2
+  },
+  "items": {
+    "gpu_surge": {
+      "customer_id": "gpu_company",
+      "requirements": {"rack_kind": "gpu", "rack_count": 4},
+      "duration_id": "strategic",
+      "premium": 1.30,
+      "bonus_months": 1.0,
+      "bonus_service_seconds": 43200,
+      "weight": 8,
+      "unlock_era": 2,
+      "minimum_network_level": 2,
+      "name_key": "INQUIRY_GPU_SURGE",
+      "description_key": "INQUIRY_GPU_SURGE_DESC"
+    },
+    "cloud_frame": {
+      "customer_id": "cloud",
+      "requirements": {"unique_rack_kinds": 3},
+      "duration_id": "standard",
+      "premium": 1.20,
+      "bonus_months": 0.8,
+      "bonus_service_seconds": 43200,
+      "weight": 12,
+      "unlock_era": 2,
+      "minimum_network_level": 1,
+      "name_key": "INQUIRY_CLOUD_FRAME",
+      "description_key": "INQUIRY_CLOUD_FRAME_DESC"
+    },
+    "mining_rush": {
+      "customer_id": "mining",
+      "requirements": {"rack_kind": "gpu", "rack_count": 2},
+      "duration_id": "flexible",
+      "premium": 1.35,
+      "bonus_months": 0.5,
+      "bonus_service_seconds": 21600,
+      "weight": 14,
+      "unlock_era": 1,
+      "minimum_network_level": 1,
+      "name_key": "INQUIRY_MINING_RUSH",
+      "description_key": "INQUIRY_MINING_RUSH_DESC"
+    },
+    "internet_anchor": {
+      "customer_id": "internet",
+      "requirements": {"relationship_level": 2},
+      "duration_id": "strategic",
+      "premium": 1.15,
+      "bonus_months": 1.2,
+      "bonus_service_seconds": 86400,
+      "weight": 10,
+      "unlock_era": 1,
+      "minimum_network_level": 1,
+      "name_key": "INQUIRY_INTERNET_ANCHOR",
+      "description_key": "INQUIRY_INTERNET_ANCHOR_DESC"
+    },
+    "edge_delivery": {
+      "customer_id": "internet",
+      "requirements": {"network_level": 2},
+      "duration_id": "standard",
+      "premium": 1.18,
+      "bonus_months": 0.75,
+      "bonus_service_seconds": 21600,
+      "weight": 18,
+      "unlock_era": 1,
+      "minimum_network_level": 1,
+      "name_key": "INQUIRY_EDGE_DELIVERY",
+      "description_key": "INQUIRY_EDGE_DELIVERY_DESC"
+    },
+    "cloud_certification": {
+      "customer_id": "cloud",
+      "requirements": {"specialization": "cloud"},
+      "duration_id": "standard",
+      "premium": 1.25,
+      "bonus_months": 1.0,
+      "bonus_service_seconds": 43200,
+      "weight": 10,
+      "unlock_era": 2,
+      "minimum_network_level": 1,
+      "name_key": "INQUIRY_CLOUD_CERTIFICATION",
+      "description_key": "INQUIRY_CLOUD_CERTIFICATION_DESC"
+    },
+    "ai_pilot": {
+      "customer_id": "gpu_company",
+      "requirements": {"unique_rack_kinds": 2},
+      "duration_id": "standard",
+      "premium": 1.22,
+      "bonus_months": 0.8,
+      "bonus_service_seconds": 43200,
+      "weight": 10,
+      "unlock_era": 2,
+      "minimum_network_level": 2,
+      "name_key": "INQUIRY_AI_PILOT",
+      "description_key": "INQUIRY_AI_PILOT_DESC"
+    },
+    "storage_archive": {
+      "customer_id": "cloud",
+      "requirements": {"rack_kind": "storage", "rack_count": 3},
+      "duration_id": "flexible",
+      "premium": 1.20,
+      "bonus_months": 0.6,
+      "bonus_service_seconds": 21600,
+      "weight": 15,
+      "unlock_era": 2,
+      "minimum_network_level": 1,
+      "name_key": "INQUIRY_STORAGE_ARCHIVE",
+      "description_key": "INQUIRY_STORAGE_ARCHIVE_DESC"
+    }
+  }
+}

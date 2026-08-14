@@ -2,6 +2,7 @@ extends Node
 
 const Rules := preload("res://gameplay/game_rules.gd")
 const Market := preload("res://gameplay/market_system.gd")
+const Inquiry := preload("res://gameplay/inquiry_system.gd")
 const MAIN_SCENE := preload("res://main.tscn")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
 
@@ -23,6 +24,8 @@ func _ready() -> void:
 	_run_gameplay_optimization_tests()
 	_run_meta_progression_tests()
 	_run_gameplay_depth_tests()
+	_run_remaining_set_bonus_tests()
+	_run_inquiry_tests()
 	_run_fault_softening_tests()
 	_run_initial_state_test()
 	_run_core_loop_test()
@@ -765,6 +768,128 @@ func _run_gameplay_depth_tests() -> void:
 	var row_set_income := Game.datacenter_monthly_income(dc)
 	_expect(row_members[0] and row_members[1] and row_members[2] and row_members.count(true) == 3 and is_equal_approx(row_set_income, row_base_income * authored_set_multiplier), "a complete powered same-kind row grants every member exactly the authored ten-percent bonus")
 
+func _run_inquiry_tests() -> void:
+	var inquiry_system := Inquiry.new()
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["total_datacenters_built"] = 2
+	Game.state["player"]["era"] = 2
+	Game.state["player"]["network_level"] = 2
+	var baseline: Dictionary = Game.state.duplicate(true)
+	var with_inquiries: Dictionary = Game.state.duplicate(true)
+	var baseline_market := Market.new()
+	var inquiry_market := Market.new()
+	for month: int in range(1, 13):
+		baseline["clock"]["simulation_seconds"] = float(month) * 7200.0
+		with_inquiries["clock"]["simulation_seconds"] = float(month) * 7200.0
+		baseline_market.process_due(baseline, Game.data)
+		inquiry_system.process(with_inquiries, Game.data)
+		inquiry_market.process_due(with_inquiries, Game.data)
+	_expect(JSON.stringify(baseline.get("market", {})) == JSON.stringify(with_inquiries.get("market", {})), "inquiry arrivals use an independent random stream and preserve the baseline market sequence element for element")
+
+	var dc := _test_datacenter("dc_inquiry", "dc_t2")
+	dc["power_unit"] = "power_t2"
+	dc["coolers"] = {"north": "cool_air_t2"}
+	dc["racks"][0] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true}
+	dc["racks"][1] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true}
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var kind_inquiry := {"id": "kind", "template_id": "mining_rush", "slot": 0, "arrived_at": 0.0}
+	var kind_positive := inquiry_system.evaluate(kind_inquiry, dc, Game.state, Game.data)
+	dc["racks"][1] = null
+	var kind_negative := inquiry_system.evaluate(kind_inquiry, dc, Game.state, Game.data)
+	_expect(bool(kind_positive.get("eligible", false)) and not bool(kind_negative.get("eligible", true)), "inquiry rack-kind and rack-count requirements have positive and negative evaluations")
+
+	dc["racks"][1] = {"rack_id": "rack_storage_t1", "status": "active", "enabled": true}
+	dc["racks"][2] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	var unique_inquiry := {"id": "unique", "template_id": "cloud_frame", "slot": 0, "arrived_at": 0.0}
+	var unique_positive := inquiry_system.evaluate(unique_inquiry, dc, Game.state, Game.data)
+	dc["racks"][2] = null
+	var unique_negative := inquiry_system.evaluate(unique_inquiry, dc, Game.state, Game.data)
+	_expect(bool(unique_positive.get("eligible", false)) and not bool(unique_negative.get("eligible", true)), "inquiry unique-rack-kind requirements have positive and negative evaluations")
+
+	var network_inquiry := {"id": "network", "template_id": "edge_delivery", "slot": 0, "arrived_at": 0.0}
+	var network_positive := inquiry_system.evaluate(network_inquiry, dc, Game.state, Game.data)
+	Game.state["player"]["network_level"] = 1
+	var network_negative := inquiry_system.evaluate(network_inquiry, dc, Game.state, Game.data)
+	_expect(bool(network_positive.get("eligible", false)) and not bool(network_negative.get("eligible", true)), "inquiry network requirements have positive and negative evaluations")
+	Game.state["player"]["network_level"] = 2
+
+	var relationship_inquiry := {"id": "relationship", "template_id": "internet_anchor", "slot": 0, "arrived_at": 0.0}
+	Game.state["meta"]["customer_service_seconds"]["internet"] = 172800.0
+	var relationship_positive := inquiry_system.evaluate(relationship_inquiry, dc, Game.state, Game.data)
+	Game.state["meta"]["customer_service_seconds"]["internet"] = 0.0
+	var relationship_negative := inquiry_system.evaluate(relationship_inquiry, dc, Game.state, Game.data)
+	_expect(bool(relationship_positive.get("eligible", false)) and not bool(relationship_negative.get("eligible", true)), "inquiry relationship requirements have positive and negative evaluations")
+
+	var specialization_inquiry := {"id": "specialization", "template_id": "cloud_certification", "slot": 0, "arrived_at": 0.0}
+	Game.state["meta"]["campus_specializations"]["0"] = "cloud"
+	var specialization_positive := inquiry_system.evaluate(specialization_inquiry, dc, Game.state, Game.data)
+	Game.state["meta"]["campus_specializations"]["0"] = "hosting"
+	var specialization_negative := inquiry_system.evaluate(specialization_inquiry, dc, Game.state, Game.data)
+	_expect(bool(specialization_positive.get("eligible", false)) and not bool(specialization_negative.get("eligible", true)), "inquiry specialization requirements reuse the live campus condition with positive and negative evaluations")
+
+	Game.state["inquiries"]["open"] = [kind_inquiry]
+	dc["racks"][1] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true}
+	dc["racks"][2] = null
+	var quote := Game.inquiry_offer("kind", dc["id"])
+	var cash_before := float(Game.state["player"]["cash"])
+	var service_before := float(Game.state["meta"]["customer_service_seconds"]["mining"])
+	var accepted := Game.accept_inquiry("kind", dc["id"], quote)
+	_expect(bool(accepted.get("ok", false)) and is_equal_approx(float(Game.state["player"]["cash"]), cash_before + float(quote.get("bonus", 0.0))) and is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), float(quote.get("locked_market_multiplier", -1.0))) and is_equal_approx(float(accepted.get("projected", 0.0)), float(quote.get("projected", -1.0))) and is_equal_approx(float(Game.state["meta"]["customer_service_seconds"]["mining"]), service_before + 21600.0), "accepting an inquiry credits the displayed bonus, exact locked rate, forecast, and authored relationship service")
+
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": 0.0, "end_at": 1000000000.0}]
+	for slot: int in range(4):
+		dc["racks"][slot] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true}
+	Game.state["inquiries"]["open"] = [{"id": "cap", "template_id": "gpu_surge", "slot": 0, "arrived_at": 0.0}]
+	var capped_quote := Game.inquiry_offer("cap", dc["id"])
+	_expect(bool(capped_quote.get("lock_cap_applied", false)) and is_equal_approx(float(capped_quote.get("locked_market_multiplier", 0.0)), 2.5), "strategic inquiry premium still obeys the disclosed 2.5-times lock cap")
+
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["total_datacenters_built"] = 2
+	var arrival := Game.advance_time(0.1, false)
+	var first_open: Array = Game.state["inquiries"]["open"]
+	var persistent_id := str(first_open[0].get("id", "")) if not first_open.is_empty() else ""
+	Game.advance_time(400.0 * 7200.0, false)
+	var still_present := false
+	for item: Dictionary in Game.state["inquiries"]["open"]:
+		still_present = still_present or str(item.get("id", "")) == persistent_id
+	_expect(arrival.get("inquiries", []).size() == 1 and still_present, "an inquiry arrives after the gate and remains open after four hundred game months with no expiration field or countdown")
+
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["total_datacenters_built"] = 2
+	Game.advance_time(0.1, false)
+	var declined_id := str(Game.state["inquiries"]["open"][0].get("id", ""))
+	var declined := Game.decline_inquiry(declined_id)
+	Game.advance_time(2.0 * 7200.0 - 1.0, false)
+	var before_refill: int = Game.state["inquiries"]["open"].size()
+	Game.advance_time(2.0, false)
+	_expect(bool(declined.get("ok", false)) and before_refill == 0 and Game.state["inquiries"]["open"].size() == 1, "declining has no penalty, cannot refill that slot inside two game months, and refills after the cooldown")
+
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["total_datacenters_built"] = 2
+	Game.advance_time(0.1, false)
+	Game.state["inquiries"]["open"].clear()
+	var next_arrival := float(Game.state["inquiries"].get("next_arrival_at", INF))
+	var offline_report := Game.advance_time(next_arrival - Game.simulation_time() + 1.0, true)
+	_expect(offline_report.get("inquiries", []).size() == 1 and Game.state["inquiries"]["open"].size() == 1, "offline advancement segments at next_arrival_at and records the crossed inquiry arrival as a milestone")
+
+
+func _run_remaining_set_bonus_tests() -> void:
+	Game.reset_for_tests()
+	var dc := _test_datacenter("dc_set_bonus_remaining", "dc_t3")
+	dc["power_unit"] = "power_t3"
+	dc["coolers"] = {"north": "cool_liquid_t2", "south": "cool_liquid_t2", "east": "cool_liquid_t2", "west": "cool_liquid_t2"}
+	dc["customer_id"] = "cloud"
+	dc["locked_market_multiplier"] = 1.0
+	Game.state["plots"][0]["datacenter"] = dc
+	Game.state["plots"][0]["status"] = "operational"
+	var racks_table: Dictionary = Game.data["racks"]
+	var attachments_table: Dictionary = Game.data["attachments"]
+	var authored_set_multiplier := float(Game.data["economy"]["layout"]["set_bonus_multiplier"])
 	dc["racks"].fill(null)
 	for slot: int in [0, 3, 6]:
 		dc["racks"][slot] = {"rack_id": "rack_storage_t1", "status": "active", "enabled": true}

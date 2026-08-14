@@ -310,8 +310,7 @@ static func campus_specialization_status(campus_index: int, specialization_id: S
 	return {"active": _campus_specialization_requirements_met(campus_index, specialization, game_state, data), "reason": "ready"}
 
 static func _campus_specialization_requirements_met(campus_index: int, specialization: Dictionary, game_state: Dictionary, data: Dictionary) -> bool:
-	var rack_kind_counts := {"compute": 0, "storage": 0, "gpu": 0}
-	var unique_kinds := {}
+	var datacenters: Array = []
 	var unique_customers := {}
 	for plot: Dictionary in game_state.get("plots", []):
 		var layout := campus_layout_for_plot(int(plot.get("index", 1)), data.get("economy", {}))
@@ -320,25 +319,36 @@ static func _campus_specialization_requirements_met(campus_index: int, specializ
 		var dc: Variant = plot.get("datacenter")
 		if not dc is Dictionary:
 			continue
+		datacenters.append(dc)
 		var customer_id := str((dc as Dictionary).get("customer_id", ""))
 		if not customer_id.is_empty():
 			unique_customers[customer_id] = true
+	var snapshot := rack_requirement_snapshot(datacenters, data)
+	var requirements: Dictionary = specialization.get("requirements", {})
+	if requirements.has("rack_kind") and int(snapshot.get("kind_counts", {}).get(str(requirements.get("rack_kind", "")), 0)) < int(requirements.get("rack_count", 0)):
+		return false
+	if int(snapshot.get("unique_kind_count", 0)) < int(requirements.get("unique_rack_kinds", 0)):
+		return false
+	if unique_customers.size() < int(requirements.get("unique_customers", 0)):
+		return false
+	return true
+
+static func rack_requirement_snapshot(datacenters: Array, data: Dictionary) -> Dictionary:
+	var kind_counts := {"compute": 0, "storage": 0, "gpu": 0}
+	var unique_kinds := {}
+	for dc: Variant in datacenters:
+		if not dc is Dictionary:
+			continue
 		for installed: Variant in (dc as Dictionary).get("racks", []):
 			if not installed is Dictionary or installed.is_empty() or str((installed as Dictionary).get("status", "")) not in ["active", "faulted"]:
 				continue
 			var rack: Dictionary = data.get("racks", {}).get("items", {}).get(str((installed as Dictionary).get("rack_id", "")), {})
 			var kind := str(rack.get("kind", ""))
-			if not kind.is_empty():
-				rack_kind_counts[kind] = int(rack_kind_counts.get(kind, 0)) + 1
-				unique_kinds[kind] = true
-	var requirements: Dictionary = specialization.get("requirements", {})
-	if requirements.has("rack_kind") and int(rack_kind_counts.get(str(requirements.get("rack_kind", "")), 0)) < int(requirements.get("rack_count", 0)):
-		return false
-	if unique_kinds.size() < int(requirements.get("unique_rack_kinds", 0)):
-		return false
-	if unique_customers.size() < int(requirements.get("unique_customers", 0)):
-		return false
-	return true
+			if kind.is_empty():
+				continue
+			kind_counts[kind] = int(kind_counts.get(kind, 0)) + 1
+			unique_kinds[kind] = true
+	return {"kind_counts": kind_counts, "unique_kinds": unique_kinds, "unique_kind_count": unique_kinds.size()}
 
 static func board_business_income_multiplier(game_state: Dictionary, data: Dictionary) -> float:
 	var rank := int(game_state.get("meta", {}).get("board_allocations", {}).get("business", 0))

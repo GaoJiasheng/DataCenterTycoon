@@ -27,6 +27,7 @@ EVENTS = load("events")["items"]
 ERAS = load("eras")["items"]
 TECHNOLOGY = load("technology")
 META = load("meta_progression")
+INQUIRIES = load("inquiries")
 MONTH = ECONOMY["time"]["real_seconds_per_game_month"]
 YEAR = ECONOMY["time"]["real_seconds_per_game_year"]
 DAY = 86400
@@ -101,6 +102,8 @@ class Datacenter:
     free_switch_available: bool = False
     contract_duration_id: str = "standard"
     contract_income_multiplier: float = 1.0
+    inquiry_contract: bool = False
+    inquiry_revenue_fraction: float = 0.0
 
     @property
     def ready(self):
@@ -115,6 +118,7 @@ class Simulator:
         self.cozy_faults = cozy_faults
         self.market_rng = random.Random(seed)
         self.fault_rng = random.Random(seed ^ 0x5F3759DF)
+        self.inquiry_rng = random.Random(seed ^ 0x1A2B3C4D)
         self.cash = float(ECONOMY["starting"]["cash"])
         self.revenue = 0.0
         self.era = 1
@@ -146,11 +150,18 @@ class Simulator:
         self.sessions_per_day = 2 if strategy == "idle" else 6
         self.session_count = 0
         self.next_session = 0.0
+        self.open_inquiries = []
+        self.next_inquiry = 0.0
+        self.inquiry_sequence = 0
+        self.inquiries_accepted = 0
+        self.inquiry_bonus_revenue = 0.0
+        self.inquiry_contract_revenue = 0.0
 
     def run(self, days):
         Simulator.now = 0.0
         while Simulator.now < days * DAY:
             self.update_market()
+            self.update_inquiries()
             self.update_contracts()
             self.complete_auto_repairs()
             self.process_auto_retirements()
@@ -208,11 +219,172 @@ class Simulator:
             result *= event.get("customer_multipliers", {}).get(customer, 1)
         return result
 
-    def locked_rate(self, customer, duration_id):
-        rate = self.market_multiplier(customer)
+    def locked_rate(self, customer, duration_id, premium=1.0):
+        rate = self.market_multiplier(customer) * premium
         if duration_id == "strategic":
             return min(rate, ECONOMY["contracts"]["strategic_lock_cap"])
         return rate
+
+    def relationship_level(self, customer):
+        result = 0
+        for index, level in enumerate(META["relationships"]["levels"]):
+            if self.customer_seconds.get(customer, 0.0) >= level["service_seconds"]:
+                result = index
+        return result
+
+    def update_inquiries(self):
+        settings = INQUIRIES["settings"]
+        if self.total_built < settings["min_datacenters_built"]:
+            return
+        if self.next_inquiry <= 0:
+            self.next_inquiry = Simulator.now
+        while len(self.open_inquiries) < settings["max_open"] and Simulator.now >= self.next_inquiry:
+            eligible = []
+            for template_id, template in INQUIRIES["items"].items():
+                customer = CUSTOMERS[template["customer_id"]]
+                duration = META["contract_durations"][template["duration_id"]]
+                if template["unlock_era"] > self.era or customer["unlock_era"] > self.era:
+                    continue
+                if template["minimum_network_level"] > self.network or customer["minimum_network_level"] > self.network:
+                    continue
+                if self.relationship_level(template["customer_id"]) < duration["relationship_level_required"]:
+                    continue
+                eligible.append((template_id, template))
+            if not eligible:
+                self.next_inquiry += self.inquiry_rng.uniform(
+                    settings["arrival_months_min"], settings["arrival_months_max"]
+                ) * MONTH
+                return
+            total_weight = sum(float(template["weight"]) for _template_id, template in eligible)
+            roll = self.inquiry_rng.random() * total_weight
+            selected_id, selected = eligible[-1]
+            for candidate_id, candidate in eligible:
+                roll -= float(candidate["weight"])
+                if roll <= 0:
+                    selected_id, selected = candidate_id, candidate
+                    break
+            self.inquiry_sequence += 1
+            self.open_inquiries.append({
+                "id": f"inquiry_{self.inquiry_sequence}",
+                "template_id": selected_id,
+                "arrived_at": self.next_inquiry,
+            })
+            self.next_inquiry += self.inquiry_rng.uniform(
+                settings["arrival_months_min"], settings["arrival_months_max"]
+            ) * MONTH
+
+    def campus_specialization_active(self, dc, specialization_id):
+        if self.strategy != "active":
+            return False
+        specialization = META["campus_specializations"].get(specialization_id, {})
+        if not specialization or specialization.get("unlock_era", 1) > self.era:
+            return False
+        campus = campus_layout(self.dcs.index(dc) + 1)["campus_index"]
+        campus_dcs = [
+            item for index, item in enumerate(self.dcs, start=1)
+            if campus_layout(index)["campus_index"] == campus
+        ]
+        requirements = specialization.get("requirements", {})
+        kinds = [RACKS[rack_id]["kind"] for item in campus_dcs for rack_id in item.racks]
+        customers = {item.customer for item in campus_dcs if item.customer}
+        if requirements.get("rack_kind") and kinds.count(requirements["rack_kind"]) < requirements.get("rack_count", 0):
+            return False
+        if len(set(kinds)) < requirements.get("unique_rack_kinds", 0):
+            return False
+        return len(customers) >= requirements.get("unique_customers", 0)
+
+    def inquiry_requirements_met(self, template, dc):
+        if not dc.ready:
+            return False
+        requirements = template.get("requirements", {})
+        kinds = [RACKS[rack_id]["kind"] for rack_id in dc.racks]
+        if requirements.get("rack_kind") and kinds.count(requirements["rack_kind"]) < requirements.get("rack_count", 0):
+            return False
+        if len(set(kinds)) < requirements.get("unique_rack_kinds", 0):
+            return False
+        if self.network < requirements.get("network_level", 0):
+            return False
+        if self.relationship_level(template["customer_id"]) < requirements.get("relationship_level", 0):
+            return False
+        specialization = requirements.get("specialization")
+        if specialization and not self.campus_specialization_active(dc, specialization):
+            return False
+        return True
+
+    def adjust_one_rack_for_inquiry(self, template, dc):
+        requirements = template.get("requirements", {})
+        if any(key in requirements for key in ("network_level", "relationship_level", "specialization")):
+            return False
+        kinds = [RACKS[rack_id]["kind"] for rack_id in dc.racks]
+        target_kind = requirements.get("rack_kind")
+        replacement_index = -1
+        if target_kind:
+            if requirements.get("rack_count", 0) - kinds.count(target_kind) != 1:
+                return False
+            replacement_index = next((index for index, kind in enumerate(kinds) if kind != target_kind), -1)
+        else:
+            target_unique = requirements.get("unique_rack_kinds", 0)
+            if target_unique - len(set(kinds)) != 1:
+                return False
+            absent = [kind for kind in ("compute", "storage", "gpu") if kind not in kinds]
+            if not absent:
+                return False
+            target_kind = absent[0]
+            replacement_index = next((index for index, kind in enumerate(kinds) if kinds.count(kind) > 1), -1)
+        candidates = [
+            (rack_id, rack) for rack_id, rack in RACKS.items()
+            if rack["kind"] == target_kind and rack.get("unlock_era", 1) <= self.era
+        ]
+        if replacement_index < 0 or not candidates:
+            return False
+        rack_id, rack = min(candidates, key=lambda item: item[1]["cost"])
+        if self.cash < rack["cost"]:
+            return False
+        original = dc.racks[replacement_index]
+        dc.racks[replacement_index] = rack_id
+        if not self.inquiry_requirements_met(template, dc):
+            dc.racks[replacement_index] = original
+            return False
+        self.cash -= rack["cost"]
+        return True
+
+    def accept_available_inquiries(self):
+        if self.strategy not in ("active", "idle"):
+            return
+        for inquiry in list(self.open_inquiries):
+            template = INQUIRIES["items"][inquiry["template_id"]]
+            accepted_dc = None
+            for dc in self.dcs:
+                if self.inquiry_requirements_met(template, dc):
+                    accepted_dc = dc
+                    break
+            if accepted_dc is None and self.strategy == "active":
+                for dc in self.dcs:
+                    if dc.ready and self.adjust_one_rack_for_inquiry(template, dc):
+                        accepted_dc = dc
+                        break
+            if accepted_dc is None:
+                continue
+            self.sign_inquiry(accepted_dc, template)
+            self.open_inquiries.remove(inquiry)
+
+    def sign_inquiry(self, dc, template):
+        customer = template["customer_id"]
+        duration_id = template["duration_id"]
+        self.sign_customer(dc, customer, duration_id, template["premium"], force=True)
+        projected = self.dc_monthly_income(dc)
+        locked = dc.locked_market_multiplier
+        dc.locked_market_multiplier = self.locked_rate(customer, duration_id, 1.0)
+        baseline_projected = self.dc_monthly_income(dc)
+        dc.locked_market_multiplier = locked
+        dc.inquiry_contract = True
+        dc.inquiry_revenue_fraction = max(0.0, projected - baseline_projected) / max(1.0, projected)
+        bonus = projected * template["bonus_months"]
+        self.cash += bonus
+        self.revenue += bonus
+        self.inquiry_bonus_revenue += bonus
+        self.customer_seconds[customer] += template["bonus_service_seconds"]
+        self.inquiries_accepted += 1
 
     def dc_monthly_income(self, dc):
         if not dc.ready or not dc.customer or Simulator.now - dc.built_at >= BUILDINGS[dc.building_id]["lifespan_seconds"]:
@@ -249,7 +421,11 @@ class Simulator:
         return subtotal * max(0, efficiency) * network * BUILDINGS[dc.building_id]["structure_multiplier"] * dc.contract_income_multiplier * relationship["income_multiplier"]
 
     def accrue(self):
-        income = sum(self.dc_monthly_income(dc) for dc in self.dcs) * STEP / MONTH
+        monthly_incomes = [(dc, self.dc_monthly_income(dc)) for dc in self.dcs]
+        income = sum(value for _dc, value in monthly_incomes) * STEP / MONTH
+        self.inquiry_contract_revenue += sum(
+            value * dc.inquiry_revenue_fraction for dc, value in monthly_incomes if dc.inquiry_contract
+        ) * STEP / MONTH
         for dc in self.dcs:
             if dc.ready and dc.customer and Simulator.now - dc.built_at < BUILDINGS[dc.building_id]["lifespan_seconds"]:
                 self.customer_seconds[dc.customer] += STEP
@@ -322,6 +498,7 @@ class Simulator:
             for dc in self.dcs:
                 if dc.ready and not dc.customer:
                     self.sign_customer(dc, "internet")
+        self.accept_available_inquiries()
         self.retire_old()
         self.maybe_upgrade_network()
         self.maybe_purchase_auto_retirement()
@@ -420,8 +597,8 @@ class Simulator:
             self.cash -= fee
             self.sign_customer(dc, choice)
 
-    def sign_customer(self, dc, customer):
-        if dc.customer == customer:
+    def sign_customer(self, dc, customer, duration_id="standard", premium=1.0, force=False):
+        if dc.customer == customer and not force:
             return
         dc.customer = customer
         relationship_index = 0
@@ -432,13 +609,14 @@ class Simulator:
         # flexible/strategic alternatives are verified below by a dedicated
         # probe instead of silently turning every familiar client into a
         # year-long boom lock and distorting the established 30-day baseline.
-        duration_id = "standard"
         duration = META["contract_durations"][duration_id]
         dc.contract_duration_id = duration_id
-        dc.locked_market_multiplier = self.locked_rate(customer, duration_id)
+        dc.locked_market_multiplier = self.locked_rate(customer, duration_id, premium)
         dc.contract_income_multiplier = duration["income_multiplier"]
         dc.contract_end_at = Simulator.now + duration["months"] * MONTH
         dc.free_switch_available = False
+        dc.inquiry_contract = False
+        dc.inquiry_revenue_fraction = 0.0
 
     def update_contracts(self):
         for dc in self.dcs:
@@ -463,6 +641,8 @@ class Simulator:
                 dc.contract_end_at += duration_seconds
                 dc.locked_market_multiplier = self.locked_rate(dc.customer, dc.contract_duration_id)
                 dc.free_switch_available = True
+                dc.inquiry_contract = False
+                dc.inquiry_revenue_fraction = 0.0
             if self.strategy == "active" and dc.free_switch_available:
                 available = [key for key, value in CUSTOMERS.items() if value["unlock_era"] <= self.era and value["minimum_network_level"] <= self.network]
                 self.switch_to_best_customer(dc, available)
@@ -720,6 +900,13 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
     idle_fault_loss = max(0.0, 1.0 - statistics.mean(sim.revenue for sim in cohorts["idle"]) / legacy_idle_revenue)
     rare_expected, rare_observed, rare_frequency_ok = rare_event_frequency_probe()
     active_idle_net_ratio = statistics.mean(sim.net_worth(sim.ended_at) for sim in cohorts["active"]) / max(1.0, statistics.mean(sim.net_worth(sim.ended_at) for sim in cohorts["idle"]))
+    inquiry_accepts = [sim.inquiries_accepted for sim in cohorts["active"]]
+    inquiry_revenue = sum(sim.inquiry_bonus_revenue + sim.inquiry_contract_revenue for sim in cohorts["active"])
+    inquiry_share = inquiry_revenue / max(1.0, sum(sim.revenue for sim in cohorts["active"]))
+    idle_revenue_monotonic = all(
+        all(current[5] + 1e-6 >= previous[5] for previous, current in zip(sim.curve, sim.curve[1:]))
+        for sim in cohorts["idle"]
+    )
     checks = [
         (campus_layout(6)["type_id"] == "type_1" and campus_layout(7)["type_id"] == "type_2" and campus_layout(15)["campus_index"] == 2, "campus sequence partitions unlimited plots into a 6-slot starter page followed by 8-slot expansion pages"),
         (math.isclose(land_price(7) / round(ECONOMY["land"]["base_price"] * (1.0 + ECONOMY["land"]["growth_step"] * 6) ** ECONOMY["land"]["growth_exponent"]), 1.08, rel_tol=0.001), "expansion-campus land premium stays at the intended modest 8%"),
@@ -728,6 +915,9 @@ def print_acceptance(results, cohorts, legacy_idle_cohort):
         (strategic_lock_cap_probe(), "five-times rare quotes remain uncapped for flexible/standard terms and cap strategic locks at 2.5x"),
         (layout_set_probe(), "three same-kind rows receive one 1.10x set bonus while retaining the cloud 1.15x diversity bonus"),
         (rare_frequency_ok, f"rare-event share is {rare_observed:.2%} versus authored {rare_expected:.2%} (within ±50%)"),
+        (min(inquiry_accepts) >= 3, f"active inquiry accepts range {min(inquiry_accepts)}–{max(inquiry_accepts)} in 30 days (target every seed >=3)"),
+        (inquiry_share <= 0.35, f"inquiry-attributable premium and signing bonuses are {inquiry_share:.1%} of active revenue (target <=35%)"),
+        (idle_revenue_monotonic, "idle cumulative revenue never declines while persistent inquiries are ignored"),
         (active_idle_net_ratio <= 25.0, f"active/idle day-30 net-worth ratio is {active_idle_net_ratio:.2f}x (target <=25x)"),
         (retirement_harvest_probe(), "normal retirement beats ruin scrap for every loadout at each 0.1% step from 60.0% through 99.9% lifespan"),
         (idle_fault_loss < 0.08, f"passive auto-repair curve loses {idle_fault_loss:.1%} versus the same-seed pre-A4 fault model (target <8%)"),
@@ -799,7 +989,7 @@ def main():
         write_csv(results)
         write_svg(results)
     for name, sim in results.items():
-        print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} land=${sim.land_spend:,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} takeovers={sim.takeovers} sold={sim.bank_sold}")
+        print(f"{name:10s} day={sim.ended_at / DAY:.0f} dc={len(sim.dcs):2d} era={sim.era} revenue=${sim.revenue:,.0f} net=${sim.net_worth(sim.ended_at):,.0f} land=${sim.land_spend:,.0f} min_cash=${sim.minimum_cash:,.0f} arrears={sim.arrears} takeovers={sim.takeovers} sold={sim.bank_sold} inquiries={sim.inquiries_accepted}")
     print_acceptance(results, cohorts, legacy_idle_cohort)
     return 0
 

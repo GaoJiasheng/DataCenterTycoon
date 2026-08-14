@@ -4,11 +4,13 @@ const AUTOSAVE_SECONDS := 30.0
 const MAX_ADVANCE_ITERATIONS := 20000
 const Rules := preload("res://gameplay/game_rules.gd")
 const Market := preload("res://gameplay/market_system.gd")
+const Inquiry := preload("res://gameplay/inquiry_system.gd")
 
 var state: Dictionary = {}
 var data: Dictionary = {}
 var last_offline_report: Dictionary = {}
 var _market := Market.new()
+var _inquiry := Inquiry.new()
 var _tick_accumulator := 0.0
 var _autosave_accumulator := 0.0
 var _in_background := false
@@ -23,6 +25,7 @@ func _ready() -> void:
 		state = _new_state()
 	_ensure_state_shape()
 	_market.ensure_state(state, data)
+	_inquiry.ensure_state(state, data)
 	_apply_locale()
 	AudioService.apply_settings(state.get("settings", {}))
 	Monetization.reward_result.connect(_on_reward_result)
@@ -70,6 +73,7 @@ func advance_time(real_seconds: float, offline: bool) -> Dictionary:
 		"faults": [],
 		"events": [],
 		"contracts": [],
+		"inquiries": [],
 		"aging": [],
 		"takeovers": [],
 	}
@@ -136,8 +140,8 @@ func market_multiplier(customer_id: String) -> float:
 func contract_market_multiplier(customer_id: String) -> float:
 	return _market.customer_multiplier(customer_id, state, data, false)
 
-func _locked_rate_for(customer_id: String, duration_id: String) -> float:
-	var rate := contract_market_multiplier(customer_id)
+func _locked_rate_for(customer_id: String, duration_id: String, premium: float = 1.0) -> float:
+	var rate := contract_market_multiplier(customer_id) * maxf(1.0, premium)
 	if duration_id == "strategic":
 		var cap := float(data.get("economy", {}).get("contracts", {}).get("strategic_lock_cap", 2.5))
 		return minf(rate, cap)
@@ -286,7 +290,7 @@ func install_cooler(datacenter_id: String, edge: String, cooler_id: String) -> D
 		return _failure("invalid_edge")
 	return _install_attachment(datacenter_id, cooler_id, "cooler", edge)
 
-func sign_contract(datacenter_id: String, customer_id: String, duration_id: String = "standard") -> Dictionary:
+func sign_contract(datacenter_id: String, customer_id: String, duration_id: String = "standard", rate_premium: float = 1.0, locked_rate_override: float = -1.0, commit_action: bool = true) -> Dictionary:
 	var dc := find_datacenter(datacenter_id)
 	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(customer_id, {})
 	if dc.is_empty() or dc.get("status", "") != "operational":
@@ -299,7 +303,7 @@ func sign_contract(datacenter_id: String, customer_id: String, duration_id: Stri
 	if int(Rules.relationship_level(customer_id, state, data).get("index", 0)) < int(duration.get("relationship_level_required", 0)):
 		return _failure("relationship_required")
 	var previous := str(dc.get("customer_id", ""))
-	if previous == customer_id and str(dc.get("contract_duration_id", "standard")) == duration_id:
+	if previous == customer_id and str(dc.get("contract_duration_id", "standard")) == duration_id and is_equal_approx(rate_premium, 1.0) and locked_rate_override < 0.0:
 		return _success({"breach_fee": 0.0, "unchanged": true, "locked_market_multiplier": float(dc.get("locked_market_multiplier", contract_market_multiplier(customer_id)))})
 	var fee := contract_switch_fee(datacenter_id, customer_id)
 	var previous_monthly := datacenter_monthly_income(dc)
@@ -307,7 +311,10 @@ func sign_contract(datacenter_id: String, customer_id: String, duration_id: Stri
 		if not _spend_cash(fee):
 			return _failure("not_enough_cash")
 	dc["customer_id"] = customer_id
-	dc["locked_market_multiplier"] = _locked_rate_for(customer_id, duration_id)
+	var locked_rate := locked_rate_override if locked_rate_override > 0.0 else _locked_rate_for(customer_id, duration_id, rate_premium)
+	if duration_id == "strategic":
+		locked_rate = minf(locked_rate, float(data.get("economy", {}).get("contracts", {}).get("strategic_lock_cap", 2.5)))
+	dc["locked_market_multiplier"] = locked_rate
 	dc["contract_duration_id"] = duration_id
 	dc["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	dc["contract_end_at"] = simulation_time() + _contract_duration_seconds(duration_id)
@@ -316,15 +323,16 @@ func sign_contract(datacenter_id: String, customer_id: String, duration_id: Stri
 	state["meta"]["seen_customers"][customer_id] = true
 	state["stats"]["contracts_signed"] = int(state["stats"].get("contracts_signed", 0)) + 1
 	_tutorial_event("contract_signed")
-	_commit_action("contract_signed")
-	return _success({"breach_fee": fee, "duration_id": duration_id})
+	if commit_action:
+		_commit_action("contract_signed")
+	return _success({"breach_fee": fee, "duration_id": duration_id, "locked_market_multiplier": locked_rate})
 
 func _contract_duration_seconds(duration_id: String) -> float:
 	var duration: Dictionary = data.get("meta_progression", {}).get("contract_durations", {}).get(duration_id, {})
 	var month_seconds := float(data.get("economy", {}).get("time", {}).get("real_seconds_per_game_month", 7200.0))
 	return maxf(month_seconds, float(duration.get("months", 6)) * month_seconds)
 
-func contract_forecast(datacenter_id: String, customer_id: String, duration_id: String = "standard") -> Dictionary:
+func contract_forecast(datacenter_id: String, customer_id: String, duration_id: String = "standard", rate_premium: float = 1.0) -> Dictionary:
 	var dc := find_datacenter(datacenter_id)
 	var duration: Dictionary = data.get("meta_progression", {}).get("contract_durations", {}).get(duration_id, {})
 	if dc.is_empty() or duration.is_empty():
@@ -332,8 +340,8 @@ func contract_forecast(datacenter_id: String, customer_id: String, duration_id: 
 	var current := datacenter_monthly_income(dc)
 	var simulated := dc.duplicate(true)
 	simulated["customer_id"] = customer_id
-	var uncapped_rate := contract_market_multiplier(customer_id)
-	var locked_rate := _locked_rate_for(customer_id, duration_id)
+	var uncapped_rate := contract_market_multiplier(customer_id) * maxf(1.0, rate_premium)
+	var locked_rate := _locked_rate_for(customer_id, duration_id, rate_premium)
 	simulated["locked_market_multiplier"] = locked_rate
 	simulated["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	var projected := Rules.datacenter_income_per_month(simulated, state, data, func(id: String) -> float: return market_multiplier(id))
@@ -354,6 +362,47 @@ func contract_forecast(datacenter_id: String, customer_id: String, duration_id: 
 		"lock_cap_applied": duration_id == "strategic" and locked_rate < uncapped_rate,
 		"strategic_lock_cap": float(data.get("economy", {}).get("contracts", {}).get("strategic_lock_cap", 2.5)),
 	})
+
+func inquiry_offer(inquiry_id: String, datacenter_id: String) -> Dictionary:
+	var inquiry := _inquiry.find_open(inquiry_id, state)
+	var dc := find_datacenter(datacenter_id)
+	if inquiry.is_empty() or dc.is_empty():
+		return _failure("inquiry_unavailable")
+	var template := _inquiry.template_for(inquiry, data)
+	var evaluation := _inquiry.evaluate(inquiry, dc, state, data)
+	var forecast := contract_forecast(datacenter_id, str(template.get("customer_id", "")), str(template.get("duration_id", "standard")), float(template.get("premium", 1.0)))
+	if not bool(forecast.get("ok", false)):
+		return forecast
+	var bonus: float = round(float(forecast.get("projected", 0.0)) * float(template.get("bonus_months", 0.0)))
+	forecast.merge({
+		"inquiry_id": inquiry_id,
+		"template_id": str(inquiry.get("template_id", "")),
+		"datacenter_id": datacenter_id,
+		"eligible": bool(evaluation.get("eligible", false)),
+		"evaluation": evaluation,
+		"premium": float(template.get("premium", 1.0)),
+		"bonus_months": float(template.get("bonus_months", 0.0)),
+		"bonus": bonus,
+	}, true)
+	return forecast
+
+func accept_inquiry(inquiry_id: String, datacenter_id: String, quoted_offer: Dictionary = {}) -> Dictionary:
+	var dc := find_datacenter(datacenter_id)
+	if dc.is_empty():
+		return _failure("datacenter_unavailable")
+	var quote := quoted_offer if not quoted_offer.is_empty() else inquiry_offer(inquiry_id, datacenter_id)
+	if not bool(quote.get("ok", false)):
+		return quote
+	var result := _inquiry.accept(inquiry_id, dc, state, data, quote, Callable(self, "sign_contract"))
+	if bool(result.get("ok", false)):
+		_commit_action("inquiry_accepted")
+	return result
+
+func decline_inquiry(inquiry_id: String) -> Dictionary:
+	var result := _inquiry.decline(inquiry_id, state, data)
+	if bool(result.get("ok", false)):
+		_commit_action("inquiry_declined")
+	return result
 
 func _record_contract_decision(dc: Dictionary, previous_customer: String, customer_id: String, duration_id: String, fee: float, previous_monthly: float) -> void:
 	var decisions: Array = state.get("meta", {}).get("market_decisions", [])
@@ -792,6 +841,7 @@ func start_new_company() -> void:
 	state = _new_state()
 	_restore_account_state(kept)
 	_market.ensure_state(state, data)
+	_inquiry.ensure_state(state, data)
 	_commit_action("new_company")
 
 func reset_for_tests() -> void:
@@ -800,6 +850,7 @@ func reset_for_tests() -> void:
 	_pending_rewards.clear()
 	state = _new_state()
 	_market.ensure_state(state, data)
+	_inquiry.ensure_state(state, data)
 
 func find_plot(plot_id: String) -> Dictionary:
 	for plot: Dictionary in state.get("plots", []):
@@ -886,7 +937,8 @@ func _next_boundary_after(now: float, include_noise: bool) -> float:
 			if retire_at > now:
 				result = minf(result, retire_at)
 	var market_boundary := _market.next_transition_after(state, now, include_noise)
-	return minf(result, market_boundary)
+	var inquiry_boundary := _inquiry.next_transition_after(state, data, now)
+	return minf(result, minf(market_boundary, inquiry_boundary))
 
 func _accrue_income(seconds: float) -> float:
 	var month_seconds := float(data.get("economy", {}).get("time", {}).get("real_seconds_per_game_month", 7200.0))
@@ -917,6 +969,8 @@ func _process_due(financial: bool, offline: bool, report: Dictionary) -> void:
 	_process_construction_completions(now, report)
 	_process_rack_installations(now, report)
 	_process_repairs_and_faults(now, report)
+	for notice: Dictionary in _inquiry.process(state, data):
+		report.get("inquiries", []).append(notice)
 	for notice: Dictionary in _market.process_due(state, data):
 		report.get("events", []).append(notice)
 		if not str(notice.get("event_id", "")).is_empty():
@@ -1078,6 +1132,9 @@ func _process_contract_renewals(now: float, report: Dictionary) -> void:
 			dc["contract_end_at"] = float(dc.get("contract_end_at", now)) + duration
 			dc["locked_market_multiplier"] = _locked_rate_for(str(dc.get("customer_id", "")), str(dc.get("contract_duration_id", "standard")))
 			dc["free_switch_available"] = true
+			dc.erase("inquiry_contract_id")
+			dc.erase("inquiry_template_id")
+			dc.erase("inquiry_premium")
 			var renewed := {"type": "contract_auto_renewed", "datacenter_id": dc.get("id", ""), "customer_id": dc.get("customer_id", ""), "contract_end_at": dc.get("contract_end_at", 0.0), "free_switch_available": true}
 			report.get("contracts", []).append(renewed)
 			EventBus.contract_auto_renewed.emit(dc.get("id", ""), dc.get("customer_id", ""), float(dc.get("contract_end_at", 0.0)))
@@ -1730,6 +1787,7 @@ func _ensure_state_shape() -> void:
 		state["bankruptcy"]["status"] = "arrears"
 		_process_bank_takeover({}, true, false)
 	reconcile_tutorial_progress(false)
+	_inquiry.ensure_state(state, data)
 	state["save_version"] = SaveManager.SAVE_VERSION
 
 func _migrate_legacy_rack_installations() -> void:
@@ -1766,6 +1824,7 @@ func _new_state() -> Dictionary:
 		"plots": [{"id": "plot_1", "index": 1, "purchase_price": 0.0, "purchased": true, "status": "empty", "datacenter": null}],
 		"construction_queue": [],
 		"market": {"active": [], "previews": [], "history": {}, "noise": {}, "next_noise_at": float(economy.get("time", {}).get("real_seconds_per_game_day", 240.0)), "next_event_at": float(economy.get("time", {}).get("real_seconds_per_game_month", 7200.0)), "rng_state": 73471},
+		"inquiries": {"open": [], "next_arrival_at": 0.0, "cooldowns": {}, "rng_state": 918273, "sequence": 0},
 		"bankruptcy": {"status": "normal", "debt": 0.0, "arrears_online_seconds": 0.0, "rescue_uses": 0, "rescue_day": -1, "last_takeover": {}, "takeover_notice_pending": false},
 		"tutorial": {"step": 0, "completed": false, "dismissed_messages": []},
 		"technology": {"repair_team": 1, "auto_retirement": false},
@@ -1790,7 +1849,7 @@ func _new_state() -> Dictionary:
 		"reward_limits": {"repair_window_start": now, "repair_uses": 0, "rescue_day": -1, "rescue_uses": 0},
 		"inventory": {"instant_build_tickets": 0},
 		"settings": {"locale": "", "music_enabled": true, "sfx_enabled": true, "haptics_enabled": true},
-		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "datacenters_auto_retired": 0, "bank_takeovers": 0, "datacenters_bank_sold": 0, "debt_forgiven": 0.0, "prestige_count": 0, "contracts_signed": 0, "arrears_recovered": 0, "highest_net_worth": 0.0},
+		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "datacenters_auto_retired": 0, "bank_takeovers": 0, "datacenters_bank_sold": 0, "debt_forgiven": 0.0, "prestige_count": 0, "contracts_signed": 0, "inquiries_accepted": 0, "inquiry_bonus_revenue": 0.0, "arrears_recovered": 0, "highest_net_worth": 0.0},
 	}
 
 func _success(payload: Dictionary = {}) -> Dictionary:

@@ -13,6 +13,7 @@ const DATA_FILES := {
 	"store": "res://data/store.json",
 	"tutorial": "res://data/tutorial.json",
 	"meta_progression": "res://data/meta_progression.json",
+	"inquiries": "res://data/inquiries.json",
 }
 
 var tables: Dictionary = {}
@@ -66,4 +67,10 @@ func validate_references() -> PackedStringArray:
 		for customer_id: String in event.get("customer_multipliers", {}):
 			if not get_table("customers").get("items", {}).has(customer_id):
 				issues.append("Event %s references missing customer %s" % [event_id, customer_id])
+	for inquiry_id: String in get_table("inquiries").get("items", {}):
+		var inquiry: Dictionary = get_entry("inquiries", inquiry_id)
+		if not get_table("customers").get("items", {}).has(str(inquiry.get("customer_id", ""))):
+			issues.append("Inquiry %s references missing customer" % inquiry_id)
+		if not get_table("meta_progression").get("contract_durations", {}).has(str(inquiry.get("duration_id", ""))):
+			issues.append("Inquiry %s references missing duration" % inquiry_id)
 	return issues
