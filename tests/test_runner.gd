@@ -712,6 +712,7 @@ func _run_gameplay_optimization_tests() -> void:
 
 func _run_gameplay_depth_tests() -> void:
 	var events: Dictionary = DataRepository.get_table("events").get("items", {})
+	_expect(int(DataRepository.get_table("inquiries").get("items", {}).get("mining_rush", {}).get("unlock_era", 0)) == 2, "the GPU-gated mining inquiry cannot arrive before Era 2")
 	var rare_ids := ["sovereign_ai", "compute_famine", "compliance_archive"]
 	var rare_data_ok := true
 	for event_id: String in rare_ids:
@@ -871,6 +872,9 @@ func _run_inquiry_tests() -> void:
 	var service_before := float(Game.state["meta"]["customer_service_seconds"]["mining"])
 	var accepted := Game.accept_inquiry("kind", dc["id"], quote)
 	_expect(bool(accepted.get("ok", false)) and is_equal_approx(float(Game.state["player"]["cash"]), cash_before + float(quote.get("bonus", 0.0))) and is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), float(quote.get("locked_market_multiplier", -1.0))) and is_equal_approx(float(accepted.get("projected", 0.0)), float(quote.get("projected", -1.0))) and is_equal_approx(float(Game.state["meta"]["customer_service_seconds"]["mining"]), service_before + 21600.0), "accepting an inquiry credits the displayed bonus, exact locked rate, forecast, and authored relationship service")
+	_expect(dc.has("inquiry_contract_id") and dc.has("inquiry_template_id") and dc.has("inquiry_premium"), "an accepted inquiry records all three attribution fields on its contract")
+	var manual_switch := Game.sign_contract(dc["id"], "internet", "standard")
+	_expect(bool(manual_switch.get("ok", false)) and not dc.has("inquiry_contract_id") and not dc.has("inquiry_template_id") and not dc.has("inquiry_premium"), "a later manual contract switch clears every inquiry attribution field symmetrically")
 
 	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": 0.0, "end_at": 1000000000.0}]
 	for slot: int in range(4):

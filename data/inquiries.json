@@ -42,7 +42,7 @@
       "bonus_months": 0.5,
       "bonus_service_seconds": 21600,
       "weight": 14,
-      "unlock_era": 1,
+      "unlock_era": 2,
       "minimum_network_level": 1,
       "name_key": "INQUIRY_MINING_RUSH",
       "description_key": "INQUIRY_MINING_RUSH_DESC"

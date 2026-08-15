@@ -180,6 +180,8 @@ def validate_references():
             ERRORS.append(f"inquiries/{inquiry_id}: bonus_months and weight must be positive")
         if forbidden_time_fields.intersection(inquiry):
             ERRORS.append(f"inquiries/{inquiry_id}: inquiries must never expire or refresh on a countdown")
+    if int(inquiries.get("items", {}).get("mining_rush", {}).get("unlock_era", 0)) != 2:
+        ERRORS.append("inquiries/mining_rush: GPU requirement must not appear before Era 2")
     first_inquiry = meta.get("roadmap", {}).get("items", {}).get("first_inquiry", {})
     if first_inquiry.get("metric") != "inquiries_accepted" or int(first_inquiry.get("target", 0)) != 1 or int(first_inquiry.get("reward_gems", 0)) != 5:
         ERRORS.append("meta_progression/roadmap/first_inquiry: expected one acceptance for five gems")

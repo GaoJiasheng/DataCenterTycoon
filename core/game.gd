@@ -323,6 +323,9 @@ func sign_contract(datacenter_id: String, customer_id: String, duration_id: Stri
 	dc["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	dc["contract_end_at"] = simulation_time() + _contract_duration_seconds(duration_id)
 	dc["free_switch_available"] = false
+	dc.erase("inquiry_contract_id")
+	dc.erase("inquiry_template_id")
+	dc.erase("inquiry_premium")
 	_record_contract_decision(dc, previous, customer_id, duration_id, fee, previous_monthly)
 	state["meta"]["seen_customers"][customer_id] = true
 	state["stats"]["contracts_signed"] = int(state["stats"].get("contracts_signed", 0)) + 1
