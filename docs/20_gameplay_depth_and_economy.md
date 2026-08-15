@@ -259,7 +259,7 @@
 ### B5 · 探针、总闸与文档
 
 - [x] A/B/A′ 20 种子归因数据已写入 [depth_attribution.csv](balance_runs/depth_attribution.csv)，结论同步 [balance_report.md](balance_report.md)。
-- [x] T2 $900–$1,150 六档结果写入 [t2_maintenance_sweep.csv](balance_runs/t2_maintenance_sweep.csv)。$1,100 是距离正式值最近且满足斜率改善 5.9%、挂机 0/0、激进接管 55% 的候选；遵照只产报告要求，正式值仍为 $1,150，等待所有者决定。
+- [x] T2 $900–$1,150 六档旧基线结果已归档为 [t2_maintenance_sweep_pre_b7.csv](balance_runs/archive/t2_maintenance_sweep_pre_b7.csv)。它基于 B7 前的瞬时锁价规则，现仅作历史归因且不再支持 $1,100 候选结论；正式值始终为 $1,150。
 - [x] `full_campaign` 在同一新档中于第 3 月自然接单，第 111 月形成 5 槽成组；随后在同局注入稀有行情，断言标准约高于封顶且战略约恰为 ×2.5；同局购买工程部并真实并发 3 项，上市重组后容量回 2。最终 24 座、时代 3、净值 $9.06M，整局通过。
 - [x] `test_runner` 200/200；`flow_audit`、修正为包含询价的 `midgame_audit`、`tutorial_playthrough`、`full_campaign`、`performance_smoke` 全绿。百机房性能平均 6.32 ms、p95 6.67 ms、粒子残留 0。
 - [x] 英文/中文 `visual_smoke` 各 45/45，画幅 990×2151；`validate_data` 通过 13 张数据表、159 个美术 ID 与本地化校验。
@@ -336,3 +336,35 @@
 
 - T2 维护费本批次维持 $1,150；§6 的扫描数据基于旧锁价基线，作废归档，若 B7.2 第 4 步需要则按新基线重扫。
 - 全量门禁重跑（README 清单 + 本文全部新增用例）；文档同步 00/01/02/README；本节末尾补验收记录，格式沿用 §6。
+
+### §7 验收记录（2026-08-15）
+
+#### B7.1 · 期限折算锁价
+
+- [x] `MarketSystem.locked_customer_multiplier` 对签约时已生效事件的结束切点做分段常函数精确积分；预告、日噪声和尚未开始事件不入账，没有采样近似。
+- [x] `Game._locked_rate_for` 是签约、续约、forecast 与询价报价的唯一锁价计算点；计算次序为折算 → 询价溢价 → 战略约 ×2.5 封顶，既有合约不追溯。
+- [x] 单测覆盖剩余 1 月 ×5 事件的三档手算值、双事件交叠、无事件时代基线、溢价后封顶、续约重折算、旧锁价保留，以及同 seed 行情序列逐位一致；`test_runner` 207/207。
+- [x] `full_campaign` 在同一局注入事件并断言灵活约折算锁价高于标准约，同时跑通询价、成组、扩编和战略约封顶，最终于第 110 月达到 20 座并通过。
+- [x] 合约确认、现有合约和行情参谋展示同源折算值与事件剩余时间；中英文各 45 个 iPhone 17 竖屏状态通过裁剪、叠印与内容压缩断言。
+
+#### B7.2 · 节奏回调
+
+- [x] 严格按顺序复跑 20 种子：先把事件期参考行为切为灵活约（20 座中位 23.6 天），再将工程部 L2 价格 $250,000→$180,000（23.6 天），再将 8 张询价溢价整体 +0.05（23.9 天）。三个正式旋钮后只校准活跃参考策略的现金缓冲 2.3→1.8 个建设包，最终第 20 座中位 19.3 天，因此停止且未执行 T2 调整。
+- [x] 最终第 1 天 2–3 座、第 7 天 6–10 座；第 7 天挂机/活跃收入比 45%；30 日活跃/挂机净值比 23.67×；询价收入占 2.5%，全部进入目标带。
+- [x] 挂机 0 接管、0 欠费月；策略参数重定义后的激进压力样本接管率 25%，落在 20–50% 新目标带；全部 60 个样本 30 天末净值为正，压力样本均保有至少 $5,000 重整恢复底线。
+- [x] T2 维护费保持 $1,150；旧瞬时锁价扫描已归档为 [t2_maintenance_sweep_pre_b7.csv](balance_runs/archive/t2_maintenance_sweep_pre_b7.csv)，没有按失效基线改正式数值。
+
+#### B7.3 · 随批小修
+
+- [x] `mining_rush` 解锁时代改为 2，数据校验与单测均锁定该门槛。
+- [x] 手动改签对称清除 `inquiry_contract_id`、`inquiry_template_id`、`inquiry_premium`；询价接单仍在签约后正确写回三项元数据，正反路径均有回归。
+- [x] 询价签约金继续计入 `total_revenue`；最终归因占活跃总收入 2.5%，规则已同步到 02 号文档。
+
+#### 全量门禁与提交
+
+- [x] `python3 tools/validate_data.py`：13 张数据表、本地化与 159 个美术 ID 全部通过。
+- [x] `python3 tools/simulate_economy.py --seed-count 20`：三策略 × 20 种子及全部总量硬闸通过。
+- [x] `godot --headless --path . tests/test_runner.tscn`：207 passed，0 failed。
+- [x] `flow_audit`、`midgame_audit`、`tutorial_playthrough`、`full_campaign`、`performance_smoke` 全绿；性能门禁平均 6.85 ms、P95 9.28 ms、峰值粒子 30、残留 0。
+- [x] `visual_smoke` 英文/中文各 45 态通过，输出尺寸 990×2151。
+- [x] 独立提交：`d46bd76`（B7.1）、`2440a4a`（B7.2）、`107e06d`（B7.3）；本提交只收口归档、README 与验收记录。
