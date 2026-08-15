@@ -151,10 +151,14 @@ func _verify_depth_features_in_run() -> void:
 	var now := Game.simulation_time()
 	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": now, "end_at": now + _month_seconds}]
 	Game.state["market"]["previews"] = []
+	var flexible := Game.contract_forecast(probe_dc_id, "gpu_company", "flexible")
 	var standard := Game.contract_forecast(probe_dc_id, "gpu_company", "standard")
+	_expect(bool(flexible.get("ok", false)) and bool(standard.get("ok", false)) and float(flexible.get("locked_market_multiplier", 0.0)) > float(standard.get("locked_market_multiplier", 0.0)), "the live campaign must realize the short-term advantage of a flexible lock during the same injected event")
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": now, "end_at": now + _month_seconds * 12.0}]
+	standard = Game.contract_forecast(probe_dc_id, "gpu_company", "standard")
 	var strategic := Game.contract_forecast(probe_dc_id, "gpu_company", "strategic")
 	var cap := float(DataRepository.get_table("economy").get("contracts", {}).get("strategic_lock_cap", 2.5))
-	_expect(bool(standard.get("ok", false)) and float(standard.get("locked_market_multiplier", 0.0)) > cap, "the injected five-times rare event must remain fully lockable on a standard term in this run")
+	_expect(bool(standard.get("ok", false)) and float(standard.get("locked_market_multiplier", 0.0)) > cap, "a full-term injected rare event remains fully lockable on a standard term in this run")
 	_expect(bool(strategic.get("ok", false)) and is_equal_approx(float(strategic.get("locked_market_multiplier", 0.0)), cap) and bool(strategic.get("lock_cap_applied", false)), "the same live rare quote must disclose and enforce the strategic 2.5x cap")
 	Game.state["market"] = market_before
 	_note("month %d: live campaign formed a %d-slot set and capped an injected rare strategic quote at x%.1f" % [_month, grouped_slots, cap])

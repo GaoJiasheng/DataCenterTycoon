@@ -731,7 +731,8 @@ func _run_gameplay_depth_tests() -> void:
 	dc["racks"][0] = {"rack_id": "rack_gpu_t1", "status": "active", "enabled": true}
 	Game.state["plots"][0]["datacenter"] = dc
 	Game.state["plots"][0]["status"] = "operational"
-	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": 0.0, "end_at": 1000000000.0}]
+	var month_seconds := float(Game.data["economy"]["time"]["real_seconds_per_game_month"])
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": 0.0, "end_at": month_seconds}]
 	var flexible := Game.sign_contract(dc["id"], "gpu_company", "flexible")
 	var flexible_rate := float(dc.get("locked_market_multiplier", 0.0))
 	var standard := Game.sign_contract(dc["id"], "gpu_company", "standard")
@@ -739,14 +740,46 @@ func _run_gameplay_depth_tests() -> void:
 	var strategic_forecast := Game.contract_forecast(dc["id"], "gpu_company", "strategic")
 	var strategic := Game.sign_contract(dc["id"], "gpu_company", "strategic")
 	var strategic_rate := float(dc.get("locked_market_multiplier", 0.0))
-	_expect(bool(flexible.get("ok", false)) and bool(standard.get("ok", false)) and is_equal_approx(flexible_rate, 5.0) and is_equal_approx(standard_rate, 5.0), "flexible and standard contracts can lock the full five-times rare quote")
-	_expect(bool(strategic.get("ok", false)) and is_equal_approx(strategic_rate, 2.5) and bool(strategic_forecast.get("lock_cap_applied", false)), "strategic contracts disclose and enforce the authored 2.5-times lock cap")
+	_expect(bool(flexible.get("ok", false)) and bool(standard.get("ok", false)) and is_equal_approx(flexible_rate, 7.0 / 3.0) and is_equal_approx(standard_rate, 10.0 / 6.0), "a one-month five-times event is integrated exactly across flexible and standard terms")
+	_expect(bool(strategic.get("ok", false)) and is_equal_approx(strategic_rate, 16.0 / 12.0) and not bool(strategic_forecast.get("lock_cap_applied", true)), "the same one-month event is diluted across the full strategic term before the cap")
+	Game.state["market"]["active"] = [
+		{"event_id": "sovereign_ai", "started_at": 0.0, "end_at": month_seconds},
+		{"event_id": "compute_famine", "started_at": 0.0, "end_at": month_seconds * 2.0},
+	]
+	var overlap := Game.contract_forecast(dc["id"], "gpu_company", "flexible")
+	_expect(is_equal_approx(float(overlap.get("locked_market_multiplier", 0.0)), 11.8 / 3.0), "overlapping active events use every exact end-time cut point in the lock integral")
+	Game.state["market"]["active"] = []
+	Game.state["market"]["previews"] = [{"event_id": "sovereign_ai", "previewed_at": 0.0, "start_at": month_seconds}]
+	var calm := Game.contract_forecast(dc["id"], "gpu_company", "standard")
+	_expect(is_equal_approx(float(calm.get("locked_market_multiplier", 0.0)), 1.0) and is_zero_approx(float(calm.get("prorated_event_seconds", -1.0))), "no active event locks the era baseline and previews are never integrated")
+	Game.state["market"]["previews"] = []
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": 0.0, "end_at": month_seconds * 12.0}]
+	var premium_capped := Game.contract_forecast(dc["id"], "gpu_company", "strategic", 1.35)
+	_expect(is_equal_approx(float(premium_capped.get("uncapped_market_multiplier", 0.0)), 6.75) and is_equal_approx(float(premium_capped.get("locked_market_multiplier", 0.0)), 2.5), "inquiry premium is applied after proration and the strategic cap is applied last")
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": 0.0, "end_at": month_seconds}]
 	dc["contract_end_at"] = Game.simulation_time() + 1.0
 	var renewal_report := Game.advance_time(1.0, false)
-	_expect(is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), 2.5) and renewal_report.get("contracts", []).size() == 1, "strategic automatic renewal uses the same capped lock-rate path")
+	var renewal_expected := (5.0 * (month_seconds - 1.0) + (month_seconds * 11.0 + 1.0)) / (month_seconds * 12.0)
+	_expect(is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), renewal_expected) and renewal_report.get("contracts", []).size() == 1, "strategic automatic renewal uses the same exact prorated lock-rate path")
 	dc["locked_market_multiplier"] = 5.0
 	Game._ensure_state_shape()
 	_expect(is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), 5.0), "loading a legacy strategic contract never retroactively clamps its saved lock rate")
+
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["era"] = 3
+	Game.state["player"]["network_level"] = 4
+	Game.state["market"]["next_event_at"] = 0.0
+	Game.state["market"]["rng_state"] = 934857
+	var replay_baseline := Game.state.duplicate(true)
+	for _index: int in range(12):
+		Game._locked_rate_for("gpu_company", "flexible")
+	Game.advance_time(month_seconds * 8.0, false)
+	var sequence_after_quotes: Dictionary = Game.state["market"].duplicate(true)
+	Game.state = replay_baseline.duplicate(true)
+	Game._ensure_state_shape()
+	Game.advance_time(month_seconds * 8.0, false)
+	_expect(sequence_after_quotes == Game.state["market"], "prorated lock quotes consume no market RNG and preserve the same-seed event sequence exactly")
 
 	Game.reset_for_tests()
 	Game.state["tutorial"]["completed"] = true

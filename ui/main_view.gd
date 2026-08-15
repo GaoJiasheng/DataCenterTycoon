@@ -1304,6 +1304,10 @@ func _build_contract_management(dc: Dictionary) -> Control:
 		rates.add_child(Widgets.chip(tr("CONTRACT_LOCKED_RATE") % float(dc.get("locked_market_multiplier", Game.contract_market_multiplier(current_customer))), ThemeMaker.COLORS.green))
 		rates.add_child(Widgets.chip(tr("CONTRACT_MARKET_RATE") % Game.market_multiplier(current_customer), ThemeMaker.COLORS.cyan))
 		summary_box.add_child(rates)
+		var event_seconds := float(dc.get("contract_prorated_event_seconds", 0.0))
+		if event_seconds > 0.0:
+			var month_seconds := float(DataRepository.get_table("economy").get("time", {}).get("real_seconds_per_game_month", 7200.0))
+			summary_box.add_child(_label(tr("CONTRACT_PRORATED_EVENT") % (event_seconds / month_seconds), ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan))
 		var cap := float(DataRepository.get_table("economy").get("contracts", {}).get("strategic_lock_cap", 2.5))
 		if str(dc.get("contract_duration_id", "standard")) == "strategic" and Game.contract_market_multiplier(current_customer) > cap and is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), cap):
 			summary_box.add_child(_label(tr("CONTRACT_STRATEGIC_CAP") % cap, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.purple))
@@ -4261,11 +4265,15 @@ func _sign_contract(datacenter_id: String, customer_id: String) -> void:
 		var available := relationship_index >= int(duration.get("relationship_level_required", 0))
 		var term_value := float(forecast.get("projected", 0.0)) * float(forecast.get("months", 0.0)) - float(forecast.get("fee", 0.0))
 		var choice_text := "%s\n%s\n%s" % [tr(str(duration.get("name_key", ""))), tr(str(duration.get("description_key", ""))), tr("CONTRACT_TERM_PROJECTION") % [Game.format_number(float(forecast.get("projected", 0.0))), Game.format_number(term_value)]]
+		var event_seconds := float(forecast.get("prorated_event_seconds", 0.0))
+		if event_seconds > 0.0:
+			var month_seconds := float(DataRepository.get_table("economy").get("time", {}).get("real_seconds_per_game_month", 7200.0))
+			choice_text += "\n" + tr("CONTRACT_PRORATED_EVENT") % (event_seconds / month_seconds)
 		if bool(forecast.get("lock_cap_applied", false)):
 			choice_text += "\n" + tr("CONTRACT_STRATEGIC_CAP") % float(forecast.get("strategic_lock_cap", 2.5))
 		choices.append({
 			"id": duration_id,
-			"height": 150 if bool(forecast.get("lock_cap_applied", false)) else 126,
+			"height": 126 + (24 if event_seconds > 0.0 else 0) + (24 if bool(forecast.get("lock_cap_applied", false)) else 0),
 			"asset": "customer_portfolio" if available else "ic_lock",
 			"available": available,
 			"text": choice_text,
@@ -4292,6 +4300,10 @@ func _confirm_contract_duration(datacenter_id: String, customer_id: String, dura
 	var body := tr("CONTRACT_CONFIRM_DELTA") % [Game.format_number(current), Game.format_number(projected), percent]
 	body += "\n" + (tr("CONTRACT_FREE_SWITCH") if fee <= 0.0 else tr("CONTRACT_BREACH_FEE") % Game.format_number(fee))
 	body += "\n" + tr("CONTRACT_TERM_GAIN") % Game.format_number(float(forecast.get("term_gain", 0.0)))
+	var event_seconds := float(forecast.get("prorated_event_seconds", 0.0))
+	if event_seconds > 0.0:
+		var month_seconds := float(DataRepository.get_table("economy").get("time", {}).get("real_seconds_per_game_month", 7200.0))
+		body += "\n" + tr("CONTRACT_PRORATED_EVENT") % (event_seconds / month_seconds)
 	if bool(forecast.get("lock_cap_applied", false)):
 		body += "\n" + tr("CONTRACT_STRATEGIC_CAP") % float(forecast.get("strategic_lock_cap", 2.5))
 	var confirm_contract := func(choice: String) -> void:

@@ -236,11 +236,29 @@ class Simulator:
         return result
 
     def locked_rate(self, customer, duration_id, premium=1.0):
-        market = (
-            CUSTOMERS[customer]["era_baseline"].get(str(self.era), 0)
-            if self.market_lock_mode == "era_baseline"
-            else self.market_multiplier(customer)
-        )
+        baseline = CUSTOMERS[customer]["era_baseline"].get(str(self.era), 0)
+        if self.market_lock_mode == "era_baseline":
+            market = baseline
+        elif self.market_lock_mode == "instant":
+            market = self.market_multiplier(customer)
+        else:
+            duration = META["contract_durations"][duration_id]["months"] * MONTH
+            term_end = Simulator.now + duration
+            cuts = sorted({
+                Simulator.now,
+                term_end,
+                *(end for _event_id, end in self.events if Simulator.now < end < term_end),
+            })
+            integral = 0.0
+            for start, end in zip(cuts, cuts[1:]):
+                segment = baseline
+                for event_id, event_end in self.events:
+                    if event_end > start:
+                        event = EVENTS[event_id]
+                        segment *= event.get("all_customer_multiplier", 1)
+                        segment *= event.get("customer_multipliers", {}).get(customer, 1)
+                integral += segment * (end - start)
+            market = integral / duration
         rate = market * premium
         if duration_id == "strategic" and self.strategic_cap_enabled:
             return min(rate, ECONOMY["contracts"]["strategic_lock_cap"])
@@ -955,7 +973,7 @@ def run_depth_attribution_probe(seed, seed_count):
         # A is the pre-B3 counterfactual: a familiar active player uses the
         # longest lock and the rare quote is not capped.
         "A_event_timing_uncapped": _active_probe_cohort(
-            seed, seed_count, market_lock_mode="normal",
+            seed, seed_count, market_lock_mode="instant",
             strategic_cap_enabled=False, active_contract_term="strategic",
         ),
         # B removes only event timing from the lock quote.
@@ -965,7 +983,7 @@ def run_depth_attribution_probe(seed, seed_count):
         ),
         # A' restores event timing under the shipped B3 strategic cap.
         "A_prime_event_timing_capped": _active_probe_cohort(
-            seed, seed_count, market_lock_mode="normal",
+            seed, seed_count, market_lock_mode="instant",
             strategic_cap_enabled=True, active_contract_term="strategic",
         ),
     }

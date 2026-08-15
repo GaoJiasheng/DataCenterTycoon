@@ -168,6 +168,7 @@ CONTRACT_REMAINING,Term remaining: %s,合约剩余：%s
 CONTRACT_FREE_SWITCH,Free switch,免费换约
 CONTRACT_LOCKED_RATE,Signed ×%.2f,签约价 ×%.2f
 CONTRACT_MARKET_RATE,Market now ×%.2f,当前行情 ×%.2f
+CONTRACT_PRORATED_EVENT,Prorated across %.1f event months,按事件剩余 %.1f 个游戏月折算
 CONTRACT_PROJECTED,Projected $%s / month,预计 $%s / 月
 CONTRACT_PROJECTED_AFTER_RACK,Income starts when a rack comes online,机柜上线后开始产生收入
 CONTRACT_CAPACITY_TITLE,No sellable capacity yet,还没有可售算力
@@ -241,7 +242,7 @@ MARKET_CALM,Markets are calm,当前行情平稳
 MARKET_NO_HISTORY,Market history will appear as time passes,行情记录将在运营后逐步生成
 MARKET_NOW,Now,现在
 MARKET_CUSTOMERS,Customer signals,客户走势
-MARKET_SIGNING_ADVISOR,Signing advisor · compare today's opportunities without changing existing income,签约参谋 · 比较今日机会，不影响现有合约收入
+MARKET_SIGNING_ADVISOR,Signing advisor · active events are prorated across each contract term,签约参谋 · 已生效事件按各档合同期限折算
 MARKET_CUSTOMERS_HINT,Compare today's rates before a new signing or free switch,新签或免费改签前，先比较今日行情
 MARKET_7D_TREND,Recent 7-day signal,近 7 日走势
 EVENT_STARTS_IN,Starts in %s,%s 后开始

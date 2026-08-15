@@ -140,12 +140,17 @@ func market_multiplier(customer_id: String) -> float:
 func contract_market_multiplier(customer_id: String) -> float:
 	return _market.customer_multiplier(customer_id, state, data, false)
 
-func _locked_rate_for(customer_id: String, duration_id: String, premium: float = 1.0) -> float:
-	var rate := contract_market_multiplier(customer_id) * maxf(1.0, premium)
-	if duration_id == "strategic":
+func _locked_rate_for(customer_id: String, duration_id: String, premium: float = 1.0, locked_rate_override: float = -1.0, apply_strategic_cap: bool = true) -> float:
+	var rate := locked_rate_override
+	if rate <= 0.0:
+		rate = _market.locked_customer_multiplier(customer_id, state, data, _contract_duration_seconds(duration_id)) * maxf(1.0, premium)
+	if apply_strategic_cap and duration_id == "strategic":
 		var cap := float(data.get("economy", {}).get("contracts", {}).get("strategic_lock_cap", 2.5))
 		return minf(rate, cap)
 	return rate
+
+func contract_lock_event_seconds(customer_id: String, duration_id: String) -> float:
+	return _market.locking_event_remaining_seconds(customer_id, state, data, _contract_duration_seconds(duration_id))
 
 func rack_purchase_cost(rack_id: String) -> float:
 	var rack: Dictionary = data.get("racks", {}).get("items", {}).get(rack_id, {})
@@ -311,10 +316,9 @@ func sign_contract(datacenter_id: String, customer_id: String, duration_id: Stri
 		if not _spend_cash(fee):
 			return _failure("not_enough_cash")
 	dc["customer_id"] = customer_id
-	var locked_rate := locked_rate_override if locked_rate_override > 0.0 else _locked_rate_for(customer_id, duration_id, rate_premium)
-	if duration_id == "strategic":
-		locked_rate = minf(locked_rate, float(data.get("economy", {}).get("contracts", {}).get("strategic_lock_cap", 2.5)))
+	var locked_rate := _locked_rate_for(customer_id, duration_id, rate_premium, locked_rate_override)
 	dc["locked_market_multiplier"] = locked_rate
+	dc["contract_prorated_event_seconds"] = contract_lock_event_seconds(customer_id, duration_id)
 	dc["contract_duration_id"] = duration_id
 	dc["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	dc["contract_end_at"] = simulation_time() + _contract_duration_seconds(duration_id)
@@ -340,8 +344,8 @@ func contract_forecast(datacenter_id: String, customer_id: String, duration_id: 
 	var current := datacenter_monthly_income(dc)
 	var simulated := dc.duplicate(true)
 	simulated["customer_id"] = customer_id
-	var uncapped_rate := contract_market_multiplier(customer_id) * maxf(1.0, rate_premium)
-	var locked_rate := _locked_rate_for(customer_id, duration_id, rate_premium)
+	var uncapped_rate := _locked_rate_for(customer_id, duration_id, rate_premium, -1.0, false)
+	var locked_rate := _locked_rate_for(customer_id, duration_id, 1.0, uncapped_rate, true)
 	simulated["locked_market_multiplier"] = locked_rate
 	simulated["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	var projected := Rules.datacenter_income_per_month(simulated, state, data, func(id: String) -> float: return market_multiplier(id))
@@ -359,6 +363,7 @@ func contract_forecast(datacenter_id: String, customer_id: String, duration_id: 
 		"duration_id": duration_id,
 		"uncapped_market_multiplier": uncapped_rate,
 		"locked_market_multiplier": locked_rate,
+		"prorated_event_seconds": contract_lock_event_seconds(customer_id, duration_id),
 		"lock_cap_applied": duration_id == "strategic" and locked_rate < uncapped_rate,
 		"strategic_lock_cap": float(data.get("economy", {}).get("contracts", {}).get("strategic_lock_cap", 2.5)),
 	})
@@ -1145,6 +1150,7 @@ func _process_contract_renewals(now: float, report: Dictionary) -> void:
 		while float(dc.get("contract_end_at", INF)) <= now:
 			dc["contract_end_at"] = float(dc.get("contract_end_at", now)) + duration
 			dc["locked_market_multiplier"] = _locked_rate_for(str(dc.get("customer_id", "")), str(dc.get("contract_duration_id", "standard")))
+			dc["contract_prorated_event_seconds"] = contract_lock_event_seconds(str(dc.get("customer_id", "")), str(dc.get("contract_duration_id", "standard")))
 			dc["free_switch_available"] = true
 			dc.erase("inquiry_contract_id")
 			dc.erase("inquiry_template_id")

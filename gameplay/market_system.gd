@@ -99,32 +99,82 @@ func next_transition_after(game_state: Dictionary, after: float, include_noise: 
 	return result
 
 func customer_multiplier(customer_id: String, game_state: Dictionary, data: Dictionary, include_noise: bool = true) -> float:
-	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(customer_id, {})
-	var era_number := int(game_state.get("player", {}).get("era", 1))
-	var era := str(era_number)
-	var result := float(customer.get("era_baseline", {}).get(era, 0.0))
+	var result := _customer_baseline(customer_id, game_state, data)
 	if result <= 0.0:
-		if customer.is_empty() or int(customer.get("unlock_era", 1)) > era_number:
-			return 0.0
-		# Valid, unlocked customers must always have a usable quote. Fall back to
-		# the latest earlier baseline (or neutral 1.0 for malformed legacy data).
-		for fallback_era: int in range(era_number - 1, 0, -1):
-			result = float(customer.get("era_baseline", {}).get(str(fallback_era), 0.0))
-			if result > 0.0:
-				break
-		if result <= 0.0:
-			result = 1.0
+		return 0.0
 	var market: Dictionary = game_state.get("market", {})
 	if include_noise:
 		var noise := float(market.get("noise", {}).get(customer_id, 1.0))
 		result *= noise if noise > 0.0 else 1.0
 	for active: Dictionary in market.get("active", []):
-		var event_data: Dictionary = data.get("events", {}).get("items", {}).get(active.get("event_id", ""), {})
-		var broad_multiplier := float(event_data.get("all_customer_multiplier", 1.0))
-		var customer_multiplier := float(event_data.get("customer_multipliers", {}).get(customer_id, 1.0))
-		result *= broad_multiplier if broad_multiplier > 0.0 else 1.0
-		result *= customer_multiplier if customer_multiplier > 0.0 else 1.0
+		result *= _event_customer_multiplier(str(active.get("event_id", "")), customer_id, data)
 	return result
+
+func locked_customer_multiplier(customer_id: String, game_state: Dictionary, data: Dictionary, term_seconds: float) -> float:
+	var baseline := _customer_baseline(customer_id, game_state, data)
+	if baseline <= 0.0:
+		return 0.0
+	var duration := maxf(0.0, term_seconds)
+	if duration <= 0.0:
+		return baseline
+	var now := float(game_state.get("clock", {}).get("simulation_seconds", 0.0))
+	var term_end := now + duration
+	var relevant: Array[Dictionary] = []
+	var cuts: Array[float] = [now, term_end]
+	for active: Dictionary in game_state.get("market", {}).get("active", []):
+		var started_at := float(active.get("started_at", now))
+		var end_at := float(active.get("end_at", 0.0))
+		if started_at > now or end_at <= now:
+			continue
+		relevant.append(active)
+		if end_at < term_end:
+			cuts.append(end_at)
+	cuts.sort()
+	var integral := 0.0
+	for index: int in range(cuts.size() - 1):
+		var segment_start := cuts[index]
+		var segment_end := cuts[index + 1]
+		if segment_end <= segment_start:
+			continue
+		var segment_rate := baseline
+		for active: Dictionary in relevant:
+			if float(active.get("end_at", 0.0)) > segment_start:
+				segment_rate *= _event_customer_multiplier(str(active.get("event_id", "")), customer_id, data)
+		integral += segment_rate * (segment_end - segment_start)
+	return integral / duration
+
+func locking_event_remaining_seconds(customer_id: String, game_state: Dictionary, data: Dictionary, term_seconds: float) -> float:
+	var now := float(game_state.get("clock", {}).get("simulation_seconds", 0.0))
+	var result := 0.0
+	for active: Dictionary in game_state.get("market", {}).get("active", []):
+		if float(active.get("started_at", now)) > now:
+			continue
+		if is_equal_approx(_event_customer_multiplier(str(active.get("event_id", "")), customer_id, data), 1.0):
+			continue
+		result = maxf(result, minf(maxf(0.0, float(active.get("end_at", 0.0)) - now), term_seconds))
+	return result
+
+func _customer_baseline(customer_id: String, game_state: Dictionary, data: Dictionary) -> float:
+	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(customer_id, {})
+	var era_number := int(game_state.get("player", {}).get("era", 1))
+	var result := float(customer.get("era_baseline", {}).get(str(era_number), 0.0))
+	if result > 0.0:
+		return result
+	if customer.is_empty() or int(customer.get("unlock_era", 1)) > era_number:
+		return 0.0
+	# Valid, unlocked customers must always have a usable quote. Fall back to
+	# the latest earlier baseline (or neutral 1.0 for malformed legacy data).
+	for fallback_era: int in range(era_number - 1, 0, -1):
+		result = float(customer.get("era_baseline", {}).get(str(fallback_era), 0.0))
+		if result > 0.0:
+			return result
+	return 1.0
+
+func _event_customer_multiplier(event_id: String, customer_id: String, data: Dictionary) -> float:
+	var event_data: Dictionary = data.get("events", {}).get("items", {}).get(event_id, {})
+	var broad_multiplier := float(event_data.get("all_customer_multiplier", 1.0))
+	var specific_multiplier := float(event_data.get("customer_multipliers", {}).get(customer_id, 1.0))
+	return (broad_multiplier if broad_multiplier > 0.0 else 1.0) * (specific_multiplier if specific_multiplier > 0.0 else 1.0)
 
 func purchase_multiplier(kind: String, game_state: Dictionary, data: Dictionary) -> float:
 	var result := 1.0
