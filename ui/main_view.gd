@@ -1670,7 +1670,7 @@ func _inquiry_card(inquiry: Dictionary) -> Control:
 	box.add_child(terms)
 	var inquiry_line_key := PersonaSystemScene.line_key(persona, "inquiry", str(inquiry.get("id", "")))
 	if not inquiry_line_key.is_empty():
-		var persona_line := _label("“%s”" % tr(inquiry_line_key), ThemeMaker.TYPE_SCALE.caption, Color("d9e7f2"))
+		var persona_line := _label('"%s"' % tr(inquiry_line_key), ThemeMaker.TYPE_SCALE.caption, Color("d9e7f2"))
 		persona_line.name = "InquiryPersonaLine"
 		persona_line.max_lines_visible = 1
 		persona_line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

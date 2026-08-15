@@ -639,7 +639,11 @@ func _shot(shot_name: String) -> void:
 	main.call("_refresh")
 	await get_tree().process_frame
 	await get_tree().create_timer(0.2).timeout
-	await RenderingServer.frame_post_draw
+	# A quiescent desktop window may not schedule another draw after the timer,
+	# which used to leave the long campaign gate waiting on frame_post_draw
+	# forever after its page tour. Force the pending frame synchronously so the
+	# screenshot remains deterministic in both CI and a covered local window.
+	RenderingServer.force_draw(false)
 	var image := get_viewport().get_texture().get_image()
 	_shot_index += 1
 	image.save_png("%s%02d_%s.png" % [OUT, _shot_index, shot_name])

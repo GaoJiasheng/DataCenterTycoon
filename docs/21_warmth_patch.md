@@ -139,3 +139,41 @@
 4. 猫的点击热区与世界输入路由是 15 号踩过的坑：用 `push_input` 路径实测（`tutorial_playthrough` 的触摸注入手法），不要只靠单元层断言。
 5. 值班日志的金额展示复用 `Game.format_number` 与权威结算同一份数据，禁止在 compose 里重新求和——13/15 号「显示与权威不同源」教训的适用场景。
 6. 人设台词写作基调：具体、克制、有行业味，不玩梗过度；每条 ≤30 汉字避免换行灾难。英文台词独立写作（不逐字直译），长度同约束。
+
+## 6. 验收记录（2026-08-15）
+
+### 批次与提交边界
+
+- [x] 批次 1：`9fef299 docs: lock warmth and narrative decisions`，D50–D52 已进入 00 号「表现与叙事」小节。
+- [x] 批次 2：`9a623b2 feat: add deterministic offline duty logs`。
+- [x] 批次 3：`da5b666 feat: personify customer relationships`。
+- [x] 批次 4：`1a02cf9 feat: bring a cat to the campus`。
+- [x] 批次 5：全量回归、字体与资源合同同步、01/README/本文验收记录保持为独立最终提交。
+
+### C1 · 值班日志
+
+- [x] `data/duty_log.json` 为每类事件提供至少 3 条双语模板；`DutyLog.compose` 只读离线报告与存档展示字段，按优先级聚合为 2–4 行，收入兜底直接使用报告的权威金额，没有在 UI 重新求和。
+- [x] 单测证明相同报告逐字一致、优先级与收入保底正确；compose 前后行情、询价与故障持久随机状态逐位不变。
+- [x] `midgame_audit` 断言日志收入与同一份离线报告一致；`full_campaign` 的真实离线回归继续完成领取、深链与转生长线流程。
+
+### C2 · 客户拟人化
+
+- [x] `data/personas.json` 落地互联网 3、云厂商 3、GPU 2、挖矿 2 共 10 位角色；每位五类语境各至少 2 条中英独立台词，角色不含任何专属经济字段。
+- [x] 询价人设由 `hash(inquiry_id + template_id)` 稳定绑定且零持久随机流消耗；合约对接人与关系升级复用同一客户关系，跨多级时只发一次最高等级信号。
+- [x] 10 张 1024² 正式透明半身像已按 19 号美术管线进入 work/final/runtime，询价卡、合约面板与关系升级反馈均使用正式资产；FTUE 审计全程不出现人设元素。
+
+### C3 · 机房猫
+
+- [x] 当前园区只挂载一只猫，睡觉/踱步/坐望状态和稀有行情墨镜变体均由临时随机源驱动；教程期隐藏且不可点，互动不产生现金或可重复钻石。
+- [x] 四种情境分别发现 `cat_nap`、`cat_parade`、`cat_watch`、`cat_festival`；重复互动不重复发现，既有典藏 API 只在整组首次完成时发放一次 5 钻石。
+- [x] 猫本体 6 态、4 张猫片与爱心特效共 11 张正式透明素材已接入；点击热区只覆盖本体，`midgame_audit` 以真实 `push_input` 证明猫与建筑重叠时点击仍打开建筑抽屉。
+
+### 零漂移与全量门禁
+
+- [x] `python3 tools/simulate_economy.py --seed-count 20` 输出与批次前基线逐字节一致；两份文件 SHA-256 均为 `4e8d551354da4bff23232b454abb9253f2ae96e5a3f8c03b60b8fe732a227e04`，活跃 20 座中位仍为 19.3 天，活跃/挂机 30 日净值比仍为 23.67×。
+- [x] `test_runner` 224/224；`flow_audit`、`midgame_audit`、真实触摸 `tutorial_playthrough` 与 `full_campaign` 全绿。长战役在同一局跑通询价、5 槽成组、稀有行情战略封顶、3 路工程队、离线回归与上市重组，最终第 113 月、24 座、时代 3、净值 $1.02M。
+- [x] `visual_smoke` 中文/英文各 47 个 iPhone 17 竖屏状态通过，含 `duty_log_dialog`、`inquiry_persona_card`、`campus_cat` 三个新增状态，输出 990×2151。
+- [x] `performance_smoke` 百机房 + 单猫 + 30 金币粒子：平均 6.46ms、p90 8.34ms、p95 9.51ms；猫爱心特效 1→0、剩余粒子 0、节点差 0。
+- [x] `validate_data` 通过 16 张数据表、本地化与 180 个美术 ID；`check_assets --strict --audio` 通过 180/180 美术、6/6 字体、23/23 音频。新增人名用字已从审计过 SHA-256 的 Resource Han Rounded v1.910 母版重新子集化。
+- [x] 正式资源管线 `import_assets.py --visual --audio` 完整复制 203 项且无缺失；本批次没有使用几何占位或缺失回退交付。
+- [ ] `check_app_store_assets` / `check_release` 仍被仓库既有外部发布资料阻塞：中英 iPhone/iPad 商店截图、隐私/支持页正式链接和 iOS IAP 插件描述符尚未交付。它们不影响本批次运行时、模拟器与 TestFlight 工程逻辑，继续归入 README 的外部交付清单，不伪报为通过。

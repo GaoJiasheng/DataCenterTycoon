@@ -25,6 +25,7 @@ RHR_FONT_FILES = tuple(
     for weight in ("Medium", "Bold", "Heavy")
 )
 LOCALIZATION = ROOT / "localization/ui.csv"
+EXPECTED_ART_COUNT = 180
 
 
 def expanded_art_items():
@@ -65,8 +66,10 @@ def validate_art(strict):
     failures = []
     missing = []
     items = expanded_art_items()
-    if len(items) != 159:
-        failures.append(f"manifest contains {len(items)} assets; expected 159")
+    if len(items) != EXPECTED_ART_COUNT:
+        failures.append(
+            f"manifest contains {len(items)} assets; expected {EXPECTED_ART_COUNT}"
+        )
     for asset_id, spec in sorted(items.items()):
         path = Path(spec["path"])
         if not path.exists():

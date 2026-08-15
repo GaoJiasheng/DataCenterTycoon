@@ -22,5 +22,5 @@ python3 tools/subset_fonts.py --source /path/to/ResourceHanRoundedCN-VF.otf
 The script verifies the audited upstream hash, subsets the variable master,
 pins Medium/Bold/Heavy at full rounding, downgrades CFF2 to static CFF OTF, and
 produces deterministic runtime fonts containing every character in
-`localization/ui.csv`, printable ASCII, formatted-value punctuation, and a
-3,500-character common-Han buffer.
+`localization/ui.csv`, printable ASCII, formatted-value punctuation, and the
+complete 3,755-character GB2312 level-1 common-Han buffer.
