@@ -89,6 +89,32 @@ func _run_warmth_presentation_tests() -> void:
 	var empty_rows := DutyLogScene.compose({"income": 0.0}, DataRepository.tables, Game.state)
 	_expect(empty_rows.size() == 1 and str(empty_rows[0].get("type", "")) == "income", "an empty offline report returns only the income fallback line")
 
+	# The era row must come from a REAL offline advance, not only from the
+	# hand-built fixture above — the report plumbing regressed silently once.
+	Game.reset_for_tests()
+	Game.state["player"]["total_revenue"] = 49999.0
+	Game.state["player"]["cash"] = 100000.0
+	Game.start_datacenter_construction("plot_1", "dc_t0")
+	Game.advance_time(600.0, false)
+	var era_dc := ""
+	for plot: Dictionary in Game.state.get("plots", []):
+		if plot.get("datacenter") is Dictionary:
+			era_dc = str((plot["datacenter"] as Dictionary).get("id", ""))
+	Game.install_power(era_dc, "power_t1")
+	Game.advance_time(600.0, false)
+	Game.install_rack(era_dc, 0, "rack_compute_t1")
+	Game.advance_time(600.0, false)
+	Game.sign_contract(era_dc, "internet")
+	var era_report := Game.advance_time(14400.0, true)
+	var era_entries: Array = era_report.get("eras", [])
+	_expect(era_entries.size() == 1 and int((era_entries[0] as Dictionary).get("era_id", 0)) == 2, "a real offline advance that crosses an era threshold records the unlock in the report")
+	var era_rows := DutyLogScene.compose(era_report, DataRepository.tables, Game.state)
+	var era_row_found := false
+	for row: Dictionary in era_rows:
+		if str(row.get("type", "")) == "era":
+			era_row_found = true
+	_expect(era_row_found, "the duty log surfaces an era unlocked while offline")
+
 	var inquiry := {"id": "persona_binding_42", "template_id": "internet_anchor"}
 	var persona_before := {
 		"market": Game.state.get("market", {}).duplicate(true),

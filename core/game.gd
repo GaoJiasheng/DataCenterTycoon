@@ -77,6 +77,7 @@ func advance_time(real_seconds: float, offline: bool) -> Dictionary:
 		"inquiries": [],
 		"aging": [],
 		"takeovers": [],
+		"eras": [],
 	}
 	if real_seconds <= 0.0:
 		return report
@@ -110,7 +111,7 @@ func advance_time(real_seconds: float, offline: bool) -> Dictionary:
 		push_warning("Advance iteration cap reached; coarsely advancing %.1f seconds" % remaining)
 		state["clock"]["simulation_seconds"] = simulation_time() + remaining
 		_process_due(false, offline, report)
-	_check_era_unlocks()
+	_check_era_unlocks(report)
 	_check_achievements()
 	_update_highest_net_worth()
 	EventBus.state_changed.emit("offline_advance" if offline else "tick")
@@ -1331,7 +1332,10 @@ func acknowledge_bank_takeover() -> void:
 	if persistence_enabled:
 		save_now()
 
-func _check_era_unlocks() -> void:
+# The report parameter feeds the offline duty log: an era crossed while away is
+# the biggest news of the night and must appear in the returning player's log,
+# not only in the live EventBus path.
+func _check_era_unlocks(report: Dictionary = {}) -> void:
 	var current := int(state["player"].get("era", 1))
 	for era_id: int in range(current + 1, 4):
 		var era: Dictionary = data.get("eras", {}).get("items", {}).get(str(era_id), {})
@@ -1339,6 +1343,8 @@ func _check_era_unlocks() -> void:
 			break
 		state["player"]["era"] = era_id
 		state["player"]["gems"] = int(state["player"].get("gems", 0)) + int(era.get("reward_gems", 0))
+		if report.get("eras") is Array:
+			report["eras"].append({"era_id": era_id})
 		EventBus.era_unlocked.emit(era_id)
 		AudioService.play_sfx("sfx_era")
 
