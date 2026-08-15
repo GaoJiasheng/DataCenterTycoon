@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "entries": {
+    "takeover": {
+      "priority": 100,
+      "aggregate": true,
+      "icon_asset": "ic_bankrupt",
+      "templates": ["DUTY_LOG_TAKEOVER_1", "DUTY_LOG_TAKEOVER_2", "DUTY_LOG_TAKEOVER_3"]
+    },
+    "era": {
+      "priority": 90,
+      "aggregate": true,
+      "icon_asset": "ic_era2",
+      "templates": ["DUTY_LOG_ERA_1", "DUTY_LOG_ERA_2", "DUTY_LOG_ERA_3"]
+    },
+    "rare_market": {
+      "priority": 80,
+      "aggregate": true,
+      "icon_asset": "ic_market_up",
+      "templates": ["DUTY_LOG_RARE_1", "DUTY_LOG_RARE_2", "DUTY_LOG_RARE_3"]
+    },
+    "inquiry": {
+      "priority": 70,
+      "aggregate": true,
+      "icon_asset": "ic_contract",
+      "templates": ["DUTY_LOG_INQUIRY_1", "DUTY_LOG_INQUIRY_2", "DUTY_LOG_INQUIRY_3"]
+    },
+    "fault": {
+      "priority": 60,
+      "aggregate": true,
+      "icon_asset": "ic_warning",
+      "templates": ["DUTY_LOG_FAULT_1", "DUTY_LOG_FAULT_2", "DUTY_LOG_FAULT_3"]
+    },
+    "contract": {
+      "priority": 50,
+      "aggregate": true,
+      "icon_asset": "ic_contract",
+      "templates": ["DUTY_LOG_CONTRACT_1", "DUTY_LOG_CONTRACT_2", "DUTY_LOG_CONTRACT_3"]
+    },
+    "aging": {
+      "priority": 40,
+      "aggregate": true,
+      "icon_asset": "ic_retire",
+      "templates": ["DUTY_LOG_AGING_1", "DUTY_LOG_AGING_2", "DUTY_LOG_AGING_3"]
+    },
+    "income": {
+      "priority": 10,
+      "aggregate": true,
+      "icon_asset": "fx_coin",
+      "templates": ["DUTY_LOG_INCOME_1", "DUTY_LOG_INCOME_2", "DUTY_LOG_INCOME_3"]
+    }
+  }
+}

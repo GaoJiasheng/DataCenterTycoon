@@ -5,6 +5,7 @@ const Market := preload("res://gameplay/market_system.gd")
 const Inquiry := preload("res://gameplay/inquiry_system.gd")
 const MAIN_SCENE := preload("res://main.tscn")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
+const DutyLogScene := preload("res://ui/duty_log.gd")
 
 var passed := 0
 var failed := 0
@@ -12,6 +13,7 @@ var failed := 0
 func _ready() -> void:
 	await get_tree().process_frame
 	_run_data_tests()
+	_run_warmth_presentation_tests()
 	await _run_asset_integration_tests()
 	AudioService.apply_settings({"music_enabled": false, "sfx_enabled": false})
 	await _run_ui_refresh_test()
@@ -52,6 +54,38 @@ func _run_data_tests() -> void:
 	_expect(DataRepository.validate_references().is_empty(), "cross-table references are valid")
 	_expect(DataRepository.get_table("events").get("items", {}).size() == 19, "market includes major contracts and three rare events")
 	_expect(Monetization.is_product_available("noads") and Monetization.localized_price("noads", "") == "US$ 5.99", "mock StoreKit catalog exposes localized product prices")
+
+func _run_warmth_presentation_tests() -> void:
+	Game.reset_for_tests()
+	var report := {
+		"elapsed_seconds": 21600.0,
+		"income": 5432.0,
+		"takeovers": [{"sold_count": 1}],
+		"eras": [{"era_id": 2}],
+		"events": [{"type": "event_started", "event_id": "sovereign_ai"}],
+		"inquiries": [{"id": "inquiry_1"}, {"id": "inquiry_2"}],
+		"faults": [{"datacenter_id": "dc_1", "slot": 0}],
+		"contracts": [{"type": "contract_auto_renewed"}],
+		"aging": [{"datacenter_id": "dc_1", "stage": "aging"}],
+	}
+	var persistent_before := {
+		"market_rng": int(Game.state.get("market", {}).get("rng_state", 0)),
+		"inquiry_rng": int(Game.state.get("inquiries", {}).get("rng_state", 0)),
+		"fault_schedule": Game.state.get("plots", []).duplicate(true),
+	}
+	var first := DutyLogScene.compose(report, DataRepository.tables, Game.state)
+	var second := DutyLogScene.compose(report, DataRepository.tables, Game.state)
+	var persistent_after := {
+		"market_rng": int(Game.state.get("market", {}).get("rng_state", 0)),
+		"inquiry_rng": int(Game.state.get("inquiries", {}).get("rng_state", 0)),
+		"fault_schedule": Game.state.get("plots", []).duplicate(true),
+	}
+	_expect(first == second, "duty log composition is deterministic for identical report content")
+	_expect(first.size() == 4 and str(first[0].get("type", "")) == "takeover" and str(first[1].get("type", "")) == "era" and str(first[2].get("type", "")) == "rare_market" and str(first[3].get("type", "")) == "income", "duty log keeps priority order and reserves one row for authoritative income")
+	_expect(str(first[3].get("text", "")).contains(Game.format_number(5432.0)) and is_equal_approx(float(first[3].get("authoritative_income", -1.0)), 5432.0), "duty log displays the report income without recomputing the bill")
+	_expect(persistent_before == persistent_after, "duty log temporary RNG leaves market inquiry and fault scheduling state byte-for-byte unchanged")
+	var empty_rows := DutyLogScene.compose({"income": 0.0}, DataRepository.tables, Game.state)
+	_expect(empty_rows.size() == 1 and str(empty_rows[0].get("type", "")) == "income", "an empty offline report returns only the income fallback line")
 
 func _run_asset_integration_tests() -> void:
 	var art_items: Dictionary = AssetCatalog.manifest.get("items", {})

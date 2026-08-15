@@ -545,3 +545,27 @@ REASON_INQUIRY_QUOTE_STALE,The offer changed while it was open. Review the curre
 RACK_KIND_COMPUTE,Compute racks,计算机柜
 RACK_KIND_STORAGE,Storage racks,存储机柜
 RACK_KIND_GPU,GPU racks,GPU 机柜
+DUTY_LOG_TAKEOVER_1,Bank support steadied %d room(s).,银行团队稳住了 %d 座机房。
+DUTY_LOG_TAKEOVER_2,%d room(s) entered bank care.,%d 座机房已由银行接管。
+DUTY_LOG_TAKEOVER_3,The bank protected %d room(s) overnight.,银行值夜时保住了 %d 座机房。
+DUTY_LOG_ERA_1,Operations reached Era %d.,园区运营迈入时代 %d。
+DUTY_LOG_ERA_2,The night shift welcomed Era %d.,夜班迎来了时代 %d。
+DUTY_LOG_ERA_3,Era %d systems came online.,时代 %d 的系统已经上线。
+DUTY_LOG_RARE_1,A rare %s shift reached the desk.,值班室记录了稀有行情：%s。
+DUTY_LOG_RARE_2,%s made an unusual move overnight.,%s 在夜里出现了异动。
+DUTY_LOG_RARE_3,The team flagged a rare %s window.,团队标记了稀有的%s窗口。
+DUTY_LOG_INQUIRY_1,Night desk received %d inquiry(s).,夜班收到 %d 份客户询价。
+DUTY_LOG_INQUIRY_2,%d new offer(s) waited for morning.,%d 份新报价等到了早班。
+DUTY_LOG_INQUIRY_3,Clients left %d inquiry(s) overnight.,客户夜间留下了 %d 份询价。
+DUTY_LOG_FAULT_1,Crew tracked %d equipment alert(s).,值班员跟进了 %d 次设备告警。
+DUTY_LOG_FAULT_2,%d alert(s) reached the night desk.,夜班收到了 %d 次设备告警。
+DUTY_LOG_FAULT_3,The crew watched %d fault signal(s).,团队守住了 %d 次故障信号。
+DUTY_LOG_CONTRACT_1,Night shift renewed %d contract(s).,夜班续好了 %d 份客户合约。
+DUTY_LOG_CONTRACT_2,%d contract(s) rolled on smoothly.,%d 份合约已平稳续签。
+DUTY_LOG_CONTRACT_3,The desk kept %d contract(s) active.,值班员维持了 %d 份合约。
+DUTY_LOG_AGING_1,%d room(s) reached a new life stage.,%d 座机房进入了新寿命阶段。
+DUTY_LOG_AGING_2,Crew checked %d aging room(s).,值班员巡检了 %d 座老化机房。
+DUTY_LOG_AGING_3,%d room(s) received an age check.,%d 座机房完成了寿命检查。
+DUTY_LOG_INCOME_1,This shift secured $%s in revenue.,本次值班确认收入 $%s。
+DUTY_LOG_INCOME_2,The night ledger recorded $%s.,夜班账本记下了 $%s。
+DUTY_LOG_INCOME_3,Your rooms earned $%s this shift.,机房本次值班赚得 $%s。

@@ -1,6 +1,7 @@
 extends Control
 
 const ThemeMaker := preload("res://ui/theme_factory.gd")
+const DutyLogScene := preload("res://ui/duty_log.gd")
 
 const Widgets := preload("res://ui/widgets.gd")
 const ChartScene := preload("res://ui/market_chart.gd")
@@ -3965,6 +3966,37 @@ func _show_offline_dialog(report: Dictionary) -> void:
 	ThemeMaker.apply_text_role(title, "display")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
+	var duty_rows := DutyLogScene.compose(report, DataRepository.tables, Game.state)
+	if not duty_rows.is_empty():
+		var duty_panel := PanelContainer.new()
+		duty_panel.name = "DutyLogPanel"
+		duty_panel.add_theme_stylebox_override("panel", ThemeMaker.panel(Color("f5eddd"), Color("d9c69d"), 1, 18))
+		var duty_margin := MarginContainer.new()
+		duty_margin.add_theme_constant_override("margin_left", 18)
+		duty_margin.add_theme_constant_override("margin_top", 12)
+		duty_margin.add_theme_constant_override("margin_right", 18)
+		duty_margin.add_theme_constant_override("margin_bottom", 12)
+		duty_panel.add_child(duty_margin)
+		var duty_box := VBoxContainer.new()
+		duty_box.add_theme_constant_override("separation", 6)
+		duty_margin.add_child(duty_box)
+		for index: int in range(duty_rows.size()):
+			var row_data: Dictionary = duty_rows[index]
+			var row := HBoxContainer.new()
+			row.name = "DutyLogRow_%d" % index
+			row.custom_minimum_size.y = 42
+			row.add_theme_constant_override("separation", 10)
+			row.set_meta("duty_log_type", str(row_data.get("type", "")))
+			row.set_meta("authoritative_income", float(row_data.get("authoritative_income", -1.0)))
+			row.add_child(_icon_view(str(row_data.get("icon_asset", "ic_check")), Vector2(34, 34)))
+			var copy := _label(str(row_data.get("text", "")), 20, ThemeMaker.COLORS.ink)
+			copy.name = "DutyLogText_%d" % index
+			copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			copy.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			copy.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			row.add_child(copy)
+			duty_box.add_child(row)
+		box.add_child(duty_panel)
 	box.add_child(_coin_pile())
 	var income := float(report.get("income", 0.0))
 	var prior_balance := float(report.get("balance_before", maxf(0.0, float(Game.state.get("player", {}).get("cash", 0.0)) - income)))

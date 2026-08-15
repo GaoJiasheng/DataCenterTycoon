@@ -300,6 +300,15 @@ func _assert_offline_routes() -> void:
 	for route_type: String in ["fault", "market", "aging"]:
 		var row := main.find_child("OfflineEvent_%s" % route_type, true, false) as Button
 		_expect(row != null and str(row.get_meta("offline_action", "")) == route_type and not row.pressed.get_connections().is_empty(), "M9 offline %s milestone must be a connected one-tap route" % route_type)
+	var duty_panel := main.find_child("DutyLogPanel", true, false) as PanelContainer
+	var income_row: Control = null
+	for node: Node in main.find_children("DutyLogRow_*", "", true, false):
+		if str(node.get_meta("duty_log_type", "")) == "income":
+			income_row = node as Control
+			break
+	var income_copy := income_row.find_child("DutyLogText_*", true, false) as Label if income_row != null else null
+	var authoritative := float(Game.last_offline_report.get("income", 0.0))
+	_expect(duty_panel != null and income_row != null and is_equal_approx(float(income_row.get_meta("authoritative_income", -1.0)), authoritative) and income_copy != null and income_copy.text.contains(Game.format_number(authoritative)), "M9 duty log income must render the authoritative offline settlement value from the same report")
 
 func _assert_renewal_drawer(dc: Dictionary) -> void:
 	var cta := main.find_child("ContractCTA", true, false) as Button

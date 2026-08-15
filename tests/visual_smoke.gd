@@ -361,7 +361,8 @@ func _ready() -> void:
 		if page == "tech":
 			main.call("_set_tech_section", "achievements")
 			valid = (await _capture(main, "achievements")) and valid
-	main.call("_show_offline_dialog", {"elapsed_seconds": 14400.0, "income": 12840.0, "completed": [{"id": "job"}], "faults": [{"id": "fault"}], "events": [{"id": "event"}], "aging": [{"id": "aged"}], "contracts": []})
+	main.call("_show_offline_dialog", {"elapsed_seconds": 14400.0, "income": 12840.0, "balance_before": 28000.0, "completed": [{"id": "job"}], "faults": [{"id": "fault"}], "events": [{"type": "event_started", "event_id": "sovereign_ai"}], "inquiries": [{"id": "visual_inquiry"}], "aging": [{"id": "aged"}], "contracts": [], "takeovers": [{"sold_count": 1}]})
+	valid = (await _capture(main, "duty_log_dialog", false)) and valid
 	valid = (await _capture(main, "offline_reward", false)) and valid
 	var offline_overlay := main.find_child("OfflineOverlay", true, false)
 	if offline_overlay != null:
@@ -393,7 +394,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 45 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
+	print("VISUAL_SMOKE: %s 46 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:

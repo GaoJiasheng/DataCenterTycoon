@@ -245,6 +245,20 @@ def validate_localization():
     for group_id, group in meta.get("collection", {}).get("groups", {}).items():
         if group.get("name_key") not in keys:
             ERRORS.append(f"meta_progression/collection/{group_id}: localization key {group.get('name_key')} missing")
+    duty_entries = DATA.get("duty_log", {}).get("entries", {})
+    for event_type, entry in duty_entries.items():
+        templates = entry.get("templates", [])
+        if len(templates) < 3:
+            ERRORS.append(f"duty_log/{event_type}: expected at least three template variants")
+        for key in templates:
+            if key not in keys:
+                ERRORS.append(f"duty_log/{event_type}: localization key {key} missing")
+                continue
+            row = next(candidate for candidate in rows if candidate["keys"] == key)
+            en_slots = re.findall(r"%(?:s|d)", row["en"])
+            zh_slots = re.findall(r"%(?:s|d)", row["zh_CN"])
+            if len(en_slots) != len(zh_slots):
+                ERRORS.append(f"duty_log/{event_type}/{key}: bilingual placeholder count differs")
 
 
 def validate_manifest():
