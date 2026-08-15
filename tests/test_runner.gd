@@ -7,6 +7,7 @@ const MAIN_SCENE := preload("res://main.tscn")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
 const DutyLogScene := preload("res://ui/duty_log.gd")
 const Persona := preload("res://gameplay/persona_system.gd")
+const CampusCatScene := preload("res://gameplay/map/campus_cat.gd")
 
 var passed := 0
 var failed := 0
@@ -129,13 +130,61 @@ func _run_warmth_presentation_tests() -> void:
 	EventBus.relationship_level_changed.disconnect(relationship_callback)
 	_expect(relationship_notices == [["internet", 3]], "one relationship signal emits only the highest level when one tick crosses multiple levels")
 
+	Game.reset_for_tests()
+	var cat_config: Dictionary = DataRepository.get_table("campus_cat")
+	Game.state["flags"]["standard_built"] = true
+	_expect(not CampusCatScene.is_unlocked(Game.state, cat_config), "campus cat stays hidden and inert throughout the tutorial")
+	Game.state["tutorial"]["completed"] = true
+	_expect(CampusCatScene.is_unlocked(Game.state, cat_config), "building a standard facility unlocks the campus cat after FTUE")
+	Game.state["flags"]["standard_built"] = false
+	Game.state["player"]["total_datacenters_built"] = 2
+	_expect(CampusCatScene.is_unlocked(Game.state, cat_config), "two completed facilities independently unlock the campus cat")
+	var cat_streams_before := {
+		"market": Game.state.get("market", {}).duplicate(true),
+		"inquiries": Game.state.get("inquiries", {}).duplicate(true),
+		"plots": Game.state.get("plots", []).duplicate(true),
+	}
+	var cat := CampusCatScene.new()
+	add_child(cat)
+	cat.configure(Game.state, Game.data, 0, Vector2(120, 100), Rect2(40, 40, 720, 760))
+	var contexts := {
+		"sleep": "cat_nap",
+		"stroll": "cat_parade",
+		"sit": "cat_watch",
+	}
+	var all_contexts_match := true
+	for state_id: String in contexts:
+		cat.force_state_for_tests(state_id)
+		all_contexts_match = all_contexts_match and cat.interact_for_tests() == str(contexts[state_id])
+	cat.force_state_for_tests("sit", true)
+	all_contexts_match = all_contexts_match and cat.interact_for_tests() == "cat_festival"
+	_expect(all_contexts_match, "cat sleep stroll watch and rare-event contexts discover the four authored campus-life cards")
+	var discovered_before_repeat: Dictionary = Game.state["meta"]["discovered"].duplicate(true)
+	cat.interact_for_tests()
+	_expect(Game.state["meta"]["discovered"] == discovered_before_repeat, "repeated cat interactions never rediscover or duplicate a campus-life card")
+	var cat_status := Game.collection_group_status("campus_life")
+	var cat_gems_before := int(Game.state["player"].get("gems", 0))
+	var cat_reward := Game.claim_collection_reward("campus_life")
+	var cat_reward_repeat := Game.claim_collection_reward("campus_life")
+	_expect(bool(cat_status.get("complete", false)) and bool(cat_reward.get("ok", false)) and int(Game.state["player"].get("gems", 0)) == cat_gems_before + 5 and not bool(cat_reward_repeat.get("ok", false)), "campus-life group grants its existing collection reward exactly once")
+	var cat_streams_after := {
+		"market": Game.state.get("market", {}).duplicate(true),
+		"inquiries": Game.state.get("inquiries", {}).duplicate(true),
+		"plots": Game.state.get("plots", []).duplicate(true),
+	}
+	_expect(cat_streams_before == cat_streams_after, "cat state selection and interaction consume no persistent gameplay random stream")
+	var quiet_rows := DutyLogScene.compose({"income": 0.0}, DataRepository.tables, Game.state)
+	_expect(quiet_rows.size() == 2 and str(quiet_rows[0].get("type", "")) == "cat" and str(quiet_rows[1].get("type", "")) == "income", "a quiet unlocked night adds one cat observation before the authoritative income row")
+	cat.queue_free()
+	Game.reset_for_tests()
+
 func _run_asset_integration_tests() -> void:
 	var art_items: Dictionary = AssetCatalog.manifest.get("items", {})
-	var art_loads := art_items.size() == 169
+	var art_loads := art_items.size() == 180
 	for item: Dictionary in art_items.values():
 		var path := str(item.get("path", ""))
 		art_loads = art_loads and ResourceLoader.exists(path) and load(path) is Texture2D
-	_expect(art_loads, "all 169 production textures import and load")
+	_expect(art_loads, "all 180 production textures import and load")
 	var audio_items: Dictionary = AudioService.manifest.get("items", {})
 	var audio_loads := audio_items.size() == 23
 	for cue_id: String in audio_items:

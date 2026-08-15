@@ -236,3 +236,19 @@ Square 1024x1024 production character portrait for a premium polished casual mob
 - `persona_gpu_ye_zhixing`: Assured female machine-learning research lead, mid 30s, shoulder-length black hair, cream laboratory jacket and navy top, blue checkpoint tablet and gold stylus. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-21a0ee47-f29d-47aa-9200-7200594ffcfe.png`
 - `persona_mining_zhou_lan`: Confident female cryptocurrency mining operations leader, early 40s, blue safety helmet, royal-blue work jacket and cream shirt, gold energy meter and chain-status clipboard. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-53bfdef3-79b1-4525-ba75-9d03c2ed05bc.png`
 - `persona_mining_lu_sen`: Seasoned male mining operations manager, early 50s, salt-and-pepper hair and beard, navy field vest and cream shirt, thermos and folded blue market sheet. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-52e5ace7-bde6-4c4f-97d1-0bc15ddfe65b.png`
+
+## 2026-08-15 · Campus cat warmth set
+
+Shared production direction: one coherent orange tabby with cream muzzle/chest/paws, a blue leather collar and tiny gold server tag; premium polished 2.5D casual mobile tycoon rendering, isometric three-quarter view, warm upper-left light, readable silhouette, transparent background, and no text, watermark, UI frame, rings, badges, line art, or geometric placeholders.
+
+- `cat_sleep`: Cat curled asleep with tail wrapped naturally. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-617fc9b1-ea63-4e56-bd34-0cec44cc3d20.png`
+- `cat_walk_a`: Screen-right walk cycle, front-left paw forward. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-679ad332-2962-4cec-ac1f-b6680532c5db.png`
+- `cat_walk_b`: Complementary screen-right gait frame. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-5693ac91-30b0-4492-a7d8-c46706bd0284.png`
+- `cat_sit`: Upright, curious sitting pose with tail curled at paws. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-02ddffd2-d2ee-452e-85f5-2a3df43ec25d.png`
+- `cat_roll`: Joyful back-roll and stretch interaction pose. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-71613220-5ae2-447e-81a6-982d3e589dd2.png`
+- `cat_sunglasses`: Rare-market sitting variant with blue-and-gold sunglasses. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-c4caad55-0bf1-4dc1-9213-2ba59e116d9e.png`
+- `collection_cat_nap`: Cat sleeping on a warm data-center rooftop vent. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-b6a331db-9d5b-4ba9-a684-87d08dda89da.png`
+- `collection_cat_parade`: Cat walking down a landscaped campus path. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-7a3f13d8-2be4-4bad-a86b-33380527e5f9.png`
+- `collection_cat_watch`: Cat watching the lit campus at twilight. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-3b8cbfc1-cadf-4490-ad7b-bc4e2c9a55d7.png`
+- `collection_cat_festival`: Sunglasses cat celebrating a rare market with tasteful campus decorations. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-1d637ca8-48d0-4b23-81a7-16535824c727.png`
+- `fx_cat_heart`: One warm coral painterly heart with tiny gold sparkles, transparent particle sprite. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-c49ff4d9-5b81-4285-8293-fc8ea44a1edc.png`

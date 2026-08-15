@@ -78,6 +78,9 @@
         "persona_mining_zhou_lan", "persona_mining_lu_sen"
       ]
     },
+    {"directory": "cats", "size": [512, 512], "alpha": true, "ids": ["cat_sleep", "cat_walk_a", "cat_walk_b", "cat_sit", "cat_roll", "cat_sunglasses"]},
+    {"directory": "cats", "size": [1024, 1024], "alpha": true, "ids": ["collection_cat_nap", "collection_cat_parade", "collection_cat_watch", "collection_cat_festival"]},
+    {"directory": "fx", "size": [256, 256], "alpha": true, "ids": ["fx_cat_heart"]},
     {"directory": "ui", "size": [1024, 1024], "alpha": true, "ids": ["panel_main", "panel_dark"]},
     {"directory": "ui", "size": [512, 256], "alpha": true, "ids": ["btn_primary", "btn_secondary", "btn_warning", "btn_danger", "btn_disabled", "btn_ad"]},
     {"directory": "ui", "size": [512, 128], "alpha": true, "ids": ["progress_frame", "progress_fill"]},

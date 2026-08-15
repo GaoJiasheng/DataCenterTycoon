@@ -376,6 +376,9 @@ func _shot(shot_name: String) -> bool:
 	await get_tree().create_timer(0.38).timeout
 	if not bool(Game.state.get("tutorial", {}).get("completed", false)):
 		_expect(main.find_child("InquiryPersonaPortrait", true, false) == null and main.find_child("ContractPersonaContact", true, false) == null and main.find_child("PersonaToast", true, false) == null, "D51 FTUE keeps all customer-persona presentation hidden")
+		var cat := main.park_map.campus_cat as CampusCat
+		var cat_hit := cat.find_child("CampusCatHitArea", true, false) as Area2D if cat != null else null
+		_expect(cat == null or (not cat.visible and (cat_hit == null or not cat_hit.input_pickable)), "D52 FTUE keeps the campus cat invisible and non-interactive")
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()

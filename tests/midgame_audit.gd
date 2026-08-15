@@ -24,6 +24,7 @@ func _ready() -> void:
 	add_child(main)
 	await _shot("m0_daily_map_overview")
 	_assert_building_variants()
+	await _assert_cat_overlap_routes_to_building()
 	var set_dc: Dictionary = Game.state["plots"][0]["datacenter"]
 	set_dc["racks"][2] = {"rack_id": "rack_compute_t1", "status": "active", "installed_at": Game.simulation_time(), "fault_at": -1.0, "enabled": true}
 	main.call("_open_datacenter", str(set_dc.get("id", "")))
@@ -203,6 +204,37 @@ func _close(node_name: String) -> void:
 	var overlay := main.find_child(node_name, true, false)
 	if overlay != null:
 		overlay.queue_free()
+
+func _assert_cat_overlap_routes_to_building() -> void:
+	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	var dc_id := str(dc.get("id", ""))
+	var target := main.park_map.target_control_of(dc_id) as Control
+	var cat := main.park_map.campus_cat as CampusCat
+	if target == null or cat == null:
+		_expect(false, "D52 cat/building overlap fixture must exist")
+		return
+	main.park_map.force_cat_state_for_tests("sit")
+	cat.position = target.position + target.size * 0.5
+	var interactions_before := cat.interaction_count
+	var selected_ids: Array[String] = []
+	var callback := func(selected_id: String) -> void:
+		selected_ids.append(selected_id)
+	main.park_map.datacenter_selected.connect(callback)
+	var point := target.get_global_rect().get_center()
+	for pressed: bool in [true, false]:
+		var touch := InputEventMouseButton.new()
+		touch.button_index = MOUSE_BUTTON_LEFT
+		touch.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+		touch.position = point
+		touch.global_position = point
+		touch.pressed = pressed
+		get_viewport().push_input(touch, true)
+		await get_tree().process_frame
+	await get_tree().create_timer(0.32).timeout
+	main.park_map.datacenter_selected.disconnect(callback)
+	_expect(selected_ids.has(dc_id) and main.find_child("DatacenterContext", true, false) != null and cat.interaction_count == interactions_before, "D52 a building tap wins when the cat sprite overlaps its plot")
+	_close("DatacenterContext")
+	await get_tree().process_frame
 
 func _alert_badge(alert_type: String) -> PanelContainer:
 	for node: Node in main.find_children("StatusBadge", "PanelContainer", true, false):

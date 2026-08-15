@@ -3,6 +3,7 @@ extends Control
 
 const Rules := preload("res://gameplay/game_rules.gd")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
+const CampusCatScene := preload("res://gameplay/map/campus_cat.gd")
 
 signal datacenter_selected(datacenter_id: String)
 signal empty_plot_selected(plot_id: String)
@@ -80,6 +81,9 @@ var _edge_fog: TextureRect
 var _idle_seconds := 0.0
 var _camera_breath_phase := 0.0
 var _camera_breathing := false
+var campus_cat: CampusCat
+var _plots_snapshot: Array = []
+var _cat_suppressed := false
 
 func _ready() -> void:
 	clip_contents = true
@@ -215,6 +219,8 @@ func setup(plots: Array) -> void:
 	for child: Node in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
+	campus_cat = null
+	_plots_snapshot = plots.duplicate(true)
 	target_buttons.clear()
 	_active_art.clear()
 	_sway_art.clear()
@@ -258,6 +264,7 @@ func setup(plots: Array) -> void:
 	target_buttons["sale"] = sale
 	world_size = Vector2(804, maxf(1748.0, _campus_bounds.end.y + 560.0))
 	_apply_campus_visibility()
+	_mount_campus_cat()
 	_frame_campus(false)
 	campus_changed.emit(_active_campus_index, _campus_count)
 	queue_redraw()
@@ -316,8 +323,47 @@ func focus_campus(index: int, animate: bool = true) -> void:
 		return
 	_active_campus_index = next_index
 	_apply_campus_visibility()
+	_sync_campus_cat()
 	_frame_campus(animate)
 	campus_changed.emit(_active_campus_index, _campus_count)
+
+func set_cat_suppressed(suppressed: bool) -> void:
+	_cat_suppressed = suppressed
+	if campus_cat != null and is_instance_valid(campus_cat):
+		campus_cat.set_suppressed(suppressed)
+
+func force_cat_state_for_tests(state_id: String, rare_active: bool = false) -> void:
+	if campus_cat != null and is_instance_valid(campus_cat):
+		campus_cat.force_state_for_tests(state_id, rare_active)
+
+func campus_cat_global_position() -> Vector2:
+	return campus_cat.global_position if campus_cat != null and is_instance_valid(campus_cat) else Vector2.ZERO
+
+func _mount_campus_cat() -> void:
+	campus_cat = CampusCatScene.new()
+	content.add_child(campus_cat)
+	_sync_campus_cat()
+
+func _sync_campus_cat() -> void:
+	if campus_cat == null or not is_instance_valid(campus_cat):
+		return
+	var bounds: Rect2 = _campus_bounds_by_index.get(_active_campus_index, Rect2(Vector2(CAMPUS_LEFT, CAMPUS_TOP), Vector2(728, 756)))
+	var roof_anchor := Vector2(bounds.position.x + 92.0, bounds.position.y - 18.0)
+	for index: int in range(_plots_snapshot.size()):
+		if _campus_index_for_slot(index) != _active_campus_index:
+			continue
+		var plot: Dictionary = _plots_snapshot[index]
+		var raw_dc: Variant = plot.get("datacenter", {})
+		if raw_dc is Dictionary and not raw_dc.is_empty() and str(plot.get("status", "")) not in ["building", "empty"]:
+			var target := target_buttons.get(str((raw_dc as Dictionary).get("id", ""))) as Control
+			if target != null:
+				# The hotspot sits just outside the plot Control while the cat's body
+				# overlaps the roof edge. A building tap therefore wins the overlap,
+				# while the visible outer half remains pettable.
+				roof_anchor = target.position + Vector2(PLOT_SIZE.x * 0.76, -18.0)
+				break
+	campus_cat.configure(Game.state, DataRepository.tables, _active_campus_index, roof_anchor, bounds)
+	campus_cat.set_suppressed(_cat_suppressed)
 
 func building_rect(datacenter_id: String) -> Rect2:
 	var target := target_buttons.get(datacenter_id) as Control

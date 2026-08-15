@@ -100,6 +100,29 @@ func _ready() -> void:
 	valid = (await _capture(main, "map_built")) and valid
 	await get_tree().create_timer(0.9).timeout
 	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	# C3: stage the one-cat world presentation with no discovery side effects,
+	# then inspect the same collection section for four unrevealed formal cards.
+	var built_before_cat := int(Game.state["player"].get("total_datacenters_built", 0))
+	Game.state["player"]["total_datacenters_built"] = 2
+	main.park_map.setup(Game.state.get("plots", []))
+	main.park_map.force_cat_state_for_tests("stroll")
+	valid = (await _capture(main, "campus_cat", false)) and valid
+	main.call("_navigate", "tech")
+	main.call("_set_tech_section", "collection")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var campus_life := main.find_child("Collection_campus_life", true, false)
+	var unknown_cat_cards := 0
+	if campus_life != null:
+		for label_node: Node in campus_life.find_children("*", "Label", true, false):
+			if (label_node as Label).text == "?":
+				unknown_cat_cards += 1
+	if campus_life == null or unknown_cat_cards != 4 or campus_life.find_children("*", "TextureRect", true, false).size() < 4:
+		push_error("VISUAL_SMOKE: campus-life collection must show four formal undiscovered cat cards")
+		valid = false
+	Game.state["player"]["total_datacenters_built"] = built_before_cat
+	main.call("_navigate", "map")
+	main.park_map.setup(Game.state.get("plots", []))
 	var completion_nodes_clean: bool = main.park_map.find_child("ConstructionGhost", true, false) == null and main.park_map.find_children("CompletionDust*", "TextureRect", true, false).is_empty()
 	var fx_layer: Node = main.find_child("FxLayer", true, false)
 	completion_nodes_clean = completion_nodes_clean and fx_layer != null and int(fx_layer.call("active_coin_count")) == 0
@@ -446,16 +469,26 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 	await get_tree().create_timer(0.24).timeout
 	if name in ["dc_board_placing", "dc_board_set_bonus"]:
 		# A pending live-page refresh may replace the board during the capture
-		# delay. Apply the preview to the final visible board immediately before
-		# layout validation so the nine-state gate is deterministic.
-		var selected_id := str(main.get("selected_datacenter_id"))
-		var live_board := main.call("_visible_datacenter_board", selected_id) as DatacenterBoard
-		if live_board != null:
-			if name == "dc_board_set_bonus":
-				live_board.set_placement_preview(5, "rack_storage_t1")
-			else:
-				live_board.set_placement_preview(3, "rack_gpu_t1")
-		await get_tree().process_frame
+		# delay. Drain two possible exit-tween replacements, clear any outgoing
+		# board, then apply the preview to the last (top-painted) visible board.
+		# The final pass intentionally does not yield before frame_post_draw.
+		var live_board: DatacenterBoard = null
+		for attempt: int in range(3):
+			if attempt > 0:
+				await get_tree().process_frame
+			live_board = null
+			for board_node: Node in main.find_children("DatacenterBoard", "", true, false):
+				if board_node is DatacenterBoard and board_node.is_visible_in_tree():
+					var candidate := board_node as DatacenterBoard
+					candidate.clear_placement_preview()
+					live_board = candidate
+			if live_board != null:
+				if name == "dc_board_set_bonus":
+					live_board.set_placement_preview(5, "rack_storage_t1")
+				else:
+					live_board.set_placement_preview(3, "rack_gpu_t1")
+		if live_board == null:
+			push_error("VISUAL_SMOKE: %s has no visible board to stage" % name)
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	# macOS may report the drawable one physical pixel narrower than the requested
@@ -551,6 +584,11 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			if float(era_metrics.get("blue_ratio", 0.0)) < 0.30 or float(era_metrics.get("bright_neutral_ratio", 0.0)) < float(era_neutral_floor[era_asset]) or era_aspect < 0.90 or era_aspect > 1.10:
 				push_error("VISUAL_SMOKE: F9 era medal lacks its navy field or readable gold numeral: %s metrics=%s" % [era_asset, str(era_metrics)])
 				valid = false
+	if state_name == "campus_cat":
+		var cat := main.park_map.campus_cat as CampusCat
+		if cat == null or not cat.is_visible_in_tree() or cat.current_state != "stroll" or cat.hit_radius() < 44.0 or main.park_map.find_children("CampusCat", "Node2D", true, false).size() != 1:
+			push_error("VISUAL_SMOKE: campus cat must be one visible strolling sprite with a 44pt body-only hit target")
+			valid = false
 	if state_name != "map":
 		var world_host := main.find_child("WorldHost", true, false) as Control
 		if world_host == null or world_host.z_index > -1800:

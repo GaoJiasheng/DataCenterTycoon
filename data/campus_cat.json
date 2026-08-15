@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "unlock": {
+    "standard_built": true,
+    "minimum_datacenters_built": 2
+  },
+  "state_weights": {
+    "sleep": 0.52,
+    "stroll": 0.30,
+    "sit": 0.18
+  },
+  "switch_interval_seconds": {
+    "minimum": 14.0,
+    "maximum": 28.0
+  },
+  "interaction_cooldown_seconds": 1.6,
+  "heart_chance": 0.32,
+  "walk_speed": 20.0
+}

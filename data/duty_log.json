@@ -48,6 +48,12 @@
       "aggregate": true,
       "icon_asset": "fx_coin",
       "templates": ["DUTY_LOG_INCOME_1", "DUTY_LOG_INCOME_2", "DUTY_LOG_INCOME_3"]
+    },
+    "cat": {
+      "priority": 5,
+      "aggregate": true,
+      "icon_asset": "cat_sleep",
+      "templates": ["DUTY_LOG_CAT_1", "DUTY_LOG_CAT_2", "DUTY_LOG_CAT_3"]
     }
   }
 }

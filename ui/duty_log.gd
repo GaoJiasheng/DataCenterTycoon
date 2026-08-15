@@ -3,6 +3,7 @@ extends RefCounted
 
 const MAX_ROWS := 4
 const PersonaSystemScene := preload("res://gameplay/persona_system.gd")
+const CampusCatScene := preload("res://gameplay/map/campus_cat.gd")
 
 static func compose(report: Dictionary, data: Dictionary, game_state: Dictionary) -> Array[Dictionary]:
 	var config: Dictionary = data.get("duty_log", {}).get("entries", {})
@@ -24,6 +25,10 @@ static func compose(report: Dictionary, data: Dictionary, game_state: Dictionary
 			renewals += 1
 	_append_count_candidate(candidates, "contract", renewals, config)
 	_append_count_candidate(candidates, "aging", report.get("aging", []).size(), config)
+	# Quiet nights get one warm observation only after the cat has legitimately
+	# moved in. Operational events always take precedence over this fallback.
+	if candidates.is_empty() and CampusCatScene.is_unlocked(game_state, data.get("campus_cat", {})):
+		_append_candidate(candidates, "cat", [], config)
 	candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		return int(left.get("priority", 0)) > int(right.get("priority", 0))
 	)

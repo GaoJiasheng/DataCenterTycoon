@@ -296,8 +296,8 @@ def validate_manifest():
     manifest = json.loads((ROOT / "assets/art/manifest.json").read_text(encoding="utf-8"))
     ids = [asset_id for group in manifest["groups"] for asset_id in group["ids"]]
     ART_IDS = set(ids) | set(manifest.get("items", {}))
-    if len(ids) != 169:
-        ERRORS.append(f"art manifest has {len(ids)} IDs, expected 169")
+    if len(ids) != 180:
+        ERRORS.append(f"art manifest has {len(ids)} IDs, expected 180")
     if len(ids) != len(set(ids)):
         ERRORS.append("art manifest contains duplicate IDs")
 

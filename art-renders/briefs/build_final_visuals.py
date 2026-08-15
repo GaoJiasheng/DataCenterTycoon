@@ -187,7 +187,15 @@ def build_manifest() -> list[Asset]:
         matte = "final_icon_soft" if name == "persona_internet_lin_ce" else "native_alpha"
         assets.append(Asset("personas", name, f"personas/{name}_source.png", 1024, 1024, shadow=False, margin=0.035, matte=matte))
 
-    assert len(assets) == 163, f"expected 163 assets, got {len(assets)}"
+    # One consistent campus cat: six world frames, four collection vignettes,
+    # and one authored heart particle. Native alpha preserves fur and whiskers.
+    for name in ("cat_sleep", "cat_walk_a", "cat_walk_b", "cat_sit", "cat_roll", "cat_sunglasses"):
+        assets.append(Asset("cats", name, f"cats/{name}_source.png", 512, 512, shadow=False, margin=0.035, matte="native_alpha"))
+    for name in ("collection_cat_nap", "collection_cat_parade", "collection_cat_watch", "collection_cat_festival"):
+        assets.append(Asset("cats", name, f"cats/{name}_source.png", 1024, 1024, shadow=False, margin=0.025, matte="native_alpha"))
+    assets.append(Asset("fx", "fx_cat_heart", "cats/fx_cat_heart_source.png", 256, 256, shadow=False, margin=0.04, matte="native_alpha"))
+
+    assert len(assets) == 174, f"expected 174 assets, got {len(assets)}"
     assert len({(a.category, a.name) for a in assets}) == len(assets)
     return assets
 

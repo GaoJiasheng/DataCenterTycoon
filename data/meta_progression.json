@@ -43,6 +43,12 @@
       "facilities": {"name_key": "COLLECTION_FACILITIES", "reward_gems": 5, "sources": ["buildings", "racks", "attachments"]},
       "clients": {"name_key": "COLLECTION_CLIENTS", "reward_gems": 5, "sources": ["customers"]},
       "market_history": {"name_key": "COLLECTION_MARKET_HISTORY", "reward_gems": 8, "sources": ["events"]},
+      "campus_life": {"name_key": "COLLECTION_CAMPUS_LIFE", "reward_gems": 5, "items": [
+        {"id": "cat_nap", "source": "campus_life", "name_key": "COLLECTION_CAT_NAP", "asset_id": "collection_cat_nap"},
+        {"id": "cat_parade", "source": "campus_life", "name_key": "COLLECTION_CAT_PARADE", "asset_id": "collection_cat_parade"},
+        {"id": "cat_watch", "source": "campus_life", "name_key": "COLLECTION_CAT_WATCH", "asset_id": "collection_cat_watch"},
+        {"id": "cat_festival", "source": "campus_life", "name_key": "COLLECTION_CAT_FESTIVAL", "asset_id": "collection_cat_festival"}
+      ]},
       "legacy": {"name_key": "COLLECTION_LEGACY", "reward_gems": 12, "items": [
         {"id": "legacy:era2", "name_key": "COLLECTION_ERA2", "asset_id": "ic_era2"},
         {"id": "legacy:era3", "name_key": "COLLECTION_ERA3", "asset_id": "ic_era3"},

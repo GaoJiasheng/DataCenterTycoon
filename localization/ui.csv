@@ -633,3 +633,11 @@ PERSONA_LU_CHAT_1,I brought tea and a fresh market sheet.,我带了茶，还有�
 PERSONA_LU_CHAT_2,Good machines deserve a patient operator.,好机器值得耐心经营。
 PERSONA_CONTACT,Contact: %s,对接人：%s
 PERSONA_LEVEL_TOAST,%s now sees you as %s.,%s 现在把你当作%s。
+COLLECTION_CAMPUS_LIFE,Campus Life,园区生活
+COLLECTION_CAT_NAP,Rooftop Nap,屋顶午睡
+COLLECTION_CAT_PARADE,Campus Parade,园区巡游
+COLLECTION_CAT_WATCH,Night Watch,夜色坐望
+COLLECTION_CAT_FESTIVAL,Market Festival,行情庆典
+DUTY_LOG_CAT_1,The campus cat kept watch between naps.,园区猫睡醒后巡了一圈。
+DUTY_LOG_CAT_2,Soft paws crossed the roof before dawn.,天亮前屋顶留下一串猫脚印。
+DUTY_LOG_CAT_3,The cat slept through a quiet shift.,园区猫在机房顶睡过了夜班。

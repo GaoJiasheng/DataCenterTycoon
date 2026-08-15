@@ -4991,5 +4991,346 @@
     ],
     "bytes": 1136902,
     "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "cat_sleep",
+    "source": "cats/cat_sleep_source.png",
+    "output": "visual/final/cats/cat_sleep.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      18,
+      103,
+      494,
+      408
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 212655,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "cat_walk_a",
+    "source": "cats/cat_walk_a_source.png",
+    "output": "visual/final/cats/cat_walk_a.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      18,
+      44,
+      494,
+      468
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 217849,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "cat_walk_b",
+    "source": "cats/cat_walk_b_source.png",
+    "output": "visual/final/cats/cat_walk_b.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      18,
+      51,
+      494,
+      460
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 202018,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "cat_sit",
+    "source": "cats/cat_sit_source.png",
+    "output": "visual/final/cats/cat_sit.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      106,
+      18,
+      406,
+      494
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 192040,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "cat_roll",
+    "source": "cats/cat_roll_source.png",
+    "output": "visual/final/cats/cat_roll.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      18,
+      103,
+      494,
+      412
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 191531,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "cat_sunglasses",
+    "source": "cats/cat_sunglasses_source.png",
+    "output": "visual/final/cats/cat_sunglasses.png",
+    "expected_size": [
+      512,
+      512
+    ],
+    "actual_size": [
+      512,
+      512
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      69,
+      18,
+      441,
+      494
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 230937,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "collection_cat_nap",
+    "source": "cats/collection_cat_nap_source.png",
+    "output": "visual/final/cats/collection_cat_nap.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      27,
+      25,
+      997,
+      998
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1343746,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "collection_cat_parade",
+    "source": "cats/collection_cat_parade_source.png",
+    "output": "visual/final/cats/collection_cat_parade.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      66,
+      998,
+      957
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1300022,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "collection_cat_watch",
+    "source": "cats/collection_cat_watch_source.png",
+    "output": "visual/final/cats/collection_cat_watch.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      61,
+      998,
+      963
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1253132,
+    "pass": true
+  },
+  {
+    "category": "cats",
+    "name": "collection_cat_festival",
+    "source": "cats/collection_cat_festival_source.png",
+    "output": "visual/final/cats/collection_cat_festival.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      25,
+      30,
+      998,
+      993
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1450981,
+    "pass": true
+  },
+  {
+    "category": "fx",
+    "name": "fx_cat_heart",
+    "source": "cats/fx_cat_heart_source.png",
+    "output": "visual/final/fx/fx_cat_heart.png",
+    "expected_size": [
+      256,
+      256
+    ],
+    "actual_size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      10,
+      16,
+      246,
+      241
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 66784,
+    "pass": true
   }
 ]

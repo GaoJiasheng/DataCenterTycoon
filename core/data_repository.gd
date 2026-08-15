@@ -16,6 +16,7 @@ const DATA_FILES := {
 	"inquiries": "res://data/inquiries.json",
 	"duty_log": "res://data/duty_log.json",
 	"personas": "res://data/personas.json",
+	"campus_cat": "res://data/campus_cat.json",
 }
 
 var tables: Dictionary = {}

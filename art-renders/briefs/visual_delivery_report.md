@@ -1,7 +1,7 @@
 # 全量视觉素材交付报告
 
-- 总数：163
-- 自动 QA 通过：163
+- 总数：174
+- 自动 QA 通过：174
 - 自动 QA 失败：0
 - 交付目录：`../visual/final/`
 - 源图目录：`../visual/work/`
@@ -10,9 +10,10 @@
 
 - `attachments`：14
 - `buildings`：24
+- `cats`：10
 - `characters`：5
 - `customers`：4
-- `fx`：9
+- `fx`：10
 - `map`：17
 - `meta`：7
 - `personas`：10

@@ -508,8 +508,11 @@ func collection_group_status(group_id: String) -> Dictionary:
 	for item_variant: Variant in group.get("items", []):
 		if not item_variant is Dictionary:
 			continue
+		var item: Dictionary = item_variant
 		total += 1
-		if _legacy_collection_item_discovered(str((item_variant as Dictionary).get("id", ""))):
+		var source := str(item.get("source", ""))
+		var item_id := str(item.get("id", ""))
+		if (not source.is_empty() and _collection_item_discovered(source, item_id)) or (source.is_empty() and _legacy_collection_item_discovered(item_id)):
 			discovered += 1
 	return _success({
 		"group_id": group_id,

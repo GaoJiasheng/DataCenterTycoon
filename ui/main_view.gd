@@ -620,6 +620,7 @@ func _refresh_hud() -> void:
 	_refresh_primary_action()
 	_refresh_arrears_hud()
 	_refresh_tutorial()
+	park_map.set_cat_suppressed(not bool(Game.state.get("tutorial", {}).get("completed", false)))
 	var on_map := active_page == "map"
 	# System pages are opaque work surfaces. Keeping the depth-sorted park alive
 	# behind their safe-area gutters allowed southern plots and their price rails
@@ -2019,7 +2020,9 @@ func _collection_group_card(group_id: String, group: Dictionary) -> Control:
 	for legacy_variant: Variant in group.get("items", []):
 		if legacy_variant is Dictionary:
 			var legacy: Dictionary = legacy_variant
-			grid.add_child(_collection_tile(str(legacy.get("asset_id", "legacy_memorial")), tr(str(legacy.get("name_key", ""))), Game.call("_legacy_collection_item_discovered", str(legacy.get("id", ""))) as bool))
+			var source := str(legacy.get("source", ""))
+			var discovered := Game.call("_collection_item_discovered", source, str(legacy.get("id", ""))) as bool if not source.is_empty() else Game.call("_legacy_collection_item_discovered", str(legacy.get("id", ""))) as bool
+			grid.add_child(_collection_tile(str(legacy.get("asset_id", "legacy_memorial")), tr(str(legacy.get("name_key", ""))), discovered))
 	if bool(status.get("complete", false)) and not bool(status.get("claimed", false)):
 		box.add_child(_button(tr("COLLECTION_CLAIM") % int(status.get("reward_gems", 0)), _claim_collection.bind(group_id), ThemeMaker.COLORS.green))
 	elif bool(status.get("claimed", false)):
