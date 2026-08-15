@@ -20,7 +20,7 @@
       "name_key": "TECH_CONSTRUCTION_BAYS",
       "description_key": "TECH_CONSTRUCTION_BAYS_DESC",
       "levels": {
-        "2": {"cost": 250000, "queue_capacity": 3, "unlock_era": 2},
+        "2": {"cost": 180000, "queue_capacity": 3, "unlock_era": 2},
         "3": {"cost": 1500000, "queue_capacity": 4, "unlock_era": 3},
         "4": {"cost": 10000000, "queue_capacity": 5, "unlock_era": 3, "minimum_prestige": 1}
       }

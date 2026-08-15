@@ -87,7 +87,7 @@ def validate_references():
         ERRORS.append("technology/auto_retirement: expected one Era 2 level costing 15000")
     bay_levels = DATA["technology"].get("upgrades", {}).get("construction_bays", {}).get("levels", {})
     expected_bays = {
-        "2": (250000, 3, 2, 0),
+        "2": (180000, 3, 2, 0),
         "3": (1500000, 4, 3, 0),
         "4": (10000000, 5, 3, 1),
     }
