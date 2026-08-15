@@ -554,9 +554,9 @@ DUTY_LOG_ERA_3,Era %d systems came online.,时代 %d 的系统已经上线。
 DUTY_LOG_RARE_1,A rare %s shift reached the desk.,值班室记录了稀有行情：%s。
 DUTY_LOG_RARE_2,%s made an unusual move overnight.,%s 在夜里出现了异动。
 DUTY_LOG_RARE_3,The team flagged a rare %s window.,团队标记了稀有的%s窗口。
-DUTY_LOG_INQUIRY_1,Night desk received %d inquiry(s).,夜班收到 %d 份客户询价。
-DUTY_LOG_INQUIRY_2,%d new offer(s) waited for morning.,%d 份新报价等到了早班。
-DUTY_LOG_INQUIRY_3,Clients left %d inquiry(s) overnight.,客户夜间留下了 %d 份询价。
+DUTY_LOG_INQUIRY_1,%s sent %d inquiry(s) overnight.,%s 夜间送来 %d 份询价。
+DUTY_LOG_INQUIRY_2,%s left %d offer(s) for morning.,%s 留下 %d 份报价等早班。
+DUTY_LOG_INQUIRY_3,%s left %d offer(s) with night desk.,夜班记下 %s 的 %d 份报价。
 DUTY_LOG_FAULT_1,Crew tracked %d equipment alert(s).,值班员跟进了 %d 次设备告警。
 DUTY_LOG_FAULT_2,%d alert(s) reached the night desk.,夜班收到了 %d 次设备告警。
 DUTY_LOG_FAULT_3,The crew watched %d fault signal(s).,团队守住了 %d 次故障信号。
@@ -569,3 +569,67 @@ DUTY_LOG_AGING_3,%d room(s) received an age check.,%d 座机房完成了寿命�
 DUTY_LOG_INCOME_1,This shift secured $%s in revenue.,本次值班确认收入 $%s。
 DUTY_LOG_INCOME_2,The night ledger recorded $%s.,夜班账本记下了 $%s。
 DUTY_LOG_INCOME_3,Your rooms earned $%s this shift.,机房本次值班赚得 $%s。
+PERSONA_INTERNET_LIN_CE,Lin Ce,林策
+PERSONA_INTERNET_TANG_MAN,Tang Man,唐满
+PERSONA_INTERNET_CHEN_LU,Chen Lu,陈路
+PERSONA_CLOUD_SU_QING,Su Qing,苏晴
+PERSONA_CLOUD_ZHOU_YUNZHOU,Zhou Yunzhou,周云舟
+PERSONA_CLOUD_XU_AN,Xu An,许安
+PERSONA_GPU_GU_XING,Gu Xing,顾星
+PERSONA_GPU_YE_ZHIXING,Ye Zhixing,叶知行
+PERSONA_MINING_ZHOU_LAN,Zhou Lan,周岚
+PERSONA_MINING_LU_SEN,Lu Sen,鲁森
+PERSONA_INTERNET_INQUIRY_1,Traffic is climbing. Can you keep this route steady?,流量正涨，能帮我稳住这条线路吗？
+PERSONA_INTERNET_INQUIRY_2,We need clean capacity before the next release.,下次发布前，我们需要一批稳定容量。
+PERSONA_INTERNET_ACCEPT_1,Great. I will send the traffic plan now.,好，我现在把流量计划发过来。
+PERSONA_INTERNET_ACCEPT_2,That gives our launch room to breathe.,这下新版本上线就有余量了。
+PERSONA_INTERNET_DECLINE_1,Understood. I will keep the request open elsewhere.,明白，我再看看其他可用方案。
+PERSONA_INTERNET_DECLINE_2,No pressure. We can revisit the next release window.,不着急，下个发布窗口再聊。
+PERSONA_INTERNET_LEVEL_1,Your uptime reports make planning easier.,你们的稳定性让排期轻松多了。
+PERSONA_INTERNET_LEVEL_2,I can trust your team with peak traffic.,峰值流量交给你们，我放心。
+PERSONA_CLOUD_INQUIRY_1,We need a quiet pool for a new tenant cluster.,新租户集群需要一组安静的资源池。
+PERSONA_CLOUD_INQUIRY_2,Can your mixed racks carry this migration?,这次迁移，你们的混合机柜能接住吗？
+PERSONA_CLOUD_ACCEPT_1,Excellent. I will schedule the migration window.,很好，我来安排迁移窗口。
+PERSONA_CLOUD_ACCEPT_2,Capacity confirmed. Our rollout can proceed.,容量确认，发布计划可以继续。
+PERSONA_CLOUD_DECLINE_1,Thanks for the quick answer. We will reroute.,谢谢及时回复，我们会调整路线。
+PERSONA_CLOUD_DECLINE_2,Understood. I will hold this batch for later.,明白，这一批我先留到后面。
+PERSONA_CLOUD_LEVEL_1,Your handovers have become wonderfully predictable.,你们的交接越来越让人省心。
+PERSONA_CLOUD_LEVEL_2,You are now on my preferred capacity list.,你们已经进了我的优先供应名单。
+PERSONA_GPU_INQUIRY_1,Our next training run needs a clean GPU block.,下一轮训练需要一组完整的 GPU 容量。
+PERSONA_GPU_INQUIRY_2,Can you make room for a demanding model run?,能为一次大模型训练腾出空间吗？
+PERSONA_GPU_ACCEPT_1,Perfect. The training team is warming up.,正好，训练团队已经开始预热。
+PERSONA_GPU_ACCEPT_2,Compute secured. I can finally sleep tonight.,算力稳了，今晚总算能睡个好觉。
+PERSONA_GPU_DECLINE_1,Got it. I will shrink this experiment first.,收到，我先把实验规模收一收。
+PERSONA_GPU_DECLINE_2,No worries. We will queue the model elsewhere.,没关系，我们把模型排到别处。
+PERSONA_GPU_LEVEL_1,Your GPU rooms have earned our confidence.,你们的 GPU 机房赢得了信任。
+PERSONA_GPU_LEVEL_2,The hardest training jobs now come to you first.,最难的训练任务以后优先找你们。
+PERSONA_MINING_INQUIRY_1,I found a profitable window and need GPUs ready.,我看准了窗口，需要一批 GPU 马上就位。
+PERSONA_MINING_INQUIRY_2,The numbers work if your power stays steady.,只要供电稳，这笔账就能跑通。
+PERSONA_MINING_ACCEPT_1,Deal. I will send the operating schedule.,成交，我马上把运行排期发来。
+PERSONA_MINING_ACCEPT_2,Good timing. Let us put those racks to work.,时机正好，让这些机柜忙起来。
+PERSONA_MINING_DECLINE_1,Fair enough. I never force a bad window.,没事，窗口不合适就不勉强。
+PERSONA_MINING_DECLINE_2,Understood. I will wait for the next cycle.,明白，我等下一轮周期。
+PERSONA_MINING_LEVEL_1,You run a tighter floor than most operators.,你们的机房比多数同行更稳。
+PERSONA_MINING_LEVEL_2,Your word is worth more than a price spike.,你们的承诺比一轮涨价更值钱。
+PERSONA_LIN_CHAT_1,I check latency before I check my coffee.,我每天先看延迟，再喝咖啡。
+PERSONA_LIN_CHAT_2,A calm dashboard is my favorite dashboard.,没有告警的面板最好看。
+PERSONA_TANG_CHAT_1,Every smooth launch begins with spare capacity.,顺利上线，总要留一点余量。
+PERSONA_TANG_CHAT_2,I brought the next traffic forecast.,我带来了下一版流量预测。
+PERSONA_CHEN_CHAT_1,Edge nodes are small but never simple.,边缘节点虽小，事情可不少。
+PERSONA_CHEN_CHAT_2,Your route map is looking healthy today.,今天的线路图看起来很健康。
+PERSONA_SU_CHAT_1,I like migrations that nobody notices.,最好的迁移，是用户毫无察觉。
+PERSONA_SU_CHAT_2,The tenant team sent their thanks.,租户团队让我替他们说声谢谢。
+PERSONA_ZHOU_CHAT_1,Capacity planning is just patient gardening.,容量规划，像是在耐心种园子。
+PERSONA_ZHOU_CHAT_2,I left a cleaner rollout plan on the desk.,我在桌上留了份更清爽的发布计划。
+PERSONA_XU_CHAT_1,I keep three backups and one lucky pen.,我有三份备份，还有一支幸运笔。
+PERSONA_XU_CHAT_2,Quiet servers make for quiet meetings.,服务器安静，会议也会安静。
+PERSONA_GU_CHAT_1,The model finally stopped eating all our VRAM.,模型终于不再吃光所有显存了。
+PERSONA_GU_CHAT_2,I owe your cooling team a proper dinner.,我得认真请你们冷却团队吃顿饭。
+PERSONA_YE_CHAT_1,One clean run beats ten rushed experiments.,一次干净训练胜过十次匆忙实验。
+PERSONA_YE_CHAT_2,The new checkpoint looks promising.,新检查点看起来很有希望。
+PERSONA_ZHOU_LAN_CHAT_1,I trust meters more than rumors.,比起传闻，我更相信仪表数字。
+PERSONA_ZHOU_LAN_CHAT_2,Steady power is the best kind of luck.,稳定供电才是最好的运气。
+PERSONA_LU_CHAT_1,I brought tea and a fresh market sheet.,我带了茶，还有一张新行情表。
+PERSONA_LU_CHAT_2,Good machines deserve a patient operator.,好机器值得耐心经营。
+PERSONA_CONTACT,Contact: %s,对接人：%s
+PERSONA_LEVEL_TOAST,%s now sees you as %s.,%s 现在把你当作%s。

@@ -374,6 +374,8 @@ func _shot(shot_name: String) -> bool:
 	for _i in range(4):
 		await get_tree().process_frame
 	await get_tree().create_timer(0.38).timeout
+	if not bool(Game.state.get("tutorial", {}).get("completed", false)):
+		_expect(main.find_child("InquiryPersonaPortrait", true, false) == null and main.find_child("ContractPersonaContact", true, false) == null and main.find_child("PersonaToast", true, false) == null, "D51 FTUE keeps all customer-persona presentation hidden")
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
 		var image := get_viewport().get_texture().get_image()

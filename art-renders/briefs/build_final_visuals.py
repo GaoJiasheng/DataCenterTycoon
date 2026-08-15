@@ -175,7 +175,19 @@ def build_manifest() -> list[Asset]:
     ):
         assets.append(Asset("meta", name, f"meta/{name}_chroma.png", 1024, 1024, shadow=False, margin=0.045, matte="soft"))
 
-    assert len(assets) == 153, f"expected 153 assets, got {len(assets)}"
+    # Ten named customer contacts. Imagegen may return native alpha; only the
+    # Lin Ce source requires chroma removal, and all share the same crop/margin.
+    persona_ids = (
+        "persona_internet_lin_ce", "persona_internet_tang_man", "persona_internet_chen_lu",
+        "persona_cloud_su_qing", "persona_cloud_zhou_yunzhou", "persona_cloud_xu_an",
+        "persona_gpu_gu_xing", "persona_gpu_ye_zhixing",
+        "persona_mining_zhou_lan", "persona_mining_lu_sen",
+    )
+    for name in persona_ids:
+        matte = "final_icon_soft" if name == "persona_internet_lin_ce" else "native_alpha"
+        assets.append(Asset("personas", name, f"personas/{name}_source.png", 1024, 1024, shadow=False, margin=0.035, matte=matte))
+
+    assert len(assets) == 163, f"expected 163 assets, got {len(assets)}"
     assert len({(a.category, a.name) for a in assets}) == len(assets)
     return assets
 
@@ -188,6 +200,12 @@ def chroma_to_alpha(asset: Asset) -> Path:
     source = WORK / asset.source
     alpha = ALPHA_WORK / asset.category / f"{asset.name}_alpha.png"
     alpha.parent.mkdir(parents=True, exist_ok=True)
+    if asset.matte == "native_alpha":
+        image = Image.open(source).convert("RGBA")
+        if image.getchannel("A").getextrema()[0] == 255:
+            raise RuntimeError(f"native-alpha source is opaque: {source}")
+        image.save(alpha, format="PNG", optimize=True)
+        return alpha
     if asset.matte == "final_icon_hard":
         command = [
             "python3", str(REMOVE_KEY), "--input", str(source), "--out", str(alpha),

@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "items": {
+    "internet_lin_ce": {
+      "customer_id": "internet", "order": 0, "name_key": "PERSONA_INTERNET_LIN_CE", "asset_id": "persona_internet_lin_ce",
+      "lines": {
+        "inquiry": ["PERSONA_INTERNET_INQUIRY_1", "PERSONA_INTERNET_INQUIRY_2"],
+        "accept": ["PERSONA_INTERNET_ACCEPT_1", "PERSONA_INTERNET_ACCEPT_2"],
+        "decline": ["PERSONA_INTERNET_DECLINE_1", "PERSONA_INTERNET_DECLINE_2"],
+        "level_up": ["PERSONA_INTERNET_LEVEL_1", "PERSONA_INTERNET_LEVEL_2"],
+        "chat": ["PERSONA_LIN_CHAT_1", "PERSONA_LIN_CHAT_2"]
+      }
+    },
+    "internet_tang_man": {
+      "customer_id": "internet", "order": 1, "name_key": "PERSONA_INTERNET_TANG_MAN", "asset_id": "persona_internet_tang_man",
+      "lines": {
+        "inquiry": ["PERSONA_INTERNET_INQUIRY_1", "PERSONA_INTERNET_INQUIRY_2"],
+        "accept": ["PERSONA_INTERNET_ACCEPT_1", "PERSONA_INTERNET_ACCEPT_2"],
+        "decline": ["PERSONA_INTERNET_DECLINE_1", "PERSONA_INTERNET_DECLINE_2"],
+        "level_up": ["PERSONA_INTERNET_LEVEL_1", "PERSONA_INTERNET_LEVEL_2"],
+        "chat": ["PERSONA_TANG_CHAT_1", "PERSONA_TANG_CHAT_2"]
+      }
+    },
+    "internet_chen_lu": {
+      "customer_id": "internet", "order": 2, "name_key": "PERSONA_INTERNET_CHEN_LU", "asset_id": "persona_internet_chen_lu",
+      "lines": {
+        "inquiry": ["PERSONA_INTERNET_INQUIRY_1", "PERSONA_INTERNET_INQUIRY_2"],
+        "accept": ["PERSONA_INTERNET_ACCEPT_1", "PERSONA_INTERNET_ACCEPT_2"],
+        "decline": ["PERSONA_INTERNET_DECLINE_1", "PERSONA_INTERNET_DECLINE_2"],
+        "level_up": ["PERSONA_INTERNET_LEVEL_1", "PERSONA_INTERNET_LEVEL_2"],
+        "chat": ["PERSONA_CHEN_CHAT_1", "PERSONA_CHEN_CHAT_2"]
+      }
+    },
+    "cloud_su_qing": {
+      "customer_id": "cloud", "order": 0, "name_key": "PERSONA_CLOUD_SU_QING", "asset_id": "persona_cloud_su_qing",
+      "lines": {
+        "inquiry": ["PERSONA_CLOUD_INQUIRY_1", "PERSONA_CLOUD_INQUIRY_2"],
+        "accept": ["PERSONA_CLOUD_ACCEPT_1", "PERSONA_CLOUD_ACCEPT_2"],
+        "decline": ["PERSONA_CLOUD_DECLINE_1", "PERSONA_CLOUD_DECLINE_2"],
+        "level_up": ["PERSONA_CLOUD_LEVEL_1", "PERSONA_CLOUD_LEVEL_2"],
+        "chat": ["PERSONA_SU_CHAT_1", "PERSONA_SU_CHAT_2"]
+      }
+    },
+    "cloud_zhou_yunzhou": {
+      "customer_id": "cloud", "order": 1, "name_key": "PERSONA_CLOUD_ZHOU_YUNZHOU", "asset_id": "persona_cloud_zhou_yunzhou",
+      "lines": {
+        "inquiry": ["PERSONA_CLOUD_INQUIRY_1", "PERSONA_CLOUD_INQUIRY_2"],
+        "accept": ["PERSONA_CLOUD_ACCEPT_1", "PERSONA_CLOUD_ACCEPT_2"],
+        "decline": ["PERSONA_CLOUD_DECLINE_1", "PERSONA_CLOUD_DECLINE_2"],
+        "level_up": ["PERSONA_CLOUD_LEVEL_1", "PERSONA_CLOUD_LEVEL_2"],
+        "chat": ["PERSONA_ZHOU_CHAT_1", "PERSONA_ZHOU_CHAT_2"]
+      }
+    },
+    "cloud_xu_an": {
+      "customer_id": "cloud", "order": 2, "name_key": "PERSONA_CLOUD_XU_AN", "asset_id": "persona_cloud_xu_an",
+      "lines": {
+        "inquiry": ["PERSONA_CLOUD_INQUIRY_1", "PERSONA_CLOUD_INQUIRY_2"],
+        "accept": ["PERSONA_CLOUD_ACCEPT_1", "PERSONA_CLOUD_ACCEPT_2"],
+        "decline": ["PERSONA_CLOUD_DECLINE_1", "PERSONA_CLOUD_DECLINE_2"],
+        "level_up": ["PERSONA_CLOUD_LEVEL_1", "PERSONA_CLOUD_LEVEL_2"],
+        "chat": ["PERSONA_XU_CHAT_1", "PERSONA_XU_CHAT_2"]
+      }
+    },
+    "gpu_gu_xing": {
+      "customer_id": "gpu_company", "order": 0, "name_key": "PERSONA_GPU_GU_XING", "asset_id": "persona_gpu_gu_xing",
+      "lines": {
+        "inquiry": ["PERSONA_GPU_INQUIRY_1", "PERSONA_GPU_INQUIRY_2"],
+        "accept": ["PERSONA_GPU_ACCEPT_1", "PERSONA_GPU_ACCEPT_2"],
+        "decline": ["PERSONA_GPU_DECLINE_1", "PERSONA_GPU_DECLINE_2"],
+        "level_up": ["PERSONA_GPU_LEVEL_1", "PERSONA_GPU_LEVEL_2"],
+        "chat": ["PERSONA_GU_CHAT_1", "PERSONA_GU_CHAT_2"]
+      }
+    },
+    "gpu_ye_zhixing": {
+      "customer_id": "gpu_company", "order": 1, "name_key": "PERSONA_GPU_YE_ZHIXING", "asset_id": "persona_gpu_ye_zhixing",
+      "lines": {
+        "inquiry": ["PERSONA_GPU_INQUIRY_1", "PERSONA_GPU_INQUIRY_2"],
+        "accept": ["PERSONA_GPU_ACCEPT_1", "PERSONA_GPU_ACCEPT_2"],
+        "decline": ["PERSONA_GPU_DECLINE_1", "PERSONA_GPU_DECLINE_2"],
+        "level_up": ["PERSONA_GPU_LEVEL_1", "PERSONA_GPU_LEVEL_2"],
+        "chat": ["PERSONA_YE_CHAT_1", "PERSONA_YE_CHAT_2"]
+      }
+    },
+    "mining_zhou_lan": {
+      "customer_id": "mining", "order": 0, "name_key": "PERSONA_MINING_ZHOU_LAN", "asset_id": "persona_mining_zhou_lan",
+      "lines": {
+        "inquiry": ["PERSONA_MINING_INQUIRY_1", "PERSONA_MINING_INQUIRY_2"],
+        "accept": ["PERSONA_MINING_ACCEPT_1", "PERSONA_MINING_ACCEPT_2"],
+        "decline": ["PERSONA_MINING_DECLINE_1", "PERSONA_MINING_DECLINE_2"],
+        "level_up": ["PERSONA_MINING_LEVEL_1", "PERSONA_MINING_LEVEL_2"],
+        "chat": ["PERSONA_ZHOU_LAN_CHAT_1", "PERSONA_ZHOU_LAN_CHAT_2"]
+      }
+    },
+    "mining_lu_sen": {
+      "customer_id": "mining", "order": 1, "name_key": "PERSONA_MINING_LU_SEN", "asset_id": "persona_mining_lu_sen",
+      "lines": {
+        "inquiry": ["PERSONA_MINING_INQUIRY_1", "PERSONA_MINING_INQUIRY_2"],
+        "accept": ["PERSONA_MINING_ACCEPT_1", "PERSONA_MINING_ACCEPT_2"],
+        "decline": ["PERSONA_MINING_DECLINE_1", "PERSONA_MINING_DECLINE_2"],
+        "level_up": ["PERSONA_MINING_LEVEL_1", "PERSONA_MINING_LEVEL_2"],
+        "chat": ["PERSONA_LU_CHAT_1", "PERSONA_LU_CHAT_2"]
+      }
+    }
+  }
+}

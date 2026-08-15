@@ -2,6 +2,7 @@ class_name DutyLog
 extends RefCounted
 
 const MAX_ROWS := 4
+const PersonaSystemScene := preload("res://gameplay/persona_system.gd")
 
 static func compose(report: Dictionary, data: Dictionary, game_state: Dictionary) -> Array[Dictionary]:
 	var config: Dictionary = data.get("duty_log", {}).get("entries", {})
@@ -13,7 +14,9 @@ static func compose(report: Dictionary, data: Dictionary, game_state: Dictionary
 	var rare_name := _rare_event_name(report, data)
 	if not rare_name.is_empty():
 		_append_candidate(candidates, "rare_market", [rare_name], config)
-	_append_count_candidate(candidates, "inquiry", report.get("inquiries", []).size(), config)
+	var inquiry_count: int = report.get("inquiries", []).size()
+	if inquiry_count > 0:
+		_append_candidate(candidates, "inquiry", [_inquiry_persona_name(report, data), inquiry_count], config)
 	_append_count_candidate(candidates, "fault", report.get("faults", []).size(), config)
 	var renewals := 0
 	for contract: Dictionary in report.get("contracts", []):
@@ -75,6 +78,19 @@ static func _rare_event_name(report: Dictionary, data: Dictionary) -> String:
 		if bool(event.get("rare", false)):
 			return TranslationServer.translate(str(event.get("name_key", "NAV_MARKET")))
 	return ""
+
+static func _inquiry_persona_name(report: Dictionary, data: Dictionary) -> String:
+	var notices: Array = report.get("inquiries", [])
+	if notices.is_empty():
+		return TranslationServer.translate("INQUIRY_BOARD")
+	var notice: Dictionary = notices[0]
+	var inquiry := {"id": str(notice.get("inquiry_id", notice.get("id", ""))), "template_id": str(notice.get("template_id", ""))}
+	var persona := PersonaSystemScene.persona_for_inquiry(inquiry, data)
+	if not persona.is_empty():
+		return TranslationServer.translate(str(persona.get("name_key", "")))
+	var template: Dictionary = data.get("inquiries", {}).get("items", {}).get(str(inquiry.get("template_id", "")), {})
+	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(str(template.get("customer_id", "")), {})
+	return TranslationServer.translate(str(customer.get("name_key", "INQUIRY_BOARD")))
 
 static func _canonical(value: Variant) -> String:
 	if value is Dictionary:

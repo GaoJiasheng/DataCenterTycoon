@@ -6,6 +6,7 @@ const Inquiry := preload("res://gameplay/inquiry_system.gd")
 const MAIN_SCENE := preload("res://main.tscn")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
 const DutyLogScene := preload("res://ui/duty_log.gd")
+const Persona := preload("res://gameplay/persona_system.gd")
 
 var passed := 0
 var failed := 0
@@ -87,13 +88,54 @@ func _run_warmth_presentation_tests() -> void:
 	var empty_rows := DutyLogScene.compose({"income": 0.0}, DataRepository.tables, Game.state)
 	_expect(empty_rows.size() == 1 and str(empty_rows[0].get("type", "")) == "income", "an empty offline report returns only the income fallback line")
 
+	var inquiry := {"id": "persona_binding_42", "template_id": "internet_anchor"}
+	var persona_before := {
+		"market": Game.state.get("market", {}).duplicate(true),
+		"inquiries": Game.state.get("inquiries", {}).duplicate(true),
+		"plots": Game.state.get("plots", []).duplicate(true),
+	}
+	var bound_first := Persona.persona_for_inquiry(inquiry, Game.data)
+	var bound_second := Persona.persona_for_inquiry(inquiry, Game.data)
+	var persona_after := {
+		"market": Game.state.get("market", {}).duplicate(true),
+		"inquiries": Game.state.get("inquiries", {}).duplicate(true),
+		"plots": Game.state.get("plots", []).duplicate(true),
+	}
+	_expect(not bound_first.is_empty() and bound_first == bound_second, "persona binding is stable for the same inquiry and template")
+	_expect(persona_before == persona_after, "persona binding consumes no persistent random stream")
+	var all_persona_keys_resolve := true
+	for item: Dictionary in Game.data.get("personas", {}).get("items", {}).values():
+		all_persona_keys_resolve = all_persona_keys_resolve and tr(str(item.get("name_key", ""))) != str(item.get("name_key", ""))
+		for lines: Array in item.get("lines", {}).values():
+			for key: String in lines:
+				all_persona_keys_resolve = all_persona_keys_resolve and tr(key) != key
+	_expect(all_persona_keys_resolve, "all persona names and dialogue keys resolve through localization")
+
+	Game.reset_for_tests()
+	var relationship_dc := _test_datacenter("persona_relationship_dc", "dc_t1")
+	relationship_dc["power_unit"] = "power_t1"
+	relationship_dc["coolers"] = {"north": "cool_air_t1"}
+	relationship_dc["racks"][0] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	relationship_dc["customer_id"] = "internet"
+	relationship_dc["locked_market_multiplier"] = 1.0
+	relationship_dc["contract_end_at"] = Game.simulation_time() + 600000.0
+	Game.state["plots"][0]["datacenter"] = relationship_dc
+	Game.state["plots"][0]["status"] = "operational"
+	var relationship_notices: Array = []
+	var relationship_callback := func(customer_id: String, level_index: int) -> void:
+		relationship_notices.append([customer_id, level_index])
+	EventBus.relationship_level_changed.connect(relationship_callback)
+	Game.call("_accrue_customer_relationships", 500000.0, true)
+	EventBus.relationship_level_changed.disconnect(relationship_callback)
+	_expect(relationship_notices == [["internet", 3]], "one relationship signal emits only the highest level when one tick crosses multiple levels")
+
 func _run_asset_integration_tests() -> void:
 	var art_items: Dictionary = AssetCatalog.manifest.get("items", {})
-	var art_loads := art_items.size() == 159
+	var art_loads := art_items.size() == 169
 	for item: Dictionary in art_items.values():
 		var path := str(item.get("path", ""))
 		art_loads = art_loads and ResourceLoader.exists(path) and load(path) is Texture2D
-	_expect(art_loads, "all 159 production textures import and load")
+	_expect(art_loads, "all 169 production textures import and load")
 	var audio_items: Dictionary = AudioService.manifest.get("items", {})
 	var audio_loads := audio_items.size() == 23
 	for cue_id: String in audio_items:

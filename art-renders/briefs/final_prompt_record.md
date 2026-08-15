@@ -217,3 +217,22 @@ ImageGen 原图依次为：
 - `board_specialties`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-dc3169eb-562a-4da0-86d3-4b963c3b9ba7.png`
 - `company_collection`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-bdf14f40-04d0-4253-95df-c8bbfaf1651e.png`
 - `legacy_memorial`: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-47a6a8a4-9605-4117-8405-26eae0f4bc16.png`
+
+## 2026-08-15 · 客户人设半身像
+
+十张正式人设立绘均使用内置 `imagegen` 独立生成。公共约束如下，人物描述逐张附在其后：
+
+```text
+Square 1024x1024 production character portrait for a premium polished casual mobile management game. Exactly one waist-up Chinese character, centered with safe margins, rounded high-end 2.5D painterly render, expressive friendly face, coherent royal-blue cream and warm-gold palette, warm upper-left studio lighting, subtle material texture, crisp silhouette. No text, no letters, no numbers, no logo, no watermark, no UI panel, no frame, no border, no wireframe, no geometric placeholder. Isolated on transparent background if supported; otherwise use a perfectly flat pure #ff00ff chroma-key background with no shadows or objects touching the background.
+```
+
+- `persona_internet_lin_ce`: Calm male internet SRE, early 30s, short tidy black hair, navy tech jacket and cream shirt, gold network-pin, blue tablet. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-34173e62-48f5-4c99-a2ea-d99364e575a0.png`
+- `persona_internet_tang_man`: Energetic female consumer-app release manager, late 20s, dark bob, blue cardigan and cream blouse, gold smartwatch, rollout clipboard. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-a8ca449c-47d4-4d31-b141-3383dd090c38.png`
+- `persona_internet_chen_lu`: Thoughtful male edge-network architect, late 30s, glasses, rolled cream shirt and blue utility vest, fiber spool, map tablet. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-c6c120a6-86ef-4480-ab36-2d20292d98ae.png`
+- `persona_cloud_su_qing`: Composed female cloud procurement director, early 30s, tied-back black hair, tailored navy suit and cream blouse, blue contract tablet, gold cloud lapel pin. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-4aa1e80f-fa7b-4065-b6cc-34a278158fea.png`
+- `persona_cloud_zhou_yunzhou`: Experienced male cloud capacity planner, 40s, short black hair with gray, cream knit and navy jacket, rolled data-center plans and gold ruler. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-11d3bfd9-df5a-4cbc-ae10-d24b33c38580.png`
+- `persona_cloud_xu_an`: Bright female cloud migration coordinator, late 20s, round glasses and ponytail, blue technical hoodie and cream utility vest, three backup drives on a gold keychain. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-060ec8a8-2665-467e-ad59-4dd081ebea6e.png`
+- `persona_gpu_gu_xing`: Ambitious young male AI startup founder, late 20s, tousled black hair and tired eye circles, blue hoodie and cream jacket, gold GPU module and dark-blue laptop. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-8512fff7-ba86-48f6-8c9f-3d6768a6466a.png`
+- `persona_gpu_ye_zhixing`: Assured female machine-learning research lead, mid 30s, shoulder-length black hair, cream laboratory jacket and navy top, blue checkpoint tablet and gold stylus. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-21a0ee47-f29d-47aa-9200-7200594ffcfe.png`
+- `persona_mining_zhou_lan`: Confident female cryptocurrency mining operations leader, early 40s, blue safety helmet, royal-blue work jacket and cream shirt, gold energy meter and chain-status clipboard. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-53bfdef3-79b1-4525-ba75-9d03c2ed05bc.png`
+- `persona_mining_lu_sen`: Seasoned male mining operations manager, early 50s, salt-and-pepper hair and beard, navy field vest and cream shirt, thermos and folded blue market sheet. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-52e5ace7-bde6-4c4f-97d1-0bc15ddfe65b.png`

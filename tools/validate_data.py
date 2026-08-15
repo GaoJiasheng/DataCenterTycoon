@@ -189,6 +189,27 @@ def validate_references():
     if int(board.get("max_rank", 0)) != 5 or set(board.get("items", {})) != {"construction", "operations", "business"}:
         ERRORS.append("meta_progression/board_specialties: expected three five-rank permanent specialties")
 
+    personas = DATA.get("personas", {}).get("items", {})
+    persona_counts = {customer_id: 0 for customer_id in customers}
+    required_line_sets = {"inquiry", "accept", "decline", "level_up", "chat"}
+    for persona_id, persona in personas.items():
+        customer_id = persona.get("customer_id")
+        if customer_id not in customers:
+            ERRORS.append(f"personas/{persona_id}: missing customer {customer_id}")
+            continue
+        persona_counts[customer_id] += 1
+        if not persona.get("name_key") or not persona.get("asset_id"):
+            ERRORS.append(f"personas/{persona_id}: name_key and asset_id are required")
+        lines = persona.get("lines", {})
+        if set(lines) != required_line_sets:
+            ERRORS.append(f"personas/{persona_id}: expected line sets {sorted(required_line_sets)}")
+        for category in required_line_sets:
+            if len(lines.get(category, [])) < 2:
+                ERRORS.append(f"personas/{persona_id}/{category}: expected at least two lines")
+    for customer_id, count in persona_counts.items():
+        if count < 2:
+            ERRORS.append(f"personas/{customer_id}: expected at least two personas")
+
 
 def validate_localization():
     with (ROOT / "localization/ui.csv").open(encoding="utf-8", newline="") as handle:
@@ -259,6 +280,15 @@ def validate_localization():
             zh_slots = re.findall(r"%(?:s|d)", row["zh_CN"])
             if len(en_slots) != len(zh_slots):
                 ERRORS.append(f"duty_log/{event_type}/{key}: bilingual placeholder count differs")
+    for persona_id, persona in DATA.get("personas", {}).get("items", {}).items():
+        for key in [persona.get("name_key", "")] + [
+            line_key
+            for lines in persona.get("lines", {}).values()
+            for line_key in lines
+        ]:
+            row = next((candidate for candidate in rows if candidate["keys"] == key), None)
+            if row is None or not row.get("en", "").strip() or not row.get("zh_CN", "").strip():
+                ERRORS.append(f"personas/{persona_id}: bilingual localization key {key} missing")
 
 
 def validate_manifest():
@@ -266,8 +296,8 @@ def validate_manifest():
     manifest = json.loads((ROOT / "assets/art/manifest.json").read_text(encoding="utf-8"))
     ids = [asset_id for group in manifest["groups"] for asset_id in group["ids"]]
     ART_IDS = set(ids) | set(manifest.get("items", {}))
-    if len(ids) != 159:
-        ERRORS.append(f"art manifest has {len(ids)} IDs, expected 159")
+    if len(ids) != 169:
+        ERRORS.append(f"art manifest has {len(ids)} IDs, expected 169")
     if len(ids) != len(set(ids)):
         ERRORS.append("art manifest contains duplicate IDs")
 
@@ -291,6 +321,7 @@ def validate_asset_references():
         expected.update(item["asset_prefix"] + suffix for suffix in ("_active", "_idle"))
     for table in ("customers", "eras", "store"):
         expected.update(item["asset_id"] for item in DATA[table]["items"].values())
+    expected.update(item["asset_id"] for item in DATA.get("personas", {}).get("items", {}).values())
     for asset_id in sorted(expected - ART_IDS):
         ERRORS.append(f"runtime art reference missing from manifest: {asset_id}")
 

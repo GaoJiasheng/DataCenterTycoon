@@ -67,6 +67,17 @@
     {"directory": "fx", "size": [1024, 512], "alpha": true, "ids": ["fx_dust_puff"]},
     {"directory": "characters", "size": [768, 1024], "alpha": true, "ids": ["guide_normal", "guide_happy", "guide_worried", "guide_alert", "guide_thinking"]},
     {"directory": "customers", "size": [384, 384], "alpha": true, "ids": ["client_internet", "client_mining", "client_cloud", "client_gpu"]},
+    {
+      "directory": "personas",
+      "size": [1024, 1024],
+      "alpha": true,
+      "ids": [
+        "persona_internet_lin_ce", "persona_internet_tang_man", "persona_internet_chen_lu",
+        "persona_cloud_su_qing", "persona_cloud_zhou_yunzhou", "persona_cloud_xu_an",
+        "persona_gpu_gu_xing", "persona_gpu_ye_zhixing",
+        "persona_mining_zhou_lan", "persona_mining_lu_sen"
+      ]
+    },
     {"directory": "ui", "size": [1024, 1024], "alpha": true, "ids": ["panel_main", "panel_dark"]},
     {"directory": "ui", "size": [512, 256], "alpha": true, "ids": ["btn_primary", "btn_secondary", "btn_warning", "btn_danger", "btn_disabled", "btn_ad"]},
     {"directory": "ui", "size": [512, 128], "alpha": true, "ids": ["progress_frame", "progress_fill"]},

@@ -229,6 +229,8 @@ func _ready() -> void:
 	dc["customer_id"] = "internet"
 	dc["contract_end_at"] = Game.simulation_time()
 	dc["free_switch_available"] = true
+	dc["persona_id"] = "internet_tang_man"
+	Game.state["meta"]["customer_service_seconds"]["internet"] = 50000.0
 	main.call("_open_datacenter_detail", str(dc.get("id", "")), "board")
 	valid = (await _capture(main, "dc_board")) and valid
 	var set_fixture := {
@@ -320,6 +322,7 @@ func _ready() -> void:
 		{"id": "visual_inquiry_mining", "template_id": "mining_rush", "slot": 1, "arrived_at": now},
 	]
 	valid = (await _capture(main, "inquiry_board")) and valid
+	valid = (await _capture(main, "inquiry_persona_card", false)) and valid
 	main.call("_show_inquiry_datacenter_picker", "visual_inquiry_edge")
 	valid = (await _capture(main, "inquiry_accept_sheet", false)) and valid
 	var inquiry_sheet := main.find_child("ActionSheetOverlay", true, false)
@@ -394,7 +397,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 46 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
+	print("VISUAL_SMOKE: %s 47 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:
@@ -519,12 +522,18 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if progress == null or not progress.is_visible_in_tree() or fraction < 0.53 or fraction > 0.56 or absf(remaining - 1640.0) > 2.0:
 			push_error("VISUAL_SMOKE: rewarded one-hour construction must show ~54%% progress and 27m20s remaining; fraction=%.3f remaining=%.1f" % [fraction, remaining])
 			valid = false
-	if state_name == "inquiry_board":
+	if state_name in ["inquiry_board", "inquiry_persona_card"]:
 		var inquiry_board := main.find_child("InquiryBoard", true, false)
 		var inquiry_cards := main.find_children("InquiryCard_*", "PanelContainer", true, false)
 		if inquiry_board == null or inquiry_cards.size() != 2 or not inquiry_board.find_children("*", "ProgressBar", true, false).is_empty():
 			push_error("VISUAL_SMOKE: inquiry board must render two persistent cards with no expiry countdown or progress bar")
 			valid = false
+		if state_name == "inquiry_persona_card" and (main.find_children("InquiryPersonaPortrait", "TextureRect", true, false).size() != 2 or main.find_children("InquiryPersonaLine", "Label", true, false).size() != 2):
+			push_error("VISUAL_SMOKE: inquiry persona state must show one formal portrait and line per open inquiry")
+			valid = false
+	if state_name == "dc_contracts" and (main.find_child("ContractPersonaContact", true, false) == null or main.find_child("ContractPersonaPortrait", true, false) == null):
+		push_error("VISUAL_SMOKE: familiar contract must expose its named contact and portrait")
+		valid = false
 	if state_name == "inquiry_accept_sheet":
 		var inquiry_sheet := main.find_child("ActionSheetOverlay", true, false)
 		if inquiry_sheet == null or inquiry_sheet.find_children("Choice_*", "Button", true, false).is_empty():

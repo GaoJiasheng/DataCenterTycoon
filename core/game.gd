@@ -5,6 +5,7 @@ const MAX_ADVANCE_ITERATIONS := 20000
 const Rules := preload("res://gameplay/game_rules.gd")
 const Market := preload("res://gameplay/market_system.gd")
 const Inquiry := preload("res://gameplay/inquiry_system.gd")
+const PersonaSystemScene := preload("res://gameplay/persona_system.gd")
 
 var state: Dictionary = {}
 var data: Dictionary = {}
@@ -97,7 +98,7 @@ func advance_time(real_seconds: float, offline: bool) -> Dictionary:
 		if boundary < INF:
 			step = minf(step, maxf(0.05, boundary - now))
 		if financial:
-			var earned := _accrue_income(step)
+			var earned := _accrue_income(step, not offline)
 			report["income"] = float(report["income"]) + earned
 			financial_remaining -= step
 		state["clock"]["simulation_seconds"] = now + step
@@ -323,6 +324,9 @@ func sign_contract(datacenter_id: String, customer_id: String, duration_id: Stri
 	dc["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	dc["contract_end_at"] = simulation_time() + _contract_duration_seconds(duration_id)
 	dc["free_switch_available"] = false
+	var default_persona := PersonaSystemScene.default_persona(customer_id, data)
+	if not default_persona.is_empty():
+		dc["persona_id"] = str(default_persona.get("id", ""))
 	dc.erase("inquiry_contract_id")
 	dc.erase("inquiry_template_id")
 	dc.erase("inquiry_premium")
@@ -962,16 +966,16 @@ func _next_boundary_after(now: float, include_noise: bool) -> float:
 	var inquiry_boundary := _inquiry.next_transition_after(state, data, now)
 	return minf(result, minf(market_boundary, inquiry_boundary))
 
-func _accrue_income(seconds: float) -> float:
+func _accrue_income(seconds: float, emit_relationship_events: bool = true) -> float:
 	var month_seconds := float(data.get("economy", {}).get("time", {}).get("real_seconds_per_game_month", 7200.0))
 	var earned := monthly_income() * seconds / month_seconds
 	state["player"]["cash"] = float(state["player"].get("cash", 0.0)) + earned
 	state["player"]["total_revenue"] = float(state["player"].get("total_revenue", 0.0)) + earned
-	_accrue_customer_relationships(seconds)
+	_accrue_customer_relationships(seconds, emit_relationship_events)
 	_try_clear_arrears()
 	return earned
 
-func _accrue_customer_relationships(seconds: float) -> void:
+func _accrue_customer_relationships(seconds: float, emit_events: bool = true) -> void:
 	var active_counts := {}
 	for plot: Dictionary in state.get("plots", []):
 		var dc: Variant = plot.get("datacenter")
@@ -983,8 +987,12 @@ func _accrue_customer_relationships(seconds: float) -> void:
 	var per_rank := float(data.get("meta_progression", {}).get("board_specialties", {}).get("items", {}).get("business", {}).get("relationship_growth_per_rank", 0.0))
 	var growth_multiplier := 1.0 + float(business_rank) * per_rank
 	for customer_id: String in active_counts:
+		var previous_level := int(Rules.relationship_level(customer_id, state, data).get("index", 0))
 		var credited := seconds * minf(3.0, float(active_counts[customer_id])) * growth_multiplier
 		state["meta"]["customer_service_seconds"][customer_id] = float(state["meta"]["customer_service_seconds"].get(customer_id, 0.0)) + credited
+		var current_level := int(Rules.relationship_level(customer_id, state, data).get("index", 0))
+		if emit_events and current_level > previous_level:
+			EventBus.relationship_level_changed.emit(customer_id, current_level)
 
 func _process_due(financial: bool, offline: bool, report: Dictionary) -> void:
 	var now := simulation_time()

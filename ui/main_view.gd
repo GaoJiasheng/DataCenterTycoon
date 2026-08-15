@@ -2,6 +2,7 @@ extends Control
 
 const ThemeMaker := preload("res://ui/theme_factory.gd")
 const DutyLogScene := preload("res://ui/duty_log.gd")
+const PersonaSystemScene := preload("res://gameplay/persona_system.gd")
 
 const Widgets := preload("res://ui/widgets.gd")
 const ChartScene := preload("res://ui/market_chart.gd")
@@ -566,6 +567,7 @@ func _connect_events() -> void:
 	EventBus.construction_completed.connect(_on_construction_completed)
 	EventBus.rack_fault_occurred.connect(_on_rack_fault_occurred)
 	EventBus.contract_auto_renewed.connect(_on_contract_auto_renewed)
+	EventBus.relationship_level_changed.connect(_on_relationship_level_changed)
 	EventBus.datacenter_entered_aging.connect(_on_datacenter_entered_aging)
 	EventBus.market_event_started.connect(_on_market_event_started)
 	EventBus.market_event_ended.connect(_on_market_event_ended)
@@ -1312,6 +1314,11 @@ func _build_contract_management(dc: Dictionary) -> Control:
 		var cap := float(DataRepository.get_table("economy").get("contracts", {}).get("strategic_lock_cap", 2.5))
 		if str(dc.get("contract_duration_id", "standard")) == "strategic" and Game.contract_market_multiplier(current_customer) > cap and is_equal_approx(float(dc.get("locked_market_multiplier", 0.0)), cap):
 			summary_box.add_child(_label(tr("CONTRACT_STRATEGIC_CAP") % cap, ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.purple))
+		var relationship := Rules.relationship_level(current_customer, Game.state, Game.data)
+		if int(relationship.get("index", 0)) >= 1:
+			var persona := PersonaSystemScene.persona_for_contract(dc, DataRepository.tables)
+			if not persona.is_empty():
+				summary_box.add_child(_contract_contact_row(persona, str(dc.get("id", ""))))
 	section.add_child(summary)
 	if capacity_state != "ready":
 		section.add_child(_contract_capacity_guide(dc, capacity_state))
@@ -1323,6 +1330,42 @@ func _build_contract_management(dc: Dictionary) -> Control:
 		var available := int(customer.get("unlock_era", 1)) <= int(Game.state["player"].get("era", 1)) and int(customer.get("minimum_network_level", 1)) <= int(Game.state["player"].get("network_level", 1))
 		contracts.add_child(_contract_customer_card(dc, customer_id, customer, current_customer, available))
 	return section
+
+func _contract_contact_row(persona: Dictionary, datacenter_id: String) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "ContractPersonaContact"
+	row.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+	var portrait := Button.new()
+	portrait.name = "ContractPersonaPortrait"
+	portrait.custom_minimum_size = Vector2(88, 88)
+	portrait.focus_mode = Control.FOCUS_NONE
+	portrait.icon = AssetCatalog.texture(str(persona.get("asset_id", "")))
+	portrait.expand_icon = true
+	portrait.add_theme_constant_override("icon_max_width", 80)
+	portrait.add_theme_stylebox_override("normal", ThemeMaker.panel(Color("18334f"), Color(ThemeMaker.COLORS.sky, 0.65), 2, 18))
+	portrait.add_theme_stylebox_override("hover", ThemeMaker.panel(Color("20486a"), ThemeMaker.COLORS.sky, 2, 18))
+	portrait.add_theme_stylebox_override("pressed", ThemeMaker.panel(Color("122a43"), ThemeMaker.COLORS.sky, 2, 18))
+	portrait.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	portrait.pressed.connect(_show_persona_chat.bind(persona.duplicate(true), datacenter_id))
+	Widgets.wire_button_motion(portrait)
+	row.add_child(portrait)
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.alignment = BoxContainer.ALIGNMENT_CENTER
+	copy.add_theme_constant_override("separation", 4)
+	row.add_child(copy)
+	copy.add_child(_label(tr("PERSONA_CONTACT") % tr(str(persona.get("name_key", ""))), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.cream))
+	var line_key := PersonaSystemScene.line_key(persona, "chat", datacenter_id)
+	var chat_hint := _label(tr(line_key), ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+	chat_hint.max_lines_visible = 1
+	chat_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	copy.add_child(chat_hint)
+	return row
+
+func _show_persona_chat(persona: Dictionary, context: String) -> void:
+	var line_key := PersonaSystemScene.line_key(persona, "chat", context)
+	if not line_key.is_empty():
+		_show_persona_toast(persona, tr(line_key))
 
 func _contract_capacity_state(dc: Dictionary) -> String:
 	var racks: Array = dc.get("racks", [])
@@ -1579,6 +1622,7 @@ func _build_inquiry_section() -> Control:
 func _inquiry_card(inquiry: Dictionary) -> Control:
 	var template := DataRepository.get_table("inquiries").get("items", {}).get(str(inquiry.get("template_id", "")), {}) as Dictionary
 	var customer := DataRepository.get_entry("customers", str(template.get("customer_id", "")))
+	var persona := PersonaSystemScene.persona_for_inquiry(inquiry, DataRepository.tables)
 	var card := Widgets.flat_card(ThemeMaker.COLORS.yellow)
 	card.name = "InquiryCard_%s" % str(inquiry.get("id", ""))
 	card.set_meta("inquiry_id", str(inquiry.get("id", "")))
@@ -1588,17 +1632,24 @@ func _inquiry_card(inquiry: Dictionary) -> Control:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	box.add_child(top)
-	top.add_child(_icon_view(str(customer.get("asset_id", "ic_contract")), Vector2(68, 68)))
+	var persona_portrait := _icon_view(str(persona.get("asset_id", customer.get("asset_id", "ic_contract"))), Vector2(92, 92))
+	persona_portrait.name = "InquiryPersonaPortrait"
+	top.add_child(persona_portrait)
 	var copy := VBoxContainer.new()
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	copy.add_theme_constant_override("separation", 4)
 	top.add_child(copy)
-	var title := _label(tr(str(template.get("name_key", "INQUIRY_BOARD"))), ThemeMaker.TYPE_SCALE.heading, ThemeMaker.COLORS.cream)
+	var title := _label(tr(str(persona.get("name_key", template.get("name_key", "INQUIRY_BOARD")))), ThemeMaker.TYPE_SCALE.heading, ThemeMaker.COLORS.cream)
 	title.name = "InquiryTitle"
 	title.max_lines_visible = 1
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	ThemeMaker.apply_text_role(title, "title")
 	copy.add_child(title)
+	var offer_name := _label(tr(str(template.get("name_key", "INQUIRY_BOARD"))), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.yellow)
+	offer_name.name = "InquiryOfferName"
+	offer_name.max_lines_visible = 1
+	offer_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	copy.add_child(offer_name)
 	var description := _label(tr(str(template.get("description_key", ""))), ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
 	description.max_lines_visible = 1
 	description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1616,6 +1667,13 @@ func _inquiry_card(inquiry: Dictionary) -> Control:
 	terms.max_lines_visible = 1
 	terms.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	box.add_child(terms)
+	var inquiry_line_key := PersonaSystemScene.line_key(persona, "inquiry", str(inquiry.get("id", "")))
+	if not inquiry_line_key.is_empty():
+		var persona_line := _label("“%s”" % tr(inquiry_line_key), ThemeMaker.TYPE_SCALE.caption, Color("d9e7f2"))
+		persona_line.name = "InquiryPersonaLine"
+		persona_line.max_lines_visible = 1
+		persona_line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		box.add_child(persona_line)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
 	box.add_child(actions)
@@ -1675,6 +1733,12 @@ func _inquiry_requirement_text(template: Dictionary, evaluation: Dictionary) -> 
 func _show_inquiry_datacenter_picker(inquiry_id: String) -> void:
 	var choices: Array[Dictionary] = []
 	var quotes := {}
+	var inquiry: Dictionary = {}
+	for item: Dictionary in Game.state.get("inquiries", {}).get("open", []):
+		if str(item.get("id", "")) == inquiry_id:
+			inquiry = item
+			break
+	var persona := PersonaSystemScene.persona_for_inquiry(inquiry, DataRepository.tables)
 	for plot: Dictionary in Game.state.get("plots", []):
 		var dc: Variant = plot.get("datacenter")
 		if not dc is Dictionary or str((dc as Dictionary).get("status", "")) != "operational":
@@ -1695,15 +1759,23 @@ func _show_inquiry_datacenter_picker(inquiry_id: String) -> void:
 			return
 		var result := Game.accept_inquiry(inquiry_id, datacenter_id, quote)
 		if bool(result.get("ok", false)):
-			_show_toast(tr("INQUIRY_ACCEPTED") % Game.format_number(float(result.get("bonus", 0.0))), "sfx_success_chime")
+			var line_key := PersonaSystemScene.line_key(persona, "accept", inquiry_id)
+			_show_persona_toast(persona, tr(line_key) if not line_key.is_empty() else tr("INQUIRY_ACCEPTED") % Game.format_number(float(result.get("bonus", 0.0))), "sfx_success_chime")
 		else:
 			_handle_result(result)
 	)
 
 func _decline_inquiry(inquiry_id: String) -> void:
+	var inquiry: Dictionary = {}
+	for item: Dictionary in Game.state.get("inquiries", {}).get("open", []):
+		if str(item.get("id", "")) == inquiry_id:
+			inquiry = item
+			break
+	var persona := PersonaSystemScene.persona_for_inquiry(inquiry, DataRepository.tables)
 	var result := Game.decline_inquiry(inquiry_id)
 	if bool(result.get("ok", false)):
-		_show_toast(tr("INQUIRY_DECLINED"))
+		var line_key := PersonaSystemScene.line_key(persona, "decline", inquiry_id)
+		_show_persona_toast(persona, tr(line_key) if not line_key.is_empty() else tr("INQUIRY_DECLINED"))
 	else:
 		_handle_result(result)
 
@@ -4535,6 +4607,25 @@ func _on_contract_auto_renewed(_datacenter_id: String, _customer_id: String, _co
 	_show_toast(tr("TOAST_CONTRACT_RENEWAL"))
 	_request_full_refresh()
 
+func _on_relationship_level_changed(customer_id: String, level_index: int) -> void:
+	if not bool(Game.state.get("tutorial", {}).get("completed", false)):
+		return
+	var persona := PersonaSystemScene.default_persona(customer_id, DataRepository.tables)
+	for plot: Dictionary in Game.state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if dc is Dictionary and str((dc as Dictionary).get("customer_id", "")) == customer_id:
+			persona = PersonaSystemScene.persona_for_contract(dc, DataRepository.tables)
+	if persona.is_empty():
+		return
+	var levels: Array = DataRepository.get_table("meta_progression").get("relationships", {}).get("levels", [])
+	if level_index < 0 or level_index >= levels.size():
+		return
+	var level: Dictionary = levels[level_index]
+	var headline := tr("PERSONA_LEVEL_TOAST") % [tr(str(persona.get("name_key", ""))), tr(str(level.get("name_key", "RELATIONSHIP_NEW")))]
+	var line_key := PersonaSystemScene.line_key(persona, "level_up", str(level_index))
+	var message := "%s\n%s" % [headline, tr(line_key)] if not line_key.is_empty() else headline
+	_show_persona_toast(persona, message, "sfx_success_chime")
+
 func _on_datacenter_entered_aging(datacenter_id: String) -> void:
 	var tutorial: Dictionary = Game.state.get("tutorial", {})
 	var steps: Array = DataRepository.get_table("tutorial").get("steps", [])
@@ -5002,6 +5093,59 @@ func _on_purchase_completed(_product_id: String, success: bool, _message: String
 	if success:
 		_play_fx("fx_coin")
 	_request_full_refresh()
+
+func _show_persona_toast(persona: Dictionary, message: String, cue_id: String = "") -> void:
+	if persona.is_empty() or feedback_layer == null:
+		_show_toast(message, cue_id)
+		return
+	var existing := feedback_layer.find_child("PersonaToast", true, false)
+	if existing != null:
+		existing.queue_free()
+	if not cue_id.is_empty():
+		AudioService.play_sfx(cue_id)
+	var panel := PanelContainer.new()
+	panel.name = "PersonaToast"
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.size = Vector2(700, 142)
+	var viewport_size := get_viewport_rect().size
+	panel.position = Vector2((viewport_size.x - panel.size.x) * 0.5, viewport_size.y - 340.0)
+	panel.add_theme_stylebox_override("panel", ThemeMaker.panel(Color(0.04, 0.10, 0.17, 0.97), ThemeMaker.COLORS.sky, 2, 24))
+	feedback_layer.add_child(panel)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_right", 22)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	panel.add_child(margin)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	margin.add_child(row)
+	row.add_child(_icon_view(str(persona.get("asset_id", "")), Vector2(104, 104)))
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.alignment = BoxContainer.ALIGNMENT_CENTER
+	copy.add_theme_constant_override("separation", 4)
+	row.add_child(copy)
+	var name := _label(tr(str(persona.get("name_key", ""))), ThemeMaker.TYPE_SCALE.body, ThemeMaker.COLORS.yellow)
+	name.max_lines_visible = 1
+	copy.add_child(name)
+	var body := _label(message, ThemeMaker.TYPE_SCALE.caption, Color.WHITE)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.max_lines_visible = 2
+	body.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	body.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
+	body.add_theme_constant_override("outline_size", 3)
+	copy.add_child(body)
+	panel.modulate.a = 0.0
+	panel.position.y += 18.0
+	var tween := panel.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(panel, "modulate:a", 1.0, 0.16)
+	tween.tween_property(panel, "position:y", panel.position.y - 18.0, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.set_parallel(false)
+	tween.tween_interval(2.4)
+	tween.tween_property(panel, "modulate:a", 0.0, 0.30)
+	tween.tween_callback(panel.queue_free)
 
 func _show_toast(message: String, cue_id: String = "") -> void:
 	if not cue_id.is_empty():

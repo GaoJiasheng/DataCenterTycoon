@@ -2,6 +2,7 @@ class_name InquirySystem
 extends RefCounted
 
 const Rules := preload("res://gameplay/game_rules.gd")
+const PersonaSystemScene := preload("res://gameplay/persona_system.gd")
 const DEFAULT_RNG_STATE := 918273
 
 func ensure_state(game_state: Dictionary, data: Dictionary) -> void:
@@ -161,6 +162,9 @@ func accept(inquiry_id: String, datacenter: Dictionary, game_state: Dictionary, 
 	datacenter["inquiry_contract_id"] = inquiry_id
 	datacenter["inquiry_template_id"] = str(inquiry.get("template_id", ""))
 	datacenter["inquiry_premium"] = premium
+	var persona := PersonaSystemScene.persona_for_inquiry(inquiry, data)
+	if not persona.is_empty():
+		datacenter["persona_id"] = str(persona.get("id", ""))
 	remove_open(inquiry_id, game_state)
 	return {
 		"ok": true,

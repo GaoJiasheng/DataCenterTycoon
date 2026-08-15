@@ -209,6 +209,8 @@ func _shot(shot_name: String) -> void:
 	main.call("_refresh")
 	await get_tree().process_frame
 	await get_tree().create_timer(0.25).timeout
+	if not bool(Game.state.get("tutorial", {}).get("completed", false)):
+		_expect(main.find_child("InquiryPersonaPortrait", true, false) == null and main.find_child("ContractPersonaContact", true, false) == null and main.find_child("PersonaToast", true, false) == null, "FTUE keeps customer-persona presentation hidden")
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	_shot_index += 1

@@ -4681,5 +4681,315 @@
     ],
     "bytes": 888252,
     "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_internet_lin_ce",
+    "source": "personas/persona_internet_lin_ce_source.png",
+    "output": "visual/final/personas/persona_internet_lin_ce.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      135,
+      36,
+      888,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 738889,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_internet_tang_man",
+    "source": "personas/persona_internet_tang_man_source.png",
+    "output": "visual/final/personas/persona_internet_tang_man.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      135,
+      36,
+      888,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 986238,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_internet_chen_lu",
+    "source": "personas/persona_internet_chen_lu_source.png",
+    "output": "visual/final/personas/persona_internet_chen_lu.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      128,
+      36,
+      895,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 945731,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_cloud_su_qing",
+    "source": "personas/persona_cloud_su_qing_source.png",
+    "output": "visual/final/personas/persona_cloud_su_qing.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      101,
+      36,
+      923,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 760303,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_cloud_zhou_yunzhou",
+    "source": "personas/persona_cloud_zhou_yunzhou_source.png",
+    "output": "visual/final/personas/persona_cloud_zhou_yunzhou.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      105,
+      36,
+      919,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1014484,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_cloud_xu_an",
+    "source": "personas/persona_cloud_xu_an_source.png",
+    "output": "visual/final/personas/persona_cloud_xu_an.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      73,
+      36,
+      951,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1205324,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_gpu_gu_xing",
+    "source": "personas/persona_gpu_gu_xing_source.png",
+    "output": "visual/final/personas/persona_gpu_gu_xing.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      44,
+      36,
+      979,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1158487,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_gpu_ye_zhixing",
+    "source": "personas/persona_gpu_ye_zhixing_source.png",
+    "output": "visual/final/personas/persona_gpu_ye_zhixing.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      119,
+      36,
+      905,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 962937,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_mining_zhou_lan",
+    "source": "personas/persona_mining_zhou_lan_source.png",
+    "output": "visual/final/personas/persona_mining_zhou_lan.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      116,
+      36,
+      907,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1007512,
+    "pass": true
+  },
+  {
+    "category": "personas",
+    "name": "persona_mining_lu_sen",
+    "source": "personas/persona_mining_lu_sen_source.png",
+    "output": "visual/final/personas/persona_mining_lu_sen.png",
+    "expected_size": [
+      1024,
+      1024
+    ],
+    "actual_size": [
+      1024,
+      1024
+    ],
+    "mode": "RGBA",
+    "png_color_type": 6,
+    "transparent_required": true,
+    "alpha_bbox": [
+      79,
+      36,
+      945,
+      988
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "bytes": 1136902,
+    "pass": true
   }
 ]
