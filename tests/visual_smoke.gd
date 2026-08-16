@@ -1197,6 +1197,15 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if main.find_children("SettingsChevron", "Label", true, false).size() != 3:
 			push_error("VISUAL_SMOKE: settings legal rows lack three chevrons")
 			valid = false
+		var settings_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+		var settings_actions := settings_scroll.find_children("*", "Button", true, false) if settings_scroll != null else []
+		var full_surface_scroll := settings_scroll != null and bool(settings_scroll.get_meta("full_surface_touch_scroll", false)) and int(settings_scroll.scroll_deadzone) == 12 and not settings_actions.is_empty()
+		for settings_action_node: Node in settings_actions:
+			var settings_action := settings_action_node as BaseButton
+			full_surface_scroll = full_surface_scroll and settings_action.mouse_filter == Control.MOUSE_FILTER_PASS and settings_action.action_mode == BaseButton.ACTION_MODE_BUTTON_RELEASE and bool(settings_action.get_meta("scroll_drag_passthrough", false))
+		if not full_surface_scroll:
+			push_error("VISUAL_SMOKE: settings does not route its complete interactive surface through the touch scroller")
+			valid = false
 	if state_name == "offline_reward":
 		if main.find_child("OfflineRewardCard", true, false) == null or main.find_child("OfflineCoinPile", true, false) == null or main.find_child("OfflineDoubleButton", true, false) == null:
 			push_error("VISUAL_SMOKE: offline reward lacks animated earnings art or primary ×2 placement")

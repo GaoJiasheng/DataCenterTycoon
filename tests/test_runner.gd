@@ -1270,7 +1270,61 @@ func _run_wp6_presentation_tests() -> void:
 	main.call("_navigate", "settings")
 	main.call("_refresh")
 	await get_tree().process_frame
+	var settings_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+	var settings_buttons := settings_scroll.find_children("*", "Button", true, false) if settings_scroll != null else []
+	var settings_full_surface := settings_scroll != null and bool(settings_scroll.get_meta("full_surface_touch_scroll", false)) and int(settings_scroll.scroll_deadzone) == 12 and not settings_buttons.is_empty()
+	for settings_button_node: Node in settings_buttons:
+		var settings_action := settings_button_node as BaseButton
+		settings_full_surface = settings_full_surface and settings_action.mouse_filter == Control.MOUSE_FILTER_PASS and settings_action.action_mode == BaseButton.ACTION_MODE_BUTTON_RELEASE and bool(settings_action.get_meta("scroll_drag_passthrough", false))
 	_expect(main.find_child("SettingsCompliance", true, false) != null and main.find_child("SettingsVersion", true, false) != null, "settings exposes legal support and build information")
+	_expect(settings_full_surface, "settings distinguishes release taps from full-content iOS drags")
+	var music_toggle := main.find_child("SettingsToggle_music_enabled", true, false) as Button
+	var touch_gesture_ok := settings_scroll != null and music_toggle != null
+	var initial_music := bool(Game.state.get("settings", {}).get("music_enabled", true))
+	if touch_gesture_ok:
+		var settings_content := settings_scroll.get_child(0) as Control
+		settings_content.custom_minimum_size.y = maxf(settings_content.get_combined_minimum_size().y, settings_scroll.size.y + 640.0)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		settings_scroll.scroll_vertical = 0
+		await get_tree().process_frame
+		var start := music_toggle.get_global_rect().get_center()
+		# First prove that a stationary release still performs the button action.
+		for pressed: bool in [true, false]:
+			var tap := InputEventScreenTouch.new()
+			tap.index = 8
+			tap.position = start
+			tap.pressed = pressed
+			get_viewport().push_input(tap, true)
+			await get_tree().process_frame
+		touch_gesture_ok = bool(Game.state.get("settings", {}).get("music_enabled", true)) != initial_music
+		Game.set_audio_setting("music_enabled", initial_music)
+		music_toggle.set_pressed_no_signal(initial_music)
+		# Then begin from the same interactive control and cross the scroll
+		# deadzone. The page must move while the setting stays unchanged.
+		var press := InputEventScreenTouch.new()
+		press.index = 7
+		press.position = start
+		press.pressed = true
+		get_viewport().push_input(press, true)
+		await get_tree().process_frame
+		for distance: float in [48.0, 96.0, 144.0]:
+			var drag := InputEventScreenDrag.new()
+			drag.index = 7
+			drag.position = start - Vector2(0, distance)
+			drag.relative = Vector2(0, -48)
+			drag.velocity = Vector2(0, -600)
+			get_viewport().push_input(drag, true)
+			await get_tree().process_frame
+		var release := InputEventScreenTouch.new()
+		release.index = 7
+		release.position = start - Vector2(0, 144)
+		release.pressed = false
+		get_viewport().push_input(release, true)
+		await get_tree().process_frame
+		touch_gesture_ok = touch_gesture_ok and settings_scroll.scroll_vertical >= 96 and bool(Game.state.get("settings", {}).get("music_enabled", true)) == initial_music
+		Game.set_audio_setting("music_enabled", initial_music)
+	_expect(touch_gesture_ok, "dragging from a settings toggle scrolls without toggling, while a stationary tap still toggles")
 	main.call("_show_offline_dialog", {"elapsed_seconds": 7200.0, "income": 5000.0, "completed": [{}], "faults": [{}], "events": [{}], "aging": [{}], "contracts": []})
 	await get_tree().process_frame
 	_expect(main.find_child("OfflineRewardCard", true, false) != null and main.find_child("OfflineDoubleButton", true, false) != null, "offline settlement has a dedicated animated reward card and ad-styled ×2 action")

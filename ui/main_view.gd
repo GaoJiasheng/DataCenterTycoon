@@ -2481,7 +2481,7 @@ func _build_settings_page() -> Control:
 	destructive_gap.custom_minimum_size.y = 24
 	box.add_child(destructive_gap)
 	box.add_child(_button(tr("SETTINGS_RESET"), _confirm_reset, ThemeMaker.COLORS.red))
-	return _wrap_scroll(box)
+	return _wrap_scroll(box, true)
 
 func _settings_segment_button(text: String, selected: bool, action: Callable) -> Button:
 	var button := Widgets.button(text, action, "secondary")
@@ -5564,7 +5564,7 @@ func _safe_modal_size(preferred: Vector2, gutter: Vector2 = Vector2(32, 32)) -> 
 		minf(preferred.y, maxf(0.0, viewport.y - gutter.y * 2.0)) if preferred.y > 0.0 else 0.0
 	)
 
-func _wrap_scroll(content: Control) -> Control:
+func _wrap_scroll(content: Control, full_surface_touch: bool = false) -> Control:
 	var surface := PanelContainer.new()
 	surface.name = "SystemSurface"
 	surface.set_meta("viewport_bounded_surface", true)
@@ -5583,6 +5583,8 @@ func _wrap_scroll(content: Control) -> Control:
 	ThemeMaker.apply_system_scrollbar(scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
+	if full_surface_touch:
+		_enable_full_surface_touch_scroll(scroll, content)
 	var margin := MarginContainer.new()
 	margin.name = "SystemSurfaceMargin"
 	# The nine-slice's nominal inset includes transparent export padding. Keep a
@@ -5599,6 +5601,67 @@ func _wrap_scroll(content: Control) -> Control:
 	margin.add_child(scroll)
 	surface.add_child(margin)
 	return surface
+
+func _enable_full_surface_touch_scroll(scroll: ScrollContainer, content: Control) -> void:
+	# iOS sends a drag to the deepest Control under the finger. Buttons and
+	# container panels default to STOP, so a settings page made almost entirely of
+	# toggles and rows left only its narrow gaps/scrollbar draggable. Decorative
+	# controls now ignore hit testing, while actions PASS their events upward and
+	# fire only on release. ScrollContainer's deadzone then arbitrates the gesture:
+	# a short release remains a tap; a 12u movement becomes a page drag.
+	scroll.set_meta("full_surface_touch_scroll", true)
+	var touch_controls: Array[Control] = [content]
+	for node: Node in content.find_children("*", "Control", true, false):
+		touch_controls.append(node as Control)
+	for control: Control in touch_controls:
+		if control is BaseButton:
+			var action := control as BaseButton
+			action.mouse_filter = Control.MOUSE_FILTER_PASS
+			action.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+			action.set_meta("scroll_drag_passthrough", true)
+			_wire_full_surface_scroll_action(scroll, action)
+		else:
+			control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+func _wire_full_surface_scroll_action(scroll: ScrollContainer, action: BaseButton) -> void:
+	if bool(action.get_meta("full_surface_scroll_wired", false)):
+		return
+	action.set_meta("full_surface_scroll_wired", true)
+	var gesture := {
+		"active": false,
+		"dragging": false,
+		"start_y": 0.0,
+		"base_scroll": 0,
+		"pressed_before": false,
+	}
+	action.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventScreenTouch:
+			var touch := event as InputEventScreenTouch
+			if touch.pressed:
+				gesture["active"] = true
+				gesture["dragging"] = false
+				gesture["start_y"] = touch.position.y
+				gesture["base_scroll"] = scroll.scroll_vertical
+				gesture["pressed_before"] = action.button_pressed
+			elif bool(gesture.get("active", false)):
+				if bool(gesture.get("dragging", false)):
+					if action.toggle_mode:
+						action.set_pressed_no_signal(bool(gesture.get("pressed_before", false)))
+					action.accept_event()
+				gesture["active"] = false
+		elif event is InputEventScreenDrag and bool(gesture.get("active", false)):
+			var drag := event as InputEventScreenDrag
+			var travel := drag.position.y - float(gesture.get("start_y", drag.position.y))
+			if absf(travel) >= float(scroll.scroll_deadzone):
+				gesture["dragging"] = true
+			if bool(gesture.get("dragging", false)):
+				var bar := scroll.get_v_scroll_bar()
+				var maximum := maxi(0, int(bar.max_value - bar.page))
+				scroll.scroll_vertical = clampi(int(round(float(gesture.get("base_scroll", 0)) - travel)), 0, maximum)
+				if action.toggle_mode:
+					action.set_pressed_no_signal(bool(gesture.get("pressed_before", false)))
+				action.accept_event()
+	)
 
 func _system_page_header(title_text: String, subtitle: String, asset_id: String) -> Control:
 	var header := HBoxContainer.new()
@@ -5732,6 +5795,7 @@ func _settings_toggle_row(setting_key: String, label_key: String) -> Control:
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(title)
 	var toggle := Button.new()
+	toggle.name = "SettingsToggle_%s" % setting_key
 	toggle.toggle_mode = true
 	toggle.focus_mode = Control.FOCUS_NONE
 	toggle.button_pressed = bool(Game.state.get("settings", {}).get(setting_key, true))
