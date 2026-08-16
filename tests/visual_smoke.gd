@@ -214,6 +214,27 @@ func _ready() -> void:
 	if dc_context != null:
 		dc_context.queue_free()
 		await get_tree().process_frame
+	# The aging decision adds another content block to the phone drawer. Regress
+	# the exact long-content state that used to push the CTA and illustrated frame
+	# below the screen, then scroll to the bottom and prove the final action remains
+	# reachable inside the safe-area-bounded viewport.
+	var original_built_at := float(dc.get("built_at", 0.0))
+	var context_building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
+	dc["built_at"] = Game.simulation_time() - float(context_building.get("lifespan_seconds", 1.0)) * 0.88
+	main.call("_open_datacenter", str(dc.get("id", "")))
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var aging_scroll := main.find_child("ContextSheetScroll", true, false) as ScrollContainer
+	if aging_scroll != null:
+		var aging_bar := aging_scroll.get_v_scroll_bar()
+		aging_scroll.scroll_vertical = maxi(0, int(aging_bar.max_value - aging_bar.page))
+		await get_tree().process_frame
+	valid = (await _capture(main, "dc_context_aging_bottom")) and valid
+	dc_context = main.find_child("DatacenterContext", true, false)
+	if dc_context != null:
+		dc_context.queue_free()
+		await get_tree().process_frame
+	dc["built_at"] = original_built_at
 	# Reproduce the on-device JSON shape that previously turned era 1 into the
 	# missing key "1.0", then review the no-rack earning guidance before staging
 	# the fully equipped board used by later states.
@@ -928,6 +949,37 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if contract_hint == null or contract_cta == null or str(contract_cta.get_meta("button_role", "")) == "primary":
 			push_error("VISUAL_SMOKE: unpowered context does not explain why contracts are unavailable")
 			valid = false
+	if state_name in ["dc_context", "dc_context_aging_bottom"]:
+		var context_sheet := main.find_child("ContextSheet", true, false) as Control
+		var context_scroll := main.find_child("ContextSheetScroll", true, false) as ScrollContainer
+		var stage_slot := main.find_child("BoardStageSlot", true, false) as Control
+		var board_stage := main.find_child("BoardStage", true, false) as Control
+		if context_sheet == null or context_scroll == null or stage_slot == null or board_stage == null:
+			push_error("VISUAL_SMOKE: data-center context lacks its safe scroll surface or centered board slot")
+			valid = false
+		else:
+			var sheet_rect := context_sheet.get_global_rect()
+			var bottom_gap := viewport_rect.end.y - sheet_rect.end.y
+			var required_bottom_gap := float(context_sheet.get_meta("safe_bottom_gutter", 18.0))
+			var stage_center_x := board_stage.global_position.x + DatacenterBoard.BOARD_SIZE.x * board_stage.scale.x * 0.5
+			var slot_center_x := stage_slot.get_global_rect().get_center().x
+			var sheet_center_x := sheet_rect.get_center().x
+			if not viewport_rect.encloses(sheet_rect) or bottom_gap + 1.0 < required_bottom_gap:
+				push_error("VISUAL_SMOKE: context drawer escapes the viewport or bottom safe gutter rect=%s gap=%.1f required=%.1f" % [sheet_rect, bottom_gap, required_bottom_gap])
+				valid = false
+			if absf(stage_center_x - slot_center_x) > 1.0 or absf(slot_center_x - sheet_center_x) > 2.0:
+				push_error("VISUAL_SMOKE: board is not centered stage=%.1f slot=%.1f sheet=%.1f" % [stage_center_x, slot_center_x, sheet_center_x])
+				valid = false
+			if context_scroll.horizontal_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED or int(context_scroll.scroll_deadzone) != 12 or not bool(context_scroll.get_meta("touch_scroll_enabled", false)):
+				push_error("VISUAL_SMOKE: context drawer is not a phone-safe vertical touch scroller")
+				valid = false
+		if state_name == "dc_context_aging_bottom":
+			var aging_cta := main.find_child("ContractCTA", true, false) as Button
+			var aging_bar := context_scroll.get_v_scroll_bar() if context_scroll != null else null
+			var at_bottom := aging_bar != null and context_scroll.scroll_vertical >= int(aging_bar.max_value - aging_bar.page) - 1
+			if aging_cta == null or not aging_cta.is_visible_in_tree() or not context_scroll.get_global_rect().encloses(aging_cta.get_global_rect()) or not at_bottom:
+				push_error("VISUAL_SMOKE: aging context cannot scroll its final CTA fully into view")
+				valid = false
 	if state_name == "dc_board_unpowered":
 		var quick_power := main.find_child("PowerSlot", true, false) as Button
 		var unpowered_usage := main.find_child("BoardPowerUsage", true, false) as RichTextLabel
@@ -1328,7 +1380,7 @@ func _text_is_within_clipping_ancestors(main: Node, state_name: String) -> bool:
 		var scroll_ancestor := control.get_parent()
 		var page_scroll_rect := Rect2()
 		while scroll_ancestor is Control:
-			if scroll_ancestor is ScrollContainer and scroll_ancestor.name == "PageScroll":
+			if scroll_ancestor is ScrollContainer and (scroll_ancestor as ScrollContainer).vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
 				page_scroll_rect = (scroll_ancestor as Control).get_global_rect()
 				break
 			scroll_ancestor = scroll_ancestor.get_parent()

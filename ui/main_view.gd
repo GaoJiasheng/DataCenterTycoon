@@ -3323,7 +3323,7 @@ func _show_building_picker(plot_id: String) -> void:
 		card_content.add_child(duration)
 		Widgets.affordable_style(card, building_cost)
 
-func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
+func _create_world_sheet(node_name: String, sheet_height: float, scroll_content: bool = false) -> Dictionary:
 	var overlay := ColorRect.new()
 	overlay.name = node_name
 	overlay.color = Color(0.015, 0.03, 0.05, 0.32)
@@ -3338,14 +3338,22 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	sheet.set_meta("viewport_bounded_surface", true)
 	sheet.clip_contents = true
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	var safe_area := _safe_area_margins()
+	var bottom_gutter := maxf(18.0, safe_area.w)
+	var available_height := maxf(0.0, get_viewport_rect().size.y - safe_area.y - bottom_gutter)
+	var resolved_height := minf(sheet_height, available_height)
 	sheet.offset_left = 20
-	sheet.offset_top = -sheet_height
+	sheet.offset_top = -(bottom_gutter + resolved_height)
 	sheet.offset_right = -20
-	sheet.offset_bottom = -18
+	sheet.offset_bottom = -bottom_gutter
+	sheet.set_meta("safe_bottom_gutter", bottom_gutter)
+	sheet.set_meta("resolved_sheet_height", resolved_height)
 	sheet.add_theme_stylebox_override("panel", ThemeMaker.art_panel(true))
 	sheet.set_meta("open_audio", "sfx_sheet_open")
 	overlay.add_child(sheet)
 	var box := VBoxContainer.new()
+	box.name = "ContextSheetRoot"
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 14)
 	sheet.add_child(box)
 	var handle_center := CenterContainer.new()
@@ -3363,6 +3371,24 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	handle_style.content_margin_bottom = 0
 	handle.add_theme_stylebox_override("panel", handle_style)
 	handle_center.add_child(handle)
+	var content_box := box
+	var scroll: ScrollContainer = null
+	if scroll_content:
+		scroll = ScrollContainer.new()
+		scroll.name = "ContextSheetScroll"
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		scroll.scroll_deadzone = 12
+		scroll.set_meta("touch_scroll_enabled", true)
+		ThemeMaker.apply_system_scrollbar(scroll)
+		box.add_child(scroll)
+		content_box = VBoxContainer.new()
+		content_box.name = "ContextSheetContent"
+		content_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_box.add_theme_constant_override("separation", 14)
+		scroll.add_child(content_box)
 	sheet.modulate.a = 0.0
 	sheet.position.y += 54
 	var tween := create_tween().set_parallel(true)
@@ -3370,7 +3396,7 @@ func _create_world_sheet(node_name: String, sheet_height: float) -> Dictionary:
 	tween.tween_property(sheet, "position:y", sheet.position.y - 54, 0.28).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 	_wire_sheet_interactions(overlay, sheet, handle_center, true)
 	AudioService.play_sfx("sfx_sheet_open")
-	return {"overlay": overlay, "sheet": sheet, "box": box}
+	return {"overlay": overlay, "sheet": sheet, "root_box": box, "box": content_box, "scroll": scroll}
 
 func _dismiss_world_sheet(overlay: CanvasItem, after: Callable = Callable()) -> void:
 	_animate_sheet_dismiss(overlay, after, true)
@@ -3497,14 +3523,20 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		return
 	selected_datacenter_id = datacenter_id
 	park_map.focus_target(datacenter_id)
-	var parts := _create_world_sheet("DatacenterContext", 1380)
+	var parts := _create_world_sheet("DatacenterContext", 1380, true)
 	var overlay := parts["overlay"] as ColorRect
 	overlay.set_meta("datacenter_id", datacenter_id)
 	var sheet_box := parts["box"] as VBoxContainer
+	var sheet_root := parts["root_box"] as VBoxContainer
 	var building := DataRepository.get_entry("buildings", str(dc.get("building_id", "")))
 	var header := HBoxContainer.new()
+	header.name = "DatacenterContextHeader"
 	header.add_theme_constant_override("separation", 14)
-	sheet_box.add_child(header)
+	# Keep identity and close affordance fixed while the variable-height board,
+	# retirement decision, and CTA scroll underneath. This prevents the sheet from
+	# looking severed when a player inspects an aging room near the bottom.
+	sheet_root.add_child(header)
+	sheet_root.move_child(header, 1)
 	var context_icon := _icon_view(_datacenter_context_asset(dc, building), Vector2(124, 124))
 	context_icon.name = "DatacenterContextIcon"
 	header.add_child(context_icon)

@@ -24,6 +24,7 @@ var preview_rack_id := ""
 var preview_slot := -1
 var _press_started: Dictionary = {}
 var _tooltip: PanelContainer
+var _stage_slot: Control
 var _stage: Control
 var _last_state_fingerprint := ""
 
@@ -47,16 +48,23 @@ const STAGE_MIN_SCALE := 0.50
 const STAGE_MAX_SCALE := 0.86
 
 func _update_stage_scale() -> void:
-	if _stage == null or not is_instance_valid(_stage):
+	if _stage_slot == null or not is_instance_valid(_stage_slot) or _stage == null or not is_instance_valid(_stage):
 		return
 	var board_scale := STAGE_MAX_SCALE
 	if size.x > 0.0:
 		board_scale = clampf(size.x / BOARD_SIZE.x, STAGE_MIN_SCALE, STAGE_MAX_SCALE)
 	var footprint := BOARD_SIZE * board_scale
+	# Containers must lay out the transformed footprint, not the authored canvas.
+	# Scaling the VBox child itself made Godot center the 660u layout rectangle
+	# while painting only its smaller transformed rectangle, visibly shifting the
+	# complete board to the right on phones. Keep an unscaled footprint slot in
+	# the container and scale the authored child inside it instead.
+	_stage_slot.custom_minimum_size = footprint
+	_stage_slot.set_meta("visual_footprint", footprint)
+	_stage.position = Vector2.ZERO
+	_stage.size = BOARD_SIZE
 	_stage.scale = Vector2.ONE * board_scale
-	# Control scale is visual-only, so reserve the transformed footprint rather
-	# than the full authored canvas during the parent container's negotiation.
-	_stage.custom_minimum_size = footprint
+	_stage.custom_minimum_size = Vector2.ZERO
 	_stage.set_meta("authored_size", BOARD_SIZE)
 	_stage.set_meta("responsive_scale", board_scale)
 	_stage.set_meta("visual_footprint", footprint)
@@ -156,15 +164,23 @@ func _rebuild() -> void:
 		remove_child(child)
 		child.queue_free()
 	_tooltip = null
+	_stage_slot = null
 	_stage = null
 	var dc := Game.find_datacenter(datacenter_id)
 	if dc.is_empty():
 		return
+	var stage_slot := Control.new()
+	stage_slot.name = "BoardStageSlot"
+	stage_slot.custom_minimum_size = BOARD_SIZE * STAGE_MAX_SCALE
+	stage_slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	stage_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(stage_slot)
+	_stage_slot = stage_slot
 	var stage := Control.new()
 	stage.name = "BoardStage"
-	stage.custom_minimum_size = BOARD_SIZE * STAGE_MAX_SCALE
-	stage.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	add_child(stage)
+	stage.size = BOARD_SIZE
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage_slot.add_child(stage)
 	_stage = stage
 	_update_stage_scale()
 	call_deferred("_update_stage_scale")
