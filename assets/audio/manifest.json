@@ -13,17 +13,17 @@
     "sfx_error_thud": {"path": "res://assets/audio/sfx_error_thud.wav", "kind": "sfx", "volume_db": -5},
     "sfx_unlock_fanfare": {"path": "res://assets/audio/sfx_unlock_fanfare.wav", "kind": "sfx", "volume_db": -4},
     "sfx_night_amb": {"path": "res://assets/audio/sfx_night_amb.wav", "kind": "sfx", "volume_db": -18},
-    "sfx_cash": {"path": "res://assets/audio/sfx_cash.wav", "kind": "sfx", "volume_db": -5},
+    "sfx_cash": {"path": "res://assets/audio/sfx_cash.wav", "kind": "sfx", "volume_db": -10},
     "sfx_build_start": {"path": "res://assets/audio/sfx_build_start.wav", "kind": "sfx", "volume_db": -5},
     "sfx_build_complete": {"path": "res://assets/audio/sfx_build_complete.wav", "kind": "sfx", "volume_db": -4},
     "sfx_power_on": {"path": "res://assets/audio/sfx_power_on.wav", "kind": "sfx", "volume_db": -4},
     "sfx_rack_install": {"path": "res://assets/audio/sfx_rack_install.wav", "kind": "sfx", "volume_db": -5},
-    "sfx_fault": {"path": "res://assets/audio/sfx_fault.wav", "kind": "sfx", "volume_db": -3},
+    "sfx_fault": {"path": "res://assets/audio/sfx_fault.wav", "kind": "sfx", "volume_db": -5},
     "sfx_repair": {"path": "res://assets/audio/sfx_repair.wav", "kind": "sfx", "volume_db": -5},
     "sfx_retire": {"path": "res://assets/audio/sfx_retire.wav", "kind": "sfx", "volume_db": -5},
-    "sfx_era": {"path": "res://assets/audio/sfx_era.wav", "kind": "sfx", "volume_db": -16},
-    "sfx_prestige": {"path": "res://assets/audio/sfx_prestige.wav", "kind": "sfx", "volume_db": -2},
-    "sfx_bankrupt": {"path": "res://assets/audio/sfx_bankrupt.wav", "kind": "sfx", "volume_db": -3},
+    "sfx_era": {"path": "res://assets/audio/sfx_era.wav", "kind": "sfx", "volume_db": -6},
+    "sfx_prestige": {"path": "res://assets/audio/sfx_prestige.wav", "kind": "sfx", "volume_db": -5},
+    "sfx_bankrupt": {"path": "res://assets/audio/sfx_bankrupt.wav", "kind": "sfx", "volume_db": -5},
     "sfx_purchase": {"path": "res://assets/audio/sfx_purchase.wav", "kind": "sfx", "volume_db": -4}
   }
 }

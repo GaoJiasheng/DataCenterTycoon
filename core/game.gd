@@ -865,6 +865,20 @@ func mark_era_presented(era_id: int) -> void:
 	if persistence_enabled:
 		save_now()
 
+func consume_first_encounter_message(message_id: String) -> bool:
+	if message_id.is_empty():
+		return false
+	var tutorial: Dictionary = state.get("tutorial", {})
+	var dismissed: Array = tutorial.get("dismissed_messages", [])
+	if message_id in dismissed:
+		return false
+	dismissed.append(message_id)
+	tutorial["dismissed_messages"] = dismissed
+	state["tutorial"] = tutorial
+	if persistence_enabled:
+		save_now()
+	return true
+
 func start_new_company() -> void:
 	var kept := _account_state_snapshot()
 	state = _new_state()
@@ -1792,6 +1806,8 @@ func _ensure_state_shape() -> void:
 		for key: String in defaults.get(section, {}):
 			if not state[section].has(key):
 				state[section][key] = defaults[section][key]
+	if not state["tutorial"].get("dismissed_messages") is Array:
+		state["tutorial"]["dismissed_messages"] = []
 	if legacy_manual_repairs >= 0:
 		state["stats"]["faults_repaired_manual"] = legacy_manual_repairs
 		state["stats"].erase("faults_repaired")

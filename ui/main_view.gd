@@ -108,6 +108,7 @@ var _arrears_banner_dismissed := false
 var _music_target := ""
 var _music_fade_tween: Tween
 var _night_amb_countdown := 0.0
+var _first_encounter_check_queued := false
 
 func _ready() -> void:
 	_fit_desktop_window()
@@ -636,6 +637,49 @@ func _refresh_hud() -> void:
 	page_host.visible = not on_map
 	_sync_market_banner()
 	_refresh_live_page()
+	_queue_first_encounter_check()
+
+func _queue_first_encounter_check() -> void:
+	if _first_encounter_check_queued:
+		return
+	_first_encounter_check_queued = true
+	call_deferred("_show_first_encounter_if_needed")
+
+func _show_first_encounter_if_needed() -> void:
+	_first_encounter_check_queued = false
+	var message_id := _first_encounter_message_id()
+	if message_id.is_empty() or not Game.consume_first_encounter_message(message_id):
+		return
+	var key: String = {
+		"first_set_bonus": "FIRST_SET_BONUS",
+		"first_engineering_bays": "FIRST_ENGINEERING_BAYS",
+		"first_inquiry": "FIRST_INQUIRY",
+	}.get(message_id, "")
+	if not key.is_empty():
+		_show_toast(tr(key), "sfx_success_chime")
+
+func _first_encounter_message_id() -> String:
+	var tutorial: Dictionary = Game.state.get("tutorial", {})
+	if not bool(tutorial.get("completed", false)):
+		return ""
+	var dismissed: Array = tutorial.get("dismissed_messages", [])
+	if active_page == "detail" and "first_set_bonus" not in dismissed:
+		var dc := Game.find_datacenter(selected_datacenter_id)
+		if not dc.is_empty() and not Rules.set_bonus_lines(dc, DataRepository.get_table("racks"), DataRepository.get_table("attachments")).is_empty():
+			return "first_set_bonus"
+	if active_page == "map" and "first_inquiry" not in dismissed and not Game.state.get("inquiries", {}).get("open", []).is_empty():
+		return "first_inquiry"
+	if active_page == "map" and "first_engineering_bays" not in dismissed and _can_afford_next_engineering_bay():
+		return "first_engineering_bays"
+	return ""
+
+func _can_afford_next_engineering_bay() -> bool:
+	var queue: Array = Game.state.get("construction_queue", [])
+	if queue.size() < Game.queue_capacity():
+		return false
+	var current := int(Game.state.get("technology", {}).get("construction_bays", 1))
+	var next: Dictionary = DataRepository.get_table("technology").get("upgrades", {}).get("construction_bays", {}).get("levels", {}).get(str(current + 1), {})
+	return not next.is_empty() and Game.is_unlocked(next) and float(Game.state.get("player", {}).get("cash", 0.0)) >= float(next.get("cost", INF))
 
 func _refresh_page() -> void:
 	var on_map := active_page == "map"

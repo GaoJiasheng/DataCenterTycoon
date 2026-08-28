@@ -18,6 +18,7 @@ func _ready() -> void:
 	_run_warmth_presentation_tests()
 	await _run_asset_integration_tests()
 	await _run_save_robustness_tests()
+	await _run_first_encounter_tests()
 	AudioService.apply_settings({"music_enabled": false, "sfx_enabled": false})
 	await _run_ui_refresh_test()
 	await _run_operation_feedback_tests()
@@ -396,6 +397,48 @@ func _run_save_robustness_tests() -> void:
 		var account_ok: bool = int(Game.state["player"].get("gems", 0)) == expected_gems and is_equal_approx(float(Game.state["player"].get("brand_multiplier", 0.0)), expected_brand) and Game.state.get("entitlements", {}) == expected_entitlements and Game.state.get("meta", {}).get("collection_claimed", {}) == expected_claimed and Game.state.get("meta", {}).get("discovered", {}) == expected_discovered
 		_expect(invariant_ok and account_ok, "%s fixture upgrades to the current schema without losing gems entitlements collection or brand" % fixture_name.trim_suffix(".json"))
 	Game.reset_for_tests()
+
+func _run_first_encounter_tests() -> void:
+	Game.reset_for_tests()
+	Game.state["tutorial"]["completed"] = true
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.set("active_page", "map")
+	Game.state["inquiries"]["open"] = [{"id": "first_inquiry_test", "template_id": "edge_delivery", "slot": 0}]
+	_expect(main.call("_first_encounter_message_id") == "first_inquiry", "the first persistent inquiry exposes its one-time Operations explanation")
+	main.call("_show_first_encounter_if_needed")
+	var toast := main.get("toast_label") as Label
+	_expect(toast != null and toast.visible and toast.text == tr("FIRST_INQUIRY") and Game.state["tutorial"]["dismissed_messages"].count("first_inquiry") == 1, "the inquiry explanation is visible and records the existing dismissed-message token once")
+	main.call("_show_first_encounter_if_needed")
+	_expect(Game.state["tutorial"]["dismissed_messages"].count("first_inquiry") == 1, "the inquiry explanation cannot repeat after dismissal")
+
+	Game.state["inquiries"]["open"] = []
+	Game.state["player"]["era"] = 2
+	Game.state["player"]["cash"] = 180000.0
+	Game.state["construction_queue"] = [
+		{"id": "first_bay_a", "complete_at": Game.simulation_time() + 1000.0},
+		{"id": "first_bay_b", "complete_at": Game.simulation_time() + 1000.0},
+	]
+	_expect(main.call("_first_encounter_message_id") == "first_engineering_bays", "a full queue only points to Engineering when the next lane is unlocked and affordable")
+	Game.state["player"]["cash"] = 179999.0
+	_expect(main.call("_first_encounter_message_id") == "", "the Engineering first encounter does not advertise an unaffordable upgrade")
+
+	Game.state["construction_queue"] = []
+	var set_dc := _test_datacenter("first_set_dc", "dc_t3")
+	set_dc["power_unit"] = "power_t3"
+	for slot: int in range(3):
+		set_dc["racks"][slot] = {"rack_id": "rack_compute_t1", "status": "active", "enabled": true}
+	Game.state["plots"][0]["status"] = "operational"
+	Game.state["plots"][0]["datacenter"] = set_dc
+	main.set("active_page", "detail")
+	main.set("selected_datacenter_id", "first_set_dc")
+	_expect(main.call("_first_encounter_message_id") == "first_set_bonus", "the first complete powered rack line exposes its one-time board explanation")
+	_expect(Game.consume_first_encounter_message("first_set_bonus") and not Game.consume_first_encounter_message("first_set_bonus"), "a first-encounter token is consumed exactly once")
+	Game.start_new_company()
+	_expect(Game.state["tutorial"]["dismissed_messages"].is_empty(), "starting a new company resets first-encounter explanations through the existing tutorial state")
+	main.queue_free()
+	await get_tree().process_frame
 
 func _run_ui_refresh_test() -> void:
 	Game.reset_for_tests()

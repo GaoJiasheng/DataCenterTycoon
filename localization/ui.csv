@@ -3,6 +3,9 @@ DATE_FORMAT,Year %d · Month %d · Day %d,第 %d 年 · 第 %d 月 · 第 %d 天
 APP_TITLE,Data Center Tycoon,机房大亨
 TOAST_SAVE_RECOVERED,Your latest backup was restored safely.,已安全恢复最近的存档备份。
 TOAST_SAVE_RESET,The damaged save could not be restored. A fresh company was created.,存档损坏且无法恢复，已为你创建新公司。
+FIRST_SET_BONUS,Rack set complete · Income +10%,同类整行完成 · 收入 +10%
+FIRST_ENGINEERING_BAYS,Queue full · Add a build slot from Tech.,队列已满，可在科技页扩编工程部。
+FIRST_INQUIRY,A client inquiry is waiting in Operations · It never expires.,客户询价已进入待办，永久保留。
 META_TAB_ROADMAP,Goals,路线
 META_TAB_COLLECTION,Archive,典藏
 META_TAB_BOARD,Board,董事
@@ -48,12 +51,12 @@ RELATIONSHIP_TRUSTED,Trusted Partner,信赖伙伴
 RELATIONSHIP_CORNERSTONE,Cornerstone Partner,基石伙伴
 RELATIONSHIP_STATUS,Relationship · %s · ×%.2f,关系 · %s · ×%.2f
 CONTRACT_CHOOSE_DURATION,Choose Contract Term,选择合约期限
-CONTRACT_DURATION_FLEXIBLE,Flexible · 3 months,灵活合约 · 3 个月
+CONTRACT_DURATION_FLEXIBLE,Flexible · 3 game months,灵活合约 · 3 个月
 CONTRACT_DURATION_FLEXIBLE_DESC,Short commitment · income ×0.97,短期灵活 · 收入 ×0.97
-CONTRACT_DURATION_STANDARD,Standard · 6 months,标准合约 · 6 个月
+CONTRACT_DURATION_STANDARD,Standard · 6 game months,标准合约 · 6 个月
 CONTRACT_DURATION_STANDARD_DESC,Balanced term · income ×1.00,期限均衡 · 收入 ×1.00
-CONTRACT_DURATION_STRATEGIC,Strategic · 12 months,战略合约 · 12 个月
-CONTRACT_DURATION_STRATEGIC_DESC,Familiar relationship required · income ×1.04,需达到熟悉关系 · 收入 ×1.04
+CONTRACT_DURATION_STRATEGIC,Strategic · 12 game months,战略合约 · 12 个月
+CONTRACT_DURATION_STRATEGIC_DESC,Requires a Familiar relationship · income ×1.04,需达到熟悉关系 · 收入 ×1.04
 CONTRACT_TERM_PROJECTION,$%s/mo · term value $%s,每月 $%s · 合约价值 $%s
 CONTRACT_TERM_GAIN,Net term change · $%s,合约期净变化 · $%s
 MARKET_REVIEW,Decision Review,决策复盘
@@ -61,7 +64,7 @@ MARKET_REVIEW_SUBTITLE,Compare the price you locked with what followed,对照签
 MARKET_REVIEW_EMPTY,Your contract decisions will be recorded here,签约决策会记录在这里
 MARKET_REVIEW_ROW,%s · locked ×%.2f vs now ×%.2f · $%s/mo,%s · 锁价 ×%.2f / 当前 ×%.2f · 每月 $%s
 BOARD_SPECIALTIES,Board Specialties,董事会专长
-BOARD_SPECIALTIES_SUBTITLE,Every legacy grants one permanent strategy point,每次公司传承获得一个永久策略点
+BOARD_SPECIALTIES_SUBTITLE,Each company legacy grants one permanent strategy point,每次公司传承获得一个永久策略点
 BOARD_POINTS_AVAILABLE,Available points · %d,可用点数 · %d
 BOARD_RANK,Rank %d / %d,等级 %d / %d
 BOARD_ADD_POINT,Invest one point,投入 1 点
@@ -73,7 +76,7 @@ BOARD_OPERATIONS_DESC,Each rank cuts upkeep 2% and auto-repair time 4%,每级降
 BOARD_BUSINESS,Business Division,商务委员会
 BOARD_BUSINESS_DESC,Each rank accelerates relationships 5% and raises income 0.5%,每级加快 5% 客户关系并提升 0.5% 收入
 COMPANY_COLLECTION,Company Collection,企业典藏
-COMPANY_COLLECTION_SUBTITLE,Every real facility client and market chapter leaves a record,每座设施、每位客户与每段行情都会留下记录
+COMPANY_COLLECTION_SUBTITLE,"Every real facility, client, and market chapter leaves a record",每座设施、每位客户与每段行情都会留下记录
 COLLECTION_FACILITIES,Facility Archive,设施档案
 COLLECTION_CLIENTS,Client Archive,客户档案
 COLLECTION_MARKET_HISTORY,Market Archive,行情档案
@@ -85,8 +88,8 @@ COLLECTION_ERA2,Cloud-era chapter,云时代篇章
 COLLECTION_ERA3,Intelligence-era chapter,智能时代篇章
 COLLECTION_PRESTIGE,Company legacy,公司传承
 COLLECTION_TAKEOVER,Bank restructuring,银行重整
-COMPANY_HISTORY,Company Memorial,公司纪念册
-COMPANY_HISTORY_EMPTY,Complete a legacy to preserve a company recap here,完成公司传承后会在此永久保存经营复盘
+COMPANY_HISTORY,Company Chronicle,公司纪念册
+COMPANY_HISTORY_EMPTY,Complete a company legacy to preserve its recap here,完成公司传承后会在此永久保存经营复盘
 COMPANY_HISTORY_ROW,Company %d · revenue $%s · %d facilities,第 %d 家公司 · 营收 $%s · %d 座机房
 LEGACY_RECAP,Company Recap,公司复盘
 LEGACY_RECAP_BODY,Revenue $%s · net worth $%s · %d facilities,累计营收 $%s · 净资产 $%s · %d 座机房
@@ -115,7 +118,7 @@ CAMPUS_TYPE_EXPANSION,Expansion campus,扩展园区
 CAMPUS_WORLD_TYPE_SUMMARY,%s · %d/%d · Land +%d%% · $%s/mo,%s · %d/%d 座 · 地价 +%d%% · $%s/月
 CAMPUS_CAPACITY_DETAIL,%d-center capacity · Land premium +%d%%,上限 %d 座 · 地价溢价 +%d%%
 OPERATIONS_CENTER,Task center,待办中心
-OPERATIONS_SUBTITLE,Run the company without leaving the park,不离开园区即可管理公司
+OPERATIONS_SUBTITLE,Manage the company without leaving the park,不离开园区即可管理公司
 OPERATIONS_SHORT,Ops,运营
 OPERATIONS_PENDING,Action queue,待办队列
 OPERATIONS_PENDING_SUMMARY,%d actions · Urgent first,%d 项待办 · 紧急优先
@@ -141,7 +144,7 @@ UNLOCK_AT_NETWORK,Requires %s,需要 %s
 RACKS,Racks,机柜
 RACKS_SUBTITLE,Capacity health and hardware lifecycle,容量、健康状态与硬件生命周期
 INFRASTRUCTURE,Infrastructure,基础设施
-INFRASTRUCTURE_SUBTITLE,Power cooling and end-of-life decisions,供电、制冷与退役决策
+INFRASTRUCTURE_SUBTITLE,"Power, cooling, and end-of-life decisions",供电、制冷与退役决策
 BUILD_DATA_CENTER,Build data center,建造机房
 VIEW_QUEUE,View queue,查看队列
 CASH_FORMAT,$%s,$%s
@@ -175,7 +178,7 @@ CONTRACT_PROJECTED,Projected $%s / month,预计 $%s / 月
 CONTRACT_PROJECTED_AFTER_RACK,Income starts when a rack comes online,机柜上线后开始产生收入
 CONTRACT_CAPACITY_TITLE,No sellable capacity yet,还没有可售算力
 CONTRACT_CAPACITY_EMPTY,Install and enable a rack to start earning.,安装并启用至少一台机柜，签约后即可产生收入。
-CONTRACT_CAPACITY_PENDING,Rack installation is underway. Income starts when it is online.,机柜正在安装，完成上线后即可产生收入。
+CONTRACT_CAPACITY_PENDING,Rack installation is in progress. Income starts when it comes online.,机柜正在安装，完成上线后即可产生收入。
 CONTRACT_CAPACITY_OFFLINE,No rack is online. Enable one or upgrade the transformer.,当前没有可用机柜，请启用机柜或升级变压器。
 CONTRACT_CONFIGURE_RACKS,Configure racks,去配置机柜
 CONTRACT_IN_SERVICE,In service,服务中
@@ -263,7 +266,7 @@ PRESTIGE_LOCKED,Build %d data centers to unlock,累计建造 %d 座机房后解�
 PRESTIGE_PROGRESS,Data centers built %d / %d,累计建成 %d / %d 座机房
 PRESTIGE_EST_GAIN,Estimated brand multiplier ×%.2f,预计品牌倍率 ×%.2f
 PRESTIGE_GAIN_DETAIL,Brand multiplier ×%.2f → ×%.2f,品牌倍率 ×%.2f → ×%.2f
-PRESTIGE_KEEP_LIST,Keep: era · network · purchases · achievements,保留：时代 · 网络 · 购买权益 · 成就
+PRESTIGE_KEEP_LIST,"Keep: era, network, purchases, and achievements",保留：时代 · 网络 · 购买权益 · 成就
 PRESTIGE_LIQUIDATE,Liquidate assets into $%s starting cash,清算资产并以 $%s 现金重新起步
 PRESTIGE_CONTINUE,Review restructuring,查看重组确认
 PRESTIGE_FINAL_TITLE,Final board approval,董事会最终确认
@@ -287,7 +290,7 @@ BANK_TAKEOVER_REMAINING,Data centers retained,保留机房
 BANK_TAKEOVER_SOLD,Data centers sold · %d,变卖机房 · %d
 BANK_TAKEOVER_NONE_SOLD,No data centers needed to be sold.,无需变卖机房。
 BANK_TAKEOVER_SOLD_ROW,Data center %s · $%s recovered,机房 %s · 回收 $%s
-BANK_TAKEOVER_CONTINUE,Start fresh,重新出发
+BANK_TAKEOVER_CONTINUE,Continue operating,重新出发
 NEW_COMPANY,Start a new company,重新创业
 ARREARS_RESCUE,Claim emergency funds,领取救急金
 OFFLINE_TITLE,Welcome back,欢迎回来
@@ -301,9 +304,9 @@ SETTINGS_MUSIC,Music,音乐
 SETTINGS_SFX,Sound effects,音效
 SETTINGS_HAPTICS,Haptics,触感反馈
 SETTINGS_RESET,Start new company,重开公司
-SETTINGS_RESET_WARNING,This resets the current run. Purchases premium currency achievements and permanent prestige bonuses are kept.,这会重置本局；购买记录、付费货币、成就与永久转生加成会保留。
+SETTINGS_RESET_WARNING,"This resets the current run. Purchases, premium currency, achievements, and permanent legacy bonuses are kept.",这会重置本局；购买记录、付费货币、成就与永久转生加成会保留。
 SETTINGS_LEGAL,Legal and support,法律与支持
-SETTINGS_LEGAL_HINT,Policies support and build information,政策、客服与版本信息
+SETTINGS_LEGAL_HINT,"Policies, support, and build information",政策、客服与版本信息
 SETTINGS_PRIVACY,Privacy policy,隐私政策
 SETTINGS_TERMS,Terms of service,服务条款
 SETTINGS_SUPPORT,Customer support,客服邮箱
@@ -351,9 +354,9 @@ TECH_REPAIR_TEAM_DESC,Shortens dispatch repair time.,缩短派修等待时间。
 TECH_CONSTRUCTION_BAYS,Engineering Department,工程部扩编
 TECH_CONSTRUCTION_BAYS_DESC,Add a permanent construction lane for this company.,为本轮公司增加一条建设车道。
 TECH_CONSTRUCTION_BAYS_STATUS,%d simultaneous projects,%d 个项目可同时建设
-REASON_LOCKED_PRESTIGE,Available after completing %d company rebuild.,完成第 %d 次公司重组后开放。
+REASON_LOCKED_PRESTIGE,Completed company legacies required: %d.,完成第 %d 次公司重组后开放。
 TECH_AUTO_RETIREMENT,Auto Retirement,自动退役
-TECH_AUTO_RETIREMENT_DESC,At 95% lifespan automatically harvest recovery · Works offline,寿命达到 95% 时自动退役入账 · 离线也生效
+TECH_AUTO_RETIREMENT_DESC,Automatically retires at 95% lifespan to recover value · Works offline,寿命达到 95% 时自动退役入账 · 离线也生效
 AUTO_RETIRE_MARKER,Auto at %d%%,%d%% 自动退役
 OFFLINE_AUTO_RETIRED,Auto-retired · $%s recovered,已自动退役 · 回收 $%s
 EVENT_SHOPPING,E-commerce Festival,电商大促
@@ -520,8 +523,8 @@ INQUIRY_AI_PILOT_DESC,An AI client wants a mixed two-type rack deployment.,AI �
 INQUIRY_STORAGE_ARCHIVE,Archive storage tranche,归档存储批次
 INQUIRY_STORAGE_ARCHIVE_DESC,A cloud provider needs three storage racks for an archive project.,云厂商需要三个存储机柜承接归档项目。
 INQUIRY_BOARD,Client inquiries,客户询价单
-INQUIRY_BOARD_HINT,Optional offers wait for you forever · no countdown and no penalty,所有报价永久保留 · 无倒计时且拒绝无惩罚
-INQUIRY_EMPTY,No open inquiry right now,当前暂无新询价
+INQUIRY_BOARD_HINT,Optional offers never expire · No countdown or penalty,所有报价永久保留 · 无倒计时且拒绝无惩罚
+INQUIRY_EMPTY,No open inquiries right now,当前暂无新询价
 INQUIRY_TERMS,%s · Premium +%d%% · Bonus %s,%s · 溢价 +%d%% · 签约金 %s
 INQUIRY_REQUIREMENT_RACK,%s %d/%d,%s %d/%d
 INQUIRY_REQUIREMENT_UNIQUE,Rack types %d/%d,机柜类型 %d/%d
@@ -538,36 +541,36 @@ INQUIRY_DC_BLOCKED,%s · %s,%s · %s
 INQUIRY_ACCEPTED,Deal signed · bonus %s,合作已签订 · 签约金 %s
 INQUIRY_DECLINED,Passed · this slot returns in two game months,已暂缓 · 该位置将在 2 个游戏月后补位
 INQUIRY_NEW_TASK,New client inquiry,新的客户询价
-INQUIRY_NEW_TASK_SUBTITLE,%d optional offer(s) waiting · never expires,%d 份可选报价待处理 · 永不过期
+INQUIRY_NEW_TASK_SUBTITLE,Optional offers waiting · %d · Never expire,%d 份可选报价待处理 · 永不过期
 INQUIRY_NEW_TASK_ACTION,Review,查看
-INQUIRY_OFFLINE_MILESTONE,%d new client inquiry(s) arrived,离线期间收到 %d 份新询价
+INQUIRY_OFFLINE_MILESTONE,New client inquiries received · %d,离线期间收到 %d 份新询价
 REASON_INQUIRY_UNAVAILABLE,This inquiry has already been handled.,这份询价单已经处理。
 REASON_INQUIRY_REQUIREMENTS,Choose a data center that meets every listed condition.,请选择满足全部条件的机房。
 REASON_INQUIRY_QUOTE_STALE,The offer changed while it was open. Review the current quote and try again.,报价打开期间发生了变化，请查看最新报价后重试。
 RACK_KIND_COMPUTE,Compute racks,计算机柜
 RACK_KIND_STORAGE,Storage racks,存储机柜
 RACK_KIND_GPU,GPU racks,GPU 机柜
-DUTY_LOG_TAKEOVER_1,Bank support steadied %d room(s).,银行团队稳住了 %d 座机房。
-DUTY_LOG_TAKEOVER_2,%d room(s) entered bank care.,%d 座机房已由银行接管。
-DUTY_LOG_TAKEOVER_3,The bank protected %d room(s) overnight.,银行值夜时保住了 %d 座机房。
+DUTY_LOG_TAKEOVER_1,Data centers steadied by bank support · %d,银行团队稳住了 %d 座机房。
+DUTY_LOG_TAKEOVER_2,Data centers under bank care · %d,%d 座机房已由银行接管。
+DUTY_LOG_TAKEOVER_3,Data centers protected by the bank overnight · %d,银行值夜时保住了 %d 座机房。
 DUTY_LOG_ERA_1,Operations reached Era %d.,园区运营迈入时代 %d。
 DUTY_LOG_ERA_2,The night shift welcomed Era %d.,夜班迎来了时代 %d。
 DUTY_LOG_ERA_3,Era %d systems came online.,时代 %d 的系统已经上线。
 DUTY_LOG_RARE_1,A rare %s shift reached the desk.,值班室记录了稀有行情：%s。
 DUTY_LOG_RARE_2,%s made an unusual move overnight.,%s 在夜里出现了异动。
 DUTY_LOG_RARE_3,The team flagged a rare %s window.,团队标记了稀有的%s窗口。
-DUTY_LOG_INQUIRY_1,%s sent %d inquiry(s) overnight.,%s 夜间送来 %d 份询价。
-DUTY_LOG_INQUIRY_2,%s left %d offer(s) for morning.,%s 留下 %d 份报价等早班。
-DUTY_LOG_INQUIRY_3,%s left %d offer(s) with night desk.,夜班记下 %s 的 %d 份报价。
-DUTY_LOG_FAULT_1,Crew tracked %d equipment alert(s).,值班员跟进了 %d 次设备告警。
-DUTY_LOG_FAULT_2,%d alert(s) reached the night desk.,夜班收到了 %d 次设备告警。
-DUTY_LOG_FAULT_3,The crew watched %d fault signal(s).,团队守住了 %d 次故障信号。
-DUTY_LOG_CONTRACT_1,Night shift renewed %d contract(s).,夜班续好了 %d 份客户合约。
-DUTY_LOG_CONTRACT_2,%d contract(s) rolled on smoothly.,%d 份合约已平稳续签。
-DUTY_LOG_CONTRACT_3,The desk kept %d contract(s) active.,值班员维持了 %d 份合约。
-DUTY_LOG_AGING_1,%d room(s) reached a new life stage.,%d 座机房进入了新寿命阶段。
-DUTY_LOG_AGING_2,Crew checked %d aging room(s).,值班员巡检了 %d 座老化机房。
-DUTY_LOG_AGING_3,%d room(s) received an age check.,%d 座机房完成了寿命检查。
+DUTY_LOG_INQUIRY_1,%s sent new inquiries overnight · %d,%s 夜间送来 %d 份询价。
+DUTY_LOG_INQUIRY_2,%s left offers for the morning shift · %d,%s 留下 %d 份报价等早班。
+DUTY_LOG_INQUIRY_3,%s left offers with the night desk · %d,夜班记下 %s 的 %d 份报价。
+DUTY_LOG_FAULT_1,Equipment alerts tracked by the crew · %d,值班员跟进了 %d 次设备告警。
+DUTY_LOG_FAULT_2,Alerts received by the night desk · %d,夜班收到了 %d 次设备告警。
+DUTY_LOG_FAULT_3,Fault signals monitored by the crew · %d,团队守住了 %d 次故障信号。
+DUTY_LOG_CONTRACT_1,Contracts renewed by the night shift · %d,夜班续好了 %d 份客户合约。
+DUTY_LOG_CONTRACT_2,Contracts extended smoothly · %d,%d 份合约已平稳续签。
+DUTY_LOG_CONTRACT_3,Contracts kept active by the desk · %d,值班员维持了 %d 份合约。
+DUTY_LOG_AGING_1,Data centers entering a new life stage · %d,%d 座机房进入了新寿命阶段。
+DUTY_LOG_AGING_2,Aging data centers inspected by the crew · %d,值班员巡检了 %d 座老化机房。
+DUTY_LOG_AGING_3,Data centers receiving a lifespan check · %d,%d 座机房完成了寿命检查。
 DUTY_LOG_INCOME_1,This shift secured $%s in revenue.,本次值班确认收入 $%s。
 DUTY_LOG_INCOME_2,The night ledger recorded $%s.,夜班账本记下了 $%s。
 DUTY_LOG_INCOME_3,Your rooms earned $%s this shift.,机房本次值班赚得 $%s。
@@ -605,7 +608,7 @@ PERSONA_GPU_DECLINE_1,Got it. I will shrink this experiment first.,收到，我�
 PERSONA_GPU_DECLINE_2,No worries. We will queue the model elsewhere.,没关系，我们把模型排到别处。
 PERSONA_GPU_LEVEL_1,Your GPU rooms have earned our confidence.,你们的 GPU 机房赢得了信任。
 PERSONA_GPU_LEVEL_2,The hardest training jobs now come to you first.,最难的训练任务以后优先找你们。
-PERSONA_MINING_INQUIRY_1,I found a profitable window and need GPUs ready.,我看准了窗口，需要一批 GPU 马上就位。
+PERSONA_MINING_INQUIRY_1,I found a profitable window and need the GPUs ready.,我看准了窗口，需要一批 GPU 马上就位。
 PERSONA_MINING_INQUIRY_2,The numbers work if your power stays steady.,只要供电稳，这笔账就能跑通。
 PERSONA_MINING_ACCEPT_1,Deal. I will send the operating schedule.,成交，我马上把运行排期发来。
 PERSONA_MINING_ACCEPT_2,Good timing. Let us put those racks to work.,时机正好，让这些机柜忙起来。
