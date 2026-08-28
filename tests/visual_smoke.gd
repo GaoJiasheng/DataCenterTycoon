@@ -5,20 +5,41 @@ const Market := preload("res://gameplay/market_system.gd")
 const Rules := preload("res://gameplay/game_rules.gd")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
 const OUTPUT_ROOT_PREFIX := "/tmp/data_center_tycoon_visual_"
-const PREVIEW_SIZE := Vector2i(990, 2151)
+const LOGICAL_SIZE := Vector2(804, 1748)
+const PROFILE_SIZES := {
+	"se": Vector2i(750, 1334),
+	"standard": Vector2i(990, 2151),
+	"ipad": Vector2i(1024, 1366),
+}
+const CRITICAL_PROFILE_STATES := [
+	"map",
+	"ftue_spotlight",
+	"dc_context_aging_bottom",
+	"dc_board",
+	"inquiry_persona_card",
+	"tech",
+	"store",
+	"duty_log_dialog",
+]
 
 var output_root := OUTPUT_ROOT_PREFIX
 var capture_locale := "zh_CN"
+var capture_profile := "standard"
+var preview_size := Vector2i(990, 2151)
+var captured_count := 0
 
 func _ready() -> void:
 	capture_locale = _requested_locale()
+	capture_profile = _requested_profile()
+	preview_size = PROFILE_SIZES[capture_profile]
 	TranslationServer.set_locale(capture_locale)
-	output_root = "%s%s_" % [OUTPUT_ROOT_PREFIX, capture_locale]
+	output_root = "%s%s_%s_" % [OUTPUT_ROOT_PREFIX, capture_locale, capture_profile]
 	# Regression captures use 75% of the iPhone 17 Pro Max physical 1320x2868
 	# resolution (150% of the 660x1434 desktop preview). The design canvas stays unchanged.
 	# Borderless mode prevents macOS from shrinking the tall capture to reserve title-bar space.
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
-	DisplayServer.window_set_size(PREVIEW_SIZE)
+	DisplayServer.window_set_size(preview_size)
+	DisplayServer.window_move_to_foreground()
 	Game.reset_for_tests()
 	Game.last_offline_report = {}
 	var main := MAIN_SCENE.instantiate()
@@ -117,7 +138,7 @@ func _ready() -> void:
 		for label_node: Node in campus_life.find_children("*", "Label", true, false):
 			if (label_node as Label).text == "?":
 				unknown_cat_cards += 1
-	if campus_life == null or unknown_cat_cards != 4 or campus_life.find_children("*", "TextureRect", true, false).size() < 4:
+	if capture_profile == "standard" and (campus_life == null or unknown_cat_cards != 4 or campus_life.find_children("*", "TextureRect", true, false).size() < 4):
 		push_error("VISUAL_SMOKE: campus-life collection must show four formal undiscovered cat cards")
 		valid = false
 	Game.state["player"]["total_datacenters_built"] = built_before_cat
@@ -441,7 +462,7 @@ func _ready() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	print("VISUAL_SMOKE: %s 47 iPhone 17 portrait states at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", PREVIEW_SIZE.x, PREVIEW_SIZE.y, capture_locale, output_root])
+	print("VISUAL_SMOKE: %s %d portrait states profile=%s at %dx%d locale=%s -> %s*.png" % ["PASS" if valid else "FAIL", captured_count, capture_profile, preview_size.x, preview_size.y, capture_locale, output_root])
 	get_tree().quit(0 if valid else 1)
 
 func _requested_locale() -> String:
@@ -451,6 +472,15 @@ func _requested_locale() -> String:
 			if requested in ["en", "zh_CN"]:
 				return requested
 	return "zh_CN"
+
+func _requested_profile() -> String:
+	for argument: String in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if argument.begins_with("--profile="):
+			var requested := argument.trim_prefix("--profile=")
+			if PROFILE_SIZES.has(requested):
+				return requested
+			push_error("VISUAL_SMOKE: unknown profile %s; expected se, standard, or ipad" % requested)
+	return "standard"
 
 func _requested_preview_hour() -> float:
 	for argument: String in OS.get_cmdline_user_args():
@@ -470,6 +500,17 @@ func _fill_market_history(point_count: int) -> void:
 	Game.state["market"]["history"] = history
 
 func _capture(main: Node, name: String, refresh: bool = true) -> bool:
+	if capture_profile != "standard" and name not in CRITICAL_PROFILE_STATES:
+		# Keep fixture transitions and live page state authoritative while compact
+		# profiles retain only their eight release-blocking screenshots.
+		if refresh:
+			main.call("_refresh")
+		await get_tree().process_frame
+		await get_tree().process_frame
+		# The live-page debounce is 0.25 s. Preserve the same settling contract as
+		# a full capture so a skipped market frame still materializes inquiry cards.
+		await get_tree().create_timer(0.26).timeout
+		return true
 	print("VISUAL_SMOKE: rendering %s" % name)
 	# The review atlas should show the authored screen, not an unrelated reward
 	# toast emitted by fixture setup in an earlier state. operation_error is the
@@ -512,25 +553,64 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 			push_error("VISUAL_SMOKE: %s has no visible board to stage" % name)
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
-	# macOS may report the drawable one physical pixel narrower than the requested
-	# client area. Keep a 2px platform tolerance, but always execute layout gates.
-	var image_valid := not image.is_empty() and image.get_width() >= PREVIEW_SIZE.x - 2 and image.get_height() >= PREVIEW_SIZE.y - 2
+	# With aspect=keep, Godot returns only the scaled content viewport; pillarbox
+	# gutters belong to the host window. Validate that content size first, then
+	# reconstruct the complete device frame using the same audited clear color.
+	var expected_content := _expected_content_size()
+	var image_valid := not image.is_empty() and absi(image.get_width() - expected_content.x) <= 2 and absi(image.get_height() - expected_content.y) <= 2
 	var layout_valid := _layout_is_safe(main, name)
 	if name == "dc_board":
 		layout_valid = _page_right_edge_is_solid(main, image) and layout_valid
+	if image_valid:
+		image = _framed_capture(image)
+		layout_valid = _letterbox_is_theme_filled(image) and layout_valid
 	var valid := image_valid and layout_valid
 	var output_path := "%s%s.png" % [output_root, name]
-	# `aspect=keep` can make the macOS Metal drawable one pixel narrower because
-	# 804:1748 and 1320:2868 differ by 0.06%. Normalize only that platform pixel
-	# so every delivered review image has the promised exact 990x2151 contract.
-	if image_valid and image.get_size() != PREVIEW_SIZE:
-		image.resize(PREVIEW_SIZE.x, PREVIEW_SIZE.y, Image.INTERPOLATE_BILINEAR)
 	var save_error := image.save_png(output_path) if not image.is_empty() else ERR_CANT_CREATE
 	if not valid or save_error != OK:
 		push_error("VISUAL_SMOKE: %s failed size=%dx%d save_error=%d" % [name, image.get_width(), image.get_height(), save_error])
 	else:
 		print("VISUAL_SMOKE: captured %s" % name)
+		captured_count += 1
 	return valid and save_error == OK
+
+func _expected_content_size() -> Vector2i:
+	var scale := minf(float(preview_size.x) / LOGICAL_SIZE.x, float(preview_size.y) / LOGICAL_SIZE.y)
+	return Vector2i(roundi(LOGICAL_SIZE.x * scale), roundi(LOGICAL_SIZE.y * scale))
+
+func _framed_capture(content: Image) -> Image:
+	if content.get_size() == preview_size:
+		return content
+	var framed := Image.create(preview_size.x, preview_size.y, false, content.get_format())
+	framed.fill(ThemeFactory.SURFACE)
+	var offset := (preview_size - content.get_size()) / 2
+	framed.blit_rect(content, Rect2i(Vector2i.ZERO, content.get_size()), offset)
+	return framed
+
+func _letterbox_is_theme_filled(image: Image) -> bool:
+	# canvas_items + aspect=keep remains untouched. Wider profiles therefore get
+	# pillarbox gutters from the clear color; sample those gutters directly so a
+	# black bar or leaking world texture cannot ship unnoticed.
+	var configured_clear: Color = ProjectSettings.get_setting("rendering/environment/defaults/default_clear_color", Color.BLACK)
+	if not configured_clear.is_equal_approx(ThemeFactory.SURFACE):
+		push_error("VISUAL_SMOKE: project clear color %s does not match theme surface %s" % [str(configured_clear), str(ThemeFactory.SURFACE)])
+		return false
+	var expected_aspect := LOGICAL_SIZE.x / LOGICAL_SIZE.y
+	var image_aspect := float(image.get_width()) / maxf(1.0, float(image.get_height()))
+	if image_aspect <= expected_aspect + 0.002:
+		return true
+	var content_width := int(round(float(image.get_height()) * expected_aspect))
+	var gutter := maxi(0, (image.get_width() - content_width) / 2)
+	if gutter < 2:
+		return true
+	var expected := ThemeFactory.SURFACE
+	for sample_x: int in [gutter / 2, image.get_width() - 1 - gutter / 2]:
+		for sample_y: int in [image.get_height() / 8, image.get_height() / 2, image.get_height() * 7 / 8]:
+			var color := image.get_pixel(sample_x, sample_y)
+			if absf(color.r - expected.r) > 0.035 or absf(color.g - expected.g) > 0.035 or absf(color.b - expected.b) > 0.035:
+				push_error("VISUAL_SMOKE: %s letterbox is not theme-filled at %d,%d color=%s expected=%s" % [capture_profile, sample_x, sample_y, str(color), str(expected)])
+				return false
+	return true
 
 func _scroll_survives_tick(main: Node) -> bool:
 	var scroll := main.find_child("PageScroll", true, false) as ScrollContainer
@@ -1502,6 +1582,7 @@ func _button_text_contrast_is_safe(main: Node, state_name: String) -> bool:
 
 func _typography_and_touch_are_safe(main: Node, state_name: String) -> bool:
 	var valid := true
+	var physical_scale := minf(float(preview_size.x) / LOGICAL_SIZE.x, float(preview_size.y) / LOGICAL_SIZE.y)
 	for node: Node in main.find_children("*", "Label", true, false):
 		var label := node as Label
 		if label == null or not label.is_visible_in_tree() or label.text.is_empty():
@@ -1528,6 +1609,10 @@ func _typography_and_touch_are_safe(main: Node, state_name: String) -> bool:
 		var minimum_touch := 64.0 if button.toggle_mode else 88.0
 		if button.size.x + 1.0 < minimum_touch or button.size.y + 1.0 < minimum_touch:
 			push_error("VISUAL_SMOKE: %s undersized touch target %s size=%s" % [state_name, button.name, button.size])
+			valid = false
+		var physical_touch := minf(button.size.x, button.size.y) * physical_scale
+		if physical_touch + 1.0 < 44.0:
+			push_error("VISUAL_SMOKE: %s %s touch target falls below 44pt in %s (%.1f)" % [state_name, button.name, capture_profile, physical_touch])
 			valid = false
 	return valid
 
