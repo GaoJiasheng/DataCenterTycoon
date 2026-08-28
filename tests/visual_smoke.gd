@@ -387,7 +387,12 @@ func _ready() -> void:
 		{"id": "visual_inquiry_mining", "template_id": "mining_rush", "slot": 1, "arrived_at": now},
 	]
 	valid = (await _capture(main, "inquiry_board")) and valid
-	valid = (await _capture(main, "inquiry_persona_card", false)) and valid
+	# Refresh synchronously here: with refresh=false the debounced page rebuild
+	# can land inside the capture's settle frames, leaving the old market page
+	# pending-free next to the new one — find_children then counts both and the
+	# two-cards/two-portraits assertions fail on nothing (compact profiles hit
+	# the window most often; the screenshot itself was always correct).
+	valid = (await _capture(main, "inquiry_persona_card")) and valid
 	main.call("_show_inquiry_datacenter_picker", "visual_inquiry_edge")
 	valid = (await _capture(main, "inquiry_accept_sheet", false)) and valid
 	var inquiry_sheet := main.find_child("ActionSheetOverlay", true, false)
