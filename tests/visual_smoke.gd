@@ -1321,6 +1321,12 @@ func _asset_palette_metrics(asset_id: String) -> Dictionary:
 	var image := texture.get_image()
 	if image == null or image.is_empty():
 		return {}
+	# E1 scene textures are intentionally VRAM-compressed.  Palette assertions
+	# still inspect the decoded pixels; sampling a compressed Image directly
+	# emits one error per pixel and returns meaningless black values.
+	if image.is_compressed() and image.decompress() != OK:
+		push_error("VISUAL_SMOKE: unable to decode texture for palette audit: %s" % asset_id)
+		return {}
 	var visible := 0
 	var bright_neutral := 0
 	var blue := 0

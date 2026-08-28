@@ -9,6 +9,8 @@ import struct
 import sys
 from pathlib import Path
 
+from import_assets import visual_import_profile
+
 ROOT = Path(__file__).resolve().parents[1]
 ART_MANIFEST = ROOT / "assets/art/manifest.json"
 AUDIO_MANIFEST = ROOT / "assets/audio/manifest.json"
@@ -92,6 +94,42 @@ def validate_art(strict):
             failures.append("missing art: " + ", ".join(missing))
     else:
         print(f"ART: all {len(items)} files present")
+    return failures
+
+
+def texture_import_settings(path):
+    values = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("compress/mode="):
+            values["compress_mode"] = int(line.split("=", 1)[1])
+        elif line.startswith("mipmaps/generate="):
+            values["mipmaps"] = line.split("=", 1)[1] == "true"
+    return values
+
+
+def validate_art_import_settings():
+    failures = []
+    profile_counts = {}
+    for asset_id, spec in sorted(expanded_art_items().items()):
+        target = Path(spec["path"])
+        profile_name, profile = visual_import_profile(target)
+        profile_counts[profile_name] = profile_counts.get(profile_name, 0) + 1
+        sidecar = target.with_suffix(target.suffix + ".import")
+        if not sidecar.is_file():
+            failures.append(f"{asset_id}: missing tracked texture import sidecar")
+            continue
+        settings = texture_import_settings(sidecar)
+        expected = {
+            "compress_mode": profile["compress_mode"],
+            "mipmaps": profile["mipmaps"],
+        }
+        if settings != expected:
+            failures.append(
+                f"{asset_id}: import settings {settings}, expected {expected} ({profile_name})"
+            )
+    print("TEXTURE IMPORTS: " + ", ".join(
+        f"{profile}={count}" for profile, count in sorted(profile_counts.items())
+    ))
     return failures
 
 
@@ -255,6 +293,7 @@ def main():
     parser.add_argument("--audio", action="store_true", help="also require and validate audio")
     args = parser.parse_args()
     failures = validate_art(args.strict)
+    failures.extend(validate_art_import_settings())
     failures.extend(validate_fonts())
     if args.audio:
         failures.extend(validate_audio(args.strict))
