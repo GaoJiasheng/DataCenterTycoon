@@ -1,0 +1,27 @@
+{
+  "save_version": 2,
+  "profile_id": "fixture-v2-account",
+  "next_id": 14,
+  "player": {
+    "cash": 15600.0,
+    "gems": 241,
+    "total_revenue": 98000.0,
+    "brand_multiplier": 1.32,
+    "era": 3,
+    "network_level": 3,
+    "total_datacenters_built": 11
+  },
+  "plots": [
+    {"id": "plot_1", "index": 1, "purchase_price": 0.0, "purchased": true, "status": "empty", "datacenter": null}
+  ],
+  "construction_queue": [],
+  "entitlements": {"noads": true, "offline24": true},
+  "inventory": {"instant_build_tickets": 5},
+  "stats": {"prestige_count": 2},
+  "meta": {
+    "roadmap_claimed": {"first_facility": true, "era_two": true},
+    "collection_claimed": {"campus_life": true},
+    "discovered": {"cats:cat_nap": true, "cats:cat_watch": true},
+    "company_history": [{"at": 172800, "brand_multiplier": 1.21}, {"at": 345600, "brand_multiplier": 1.32}]
+  }
+}

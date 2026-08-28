@@ -81,6 +81,8 @@ tools/release_ios.sh --bump --upload
 
 `--dry-run` 会完整产出并验签 IPA，但绝不上传；`--bump` 会递增并保留 `export_presets.cfg` 的 build 号，发布提交必须包含该改动。归档保存在 `builds/archives/`。
 
+Godot 重新导入 CSV 后可能只产生 `.translation` 二进制噪声；`tools/check_release.py` 会从 `ui.csv` 内存重编译并逐条对照当前资源。若确认没有文案修改而工作区仍变脏，直接执行 `git checkout -- localization/` 恢复，不要提交无意义二进制差异。
+
 实现说明见 [docs/architecture.md](docs/architecture.md)，数值结果见 [docs/balance_report.md](docs/balance_report.md)，外部交付项见 [docs/release_checklist.md](docs/release_checklist.md)。
 
 ## 给下一个 session / 模型的说明

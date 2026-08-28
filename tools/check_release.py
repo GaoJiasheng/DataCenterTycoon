@@ -2,6 +2,7 @@
 """Fail a release candidate while required owner inputs or artifacts are missing."""
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -51,6 +52,16 @@ def main():
     for token in ('config/icon="res://assets/art/store/app_icon.png"', 'boot_splash/image="res://assets/art/store/splash_bg.png"'):
         if token not in project:
             ERRORS.append(f"project.godot missing release visual setting {token}")
+    godot = shutil.which("godot")
+    if godot is None:
+        ERRORS.append("Godot is required to verify compiled translations")
+    else:
+        translations = subprocess.run(
+            [godot, "--headless", "--path", str(ROOT), "--script", str(ROOT / "tools/check_translations.gd")],
+            cwd=ROOT,
+        )
+        if translations.returncode:
+            ERRORS.append("compiled .translation resources do not match localization/ui.csv")
     validation = subprocess.run([sys.executable, str(ROOT / "tools/validate_data.py")], cwd=ROOT)
     if validation.returncode:
         ERRORS.append("data validation failed")

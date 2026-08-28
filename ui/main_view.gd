@@ -115,9 +115,15 @@ func _ready() -> void:
 	_build_shell()
 	_connect_events()
 	_play_music("music_main", false)
+	call_deferred("_show_pending_save_recovery")
 	call_deferred("_show_pending_offline_report")
 	call_deferred("_queue_unseen_era_overlays")
 	call_deferred("_show_pending_bankruptcy_state")
+
+func _show_pending_save_recovery() -> void:
+	var notice_key := SaveManager.consume_load_notice_key()
+	if not notice_key.is_empty():
+		_show_toast(tr(notice_key), "sfx_success_chime" if notice_key == "TOAST_SAVE_RECOVERED" else "sfx_error_thud")
 
 # Desktop preview only: use half of the iPhone 17 Pro Max physical 1320x2868
 # resolution. The 804x1748 layout canvas remains the device-independent design

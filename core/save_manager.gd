@@ -5,17 +5,38 @@ const SAVE_PATH := "user://save_v1.json"
 const TEMP_PATH := "user://save_v1.tmp"
 const BACKUP_COUNT := 3
 
+var last_load_notice_key := ""
+
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
 func load_save() -> Dictionary:
-	var candidates := [SAVE_PATH]
+	var candidates: Array[String] = [SAVE_PATH]
 	for index: int in range(BACKUP_COUNT):
 		candidates.append("user://save_v1.bak%d.json" % index)
-	for path: String in candidates:
+	return _load_candidates(candidates)
+
+func load_save_from_paths_for_tests(candidates: Array[String]) -> Dictionary:
+	return _load_candidates(candidates)
+
+func consume_load_notice_key() -> String:
+	var key := last_load_notice_key
+	last_load_notice_key = ""
+	return key
+
+func _load_candidates(candidates: Array[String]) -> Dictionary:
+	last_load_notice_key = ""
+	var found_any_file := false
+	for index: int in range(candidates.size()):
+		var path := candidates[index]
+		found_any_file = found_any_file or FileAccess.file_exists(path)
 		var loaded := _read_json(path)
 		if not loaded.is_empty():
+			if index > 0:
+				last_load_notice_key = "TOAST_SAVE_RECOVERED"
 			return migrate(loaded)
+	if found_any_file:
+		last_load_notice_key = "TOAST_SAVE_RESET"
 	return {}
 
 func write_save(state: Dictionary) -> bool:
@@ -61,7 +82,10 @@ func _read_json(path: String) -> Dictionary:
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {}
-	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	var parser := JSON.new()
+	if parser.parse(file.get_as_text()) != OK:
+		return {}
+	var parsed: Variant = parser.data
 	return parsed if parsed is Dictionary else {}
 
 func _rotate_backups() -> void:

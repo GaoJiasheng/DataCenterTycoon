@@ -17,6 +17,7 @@ func _ready() -> void:
 	_run_data_tests()
 	_run_warmth_presentation_tests()
 	await _run_asset_integration_tests()
+	await _run_save_robustness_tests()
 	AudioService.apply_settings({"music_enabled": false, "sfx_enabled": false})
 	await _run_ui_refresh_test()
 	await _run_operation_feedback_tests()
@@ -329,6 +330,72 @@ func _run_asset_integration_tests() -> void:
 	_expect(campus_grid_ok, "campus grid and presentation-only world transitions stay deterministic and self-cleaning")
 	park_map.queue_free()
 	await get_tree().process_frame
+
+func _run_save_robustness_tests() -> void:
+	var test_root := "user://release_hardening_save"
+	var primary := "%s.json" % test_root
+	var backup := "%s.bak0.json" % test_root
+	var older_backup := "%s.bak1.json" % test_root
+	for path: String in [primary, backup, older_backup]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var main_file := FileAccess.open(primary, FileAccess.WRITE)
+	main_file.store_string("{\"save_version\":")
+	main_file.close()
+	var fixture_text := FileAccess.get_file_as_string("res://tests/fixtures/save_v2.json")
+	var backup_file := FileAccess.open(backup, FileAccess.WRITE)
+	backup_file.store_string(fixture_text)
+	backup_file.close()
+	var recovered := SaveManager.load_save_from_paths_for_tests([primary, backup, older_backup])
+	_expect(int(recovered.get("player", {}).get("gems", 0)) == 241 and SaveManager.last_load_notice_key == "TOAST_SAVE_RECOVERED", "a truncated primary save restores the newest valid rotating backup")
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	var recovery_main := MAIN_SCENE.instantiate()
+	add_child(recovery_main)
+	for _frame: int in range(3):
+		await get_tree().process_frame
+	var recovery_toast := recovery_main.get("toast_label") as Label
+	_expect(recovery_toast != null and recovery_toast.visible and recovery_toast.text == tr("TOAST_SAVE_RECOVERED"), "backup recovery gives the player a visible localized toast")
+	recovery_main.queue_free()
+	await get_tree().process_frame
+	var broken_backup := FileAccess.open(backup, FileAccess.WRITE)
+	broken_backup.store_string("not json")
+	broken_backup.close()
+	var broken_older := FileAccess.open(older_backup, FileAccess.WRITE)
+	broken_older.store_string("[]")
+	broken_older.close()
+	var reset_result := SaveManager.load_save_from_paths_for_tests([primary, backup, older_backup])
+	_expect(reset_result.is_empty() and SaveManager.consume_load_notice_key() == "TOAST_SAVE_RESET", "all-invalid rotating saves fall back to a fresh company without crashing")
+	for path: String in [primary, backup, older_backup]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+	var rollback_now := GameClock.wall_time()
+	Game.reset_for_tests()
+	Game.last_offline_report = {}
+	Game.state["clock"]["last_wall_time"] = rollback_now + 86400
+	Game.state["clock"]["highest_wall_time"] = rollback_now + 86400
+	var rollback_cash := float(Game.state["player"]["cash"])
+	Game.call("_settle_wall_gap")
+	var report_nonnegative := true
+	for value: Variant in Game.last_offline_report.values():
+		if value is float or value is int:
+			report_nonnegative = report_nonnegative and float(value) >= 0.0
+	_expect(float(Game.state["player"]["cash"]) >= rollback_cash and int(Game.state["clock"]["highest_wall_time"]) == rollback_now + 86400 and report_nonnegative, "a 24-hour wall-clock rollback cannot create negative income report rows or lower the monotonic guard")
+
+	for fixture_name: String in ["save_v1.json", "save_v2.json"]:
+		var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/%s" % fixture_name))
+		var expected_gems := int(raw.get("player", {}).get("gems", 0))
+		var expected_brand := float(raw.get("player", {}).get("brand_multiplier", 1.0))
+		var expected_entitlements: Dictionary = raw.get("entitlements", {}).duplicate(true)
+		var expected_claimed: Dictionary = raw.get("meta", {}).get("collection_claimed", {}).duplicate(true)
+		var expected_discovered: Dictionary = raw.get("meta", {}).get("discovered", {}).duplicate(true)
+		Game.state = SaveManager.migrate(raw)
+		Game.call("_ensure_state_shape")
+		var invariant_ok: bool = int(Game.state.get("save_version", 0)) == SaveManager.SAVE_VERSION and Game.state.get("plots", []) is Array and not Game.state.get("plots", []).is_empty() and float(Game.state.get("player", {}).get("cash", -1.0)) >= 0.0 and Game.state.get("construction_queue", []) is Array and Game.state.get("market", {}) is Dictionary
+		var account_ok: bool = int(Game.state["player"].get("gems", 0)) == expected_gems and is_equal_approx(float(Game.state["player"].get("brand_multiplier", 0.0)), expected_brand) and Game.state.get("entitlements", {}) == expected_entitlements and Game.state.get("meta", {}).get("collection_claimed", {}) == expected_claimed and Game.state.get("meta", {}).get("discovered", {}) == expected_discovered
+		_expect(invariant_ok and account_ok, "%s fixture upgrades to the current schema without losing gems entitlements collection or brand" % fixture_name.trim_suffix(".json"))
+	Game.reset_for_tests()
 
 func _run_ui_refresh_test() -> void:
 	Game.reset_for_tests()
@@ -860,6 +927,20 @@ func _run_gameplay_optimization_tests() -> void:
 	dc["renewal_window_end_at"] = Game.simulation_time() + 60.0
 	Game._ensure_state_shape()
 	_expect(not dc.has("renewal_window_end_at") and bool(dc.get("free_switch_available", false)) and dc.has("locked_market_multiplier"), "legacy renewal-window saves migrate to a locked rate and non-expiring free switch")
+
+	Game.reset_for_tests()
+	Game.state["player"]["era"] = 3
+	Game.state["player"]["network_level"] = 3
+	var legacy_dc := _test_datacenter("dc_legacy_lock", "dc_t1")
+	legacy_dc["customer_id"] = "gpu_company"
+	legacy_dc["contract_duration_id"] = "standard"
+	Game.state["plots"][0]["datacenter"] = legacy_dc
+	Game.state["plots"][0]["status"] = "operational"
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": Game.simulation_time(), "end_at": Game.simulation_time() + 7200.0}]
+	var expected_legacy_lock := Game._locked_rate_for("gpu_company", "standard")
+	var instantaneous_legacy_quote := Game.contract_market_multiplier("gpu_company")
+	Game.call("_ensure_state_shape")
+	_expect(is_equal_approx(float(legacy_dc.get("locked_market_multiplier", 0.0)), expected_legacy_lock) and not is_equal_approx(expected_legacy_lock, instantaneous_legacy_quote), "legacy contract migration uses the exact duration-prorated lock path instead of the instantaneous event quote")
 
 func _run_gameplay_depth_tests() -> void:
 	var events: Dictionary = DataRepository.get_table("events").get("items", {})

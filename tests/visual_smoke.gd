@@ -526,7 +526,7 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 		main.call("_refresh")
 	for _frame: int in range(3):
 		await get_tree().process_frame
-	if name == "era_unlock":
+	if name in ["duty_log_dialog", "offline_reward", "era_unlock"]:
 		await get_tree().create_timer(1.25).timeout
 	await get_tree().create_timer(0.24).timeout
 	if name in ["dc_board_placing", "dc_board_set_bonus"]:
@@ -1293,6 +1293,10 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		var credit_copy := main.find_child("OfflineCreditCopy", true, false) as Label
 		if credit_copy == null or credit_copy.text.contains("12.8"):
 			push_error("VISUAL_SMOKE: offline reward repeats a final amount while the headline is still rolling")
+			valid = false
+		var settled_income := main.find_child("OfflineIncome", true, false) as Label
+		if settled_income == null or settled_income.text != "$%s" % Game.format_number(12840.0):
+			push_error("VISUAL_SMOKE: offline reward amount was captured before its number roll settled")
 			valid = false
 	if state_name == "arrears":
 		var crisis_nodes := [main.find_child("ArrearsBanner", true, false), main.find_child("ArrearsVignette", true, false), main.find_child("ArrearsProgress", true, false), main.find_child("ArrearsRescueButton", true, false), main.find_child("ArrearsCloseButton", true, false)]

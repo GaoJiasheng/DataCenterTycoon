@@ -1803,7 +1803,7 @@ func _ensure_state_shape() -> void:
 			continue
 		var customer_id := str(dc.get("customer_id", ""))
 		if not customer_id.is_empty() and not dc.has("locked_market_multiplier"):
-			dc["locked_market_multiplier"] = contract_market_multiplier(customer_id)
+			dc["locked_market_multiplier"] = _locked_rate_for(customer_id, str(dc.get("contract_duration_id", "standard")))
 		if not customer_id.is_empty():
 			if not dc.has("contract_duration_id"):
 				dc["contract_duration_id"] = "standard"

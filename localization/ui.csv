@@ -1,6 +1,8 @@
 keys,en,zh_CN
 DATE_FORMAT,Year %d · Month %d · Day %d,第 %d 年 · 第 %d 月 · 第 %d 天
 APP_TITLE,Data Center Tycoon,机房大亨
+TOAST_SAVE_RECOVERED,Your latest backup was restored safely.,已安全恢复最近的存档备份。
+TOAST_SAVE_RESET,The damaged save could not be restored. A fresh company was created.,存档损坏且无法恢复，已为你创建新公司。
 META_TAB_ROADMAP,Goals,路线
 META_TAB_COLLECTION,Archive,典藏
 META_TAB_BOARD,Board,董事
