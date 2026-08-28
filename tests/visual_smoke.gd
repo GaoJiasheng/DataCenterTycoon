@@ -386,6 +386,10 @@ func _ready() -> void:
 		{"id": "visual_inquiry_edge", "template_id": "edge_delivery", "slot": 0, "arrived_at": now},
 		{"id": "visual_inquiry_mining", "template_id": "mining_rush", "slot": 1, "arrived_at": now},
 	]
+	# Freeze the next optional arrival beyond the atlas run. Otherwise the real
+	# simulation clock can legitimately add a third inquiry while a slower
+	# locale/profile is settling, making this fixed two-card fixture flaky.
+	Game.state["inquiries"]["next_arrival_at"] = now + 86400.0
 	valid = (await _capture(main, "inquiry_board")) and valid
 	# Refresh synchronously here: with refresh=false the debounced page rebuild
 	# can land inside the capture's settle frames, leaving the old market page
