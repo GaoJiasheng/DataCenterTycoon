@@ -130,6 +130,10 @@ func _ready() -> void:
 	valid = (await _capture(main, "campus_cat", false)) and valid
 	main.call("_navigate", "tech")
 	main.call("_set_tech_section", "collection")
+	# Navigation is normally debounced by the live UI loop. The assertion below
+	# inspects the collection tree immediately, so materialize that authoritative
+	# page synchronously instead of racing a slower renderer's next refresh tick.
+	main.call("_refresh")
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var campus_life := main.find_child("Collection_campus_life", true, false)
@@ -1077,7 +1081,10 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			push_error("VISUAL_SMOKE: unpowered board does not expose the price-disclosed one-tap recovery path")
 			valid = false
 	if state_name in ["dc_board", "dc_board_overheat", "dc_board_placing", "dc_board_set_bonus"]:
-		var board := main.find_child("DatacenterBoard", true, false)
+		# Page refreshes remove the outgoing board before queue_free runs. Resolve
+		# the top-painted authoritative board and scope all preview assertions to
+		# it, rather than counting transient siblings elsewhere in MainView.
+		var board := main.call("_visible_datacenter_board", str(main.get("selected_datacenter_id"))) as DatacenterBoard
 		var power_meter := main.find_child("BoardPowerMeter", true, false)
 		if board == null or power_meter == null:
 			push_error("VISUAL_SMOKE: %s lacks the board or power meter" % state_name)
@@ -1085,21 +1092,21 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if main.world_host == null or main.world_host.visible:
 			push_error("VISUAL_SMOKE: S1 system board still exposes the world through its safe-area edge")
 			valid = false
-		var coverage_count := main.find_children("CoolingCoverage_*", "", true, false).size()
+		var coverage_count := board.find_children("CoolingCoverage_*", "", true, false).size() if board != null else 0
 		if coverage_count != 3:
 			push_error("VISUAL_SMOKE: %s expected three north-cooler coverage tiles, got %d" % [state_name, coverage_count])
 			valid = false
-		if state_name in ["dc_board_placing", "dc_board_set_bonus"] and main.find_children("PlacementState", "", true, false).size() != 9:
+		if state_name in ["dc_board_placing", "dc_board_set_bonus"] and (board == null or board.find_children("PlacementState", "", true, false).size() != 9):
 			push_error("VISUAL_SMOKE: placement preview does not classify all nine slots")
 			valid = false
-		var placement_badges := main.find_children("PlacementState", "PanelContainer", true, false)
+		var placement_badges := board.find_children("PlacementState", "PanelContainer", true, false) if board != null else []
 		for placement_node: Node in placement_badges:
 			var placement_state := str(placement_node.get_meta("placement_state", ""))
 			var should_show := placement_state in ["ok", "heat", "power", "set_bonus"]
 			if placement_state not in ["ok", "heat", "power", "set_bonus", "locked", "occupied"] or (placement_node as Control).visible != should_show:
 				push_error("VISUAL_SMOKE: placement preview state is not semantically visible: %s" % placement_state)
 				valid = false
-		for symbol_node: Node in main.find_children("PlacementSymbol", "Label", true, false):
+		for symbol_node: Node in board.find_children("PlacementSymbol", "Label", true, false) if board != null else []:
 			if (symbol_node as Label).text not in ["✓", "⚡", "♨"]:
 				push_error("VISUAL_SMOKE: placement preview uses an illegal text badge %s" % (symbol_node as Label).text)
 				valid = false
@@ -1112,7 +1119,7 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			var set_preview_visible := false
 			for placement_node: Node in placement_badges:
 				set_preview_visible = set_preview_visible or str(placement_node.get_meta("placement_state", "")) == "set_bonus"
-			if authoritative_members.count(true) != 3 or main.find_children("SetBonusLine_*", "Line2D", true, false).size() != 1 or main.find_children("SetBonusBadge_*", "PanelContainer", true, false).size() != 1 or not set_preview_visible:
+			if authoritative_members.count(true) != 3 or board == null or board.find_children("SetBonusLine_*", "Line2D", true, false).size() != 1 or board.find_children("SetBonusBadge_*", "PanelContainer", true, false).size() != 1 or not set_preview_visible:
 				push_error("VISUAL_SMOKE: set-bonus board must share one authoritative row, one glow/badge, and a visible completion preview")
 				valid = false
 		if state_name == "dc_board":
