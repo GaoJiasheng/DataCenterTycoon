@@ -69,7 +69,7 @@
 - [x] `python3 tools/report_release_economy.py` 完整复跑：T2 六档 × 20 种子、工程部 L4、钻石三策略 × 三时代 × 20 种子均通过；三份 CSV 与基线字节一致，未产生数值报告漂移。
 - [x] standard 中英 49 态、SE 中英各 8 态、iPad 中英各 8 态全部通过；外部高负载退出后重新取样，未把受干扰的截帧当作证据。
 - [x] `performance_smoke` 在无外部探针竞争时重跑通过：平均 `6.95ms`、p90 `11.02ms`、p95 `15.46ms`；峰值 30 粒子归零、猫特效 `1→0`、节点增量 0。
-- [ ] F2 提交、推送及远端 CI 证据待上述本地门禁收口。
+- [x] F2 已提交为 `e1111d4` 并推送到 `origin/main`；远端完整门禁 [Project gates #33190809456](https://github.com/GaoJiasheng/DataCenterTycoon/actions/runs/33190809456) 全绿后才进入 F3。
 
 ### 已知外部发布交付（不在本批范围）
 
@@ -77,4 +77,5 @@
 
 ### F3 · build 10
 
-- [ ] 等 F2 推送且远端 CI 全绿后执行 `tools/release_ios.sh --bump --upload`。
+- [x] F2 已推送且远端 CI 全绿，满足执行 `tools/release_ios.sh --bump --upload` 的前置硬闸。
+- [ ] build 10 正式归档、上传与 IPA 桌面备份待执行。
