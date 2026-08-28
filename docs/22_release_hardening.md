@@ -126,3 +126,57 @@
 4. E8 的一次性提示走 `dismissed_messages` 既有语义，禁止新建持久化 key；提示文案双语、≤30 汉字。
 5. E9-2 英文校对**只改 EN 列**，key 与 zh 列一律不动；术语统一表先立后改，diff 按 key 排序方便 review。
 6. 全批次收尾必须重跑 README「开发与验收」全部命令 + 20 种子模拟零漂移证明，验收记录格式沿用 20/21 号。
+
+## 5. 验收记录（2026-08-28）
+
+### 批次与提交边界
+
+- [x] 批次 1：`145fdb9 perf: optimize production texture imports`。
+- [x] 批次 2：`da51877 test: add multi-aspect visual probes`。
+- [x] 批次 3：`700503e build: script iOS release and complete CI gates`。
+- [x] 批次 4：`7fd4d2f fix: harden save recovery and release consistency`。
+- [x] 批次 5：`6c4527a polish: clarify first encounters and release content`。
+- [x] 批次 6：E6 三份报告、全量回归、README / release checklist / 本节验收记录保留为独立最终提交。
+
+### E1 · 纹理导入
+
+- [x] 180 张正式美术按运行职责固定分类：45 张 UI 图标/九宫格保持无损无 mipmap，135 张世界、角色、场景与大图使用 VRAM 压缩 + mipmap；分类表由 `import_assets.py` 唯一维护，`check_assets --strict` 会阻止导入设置回退。
+- [x] 世界建筑、机柜室内、人设、HUD、九宫格与商店六类 400% 边缘对照均已留档在 [E1 审计](ui_review/22_texture_audit.md)；中英世界主屏、棋盘、商店、典藏、人设卡前后对照无可见彩边或文字退化。
+- [x] iOS PCK 78,479,308 B → 128,359,856 B（+63.56%，平台纹理换安装体积）；估算 GPU 纹理由 383,082,496 B → 159,675,733 B（-58.32%）；百机房 p95 8.76 ms → 8.27 ms。真机 ASTC 仍按范围边界留给 Instruments，不伪报。
+
+### E2 · 多画幅
+
+- [x] `visual_smoke --profile=se|standard|ipad` 分别锁定 750×1334、990×2151、1024×1366；SE 与 iPad 中英各 8 个关键态、标准中英各 49 态全部通过。证据与限制见 [多画幅审计](ui_review/22_multiform/README.md)。
+- [x] `stretch/aspect="keep"` 未改；letterbox 清屏色统一为主题深蓝。没有发现裁切、黑边穿帮或小于 44pt 的阻断问题，未借机重做 iPad 理想布局。
+
+### E3 / E4 · 发布与 CI
+
+- [x] `tools/release_ios.sh` 串起 Godot 导出、签名补丁、archive、codesign、IPA 导出/复验，支持 `--bump` / `--upload` / `--dry-run` 与重复 build 号人话提示。最终 build 9 干跑完整通过且未上传；脚本会删除未使用权限的空 Info.plist 说明，归档日志不再产生麦克风空说明警告。
+- [x] CI 已加入 `tutorial_playthrough`、仅 main 的 `full_campaign`、`performance_smoke --ci` 及中英三画幅；性能 CI 只放宽帧时长为警告，粒子/节点泄漏仍为硬失败。
+- [ ] 远端 GitHub Actions 证据链接必须等本地提交推送后才能生成；当前只记录同命令本机全绿，不伪造托管 CI 结果。
+
+### E5 / E7 · 一致性与健壮性
+
+- [x] 旧档合约迁移走 `_locked_rate_for`，含活跃事件的正反例证明迁移采用期限折算而非瞬时报价；已生效合约仍不追溯。
+- [x] 视觉截图会等待金额滚动结束；`check_release` 会从 `ui.csv` 重编译并逐条核对 `.translation`，当前语义对照通过。
+- [x] 主档截断可从最近轮转备份恢复并显示双语提示，全部备份损坏则安全新开；24 小时时钟回拨不产生负收入且单调防线不下降；v1/v2 fixture 升级后钻石、权益、典藏与品牌无损。
+
+### E8 / E9 · 首遇与内容一致性
+
+- [x] 询价、成组、可负担扩编三条 first-encounter 复用 `tutorial.dismissed_messages`，每条只出现一次，新公司按现有教程状态重置；FTUE 不提前展示。
+- [x] `localization/ui.csv` 的 644 个英文条目已全量复核，统一术语表、37 个既有 EN 修订及双语 49 态结果记录在 [内容审计](22_content_audit.md)；既有 key 与中文列未改。
+- [x] 音乐和同类 SFX 有效峰值差均 ≤3 dB；棋盘与待办红/绿/橙状态都有独立图形轮廓，不只靠颜色。最不协调资产 Top 5 与重生成 prompt 已入同一报告，本批没有越权重做美术。
+
+### E6 · 只读数值报告
+
+- [x] [T2 当前折算基线重扫](balance_runs/t2_maintenance_sweep.csv)：六档 × 20 种子 × 三策略全部通过挂机 0/0 与激进 25% 压力带；$900 对活跃斜率只改善 2.4%，正式 $1,150 不变。
+- [x] [工程部 L4 探针](balance_runs/engineering_l4_probe.csv)：运行时以 $10M 正式价格可购；模拟器在转生 1、时代 3、4/4 满队列和既有 15% 现金缓冲下确实购买，容量变为 5。
+- [x] [钻石 30 天源汇](balance_runs/diamond_sources_sinks_30d.csv)：按三策略/三时代/20 种子区分自动来源与可领取来源；参考策略观测加速与即修消耗均为 0，此为消费行为覆盖缺口，不据此调值。结论已回写 `balance_report.md`。
+
+### 最终门禁与范围边界
+
+- [x] `test_runner` 243/243；`flow_audit`、`midgame_audit`、真实触摸 `tutorial_playthrough`、`full_campaign` 全绿。长战役第 118 月达到 20 座并同局通过询价、5 槽成组、期限决策、稀有战略封顶与 3 路扩编，最终 23 座、时代 3、净值 $1.70M 后完成重组。
+- [x] 最终 `performance_smoke`：平均 6.63 ms、p90 6.95 ms、p95 7.01 ms；30 粒子、猫特效与节点均回收到 0。
+- [x] `validate_data` 通过 16 表、本地化与 180 art IDs；`check_assets --strict --audio` 通过 180 美术、6 字体、23 音频；双语标准 49 态与 SE/iPad 各 8 态全绿。
+- [x] 20 种子默认模拟输出 SHA-256 仍为 `4e8d551354da4bff23232b454abb9253f2ae96e5a3f8c03b60b8fe732a227e04`，活跃 20 座中位 19.3 天、活跃/挂机净值比 23.67×，证明全批正式经济零漂移。
+- [ ] `check_app_store_assets` / `check_release` 仍被本批明确排除的外部交付阻塞：中英 iPhone/iPad 商店截图、隐私/支持正式链接和 iOS IAP 插件描述符尚未交付；真机 Instruments 与 StoreKit sandbox 也未伪报完成。详细清单见 [release checklist](release_checklist.md)。

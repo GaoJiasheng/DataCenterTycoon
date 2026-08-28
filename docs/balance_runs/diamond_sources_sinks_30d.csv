@@ -1,0 +1,10 @@
+strategy,era,era_auto,achievement_auto,roadmap_claimable,collection_claimable,speedup_spend_observed,instant_repair_spend_observed,net_if_claimed
+idle,1,0.00,6.75,8.00,0.00,0.00,0.00,14.75
+idle,2,100.00,18.25,13.00,0.00,0.00,0.00,131.25
+idle,3,100.00,20.00,0.50,0.25,0.00,0.00,120.75
+active,1,0.00,14.75,8.00,0.00,0.00,0.00,22.75
+active,2,100.00,15.75,23.00,5.00,0.00,0.00,143.75
+active,3,100.00,19.00,10.80,0.40,0.00,0.00,130.20
+aggressive,1,0.00,6.00,3.00,0.00,0.00,0.00,9.00
+aggressive,2,100.00,19.00,13.00,0.00,0.00,0.00,132.00
+aggressive,3,0.00,0.00,0.00,0.00,0.00,0.00,0.00

@@ -122,6 +122,7 @@ class Simulator:
         market_lock_mode="normal",
         strategic_cap_enabled=True,
         active_contract_term="standard",
+        prestige_count=0,
     ):
         self.strategy = strategy
         self.cozy_faults = cozy_faults
@@ -172,6 +173,7 @@ class Simulator:
         self.market_lock_mode = market_lock_mode
         self.strategic_cap_enabled = strategic_cap_enabled
         self.active_contract_term = active_contract_term
+        self.prestige_count = prestige_count
 
     def run(self, days):
         Simulator.now = 0.0
@@ -746,7 +748,7 @@ class Simulator:
             return
         next_level = str(self.construction_bays + 1)
         level = TECHNOLOGY["upgrades"].get("construction_bays", {}).get("levels", {}).get(next_level)
-        if not level or self.era < level.get("unlock_era", 1) or level.get("minimum_prestige", 0) > 0:
+        if not level or self.era < level.get("unlock_era", 1) or level.get("minimum_prestige", 0) > self.prestige_count:
             return
         # The active reference player buys a throughput upgrade once it is
         # affordable under real queue pressure, while retaining a modest

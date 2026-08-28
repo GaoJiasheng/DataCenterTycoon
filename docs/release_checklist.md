@@ -10,17 +10,18 @@
 
 ## Automated gates
 
-- [x] `python3 tools/validate_data.py`（2026-08-12：12 表、双语、159 art IDs）
-- [x] `godot --headless --path . tests/test_runner.tscn`（2026-08-12：162 passed）
-- [x] `godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=en`（2026-08-12：41 态、990×2151 通过）
-- [x] `godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=zh_CN`（2026-08-12：41 态、990×2151 通过）
-- [x] `godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn`（2026-08-12：100 座机房分为 13 个园区页，仅 6 个当前页对象可见；average 6.42ms / p95 6.88ms / 朝向统一 / 零节点增长）
+- [x] `python3 tools/validate_data.py`（2026-08-28：16 表、双语、180 art IDs）
+- [x] `godot --headless --path . tests/test_runner.tscn`（2026-08-28：243 passed）
+- [x] `flow_audit` / `midgame_audit` / 真实触摸 `tutorial_playthrough` / `full_campaign`（2026-08-28：全部通过；战役第 118 月 20 座、最终 23 座并完成重组）
+- [x] `visual_smoke` 中英标准档各 49 态（990×2151），SE / iPad 中英各 8 个关键态（750×1334 / 1024×1366），全部通过裁剪、贴边、叠印与触控断言
+- [x] `godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn`（2026-08-28：100 座机房、13 园区页、当前页 6 对象；average 6.63ms / p95 7.01ms / 30 粒子与猫特效零残留 / 节点差 0）
 - [ ] iPhone 12 与 iPhone 17 各跑一次 Instruments：六机房 + 金币并发保持 60fps；本项不能用桌面烟测替代
-- [x] `python3 tools/simulate_economy.py`（2026-08-12：三类 30 天 × 20 seed 全部门禁通过）
-- [x] `python3 tools/check_assets.py --strict --audio`（2026-08-12：159 art / 6 font / 23 audio）
-- [ ] `python3 tools/check_app_store_assets.py`
-- [ ] `python3 tools/check_release.py`
-- [ ] `tools/release_ios.sh --dry-run` 完整产出并验签 IPA；正式发布仅使用 `tools/release_ios.sh --bump --upload`，禁止 Organizer 手工出包
+- [x] `python3 tools/simulate_economy.py`（2026-08-28：三类 30 天 × 20 seed 全部门禁通过；输出 SHA-256 `4e8d551354da4bff23232b454abb9253f2ae96e5a3f8c03b60b8fe732a227e04`）
+- [x] `python3 tools/check_assets.py --strict --audio`（2026-08-28：180 art / 6 font / 23 audio，纹理分类 45 无损 + 135 VRAM）
+- [ ] `python3 tools/check_app_store_assets.py`（缺中英 iPhone 6.9 / iPad 13 共 20 张商店截图；外部交付）
+- [ ] `python3 tools/check_release.py`（仍缺隐私/支持正式链接、IAP 插件描述符及上述商店截图；外部交付）
+- [x] `tools/release_ios.sh --dry-run`（2026-08-28：build 9 完整导出、archive、codesign、IPA 导出与二次验签通过，未上传；空权限说明已在归档前移除）
+- [ ] GitHub Actions 完整绿色链接（工作流已覆盖 243 项逻辑、四个流程/性能门禁及双语三画幅；等待本地提交推送后由远端运行，不伪造链接）
 
 ## Device and commerce
 

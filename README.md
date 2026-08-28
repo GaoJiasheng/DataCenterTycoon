@@ -26,6 +26,7 @@
 | [docs/19_meta_progression_rework.md](docs/19_meta_progression_rework.md) | 公司路线、园区定位、客户关系/合约期限、行情复盘、董事会与企业典藏（已落地） | 策划/程序/美术 |
 | [docs/20_gameplay_depth_and_economy.md](docs/20_gameplay_depth_and_economy.md) | 中期询价、棋盘成组、稀有行情、期限折算锁价、工程部扩编与经济归因（已落地） | 策划/程序 |
 | [docs/21_warmth_patch.md](docs/21_warmth_patch.md) | 值班日志、客户拟人化与机房猫的纯表现温度补丁（已落地） | 策划/程序/美术 |
+| [docs/22_release_hardening.md](docs/22_release_hardening.md) | 发布前纹理、多画幅、发布脚本、CI、存档健壮性与内容一致性加固 | 程序/发行/QA |
 
 ## 当前状态
 
@@ -36,7 +37,7 @@
 - [x] 轻松向经营闭环：合同期内已知行情精确折算锁价、自动续约与永久免费改签、故障 40% 降效/4 小时自愈、残料回收/95% 自动退役、银行接管/重整托底
 - [x] 中期深度闭环：永久询价单、棋盘同类成组、3 条稀有行情与战略约 ×2.5 封顶、2→5 工程部扩编
 - [x] 表现温度层：权威离线账单驱动的值班日志、10 位共享数值的人设角色、教程外一只无重复货币产出的园区猫与 4 张猫片典藏
-- [x] 224 项 Godot 回归测试、双语各 47 状态竖屏视觉与排版审计、断言化 FTUE/中期流程审计、30 天三策略 × 20 种子模拟、iOS 导出与 App Store 自动门禁
+- [x] 243 项 Godot 回归测试、双语各 49 状态竖屏视觉与排版审计、SE/标准/iPad 多画幅探针、断言化 FTUE/中期流程审计、30 天三策略 × 20 种子模拟、iOS 可复现发布脚本与 App Store 自动门禁
 - [ ] 外部交付：P01 正式名称、P04 广告 SDK、Apple 账号/证书、商店截图和 TestFlight
 
 运行时已经使用正式视听资源；资源接口仍保留缺失回退，因此单张素材损坏或暂时移除不会阻止玩法逻辑启动。
@@ -57,9 +58,10 @@ godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --locale=
 godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn
 python3 tools/validate_data.py
 python3 tools/simulate_economy.py
+python3 tools/report_release_economy.py
 ```
 
-`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态，并确认教程期客户人设与机房猫不可见、不可点；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、224 项逻辑、该流程门禁和双语各 47 态渲染回归。性能门禁另以 100 座机房验证 13 页园区切分、单页可见集、统一建筑朝向、单猫状态机及其爱心特效清理。
+`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态，并确认教程期客户人设与机房猫不可见、不可点；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、243 项逻辑、流程/战役/性能门禁，以及双语 49 态与 SE/标准/iPad 三档渲染回归。性能门禁另以 100 座机房验证 13 页园区切分、单页可见集、统一建筑朝向、单猫状态机及其爱心特效清理。
 
 `tests/tutorial_playthrough.tscn` 只用触摸走完新手教程；`tests/full_campaign.tscn` 接着往下打——从全新存档按"月"推进，边玩边刷新真实 UI，一路走到时代 2、时代 3 和第一次上市重组，断言故障降效/修复、期限折算锁价（同局灵活约 > 标准约）/自动续约/免费改签、退役收割、银行接管兼容、询价/成组/扩编、离线结算、页面切换与顶部信息带不互相遮挡，输出 `/tmp/dct_camp_*.png`。审计记录见 [docs/17_full_campaign_audit.md](docs/17_full_campaign_audit.md)。
 

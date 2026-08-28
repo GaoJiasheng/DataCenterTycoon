@@ -1,0 +1,2 @@
+authored_cost,minimum_prestige,runtime_exact_cost_test,strategy_start_cash,full_queue,strategy_purchased,result_capacity,cash_spent
+10000000,1,tests/test_runner.gd::_run_construction_bays_tests,11500001.00,4,True,5,10000000.00

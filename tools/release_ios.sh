@@ -120,19 +120,29 @@ if [[ ! -d "$XCODE_PROJECT" ]]; then
   exit 1
 fi
 
-echo "2/5 Applying automatic Apple Development signing…"
-python3 - "$XCODE_PROJECT/project.pbxproj" "$APPLE_TEAM_ID" <<'PY'
+echo "2/5 Applying signing and sanitizing unused privacy keys…"
+python3 - "$XCODE_PROJECT/project.pbxproj" "$APPLE_TEAM_ID" "$IOS_EXPORT_DIR/$PROJECT_NAME/$PROJECT_NAME-Info.plist" <<'PY'
 from pathlib import Path
+import plistlib
 import re
 import sys
 
 path = Path(sys.argv[1])
 team = sys.argv[2]
+info_path = Path(sys.argv[3])
 text = path.read_text(encoding="utf-8")
 text = re.sub(r'CODE_SIGN_STYLE = "?Manual"?;', 'CODE_SIGN_STYLE = Automatic;', text)
 text = re.sub(r'CODE_SIGN_IDENTITY = "[^"]*";', 'CODE_SIGN_IDENTITY = "Apple Development";', text)
 text = re.sub(r'DEVELOPMENT_TEAM = [^;]*;', f'DEVELOPMENT_TEAM = {team};', text)
 path.write_text(text, encoding="utf-8")
+
+with info_path.open("rb") as handle:
+    info = plistlib.load(handle)
+for key in ("NSCameraUsageDescription", "NSMicrophoneUsageDescription", "NSPhotoLibraryUsageDescription"):
+    if not str(info.get(key, "")).strip():
+        info.pop(key, None)
+with info_path.open("wb") as handle:
+    plistlib.dump(info, handle, sort_keys=False)
 PY
 
 AUTH_ARGS=(
