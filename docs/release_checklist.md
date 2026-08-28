@@ -20,7 +20,7 @@
 - [x] `python3 tools/check_assets.py --strict --audio`（2026-08-12：159 art / 6 font / 23 audio）
 - [ ] `python3 tools/check_app_store_assets.py`
 - [ ] `python3 tools/check_release.py`
-- [ ] Godot iOS Xcode-project ZIP export completes without warnings; Xcode Archive then signs/uploads the app
+- [ ] `tools/release_ios.sh --dry-run` 完整产出并验签 IPA；正式发布仅使用 `tools/release_ios.sh --bump --upload`，禁止 Organizer 手工出包
 
 ## Device and commerce
 

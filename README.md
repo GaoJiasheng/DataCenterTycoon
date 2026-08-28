@@ -72,6 +72,15 @@ python3 tools/check_app_store_assets.py
 python3 tools/check_release.py
 ```
 
+iOS 归档、签名、IPA 校验和 TestFlight 上传只允许走统一脚本，禁止再从 Organizer 手工拼接发布步骤：
+
+```sh
+tools/release_ios.sh --dry-run
+tools/release_ios.sh --bump --upload
+```
+
+`--dry-run` 会完整产出并验签 IPA，但绝不上传；`--bump` 会递增并保留 `export_presets.cfg` 的 build 号，发布提交必须包含该改动。归档保存在 `builds/archives/`。
+
 实现说明见 [docs/architecture.md](docs/architecture.md)，数值结果见 [docs/balance_report.md](docs/balance_report.md)，外部交付项见 [docs/release_checklist.md](docs/release_checklist.md)。
 
 ## 给下一个 session / 模型的说明
