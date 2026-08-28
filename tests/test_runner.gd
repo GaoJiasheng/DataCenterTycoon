@@ -556,13 +556,17 @@ func _run_operation_feedback_tests() -> void:
 	service_dc["racks"][1] = {"rack_id": "rack_storage_t1", "status": "installing", "install_complete_at": Game.simulation_time() + 480.0}
 	var rejected_rack := Game.install_rack("feedback_dc", 3, "rack_compute_t1")
 	main.call("_handle_result", rejected_rack, {"datacenter_id": "feedback_dc", "slot": 3, "operation": "rack"})
-	queue_feedback_ok = queue_feedback_ok and str(rejected_rack.get("reason", "")) == "rack_install_limit" and Game.format_duration(240.0) in toast.text
+	if not (str(rejected_rack.get("reason", "")) == "rack_install_limit" and Game.format_duration(240.0) in toast.text):
+		queue_feedback_ok = false
+		push_warning("feedback stage C mismatch: reason=%s toast=%s" % [str(rejected_rack.get("reason", "")), toast.text])
 	# A second rapid failure must replace and restart the feedback lifetime.  The
 	# old implementation left both fade tweens alive, so the first click could
 	# hide the message raised by the second click.
 	main.call("_handle_result", {"ok": false, "reason": "not_enough_cash"})
 	await get_tree().create_timer(1.8).timeout
-	queue_feedback_ok = queue_feedback_ok and toast.visible and toast.text == tr("REASON_NOT_ENOUGH_CASH")
+	if not (toast.visible and toast.text == tr("REASON_NOT_ENOUGH_CASH")):
+		queue_feedback_ok = false
+		push_warning("feedback stage D mismatch: visible=%s text=%s" % [str(toast.visible), toast.text])
 	_expect(queue_feedback_ok, "rejected operations stay visible above sheets and rapid retries restart friendly feedback")
 
 	var reasons := [
