@@ -299,9 +299,10 @@ static func resource_panel() -> StyleBox:
 	return box
 
 static func dialog_box() -> StyleBox:
-	# Content margins must exceed the slice margins, otherwise text sits on the
-	# painted bubble frame.
-	var box := texture_box("dialog_bubble", Vector4(48, 34, 48, 54), Vector4(56, 40, 56, 62))
+	# The tail-free source paints 50/57/49/56 px on left/top/right/bottom.
+	# Keep every painted edge inside the slice, then leave a further content gap
+	# so a future bitmap-backed callout cannot put copy on top of the enamel trim.
+	var box := texture_box("dialog_bubble", Vector4(52, 58, 52, 58), Vector4(60, 66, 60, 66))
 	if box is StyleBoxFlat:
 		var fallback := panel(Color("fffaf0"), Color("dfd4c1"), 1, 22)
 		fallback.shadow_color = Color(0, 0, 0, 0.18)

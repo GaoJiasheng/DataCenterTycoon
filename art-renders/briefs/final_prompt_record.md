@@ -252,3 +252,57 @@ Shared production direction: one coherent orange tabby with cream muzzle/chest/p
 - `collection_cat_watch`: Cat watching the lit campus at twilight. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-3b8cbfc1-cadf-4490-ad7b-bc4e2c9a55d7.png`
 - `collection_cat_festival`: Sunglasses cat celebrating a rare market with tasteful campus decorations. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-1d637ca8-48d0-4b23-81a7-16535824c727.png`
 - `fx_cat_heart`: One warm coral painterly heart with tiny gold sparkles, transparent particle sprite. Source: `/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-c49ff4d9-5b81-4285-8293-fc8ea44a1edc.png`
+
+## 2026-08-28 · 23 号弱资产重做
+
+### `fx_glow_ring`
+
+```text
+A standalone transparent RGBA VFX sprite, 512x512 square, for a premium cozy isometric data-center tycoon. Show a low wide asymmetrical celebration bloom made of three OPEN wisps of soft electric-blue volumetric mist, small warm-gold glow pockets, and a restrained handful of tiny rising brass sparks. It sits behind and under a machine, so keep the center calm and the silhouette low. Absolutely no closed loop, no circle, no ring, no halo, no donut, no spiral, no geometric outline, no vertical laser beam, no magenta, no rainbow, no text, no border, no building, no ground plane. Premium rendered 3D game art, coherent top-left light, restrained blue/gold/ivory palette, organic falloff, readable but subtle at 128 px. REQUIRE genuine transparent alpha outside the effect. Do not draw a checkerboard, white background, black background, or any background pattern.
+```
+
+- ImageGen 原图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-0ba8b80e-9ef4-4703-8251-aa7b2f1f76ba.png`
+- 管线源图：`visual/work/23_asset_refresh/fx/fx_glow_ring_source.png`
+- 正式交付：`visual/final/fx/fx_glow_ring.png`
+
+### `fx_confetti_set`
+
+```text
+Transparent premium isometric reward burst made from miniature gold server badges, blue data packets, tiny brass bolts and soft paper flecks; coherent top-left lighting, restrained blue/gold/ivory palette, varied depth and natural trajectories, no primitive circles, no candy shapes, no text, no frame. Asset type: standalone transparent RGBA celebration particle sprite for a premium cozy data-center mobile tycoon, 512x512 square composition, readable at 128 px. Each piece must be a small tactile rendered object with material and volume, arranged as an open upward burst with a calm center so it does not cover the building. Genuine transparent alpha only; do not draw a checkerboard or background pattern.
+```
+
+- ImageGen 原图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-cc0f3597-f929-4977-8c6c-894336767dd8.png`
+- 管线源图：`visual/work/23_asset_refresh/fx/fx_confetti_set_source.png`
+- 正式交付：`visual/final/fx/fx_confetti_set.png`
+
+### `plot_pad_sale`
+
+```text
+Transparent isometric undeveloped parcel for a modern data-center campus, matching the existing blue/gold industrial buildings: compacted gravel and pale concrete survey corners, subtle conduit stubs, small blue construction marker, same camera and shadow direction as dc_t1, clean silhouette, no farm soil, no wooden fence, no text. Asset type: production-ready sale plot pad for a premium cozy mobile tycoon, 768x768 square, exact centered diamond/isometric footprint, coherent top-left light, warm cream concrete with restrained royal-blue and brass details, readable at map scale. Keep the construction marker small and off the main build footprint. Genuine transparent alpha outside the parcel; no checkerboard, no frame, no UI price tag, no characters.
+```
+
+- ImageGen 原图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-6cffdce1-67a4-42b3-bc80-0bbe0f481162.png`
+- 管线源图：`visual/work/23_asset_refresh/map/plot_pad_sale_source.png`
+- 正式交付：`visual/final/map/plot_pad_sale.png`
+- 运行时选择：`park_map.gd` 优先读取 `plot_pad_sale`，因此按真实消费链路替换该资产，保留 `plot_forsale` 回退语义。
+
+### `panel_main`
+
+```text
+Create a production replacement for this exact light-content nine-slice UI asset, preserving its semantic contract: dark ink text will be rendered over the center, so the reading surface MUST remain warm low-glare ivory. Seamless nine-slice mobile-game page frame for a premium cozy data-center management game: restrained dark navy anodized outer frame, thin brushed-metal desaturated blue edge, subtle warm-gold fastener details only at corners, quiet warm-ivory center, generous safe slicing area, no text, no oversized cyan glow, transparent exterior. Perfectly front-facing flat orthographic 1024x1024 rounded square, exact centered symmetric geometry, four straight edges with identical thickness, matching corners, no perspective, no tilt. The central 75% must be nearly uniform matte ivory with extremely subtle paper grain and no vignette, so long dark text remains crisp. No ornaments except four small corner fasteners, no interior divider, no extra linework. Genuine RGBA alpha-zero transparency outside the rounded frame; do not draw a checkerboard, white/gray background, scene, canvas or visible backdrop.
+```
+
+- ImageGen 原图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-0a8138be-ffd3-4e87-b7b2-af0609feb2c5.png`
+- 管线源图：`visual/work/23_asset_refresh/ui/panel_main_source.png`
+- 正式交付：`visual/final/ui/panel_main.png`
+
+### `dialog_bubble`
+
+```text
+Create the production tail-free BODY asset from this modular tutorial speech bubble kit prompt: Modular tutorial speech bubble kit on transparent background: one tail-free ivory rounded bubble plus separate centered/down-left/down-right pointer tails, premium soft enamel and restrained blue trim, consistent top-left light, large calm reading surface, no character, no text, no fixed pointer, nine-slice safe margins. Runtime contract for this file: the final 1024x512 canvas must contain ONLY the tail-free rounded rectangular bubble body; the centered/down-left/down-right pointer tails are already separate dynamic runtime pieces and must NOT be baked into this bitmap. Perfectly front-facing flat orthographic body, generous uniform quiet ivory reading surface, thin desaturated steel-blue enamel trim, subtle low-glare bevel, identical left/right and top/bottom corner geometry, no perspective, no bright cyan plastic, no screws, no icon, no shadow outside silhouette. Genuine alpha-zero transparent exterior; no checkerboard or visible background. Safe uninterrupted edge strips for nine-slice scaling.
+```
+
+- ImageGen 原图：`/Users/gavin/.codex/generated_images/019fbe5f-c128-7711-b816-3e32148cf91a/exec-d4005a54-223b-48ef-8812-f22eea776126.png`
+- 管线源图：`visual/work/23_asset_refresh/ui/dialog_bubble_source.png`
+- 正式交付：`visual/final/ui/dialog_bubble.png`
+- 运行时契约：教程主体和三层动态尾巴继续由 `TutorialOverlay` 分离绘制；本图只提供无尾九宫格回退主体。
