@@ -48,19 +48,19 @@ jobs:
         run: xvfb-run -a godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn -- --ci
 
       - name: Run SE Chinese rendered UI smoke
-        run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=se --locale=zh_CN
+        run: xvfb-run -a godot --resolution 750x1334 --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=se --locale=zh_CN
 
       - name: Run SE English rendered UI smoke
-        run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=se --locale=en
+        run: xvfb-run -a godot --resolution 750x1334 --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=se --locale=en
 
       - name: Run standard Chinese rendered UI smoke
-        run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=standard --locale=zh_CN
+        run: xvfb-run -a godot --resolution 990x2151 --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=standard --locale=zh_CN
 
       - name: Run standard English rendered UI smoke
-        run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=standard --locale=en
+        run: xvfb-run -a godot --resolution 990x2151 --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=standard --locale=en
 
       - name: Run iPad Chinese rendered UI smoke
-        run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=ipad --locale=zh_CN
+        run: xvfb-run -a godot --resolution 1024x1366 --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=ipad --locale=zh_CN
 
       - name: Run iPad English rendered UI smoke
-        run: xvfb-run -a godot --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=ipad --locale=en
+        run: xvfb-run -a godot --resolution 1024x1366 --disable-vsync --max-fps 60 --path . tests/visual_smoke.tscn -- --profile=ipad --locale=en
