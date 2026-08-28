@@ -153,7 +153,7 @@
 
 - [x] `tools/release_ios.sh` 串起 Godot 导出、签名补丁、archive、codesign、IPA 导出/复验，支持 `--bump` / `--upload` / `--dry-run` 与重复 build 号人话提示。最终 build 9 干跑完整通过且未上传；脚本会删除未使用权限的空 Info.plist 说明，归档日志不再产生麦克风空说明警告。
 - [x] CI 已加入 `tutorial_playthrough`、仅 main 的 `full_campaign`、`performance_smoke --ci` 及中英三画幅；性能 CI 只放宽帧时长为警告，粒子/节点泄漏仍为硬失败。
-- [ ] 远端 GitHub Actions 证据链接必须等本地提交推送后才能生成；当前只记录同命令本机全绿，不伪造托管 CI 结果。
+- [x] 远端 GitHub Actions 全量门禁已在 main 完整跑通：[Project gates #33180099937](https://github.com/GaoJiasheng/DataCenterTycoon/actions/runs/33180099937)。该 run 含 main 专属 `full_campaign`、243 项逻辑、完整触控教学、百机房性能及 SE/standard/iPad 中英全部视觉探针。
 
 ### E5 / E7 · 一致性与健壮性
 
