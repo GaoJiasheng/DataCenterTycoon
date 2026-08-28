@@ -78,4 +78,7 @@
 ### F3 · build 10
 
 - [x] F2 已推送且远端 CI 全绿，满足执行 `tools/release_ios.sh --bump --upload` 的前置硬闸。
-- [ ] build 10 正式归档、上传与 IPA 桌面备份待执行。
+- [x] `tools/release_ios.sh --bump --upload` 将 `export_presets.cfg` 从 build 9 升至 build 10；Godot 导出、Xcode archive、归档 app 签名复验、IPA 导出与包内 app 二次签名复验全部通过。
+- [x] xcarchive 已归档到 `builds/archives/DataCenterTycoon-1.0.0-10.xcarchive`；正式 IPA 位于 `builds/ipa/1.0.0-10/DataCenterTycoon.ipa`。
+- [x] App Store Connect 返回 `UPLOAD SUCCEEDED with no errors`，Delivery UUID `65238845-4133-4dcd-999e-c5b33ae02195`，上传 87,308,526 bytes；服务端已接受 build 10。
+- [x] IPA 已备份为 `/Users/gavin/Desktop/DataCenterTycoon-1.0.0-build10.ipa`；仓库成品与桌面备份 SHA-256 均为 `d198b85defd515bcde76e1282e1d2e28cbfd450e6b271dd4a15a652655e9c4d1`。

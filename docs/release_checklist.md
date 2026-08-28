@@ -21,7 +21,8 @@
 - [ ] `python3 tools/check_app_store_assets.py`（缺中英 iPhone 6.9 / iPad 13 共 20 张商店截图；外部交付）
 - [ ] `python3 tools/check_release.py`（仍缺隐私/支持正式链接、IAP 插件描述符及上述商店截图；外部交付）
 - [x] `tools/release_ios.sh --dry-run`（2026-08-28：build 9 完整导出、archive、codesign、IPA 导出与二次验签通过，未上传；空权限说明已在归档前移除）
-- [ ] GitHub Actions 完整绿色链接（工作流已覆盖 243 项逻辑、四个流程/性能门禁及双语三画幅；等待本地提交推送后由远端运行，不伪造链接）
+- [x] `tools/release_ios.sh --bump --upload`（2026-08-29：build 10 完整导出、archive、codesign、IPA 二次验签并上传成功；Delivery UUID `65238845-4133-4dcd-999e-c5b33ae02195`）
+- [x] GitHub Actions 完整绿色：[Project gates #33190809456](https://github.com/GaoJiasheng/DataCenterTycoon/actions/runs/33190809456)（243 项逻辑、四个流程/性能门禁及双语三画幅）
 
 ## Device and commerce
 
