@@ -49,9 +49,12 @@ def main():
         if token not in preset:
             ERRORS.append(f"iOS export preset missing {token}")
     project = (ROOT / "project.godot").read_text(encoding="utf-8")
-    for token in ('config/icon="res://assets/art/store/app_icon.png"', 'boot_splash/image="res://assets/art/store/splash_bg.png"'):
+    for token in ('config/icon="res://assets/art/store/app_icon_desktop.png"', 'boot_splash/image="res://assets/art/store/splash_bg.png"'):
         if token not in project:
             ERRORS.append(f"project.godot missing release visual setting {token}")
+    for token in ('icons/icon_1024x1024="res://assets/art/store/app_icon.png"',):
+        if token not in preset:
+            ERRORS.append(f"iOS export preset missing opaque App Store icon setting {token}")
     godot = shutil.which("godot")
     if godot is None:
         ERRORS.append("Godot is required to verify compiled translations")
