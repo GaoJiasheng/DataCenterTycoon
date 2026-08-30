@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from fill_release_identity import IDENTITY_PATH, TARGETS, load_identity, rendered_outputs
@@ -107,7 +108,7 @@ def main():
     if not list((ROOT / "ios/plugins").rglob("*.gdip")):
         ERRORS.append("missing enabled iOS plugin descriptors under ios/plugins (StoreKit/IAP required)")
     preset = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
-    for token in ('name="iOS Release Candidate"', 'export_path="builds/ios/DataCenterTycoon.zip"', 'application/min_ios_version="15.0"', "application/targeted_device_family=2"):
+    for token in ('name="iOS Release Candidate"', 'export_path="builds/ios/DataCenterTycoon.zip"', 'application/min_ios_version="15.0"', "application/targeted_device_family=0"):
         if token not in preset:
             ERRORS.append(f"iOS export preset missing {token}")
     project = (ROOT / "project.godot").read_text(encoding="utf-8")
@@ -122,7 +123,7 @@ def main():
         ERRORS.append("Godot is required to verify compiled translations")
     else:
         translations = subprocess.run(
-            [godot, "--headless", "--path", str(ROOT), "--script", str(ROOT / "tools/check_translations.gd")],
+            [godot, "--headless", "--path", str(ROOT), "--log-file", str(Path(tempfile.gettempdir()) / "dct_check_release_translations.log"), "--script", str(ROOT / "tools/check_translations.gd")],
             cwd=ROOT,
         )
         if translations.returncode:

@@ -15,7 +15,6 @@ SCREENSHOT_NAMES = (
 )
 SCREENSHOT_GROUPS = {
     "iphone_69": {(1260, 2736), (1290, 2796), (1320, 2868)},
-    "ipad_13": {(2064, 2752), (2048, 2732)},
 }
 LOCALES = ("en", "zh_CN")
 
@@ -79,7 +78,7 @@ def main():
         for failure in failures:
             print("-", failure)
         return 1
-    print("Validated opaque app icon and 20 localized iPhone/iPad screenshots.")
+    print("Validated opaque app icon and 10 localized iPhone screenshots.")
     return 0
 
 

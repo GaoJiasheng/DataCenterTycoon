@@ -30,15 +30,15 @@
 
 ### E2 · 多画幅探针与阻断级适配（异形屏从未被验证）
 
-**现状**：`tests/visual_smoke.gd` 固定 `PREVIEW_SIZE = 990×2151`（8 行），SE 级小屏、6.7"、iPad 4:3 在 `aspect=keep` 下的表现从未捕获。
+**现状**：`tests/visual_smoke.gd` 固定 `PREVIEW_SIZE = 990×2151`（8 行），SE 级小屏、6.7" 与 4:3 大画幅在 `aspect=keep` 下的表现从未捕获。
 
 **机制**
 
-- `visual_smoke` 支持 `--profile=se|standard|ipad` 参数：SE 级 750×1334、现行 990×2151（默认）、iPad 1024×1366。SE 与 iPad 档各捕获**关键 8 态**（地图、棋盘、行情+询价、科技、商店、离线日志、教程聚光灯、抽屉），不必全 47 态。
-- 断言范围（**只修阻断级**，D02 说明 iPad 可用即可，不追求理想布局）：内容不被裁切、letterbox 区域以主题色填充（不得露黑边或穿帮纹理）、触控目标 ≥44pt、安全区不压 HUD。
+- `visual_smoke` 支持 `--profile=se|standard|ipad` 参数：SE 级 750×1334、现行 990×2151（默认）、大画幅 1024×1366。SE 与大画幅档各捕获**关键 8 态**（地图、棋盘、行情+询价、科技、商店、离线日志、教程聚光灯、抽屉），不必全 47 态。参数名 `ipad` 作为稳定测试接口保留。
+- 断言范围（**只修阻断级**）：内容不被裁切、letterbox 区域以主题色填充（不得露黑边或穿帮纹理）、触控目标 ≥44pt、安全区不压 HUD。D54 收窄发布范围后，此档继续作为 iPhone 兼容模式与通用大画幅布局哨兵，不承担 iPad 原生发布责任。
 - 发现的阻断级问题随批修复；纯观感问题记录到本文验收记录留作后续，不在本批展开。
 
-**验收**：三档 profile 双语全绿进 CI（SE/iPad 档跑 8 态）；阻断级问题清零并附前后截图。
+**验收**：三档 profile 双语全绿进 CI（SE/大画幅档跑 8 态）；阻断级问题清零并附前后截图。
 
 ### E3 · 发布管线脚本化
 
@@ -114,7 +114,7 @@
 ## 3. 明确不做
 
 - 不加任何新系统、新决策条目、新收集组、新商品；不改任何经济数值（E6 报告除外，且报告不落值）。
-- 不做 iPad 理想化布局（D02：可用即可，阻断级为限）。
+- 不做大画幅理想化布局（D54：1.0 不承担 iPad 原生发布责任，兼容模式只守阻断级）。
 - 不做需要真机或所有者账号的项：Instruments 60fps 实测、StoreKit sandbox 全流程、商店截图/元数据/隐私链接（继续留在 release_checklist 外部交付清单）。
 - 不动随机流、锁价、离线结算的任何行为。
 
@@ -146,13 +146,13 @@
 
 ### E2 · 多画幅
 
-- [x] `visual_smoke --profile=se|standard|ipad` 分别锁定 750×1334、990×2151、1024×1366；SE 与 iPad 中英各 8 个关键态、标准中英各 49 态全部通过。证据与限制见 [多画幅审计](ui_review/22_multiform/README.md)。
-- [x] `stretch/aspect="keep"` 未改；letterbox 清屏色统一为主题深蓝。没有发现裁切、黑边穿帮或小于 44pt 的阻断问题，未借机重做 iPad 理想布局。
+- [x] `visual_smoke --profile=se|standard|ipad` 分别锁定 750×1334、990×2151、1024×1366；SE 与大画幅中英各 8 个关键态、标准中英各 49 态全部通过。`ipad` 仅是保留的 profile 名；D54 生效后，该档语义为兼容模式与大画幅布局回归，不是 iPad 发布目标。证据与限制见 [多画幅审计](ui_review/22_multiform/README.md)。
+- [x] `stretch/aspect="keep"` 未改；letterbox 清屏色统一为主题深蓝。没有发现裁切、黑边穿帮或小于 44pt 的阻断问题，未借机重做大画幅原生布局。
 
 ### E3 / E4 · 发布与 CI
 
 - [x] `tools/release_ios.sh` 串起 Godot 导出、签名补丁、archive、codesign、IPA 导出/复验，支持 `--bump` / `--upload` / `--dry-run` 与重复 build 号人话提示。最终 build 9 干跑完整通过且未上传；脚本会删除未使用权限的空 Info.plist 说明，归档日志不再产生麦克风空说明警告。
-- [x] CI 已加入 `tutorial_playthrough`、仅 main 的 `full_campaign`、`performance_smoke --ci` 及中英三画幅；性能 CI 只放宽帧时长为警告，粒子/节点泄漏仍为硬失败。
+- [x] CI 已加入 `tutorial_playthrough`、仅 main 的 `full_campaign`、`performance_smoke --ci` 及中英三画幅；其中 `--profile=ipad` 两个 job 保留为大画幅布局回归。性能 CI 只放宽帧时长为警告，粒子/节点泄漏仍为硬失败。
 - [x] 远端 GitHub Actions 全量门禁已在 main 完整跑通：[Project gates #33180099937](https://github.com/GaoJiasheng/DataCenterTycoon/actions/runs/33180099937)。该 run 含 main 专属 `full_campaign`、243 项逻辑、完整触控教学、百机房性能及 SE/standard/iPad 中英全部视觉探针。
 
 ### E5 / E7 · 一致性与健壮性

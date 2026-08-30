@@ -1,6 +1,6 @@
 # iOS 15+ 导出与原生服务
 
-当前工程以 Godot 4.7 stable、竖屏、iPhone/iPad 通用为基线。首次真机包需要项目所有者完成以下账号相关步骤：
+当前工程以 Godot 4.7 stable、竖屏、iPhone-only 为发布基线；iPad 只通过 iPhone 兼容模式运行，不承担 iPad 原生布局与商店截图责任。首次真机包需要项目所有者完成以下账号相关步骤：
 
 1. 在 `export_presets.cfg` 替换 bundle identifier、Apple Team ID 和签名配置。
 2. 安装 Godot 4.7 兼容的 iOS InAppStore/StoreKit 插件，并在导出预设中启用。

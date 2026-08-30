@@ -6,7 +6,7 @@
 |---|---|---|
 | 引擎 | Godot 4.x（与 zombie-fire 同版本线） | 复用所有者已验证的 iOS 导出管线、隐私清单（PrivacyInfo.xcprivacy）经验 |
 | 语言 | GDScript | 单人/小团队效率优先 |
-| 目标平台 | iOS 15+，竖屏 | 基准逻辑分辨率 1080×1920，`canvas_items` 拉伸 + `expand` 适配刘海屏与 iPad |
+| 目标平台 | iOS 15+，竖屏，1.0 iPhone-only | 基准逻辑分辨率 1080×1920，`canvas_items` 拉伸 + `expand` 适配刘海屏；iPad 仅以 iPhone 兼容模式运行，不作为发布目标 |
 | 存档 | 本地 JSON（`user://save_v{N}.json`）+ 版本号迁移函数 | 纯单机；写入用「临时文件+原子改名」防半写损坏；保留最近 3 份轮换备份 |
 | 广告 | AdMob（Godot iOS 社区插件，P04 待最终确认） | 只用激励视频，不做横幅/插屏（体验优先，见 05 文档） |
 | IAP | Apple StoreKit（Godot iOS 内购插件） | 消耗型（钻石/礼包）+ 非消耗型（去广告、离线上限） |
