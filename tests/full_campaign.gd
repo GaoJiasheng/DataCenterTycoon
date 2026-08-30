@@ -19,6 +19,7 @@ var _shot_index := 0
 var _month := 0
 var _month_seconds := 7200.0
 var _era_overlays_seen := 0
+var _first_run_twenty_month := 0
 
 func _ready() -> void:
 	TranslationServer.set_locale("zh_CN")
@@ -115,6 +116,7 @@ func _run_campaign() -> void:
 				await _dismiss_modals()
 				await _shot("c_era%d_world" % milestone)
 		if bool(seen[3]) and int(Game.state["player"].get("total_datacenters_built", 0)) >= _prestige_minimum():
+			_first_run_twenty_month = _month
 			_note("month %d: %d data centers built, prestige unlocked" % [_month, int(Game.state["player"].get("total_datacenters_built", 0))])
 			break
 	_expect(bool(seen[2]), "a played campaign must reach era 2 within %d game months" % MAX_MONTHS)
@@ -190,7 +192,7 @@ func _empty_plot_ids() -> Array[String]:
 
 # Buy land, build, kit out, retire, upgrade — the loop a tester repeats.
 # Returns true if anything was retired this month.
-func _play_one_month() -> bool:
+func _play_one_month(preferred_building_id: String = "") -> bool:
 	var retired := false
 	var empty_plots := 0
 	# Repairs first: a faulted rack earns nothing and paying for it is always
@@ -218,7 +220,10 @@ func _play_one_month() -> bool:
 	if str(Game.state.get("bankruptcy", {}).get("status", "normal")) != "normal":
 		return retired
 	for plot: Dictionary in Game.state.get("plots", []):
-		if str(plot.get("status", "")) == "empty" and _build_on(str(plot.get("id", ""))):
+		var built := false
+		if str(plot.get("status", "")) == "empty":
+			built = _build_specific(str(plot.get("id", "")), preferred_building_id) if not preferred_building_id.is_empty() else _build_on(str(plot.get("id", "")))
+		if built:
 			empty_plots -= 1
 	# Only expand once the land already owned is working and paid for itself.
 	if empty_plots <= 0 and _spare_cash() > Game.next_plot_price() * 3.0:
@@ -253,6 +258,12 @@ func _build_on(plot_id: String) -> bool:
 		if bool(Game.start_datacenter_construction(plot_id, building_id).get("ok", false)):
 			return true
 	return false
+
+func _build_specific(plot_id: String, building_id: String) -> bool:
+	var building := DataRepository.get_entry("buildings", building_id)
+	if building.is_empty() or not Game.is_unlocked(building) or _spare_cash() < _fit_out_estimate(building):
+		return false
+	return bool(Game.start_datacenter_construction(plot_id, building_id).get("ok", false))
 
 # The cheapest kit that makes a site earn: the shell, entry-level power, one
 # cooler and enough racks to fill what that cooler covers. Everything above
@@ -484,6 +495,7 @@ func _verify_prestige() -> void:
 	_expect(built >= _prestige_minimum(), "the campaign only built %d sites; prestige needs %d" % [built, _prestige_minimum()])
 	if built < _prestige_minimum():
 		return
+	var retention := _prepare_cross_run_retention()
 	var before_brand := float(Game.state["player"].get("brand_multiplier", 1.0))
 	var before_era := int(Game.state["player"].get("era", 1))
 	var result := Game.prestige()
@@ -496,17 +508,121 @@ func _verify_prestige() -> void:
 	_expect(_cash() > 0.0, "prestige must hand back the liquidated net worth as cash")
 	_expect(Game.state.get("plots", []).size() == 1, "prestige must reset the campus to a single plot")
 	_expect(Game.queue_capacity() == 2 and int(Game.state.get("technology", {}).get("construction_bays", 0)) == 1, "prestige must reset Engineering to its two-lane base")
+	_verify_cross_run_retention(retention)
 	_note("prestige: brand x%.3f, restart cash $%s" % [float(Game.state["player"].get("brand_multiplier", 1.0)), Game.format_number(_cash())])
 	await _shot("f_after_prestige")
-	# The restarted run must still be playable, not a soft-locked empty map.
-	var rebuilt := bool(Game.start_datacenter_construction("plot_1", "dc_t1").get("ok", false))
-	if not rebuilt:
-		rebuilt = bool(Game.start_datacenter_construction("plot_1", "dc_t0").get("ok", false))
-	_expect(rebuilt, "the post-prestige run must be able to build again")
-	Game.advance_time(_month_seconds, false)
-	main.call("_refresh")
-	await _settle()
-	_assert_invariants()
+	var bay_cash_before := _cash()
+	var bay_upgrade := Game.purchase_construction_bays()
+	var bay_cost := float(DataRepository.get_table("technology").get("upgrades", {}).get("construction_bays", {}).get("levels", {}).get("2", {}).get("cost", 0.0))
+	_expect(bool(bay_upgrade.get("ok", false)) and Game.queue_capacity() == 3 and int(Game.state.get("technology", {}).get("construction_bays", 0)) == 2, "carried wealth must immediately repurchase Engineering expansion and restore its authored three-lane capacity")
+	_expect(absf(bay_cash_before - _cash() - bay_cost) <= 0.01, "the second company Engineering purchase must spend exactly the authored price")
+	_expect(Game.board_points_available() == 1, "one completed company legacy must expose one unspent board point")
+	var board_result := Game.allocate_board_point("business")
+	_expect(bool(board_result.get("ok", false)) and int(Game.state.get("meta", {}).get("board_allocations", {}).get("business", 0)) == 1 and Game.board_points_available() == 0, "the second company must allocate its carried board point")
+	await _run_second_company(retention)
+
+func _prepare_cross_run_retention() -> Dictionary:
+	var roadmap_claim := Game.claim_roadmap_reward("first_facility")
+	_expect(bool(roadmap_claim.get("ok", false)), "the first company must claim one earned roadmap item before restructuring")
+	var collection_group := ""
+	for group_id: String in DataRepository.get_table("meta_progression").get("collection", {}).get("groups", {}):
+		var status := Game.collection_group_status(group_id)
+		if bool(status.get("complete", false)) and not bool(status.get("claimed", false)):
+			var claimed := Game.claim_collection_reward(group_id)
+			if bool(claimed.get("ok", false)):
+				collection_group = group_id
+				break
+	_expect(not collection_group.is_empty(), "the played first company must complete and claim at least one collection group")
+	return {
+		"roadmap_claimed": Game.state.get("meta", {}).get("roadmap_claimed", {}).duplicate(true),
+		"collection_claimed": Game.state.get("meta", {}).get("collection_claimed", {}).duplicate(true),
+		"discovered": Game.state.get("meta", {}).get("discovered", {}).duplicate(true),
+		"seen_customers": Game.state.get("meta", {}).get("seen_customers", {}).duplicate(true),
+		"seen_events": Game.state.get("meta", {}).get("seen_events", {}).duplicate(true),
+		"history_size": Game.state.get("meta", {}).get("company_history", []).size(),
+		"collection_group": collection_group,
+	}
+
+func _verify_cross_run_retention(retention: Dictionary) -> void:
+	var meta: Dictionary = Game.state.get("meta", {})
+	_expect(meta.get("roadmap_claimed", {}) == retention.get("roadmap_claimed", {}), "roadmap claims must survive restructuring")
+	_expect(meta.get("collection_claimed", {}) == retention.get("collection_claimed", {}), "collection reward claims must survive restructuring")
+	_expect(meta.get("discovered", {}) == retention.get("discovered", {}), "company collection discoveries must survive restructuring")
+	_expect(meta.get("seen_customers", {}) == retention.get("seen_customers", {}) and meta.get("seen_events", {}) == retention.get("seen_events", {}), "client and market collection discoveries must survive restructuring")
+	var history: Array = meta.get("company_history", [])
+	_expect(history.size() == int(retention.get("history_size", 0)) + 1, "restructuring must add exactly one company memorial record")
+	if not history.is_empty():
+		_expect(int((history[0] as Dictionary).get("datacenters_built", 0)) >= _prestige_minimum(), "the company memorial must preserve the first run's real scale")
+	var gems_before_repeat := int(Game.state.get("player", {}).get("gems", 0))
+	var roadmap_repeat := Game.claim_roadmap_reward("first_facility")
+	_expect(not bool(roadmap_repeat.get("ok", true)) and str(roadmap_repeat.get("reason", "")) == "already_claimed" and int(Game.state.get("player", {}).get("gems", 0)) == gems_before_repeat, "a carried roadmap claim must never award gems twice")
+	var collection_group := str(retention.get("collection_group", ""))
+	var collection_repeat := Game.claim_collection_reward(collection_group)
+	_expect(not bool(collection_repeat.get("ok", true)) and str(collection_repeat.get("reason", "")) == "already_claimed" and int(Game.state.get("player", {}).get("gems", 0)) == gems_before_repeat, "a carried collection claim must never award gems twice")
+
+func _run_second_company(retention: Dictionary) -> void:
+	# Carried cash and the repurchased third lane are converted into a deliberate
+	# low-upkeep T1 expansion wave.  This is a player strategy, not a hidden
+	# economy shortcut: every plot, shell, attachment, and rack uses live APIs.
+	while Game.state.get("plots", []).size() < Game.queue_capacity():
+		var land := Game.buy_next_plot()
+		_expect(bool(land.get("ok", false)), "the second company must be able to buy land for its opening construction wave")
+		if not bool(land.get("ok", false)):
+			break
+	var opening_started := 0
+	for plot_id: String in _empty_plot_ids():
+		if _build_specific(plot_id, "dc_t1"):
+			opening_started += 1
+	_expect(opening_started == 3 and Game.state.get("construction_queue", []).size() == 3, "the repurchased Engineering tier must admit three real second-company projects at once")
+
+	var reached_twenty_month := 0
+	for second_month: int in range(1, 31):
+		for _slice: int in range(4):
+			Game.advance_time(_month_seconds * 0.25, false)
+			await get_tree().process_frame
+			main.call("_refresh")
+			await get_tree().process_frame
+			_assert_invariants()
+			_expect(_cash() >= 0.0, "second company month %d: carried wealth must not fall below zero" % second_month)
+			_expect(str(Game.state.get("bankruptcy", {}).get("status", "normal")) != "game_over", "second company month %d: campaign must never enter a dead state" % second_month)
+			await _dismiss_modals()
+			_play_one_month("dc_t1")
+		if reached_twenty_month == 0 and int(Game.state.get("player", {}).get("total_datacenters_built", 0)) >= _prestige_minimum():
+			reached_twenty_month = second_month
+			_note("second company month %d: reached %d data centers" % [second_month, int(Game.state.get("player", {}).get("total_datacenters_built", 0))])
+		if second_month % 6 == 0:
+			print("CAMPAIGN: second company month %d — built %d, cash $%s, income $%s/mo" % [second_month, int(Game.state.get("player", {}).get("total_datacenters_built", 0)), Game.format_number(_cash()), Game.format_number(Game.monthly_income())])
+
+	_expect(reached_twenty_month > 0 and reached_twenty_month <= 30, "the second company must rebuild twenty sites inside the thirty-month coverage window")
+	_expect(_first_run_twenty_month > 0 and reached_twenty_month < _first_run_twenty_month, "the second company must reach twenty sites faster than the first (%d vs %d months)" % [reached_twenty_month, _first_run_twenty_month])
+	_verify_board_income_formula()
+	var meta: Dictionary = Game.state.get("meta", {})
+	_expect(meta.get("roadmap_claimed", {}) == retention.get("roadmap_claimed", {}), "thirty second-company months must not erase or duplicate first-run roadmap claims")
+	_expect(meta.get("collection_claimed", {}) == retention.get("collection_claimed", {}), "thirty second-company months must not erase or duplicate first-run collection rewards")
+	_expect((meta.get("company_history", []) as Array).size() == int(retention.get("history_size", 0)) + 1, "the second company must preserve exactly one first-run memorial until its own restructuring")
+	_note("second company: 20 sites in %d months versus %d months on the first run; finished 30-month soak with $%s" % [reached_twenty_month, _first_run_twenty_month, Game.format_number(_cash())])
+	await _shot("h_second_company_30m")
+	await _tour_pages()
+
+func _verify_board_income_formula() -> void:
+	var earning_dc: Dictionary = {}
+	for plot: Dictionary in Game.state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if dc is Dictionary and Game.datacenter_monthly_income(dc as Dictionary) > 0.0:
+			earning_dc = dc as Dictionary
+			break
+	_expect(not earning_dc.is_empty(), "the second company must have an earning data center for the board-formula audit")
+	if earning_dc.is_empty():
+		return
+	var no_board_state: Dictionary = Game.state.duplicate(true)
+	no_board_state["meta"]["board_allocations"]["business"] = 0
+	var market_quote := func(customer_id: String) -> float: return Game.market_multiplier(customer_id)
+	var base_income := Rules.datacenter_income_per_month(earning_dc, no_board_state, Game.data, market_quote)
+	var authoritative := Rules.datacenter_income_per_month(earning_dc, Game.state, Game.data, market_quote)
+	var wrapper_income := Game.datacenter_monthly_income(earning_dc)
+	var expected_multiplier := Rules.board_business_income_multiplier(Game.state, Game.data)
+	_expect(base_income > 0.0 and is_equal_approx(authoritative, base_income * expected_multiplier), "the allocated board specialty must apply exactly once inside the authoritative income formula")
+	_expect(is_equal_approx(wrapper_income, authoritative), "Game.datacenter_monthly_income must agree with the authoritative board-adjusted rule")
 
 # Every page must survive a fully built-out save without erroring or going blank.
 func _tour_pages() -> void:
