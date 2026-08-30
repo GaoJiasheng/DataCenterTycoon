@@ -1,0 +1,11 @@
+{
+  "product_name": "REPLACE_WITH_PRODUCT_NAME",
+  "privacy_email": "REPLACE_WITH_PRIVACY_EMAIL",
+  "support_email": "REPLACE_WITH_SUPPORT_EMAIL",
+  "privacy_url": "REPLACE_WITH_PRIVACY_URL",
+  "support_url": "REPLACE_WITH_SUPPORT_URL",
+  "effective_date": "REPLACE_WITH_EFFECTIVE_DATE",
+  "ad_providers": [
+    "REPLACE_WITH_AD_PROVIDER_NAME"
+  ]
+}

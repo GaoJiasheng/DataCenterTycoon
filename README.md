@@ -69,6 +69,8 @@ python3 tools/report_release_economy.py
 
 `tests/store_shots.tscn` 用同一份后期存档夹具和真实 `main.tscn` 生成 App Store 截图。它在目标像素尺寸的 `SubViewport` 中原生渲染，不依赖桌面窗口高度，也不会把小图放大。分别对 `en/zh_CN` 与 `iphone_69/ipad_13` 四种组合运行即可复现全部 20 张交付图。
 
+发布所需的产品名、联系邮箱、公开链接、生效日期和广告服务商只在 `data/release_identity.json` 填写一次；所有者给出真实值后运行 `python3 tools/fill_release_identity.py`，即可同步生成隐私政策、支持页和中英商店文案。`check_release.py` 会同时拦截未填占位符和被手工改脏的生成文件。
+
 资源重做或更新后执行：
 
 ```sh

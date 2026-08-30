@@ -2,9 +2,9 @@
 
 ## Owner/account inputs
 
-- [ ] P01 final product name and App Store uniqueness check
+- [ ] P01 final product name and App Store uniqueness check（填入 `data/release_identity.json`）
 - [ ] Bundle identifier, Apple Team ID, signing certificate and provisioning profile
-- [ ] Public support email, privacy email, privacy-policy URL and support URL
+- [ ] Public support/privacy emails, public policy/support URLs, effective date and exact ad-provider names（集中填入 `data/release_identity.json`，然后运行 `python3 tools/fill_release_identity.py`）
 - [ ] App Store Connect app record and all eight IAP products
 - [ ] P04 rewarded-ad provider selection and production ad unit IDs
 
@@ -18,8 +18,8 @@
 - [ ] iPhone 12 与 iPhone 17 各跑一次 Instruments：六机房 + 金币并发保持 60fps；本项不能用桌面烟测替代
 - [x] `python3 tools/simulate_economy.py`（2026-08-28：三类 30 天 × 20 seed 全部门禁通过；输出 SHA-256 `4e8d551354da4bff23232b454abb9253f2ae96e5a3f8c03b60b8fe732a227e04`）
 - [x] `python3 tools/check_assets.py --strict --audio`（2026-08-28：180 art / 6 font / 23 audio，纹理分类 45 无损 + 135 VRAM）
-- [ ] `python3 tools/check_app_store_assets.py`（缺中英 iPhone 6.9 / iPad 13 共 20 张商店截图；外部交付）
-- [ ] `python3 tools/check_release.py`（仍缺隐私/支持正式链接、IAP 插件描述符及上述商店截图；外部交付）
+- [x] `python3 tools/check_app_store_assets.py`（2026-08-30：中英 × iPhone 6.9 / iPad 13 × 五屏，共 20 张原生离屏渲染截图；尺寸、组内一致性与无 alpha 全绿）
+- [ ] `python3 tools/check_release.py`（当前按设计只阻断 `release_identity.json` 的所有者占位值与 IAP 插件描述符）
 - [x] `tools/release_ios.sh --dry-run`（2026-08-28：build 9 完整导出、archive、codesign、IPA 导出与二次验签通过，未上传；空权限说明已在归档前移除）
 - [x] `tools/release_ios.sh --bump --upload`（2026-08-29：build 10 完整导出、archive、codesign、IPA 二次验签并上传成功；Delivery UUID `65238845-4133-4dcd-999e-c5b33ae02195`）
 - [x] GitHub Actions 完整绿色：[Project gates #33190809456](https://github.com/GaoJiasheng/DataCenterTycoon/actions/runs/33190809456)（243 项逻辑、四个流程/性能门禁及双语三画幅）
@@ -37,6 +37,6 @@
 ## Store assets
 
 - [x] Opaque 1024×1024 icon
-- [ ] Five ordered screenshots for 6.9-inch iPhone and 13-inch iPad in both languages; see `docs/store/README.md`
-- [ ] English and Chinese metadata proofread; region excludes mainland China
-- [ ] Age rating, review notes, IAP review screenshots and restore-purchase instructions
+- [x] Five ordered screenshots for 6.9-inch iPhone and 13-inch iPad in both languages; see `docs/store/README.md`
+- [x] English and Chinese metadata copy complete and length-checked; region excludes mainland China
+- [ ] Age rating owner confirmation and IAP review screenshots（双语问卷草稿、审核步骤与恢复购买说明已备齐）

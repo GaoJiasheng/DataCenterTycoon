@@ -2,10 +2,13 @@
 """Fail a release candidate while required owner inputs or artifacts are missing."""
 
 import json
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from fill_release_identity import IDENTITY_PATH, TARGETS, load_identity, rendered_outputs
 
 ROOT = Path(__file__).resolve().parents[1]
 ERRORS = []
@@ -27,16 +30,75 @@ def check_placeholders(path):
             ERRORS.append(f"{path.relative_to(ROOT)} contains release placeholder {token}")
 
 
+def check_release_identity():
+    identity_path = require(IDENTITY_PATH.relative_to(ROOT))
+    for template_name, output_name in TARGETS.items():
+        require(template_name)
+        require(output_name)
+    if not identity_path.is_file():
+        return
+    try:
+        identity = load_identity(identity_path)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        ERRORS.append(f"data/release_identity.json is invalid: {error}")
+        return
+    for field, value in identity.items():
+        values = value if isinstance(value, list) else [value]
+        if any("REPLACE_WITH_" in str(item) for item in values):
+            ERRORS.append(f"data/release_identity.json field {field} still needs the owner-provided value")
+    try:
+        expected_outputs = rendered_outputs(identity)
+    except (OSError, ValueError) as error:
+        ERRORS.append(f"release identity templates cannot render: {error}")
+        return
+    for output, expected in expected_outputs.items():
+        if output.is_file() and output.read_text(encoding="utf-8") != expected:
+            ERRORS.append(f"{output.relative_to(ROOT)} differs from its release identity template; run python3 tools/fill_release_identity.py")
+
+
+def metadata_section(text, heading):
+    match = re.search(rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
+    return match.group(1).strip() if match else ""
+
+
+def check_metadata_contract(path, labels):
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    subtitle_match = re.search(rf"^- {re.escape(labels['subtitle'])}[:：]\s*`([^`]*)`", text, re.MULTILINE)
+    keywords_match = re.search(rf"^- {re.escape(labels['keywords'])}[:：]\s*`([^`]*)`", text, re.MULTILINE)
+    promotional = metadata_section(text, labels["promotional"])
+    description = metadata_section(text, labels["description"])
+    for field, value, limit in (
+        ("subtitle", subtitle_match.group(1) if subtitle_match else "", 30),
+        ("keywords", keywords_match.group(1) if keywords_match else "", 100),
+        ("promotional text", promotional, 170),
+        ("description", description, 4000),
+    ):
+        if not value:
+            ERRORS.append(f"{path.relative_to(ROOT)} is missing {field}")
+        elif len(value) > limit:
+            ERRORS.append(f"{path.relative_to(ROOT)} {field} is {len(value)} characters; App Store limit is {limit}")
+    for heading in (labels["whats_new"], labels["review"], labels["age"]):
+        if not metadata_section(text, heading):
+            ERRORS.append(f"{path.relative_to(ROOT)} is missing section {heading}")
+
+
 def main():
+    check_release_identity()
+    check_metadata_contract(
+        ROOT / "docs/store/metadata/en.md",
+        {"subtitle": "Subtitle", "keywords": "Keywords", "promotional": "Promotional Text", "description": "Description", "whats_new": "What's New", "review": "App Review Notes", "age": "Age Rating Draft — Owner Confirmation Required"},
+    )
+    check_metadata_contract(
+        ROOT / "docs/store/metadata/zh_CN.md",
+        {"subtitle": "副标题", "keywords": "关键词", "promotional": "推广文本", "description": "完整描述", "whats_new": "更新说明", "review": "审核备注", "age": "年龄分级答案草稿——待所有者确认"},
+    )
     for path in (
         "project.godot",
         "export_presets.cfg",
         "ios/PrivacyInfo.xcprivacy",
-        "docs/public/privacy.html",
         "docs/public/terms.html",
-        "docs/public/support.html",
-        "docs/store/metadata/en.md",
-        "docs/store/metadata/zh_CN.md",
     ):
         check_placeholders(require(path))
     store = json.loads((ROOT / "data/store.json").read_text(encoding="utf-8"))["items"]
