@@ -23,3 +23,16 @@ docs/store/screenshots/
 §10 final-look 的自动审片归档位于 `docs/ui_review/10_final_{en,zh_CN}_*.png`，固定 990×2151，只用于游戏内 UI 验收；桌面交互预览仍为 660×1434。它们不是本目录要求的正式 App Store Connect 尺寸，也不冒充真机截图。
 
 运行 `python3 tools/check_app_store_assets.py` 做机器验收。规格来源：[Apple App Store Connect Screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)，发布前仍需重新核对 Apple 的最新要求。
+
+截图由真实游戏场景的原生离屏渲染生成；不需要、也不允许先截小图再放大：
+
+```sh
+for locale in en zh_CN; do
+  for device in iphone_69 ipad_13; do
+    godot --fixed-fps 60 --path . tests/store_shots.tscn -- --locale="$locale" --device="$device"
+  done
+done
+python3 tools/check_app_store_assets.py
+```
+
+两种语言共用 `tests/store_showcase_fixture.gd` 的同一份后期存档与相同相机位置，仅切换本地化。iPad 画面按既有 `aspect=keep` 保留比例，信箱区域固定使用主题底色 `#122438`。
