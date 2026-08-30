@@ -64,6 +64,10 @@ static func apply() -> String:
 		"inquiry_bonus_revenue": 218000.0,
 		"highest_net_worth": 51400000.0,
 	}, true)
+	var completed_achievements: Dictionary = {}
+	for achievement_id: String in DataRepository.get_table("achievements").get("items", {}):
+		completed_achievements[achievement_id] = true
+	Game.state["achievements"] = completed_achievements
 	Game.state["meta"].merge({
 		"campus_specializations": {"0": "cloud", "1": "ai_compute"},
 		"customer_service_seconds": {"internet": 310000.0, "mining": 151000.0, "cloud": 287000.0, "gpu_company": 194000.0},
@@ -95,6 +99,14 @@ static func apply() -> String:
 	}
 	Game.state["settings"]["locale"] = TranslationServer.get_locale()
 	return str((plots[0]["datacenter"] as Dictionary).get("id", ""))
+
+
+static func restage_market() -> void:
+	# MainView's first live tick may advance a market boundary while the native
+	# capture viewport is warming up.  Restage the same authored save data
+	# immediately before the market shot so every locale/device run starts from
+	# the identical active + preview boundary.
+	_fill_market(Game.simulation_time())
 
 
 static func _datacenter(index: int, building_id: String, customer_id: String, now: float) -> Dictionary:

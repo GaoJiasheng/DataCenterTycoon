@@ -19,6 +19,7 @@ const GUTTER_COLOR := Color("122438")
 
 var capture_locale := "zh_CN"
 var capture_device := "iphone_69"
+var capture_shot := "all"
 var target_size: Vector2i = DEVICE_SIZES["iphone_69"]
 var content_size := Vector2i.ZERO
 var target_datacenter_id := ""
@@ -29,8 +30,9 @@ var main: Control
 func _ready() -> void:
 	var requested_locale := _argument("locale", "zh_CN")
 	var requested_device := _argument("device", "iphone_69")
-	if requested_locale not in ["en", "zh_CN", "all"] or requested_device not in ["iphone_69", "ipad_13", "all"]:
-		push_error("STORE_SHOTS: expected --locale=en|zh_CN|all --device=iphone_69|ipad_13|all")
+	capture_shot = _argument("shot", "all")
+	if requested_locale not in ["en", "zh_CN", "all"] or requested_device not in ["iphone_69", "ipad_13", "all"] or capture_shot not in ["all", "park", "datacenter", "market", "technology", "prestige"]:
+		push_error("STORE_SHOTS: expected --locale=en|zh_CN|all --device=iphone_69|ipad_13|all --shot=all|park|datacenter|market|technology|prestige")
 		get_tree().quit(2)
 		return
 	Game.persistence_enabled = false
@@ -59,6 +61,8 @@ func _run_configuration(locale: String, device: String) -> bool:
 		print("STORE_SHOTS: %s native probe %s target=%s content=%s -> %s" % ["PASS" if valid else "FAIL", capture_device, target_size, content_size, probe_path])
 	else:
 		for shot: Dictionary in SHOTS:
+			if capture_shot != "all" and str(shot["page"]) != capture_shot:
+				continue
 			valid = (await _stage_and_capture(str(shot["page"]), str(shot["file"]))) and valid
 	print("STORE_SHOTS: %s locale=%s device=%s target=%dx%d content=%dx%d" % ["PASS" if valid else "FAIL", capture_locale, capture_device, target_size.x, target_size.y, content_size.x, content_size.y])
 	AudioService.stop_all()
@@ -103,6 +107,7 @@ func _stage_and_capture(page: String, file_name: String) -> bool:
 		"datacenter":
 			main.call("_open_datacenter_detail", target_datacenter_id, "board")
 		"market":
+			ShowcaseFixture.restage_market()
 			main.call("_navigate", "market")
 		"technology":
 			main.call("_navigate", "tech")
@@ -119,6 +124,17 @@ func _stage_and_capture(page: String, file_name: String) -> bool:
 		var bays_card := main.find_child("ConstructionBaysCard", true, false) as Control
 		if page_scroll != null and bays_card != null:
 			page_scroll.ensure_control_visible(bays_card)
+			await _settle(3)
+	elif page == "market":
+		# The real market page places the two persistent inquiry cards before the
+		# chart.  Move the live ScrollContainer to their shared boundary so the
+		# store frame shows both persona offers and the rich event curve, instead
+		# of merely proving that an off-screen chart node exists.
+		var page_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
+		var inquiry_board := main.find_child("InquiryBoard", true, false) as Control
+		if page_scroll != null and inquiry_board != null:
+			var inquiry_offset := inquiry_board.global_position.y - page_scroll.global_position.y
+			page_scroll.scroll_vertical = maxi(0, page_scroll.scroll_vertical + roundi(inquiry_offset) - 24)
 			await _settle(3)
 	elif page == "prestige":
 		var page_scroll := main.find_child("PageScroll", true, false) as ScrollContainer

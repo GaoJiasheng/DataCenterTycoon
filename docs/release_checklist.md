@@ -10,11 +10,11 @@
 
 ## Automated gates
 
-- [x] `python3 tools/validate_data.py`（2026-08-28：16 表、双语、180 art IDs）
-- [x] `godot --headless --path . tests/test_runner.tscn`（2026-08-28：243 passed）
-- [x] `flow_audit` / `midgame_audit` / 真实触摸 `tutorial_playthrough` / `full_campaign`（2026-08-28：全部通过；战役第 118 月 20 座、最终 23 座并完成重组）
-- [x] `visual_smoke` 中英标准档各 49 态（990×2151），SE / iPad 中英各 8 个关键态（750×1334 / 1024×1366），全部通过裁剪、贴边、叠印与触控断言
-- [x] `godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn`（2026-08-28：100 座机房、13 园区页、当前页 6 对象；average 6.63ms / p95 7.01ms / 30 粒子与猫特效零残留 / 节点差 0）
+- [x] `python3 tools/validate_data.py`（2026-08-30：17 表、双语、180 art IDs）
+- [x] `godot --headless --path . tests/test_runner.tscn`（2026-08-30：243 passed）
+- [x] `flow_audit` / `midgame_audit` / 真实触摸 `tutorial_playthrough` / `full_campaign`（2026-08-30：全部通过；本轮首局第 119 月达 20 座、完成重组，二局第 11 月达 21 座并续跑至第 30 月 59 座）
+- [x] `visual_smoke` 中英标准档各 49 态（990×2151），SE / iPad 中英各 8 个关键态（750×1334 / 1024×1366），2026-08-30 全量复跑通过裁剪、贴边、叠印与触控断言
+- [x] `godot --disable-vsync --max-fps 240 --path . tests/performance_smoke.tscn`（2026-08-30：100 座机房、13 园区页、当前页 6 对象；average 7.67ms / p95 15.75ms / 30 粒子与猫特效零残留 / 节点差 0）
 - [ ] iPhone 12 与 iPhone 17 各跑一次 Instruments：六机房 + 金币并发保持 60fps；本项不能用桌面烟测替代
 - [x] `python3 tools/simulate_economy.py`（2026-08-28：三类 30 天 × 20 seed 全部门禁通过；输出 SHA-256 `4e8d551354da4bff23232b454abb9253f2ae96e5a3f8c03b60b8fe732a227e04`）
 - [x] `python3 tools/check_assets.py --strict --audio`（2026-08-28：180 art / 6 font / 23 audio，纹理分类 45 无损 + 135 VRAM）

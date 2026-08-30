@@ -36,3 +36,5 @@ python3 tools/check_app_store_assets.py
 ```
 
 两种语言共用 `tests/store_showcase_fixture.gd` 的同一份后期存档与相同相机位置，仅切换本地化。iPad 画面按既有 `aspect=keep` 保留比例，信箱区域固定使用主题底色 `#122438`。
+
+仅复核某一屏时可附加 `--shot=park|datacenter|market|technology|prestige`；不传或传 `--shot=all` 仍产出完整五屏。行情截图会滚动真实页面到两张询价人设卡与历史曲线的共同可见区，不会只检查屏外节点就冒充完成构图。
