@@ -98,6 +98,17 @@ def check_packaged_legal(godot):
             marker = next((line for line in expected.splitlines() if len(line.encode("utf-8")) >= 24), "")
             if not marker or marker.encode("utf-8") not in payload:
                 ERRORS.append(f"release pck does not contain readable legal body {output_name}")
+        attributions = json.loads((ROOT / "data/attributions.json").read_text(encoding="utf-8"))
+        packaged_paths = sorted({
+            str(item.get("license_text_path", ""))
+            for item in attributions.get("items", [])
+            if str(item.get("license_text_path", "")).startswith("res://")
+        })
+        for resource_path in packaged_paths:
+            source = ROOT / resource_path.removeprefix("res://")
+            marker = next((line for line in source.read_text(encoding="utf-8").splitlines() if len(line.encode("utf-8")) >= 24), "") if source.is_file() else ""
+            if not marker or marker.encode("utf-8") not in payload:
+                ERRORS.append(f"release pck does not contain attribution license text {resource_path}")
 
 
 def metadata_section(text, heading):

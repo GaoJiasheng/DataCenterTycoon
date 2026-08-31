@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = {}
 ERRORS = []
 ART_IDS = set()
+ATTRIBUTION_FIELDS = {"id", "name", "kind", "source", "license", "license_text_path", "notes"}
 
 
 def load_data():
@@ -211,6 +212,42 @@ def validate_references():
             ERRORS.append(f"personas/{customer_id}: expected at least two personas")
 
 
+def validate_attributions():
+    items = DATA.get("attributions", {}).get("items", [])
+    if not isinstance(items, list) or not items:
+        ERRORS.append("attributions/items: expected a non-empty array")
+        return
+    seen_ids = set()
+    preset = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            ERRORS.append(f"attributions/{index}: expected an object")
+            continue
+        missing = ATTRIBUTION_FIELDS - set(item)
+        if missing:
+            ERRORS.append(f"attributions/{index}: missing fields {sorted(missing)}")
+            continue
+        if any(not isinstance(item[field], str) or not item[field].strip() for field in ATTRIBUTION_FIELDS):
+            ERRORS.append(f"attributions/{index}: every required field must be a non-empty string")
+        item_id = item.get("id", "")
+        if item_id in seen_ids:
+            ERRORS.append(f"attributions/{index}: duplicate id {item_id}")
+        seen_ids.add(item_id)
+        license_path = item.get("license_text_path", "")
+        if license_path == "engine://license":
+            continue
+        if not license_path.startswith("res://"):
+            ERRORS.append(f"attributions/{item_id}: license_text_path must be res:// or engine://license")
+            continue
+        file_path = ROOT / license_path.removeprefix("res://")
+        if not file_path.is_file() or file_path.stat().st_size == 0:
+            ERRORS.append(f"attributions/{item_id}: missing license text {license_path}")
+        relative = license_path.removeprefix("res://")
+        parent_filter = str(Path(relative).parent / "*.txt")
+        if parent_filter not in preset:
+            ERRORS.append(f"attributions/{item_id}: {license_path} is not covered by an export include filter")
+
+
 def validate_localization():
     with (ROOT / "localization/ui.csv").open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -343,6 +380,7 @@ def main():
     load_data()
     if not ERRORS:
         validate_references()
+        validate_attributions()
         validate_localization()
         validate_manifest()
         validate_asset_references()

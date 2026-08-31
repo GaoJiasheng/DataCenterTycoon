@@ -317,6 +317,10 @@ LEGAL_TERMS_TITLE,Terms of service,服务条款
 LEGAL_SUPPORT_TITLE,Support,支持说明
 LEGAL_ATTRIBUTIONS_TITLE,Third-party notices,第三方与许可
 LEGAL_LOAD_ERROR,This document is temporarily unavailable.,该文档暂时无法读取。
+ATTRIBUTION_KIND,Type,类型
+ATTRIBUTION_SOURCE,Source,来源
+ATTRIBUTION_LICENSE,License,许可
+ATTRIBUTION_COMPONENTS,Embedded components and notices,内嵌组件与声明
 LANGUAGE_ENGLISH,English,English
 LANGUAGE_CHINESE,简体中文,简体中文
 BUILDING_T0,Container Data Center,集装箱机房

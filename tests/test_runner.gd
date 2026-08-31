@@ -76,6 +76,15 @@ func _run_legal_document_tests() -> void:
 	_expect(opened and view.find_child("LegalDocumentBody", true, false) is RichTextLabel and view.find_child("LegalCloseButton", true, false) is Button, "legal document opens in a full-screen scrollable in-app reader")
 	view.queue_free()
 	await get_tree().process_frame
+	var engine_license := Engine.get_license_text()
+	var engine_components: Array[Dictionary] = Engine.get_copyright_info()
+	_expect(not engine_license.is_empty() and not engine_components.is_empty() and engine_components[0].has("name") and engine_components[0].has("parts"), "Godot 4.7 exposes its full engine license and structured embedded-component notices")
+	var ofl_loads := true
+	for path: String in ["res://assets/fonts/OFL-Baloo2.txt", "res://assets/fonts/OFL-ResourceHanRounded.txt"]:
+		ofl_loads = ofl_loads and FileAccess.file_exists(path) and FileAccess.get_file_as_string(path).contains("SIL OPEN FONT LICENSE")
+	_expect(ofl_loads, "both SIL OFL notices are loadable packaged resources")
+	var attribution_body := LegalViewScene.attribution_document_text()
+	_expect(attribution_body.contains("Godot Engine") and attribution_body.contains("FreeType") and attribution_body.contains("zlib") and attribution_body.contains("Baloo 2") and attribution_body.contains("Resource Han Rounded"), "attribution reader includes Godot embedded components and both bundled font licenses")
 
 func _run_warmth_presentation_tests() -> void:
 	Game.reset_for_tests()

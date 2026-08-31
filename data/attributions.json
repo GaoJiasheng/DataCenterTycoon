@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "id": "godot_engine",
+      "name": "Godot Engine 4.7",
+      "kind": "engine",
+      "source": "Godot runtime license APIs",
+      "license": "MIT and bundled component licenses",
+      "license_text_path": "engine://license",
+      "notes": "The reader displays Engine.get_license_text() and every entry returned by Engine.get_copyright_info()."
+    },
+    {
+      "id": "baloo_2",
+      "name": "Baloo 2",
+      "kind": "font",
+      "source": "Bundled font file and accompanying upstream notice",
+      "license": "SIL Open Font License 1.1",
+      "license_text_path": "res://assets/fonts/OFL-Baloo2.txt",
+      "notes": "Full license text is bundled and readable in app."
+    },
+    {
+      "id": "resource_han_rounded",
+      "name": "Resource Han Rounded CN",
+      "kind": "font",
+      "source": "Bundled font files and accompanying upstream notice",
+      "license": "SIL Open Font License 1.1",
+      "license_text_path": "res://assets/fonts/OFL-ResourceHanRounded.txt",
+      "notes": "Full license text is bundled and readable in app."
+    },
+    {
+      "id": "production_art",
+      "name": "Production artwork (180 registered assets)",
+      "kind": "art",
+      "source": "Project provenance ledger; unresolved details remain pending owner confirmation",
+      "license": "Pending owner confirmation",
+      "license_text_path": "res://assets/legal/provenance_pending.txt",
+      "notes": "No model, service, or commercial-use conclusion is inferred when records are incomplete."
+    },
+    {
+      "id": "production_audio",
+      "name": "Production audio (23 registered cues)",
+      "kind": "audio",
+      "source": "Project provenance ledger; unresolved details remain pending owner confirmation",
+      "license": "Pending owner confirmation",
+      "license_text_path": "res://assets/legal/provenance_pending.txt",
+      "notes": "No source or authorization conclusion is inferred when records are incomplete."
+    }
+  ]
+}

@@ -451,6 +451,15 @@ func _ready() -> void:
 	if legal_view != null:
 		legal_view.queue_free()
 		await get_tree().process_frame
+	main.call("_open_public_document", "attributions")
+	await get_tree().process_frame
+	var attributions_view := main.find_child("LegalView", true, false)
+	if attributions_view != null:
+		attributions_view.call("scroll_to_middle_for_tests")
+	valid = (await _capture(main, "attributions_view", false)) and valid
+	if attributions_view != null:
+		attributions_view.queue_free()
+		await get_tree().process_frame
 	main.call("_show_offline_dialog", {"elapsed_seconds": 14400.0, "income": 12840.0, "balance_before": 28000.0, "completed": [{"id": "job"}], "faults": [{"id": "fault"}], "events": [{"type": "event_started", "event_id": "sovereign_ai"}], "inquiries": [{"id": "visual_inquiry"}], "aging": [{"id": "aged"}], "contracts": [], "takeovers": [{"sold_count": 1}]})
 	valid = (await _capture(main, "duty_log_dialog", false)) and valid
 	valid = (await _capture(main, "offline_reward", false)) and valid
@@ -1299,8 +1308,8 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 		if main.find_child("SettingsCompliance", true, false) == null or main.find_child("SettingsVersion", true, false) == null:
 			push_error("VISUAL_SMOKE: settings lacks legal/support/version rows")
 			valid = false
-		if main.find_children("SettingsChevron", "Label", true, false).size() != 3:
-			push_error("VISUAL_SMOKE: settings legal rows lack three chevrons")
+		if main.find_children("SettingsChevron", "Label", true, false).size() != 4:
+			push_error("VISUAL_SMOKE: settings legal rows lack four chevrons")
 			valid = false
 		var settings_scroll := main.find_child("PageScroll", true, false) as ScrollContainer
 		var settings_actions := settings_scroll.find_children("*", "Button", true, false) if settings_scroll != null else []
@@ -1310,6 +1319,11 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 			full_surface_scroll = full_surface_scroll and settings_action.mouse_filter == Control.MOUSE_FILTER_PASS and settings_action.action_mode == BaseButton.ACTION_MODE_BUTTON_RELEASE and bool(settings_action.get_meta("scroll_drag_passthrough", false))
 		if not full_surface_scroll:
 			push_error("VISUAL_SMOKE: settings does not route its complete interactive surface through the touch scroller")
+			valid = false
+	if state_name == "attributions_view":
+		var attribution_body := main.find_child("LegalDocumentBody", true, false) as RichTextLabel
+		if attribution_body == null or not attribution_body.text.contains("Godot Engine") or not attribution_body.text.contains("FreeType") or not attribution_body.text.contains("zlib"):
+			push_error("VISUAL_SMOKE: attribution reader does not expose the complete engine component notices")
 			valid = false
 	if state_name == "offline_reward":
 		if main.find_child("OfflineRewardCard", true, false) == null or main.find_child("OfflineCoinPile", true, false) == null or main.find_child("OfflineDoubleButton", true, false) == null:

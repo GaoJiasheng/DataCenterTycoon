@@ -22,6 +22,12 @@ FONT_FILES = {
     "Baloo 2 OFL": ROOT / "assets/fonts/OFL-Baloo2.txt",
     "Resource Han Rounded OFL": ROOT / "assets/fonts/OFL-ResourceHanRounded.txt",
 }
+FONT_LICENSE_PAIRS = {
+    "Baloo2-Variable.ttf": "OFL-Baloo2.txt",
+    "ResourceHanRoundedCN-Medium.otf": "OFL-ResourceHanRounded.txt",
+    "ResourceHanRoundedCN-Bold.otf": "OFL-ResourceHanRounded.txt",
+    "ResourceHanRoundedCN-Heavy.otf": "OFL-ResourceHanRounded.txt",
+}
 RHR_FONT_FILES = tuple(
     ROOT / "assets/fonts" / f"ResourceHanRoundedCN-{weight}.otf"
     for weight in ("Medium", "Bold", "Heavy")
@@ -156,6 +162,11 @@ def validate_fonts():
             failures.append(f"{label}: missing {path.relative_to(ROOT)}")
         elif path.stat().st_size == 0:
             failures.append(f"{label}: empty file")
+    for font_name, license_name in FONT_LICENSE_PAIRS.items():
+        font_path = ROOT / "assets/fonts" / font_name
+        license_path = ROOT / "assets/fonts" / license_name
+        if font_path.is_file() and (not license_path.is_file() or license_path.stat().st_size == 0):
+            failures.append(f"{font_name}: missing paired license {license_name}")
     required_characters = localization_characters(LOCALIZATION)
     # Player-visible text is not only ui.csv. Symbols hardcoded in GDScript
     # string literals shipped with no glyph coverage and rendered blank on

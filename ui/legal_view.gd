@@ -15,8 +15,10 @@ const TITLE_KEYS := {
 	"privacy": "LEGAL_PRIVACY_TITLE",
 	"terms": "LEGAL_TERMS_TITLE",
 	"support": "LEGAL_SUPPORT_TITLE",
+	"attributions": "LEGAL_ATTRIBUTIONS_TITLE",
 }
 const RELEASE_IDENTITY_PATH := "res://data/release_identity.json"
+const ATTRIBUTIONS_PATH := "res://data/attributions.json"
 
 var document_id := ""
 var document_body := ""
@@ -45,11 +47,41 @@ static func display_identity_value(field: String) -> String:
 
 func open_document(target_id: String) -> bool:
 	document_id = target_id
-	document_body = load_document_text(target_id)
+	document_body = attribution_document_text() if target_id == "attributions" else load_document_text(target_id)
 	if document_body.is_empty():
 		return false
 	_build_view()
 	return true
+
+static func attribution_document_text() -> String:
+	if not FileAccess.file_exists(ATTRIBUTIONS_PATH):
+		return ""
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(ATTRIBUTIONS_PATH))
+	if not parsed is Dictionary:
+		return ""
+	var lines: Array[String] = []
+	for entry: Dictionary in (parsed as Dictionary).get("items", []):
+		lines.append(str(entry.get("name", "")))
+		lines.append("%s: %s" % [TranslationServer.translate("ATTRIBUTION_KIND"), str(entry.get("kind", ""))])
+		lines.append("%s: %s" % [TranslationServer.translate("ATTRIBUTION_SOURCE"), str(entry.get("source", ""))])
+		lines.append("%s: %s" % [TranslationServer.translate("ATTRIBUTION_LICENSE"), str(entry.get("license", ""))])
+		var notes := str(entry.get("notes", ""))
+		if not notes.is_empty():
+			lines.append(notes)
+		var license_path := str(entry.get("license_text_path", ""))
+		if license_path == "engine://license":
+			lines.append(Engine.get_license_text())
+			lines.append(TranslationServer.translate("ATTRIBUTION_COMPONENTS"))
+			for component: Dictionary in Engine.get_copyright_info():
+				lines.append(str(component.get("name", "")))
+				for part: Dictionary in component.get("parts", []):
+					for copyright_line: String in part.get("copyright", []):
+						lines.append("Copyright %s" % copyright_line)
+					lines.append("License: %s" % str(part.get("license", "")))
+		elif FileAccess.file_exists(license_path):
+			lines.append(FileAccess.get_file_as_string(license_path).strip_edges())
+		lines.append("")
+	return "\n".join(lines).strip_edges() + "\n"
 
 func scroll_to_middle_for_tests() -> void:
 	if body_view == null:

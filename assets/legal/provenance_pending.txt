@@ -1,0 +1,7 @@
+Production asset provenance and license status
+
+The detailed source and authorization record is maintained in the project provenance ledger. Any unresolved source or commercial-use conclusion is explicitly marked pending owner confirmation; no conclusion is inferred.
+
+生产资产来源与授权状态
+
+详细来源与授权记录维护在项目资产台账中。任何尚未核实的来源或商用权结论均明确标注为“待所有者确认”，不会据此作推断。

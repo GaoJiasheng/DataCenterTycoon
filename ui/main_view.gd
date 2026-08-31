@@ -2512,7 +2512,7 @@ func _build_settings_page() -> Control:
 	legal_rows.add_theme_constant_override("separation", 0)
 	legal_panel.add_child(legal_rows)
 	var support_value := LegalViewScene.display_identity_value("support_email")
-	var legal_actions: Array = [[tr("SETTINGS_PRIVACY"), "privacy"], [tr("SETTINGS_TERMS"), "terms"], ["%s · %s" % [tr("SETTINGS_SUPPORT"), support_value], "support"]]
+	var legal_actions: Array = [[tr("SETTINGS_PRIVACY"), "privacy"], [tr("SETTINGS_TERMS"), "terms"], ["%s · %s" % [tr("SETTINGS_SUPPORT"), support_value], "support"], [tr("LEGAL_ATTRIBUTIONS_TITLE"), "attributions"]]
 	for index: int in range(legal_actions.size()):
 		if index > 0:
 			legal_rows.add_child(_settings_divider())
@@ -4643,7 +4643,10 @@ func _pulse_queue_feedback() -> void:
 	tween.tween_property(task_button, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _on_state_changed(reason: String) -> void:
-	if reason in ["tick", "offline_advance"]:
+	# Toggle rows update their own visual state. Rebuilding the settings page here
+	# frees the control beneath the finger, resets scroll, and can turn a release
+	# gesture into a dead interaction on iOS.
+	if reason in ["tick", "offline_advance", "settings_changed"]:
 		_request_hud_refresh()
 	else:
 		_request_full_refresh()
