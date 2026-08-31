@@ -8,6 +8,8 @@ import re
 import sys
 from pathlib import Path
 
+from check_provenance import validate as validate_provenance
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = {}
 ERRORS = []
@@ -385,6 +387,7 @@ def main():
         validate_manifest()
         validate_asset_references()
         validate_audio_manifest()
+        ERRORS.extend(validate_provenance())
     if ERRORS:
         for error in ERRORS:
             print("ERROR:", error)
