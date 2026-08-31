@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 IDENTITY_PATH = ROOT / "data/release_identity.json"
 TARGETS = {
+    "LICENSE.tmpl": "LICENSE",
     "docs/public/privacy.html.tmpl": "docs/public/privacy.html",
     "docs/public/support.html.tmpl": "docs/public/support.html",
     "docs/public/terms.html.tmpl": "docs/public/terms.html",
