@@ -9,10 +9,14 @@ import sys
 import tempfile
 from pathlib import Path
 
-from fill_release_identity import IDENTITY_PATH, TARGETS, load_identity, rendered_outputs
+from fill_release_identity import IDENTITY_PATH, RUNTIME_LEGAL_TARGETS, TARGETS, load_identity, rendered_outputs
 
 ROOT = Path(__file__).resolve().parents[1]
 ERRORS = []
+SOURCE_LITERAL_ROOTS = ("ui", "core", "gameplay", "data", "localization")
+EMAIL_LITERAL = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+DOMAIN_LITERAL = re.compile(r"(?<![A-Z0-9_.-])(?:[A-Z0-9-]+\.)+(?:COM|ORG|NET|APP|IO|DEV|CN|CO|ME)(?![A-Z0-9_.-])", re.IGNORECASE)
+ALLOWED_DOMAINS = ("apple.com", "godotengine.org", "example.com")
 
 
 def require(path):
@@ -57,6 +61,45 @@ def check_release_identity():
             ERRORS.append(f"{output.relative_to(ROOT)} differs from its release identity template; run python3 tools/fill_release_identity.py")
 
 
+def check_source_literals():
+    for root_name in SOURCE_LITERAL_ROOTS:
+        root = ROOT / root_name
+        paths = [root / "ui.csv"] if root_name == "localization" else sorted(root.rglob("*.gd")) + sorted(root.rglob("*.json"))
+        for path in paths:
+            if not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for match in list(EMAIL_LITERAL.finditer(text)) + list(DOMAIN_LITERAL.finditer(text)):
+                literal = match.group(0)
+                lowered = literal.lower()
+                if "replace_with_" in lowered or any(lowered == domain or lowered.endswith("." + domain) for domain in ALLOWED_DOMAINS):
+                    continue
+                ERRORS.append(f"{path.relative_to(ROOT)} contains unapproved contact/domain literal {literal}")
+
+
+def check_packaged_legal(godot):
+    with tempfile.TemporaryDirectory(prefix="dct_release_legal_") as temp_dir:
+        pack_path = Path(temp_dir) / "release_legal.pck"
+        export = subprocess.run(
+            [godot, "--headless", "--path", str(ROOT), "--export-pack", "iOS Release Candidate", str(pack_path)],
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        if export.returncode or not pack_path.is_file():
+            ERRORS.append("cannot export a release pack to verify bundled legal text")
+            return
+        payload = pack_path.read_bytes()
+        expected_outputs = rendered_outputs()
+        for output_name in RUNTIME_LEGAL_TARGETS.values():
+            output = ROOT / output_name
+            expected = expected_outputs.get(output, "")
+            marker = next((line for line in expected.splitlines() if len(line.encode("utf-8")) >= 24), "")
+            if not marker or marker.encode("utf-8") not in payload:
+                ERRORS.append(f"release pck does not contain readable legal body {output_name}")
+
+
 def metadata_section(text, heading):
     match = re.search(rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
     return match.group(1).strip() if match else ""
@@ -87,6 +130,7 @@ def check_metadata_contract(path, labels):
 
 def main():
     check_release_identity()
+    check_source_literals()
     check_metadata_contract(
         ROOT / "docs/store/metadata/en.md",
         {"subtitle": "Subtitle", "keywords": "Keywords", "promotional": "Promotional Text", "description": "Description", "whats_new": "What's New", "review": "App Review Notes", "age": "Age Rating Draft — Owner Confirmation Required"},
@@ -99,7 +143,6 @@ def main():
         "project.godot",
         "export_presets.cfg",
         "ios/PrivacyInfo.xcprivacy",
-        "docs/public/terms.html",
     ):
         check_placeholders(require(path))
     store = json.loads((ROOT / "data/store.json").read_text(encoding="utf-8"))["items"]
@@ -128,6 +171,7 @@ def main():
         )
         if translations.returncode:
             ERRORS.append("compiled .translation resources do not match localization/ui.csv")
+        check_packaged_legal(godot)
     validation = subprocess.run([sys.executable, str(ROOT / "tools/validate_data.py")], cwd=ROOT)
     if validation.returncode:
         ERRORS.append("data validation failed")

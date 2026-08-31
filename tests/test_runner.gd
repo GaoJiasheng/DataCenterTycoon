@@ -8,6 +8,7 @@ const ThemeMaker := preload("res://ui/theme_factory.gd")
 const DutyLogScene := preload("res://ui/duty_log.gd")
 const Persona := preload("res://gameplay/persona_system.gd")
 const CampusCatScene := preload("res://gameplay/map/campus_cat.gd")
+const LegalViewScene := preload("res://ui/legal_view.gd")
 
 var passed := 0
 var failed := 0
@@ -17,6 +18,7 @@ func _ready() -> void:
 	_run_data_tests()
 	_run_warmth_presentation_tests()
 	await _run_asset_integration_tests()
+	await _run_legal_document_tests()
 	await _run_save_robustness_tests()
 	await _run_first_encounter_tests()
 	AudioService.apply_settings({"music_enabled": false, "sfx_enabled": false})
@@ -58,6 +60,22 @@ func _run_data_tests() -> void:
 	_expect(DataRepository.validate_references().is_empty(), "cross-table references are valid")
 	_expect(DataRepository.get_table("events").get("items", {}).size() == 19, "market includes major contracts and three rare events")
 	_expect(Monetization.is_product_available("noads") and Monetization.localized_price("noads", "") == "US$ 5.99", "mock StoreKit catalog exposes localized product prices")
+
+func _run_legal_document_tests() -> void:
+	var all_documents_load := true
+	for document_id: String in ["privacy", "terms", "support"]:
+		var path := LegalViewScene.document_path(document_id)
+		var body := LegalViewScene.load_document_text(document_id)
+		all_documents_load = all_documents_load and not path.is_empty() and FileAccess.file_exists(path) and body.length() > 120
+	_expect(all_documents_load, "privacy terms and support documents are real loadable packaged resources")
+	_expect(not LegalViewScene.display_identity_value("support_email").contains("@"), "unresolved support identity renders a localized coming-soon label instead of an invented address")
+	var view := LegalViewScene.new()
+	add_child(view)
+	var opened := view.open_document("privacy")
+	await get_tree().process_frame
+	_expect(opened and view.find_child("LegalDocumentBody", true, false) is RichTextLabel and view.find_child("LegalCloseButton", true, false) is Button, "legal document opens in a full-screen scrollable in-app reader")
+	view.queue_free()
+	await get_tree().process_frame
 
 func _run_warmth_presentation_tests() -> void:
 	Game.reset_for_tests()

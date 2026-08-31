@@ -12,17 +12,13 @@ const FxLayerScene := preload("res://ui/fx_layer.gd")
 const DatacenterBoardScene := preload("res://ui/datacenter_board.gd")
 const TutorialOverlayScene := preload("res://ui/tutorial_overlay.gd")
 const SparklineScene := preload("res://ui/sparkline.gd")
+const LegalViewScene := preload("res://ui/legal_view.gd")
 
 const HAPTIC_LIGHT := 8
 const HAPTIC_MEDIUM := 16
 const HAPTIC_HEAVY := 24
 const HAPTIC_SUCCESS := 32
 const RETIRE_WARNING_PROGRESS := 0.87
-const LEGAL_DOCUMENTS := {
-	"privacy": "res://docs/public/privacy.html",
-	"terms": "res://docs/public/terms.html",
-	"support": "res://docs/public/support.html",
-}
 const FX_EXTENT_LIMITS := {
 	"fx_confetti_set": 240.0,
 	"fx_dust_puff": 120.0,
@@ -2515,7 +2511,8 @@ func _build_settings_page() -> Control:
 	var legal_rows := VBoxContainer.new()
 	legal_rows.add_theme_constant_override("separation", 0)
 	legal_panel.add_child(legal_rows)
-	var legal_actions: Array = [[tr("SETTINGS_PRIVACY"), "privacy"], [tr("SETTINGS_TERMS"), "terms"], ["%s · support@datacentertycoon.app" % tr("SETTINGS_SUPPORT"), "support"]]
+	var support_value := LegalViewScene.display_identity_value("support_email")
+	var legal_actions: Array = [[tr("SETTINGS_PRIVACY"), "privacy"], [tr("SETTINGS_TERMS"), "terms"], ["%s · %s" % [tr("SETTINGS_SUPPORT"), support_value], "support"]]
 	for index: int in range(legal_actions.size()):
 		if index > 0:
 			legal_rows.add_child(_settings_divider())
@@ -2580,11 +2577,14 @@ func _settings_row_button(text: String, action: Callable) -> Button:
 	return button
 
 func _open_public_document(document_id: String) -> void:
-	var resource_path := str(LEGAL_DOCUMENTS.get(document_id, ""))
-	if resource_path.is_empty():
-		return
-	var absolute_path := ProjectSettings.globalize_path(resource_path)
-	OS.shell_open("file://%s" % absolute_path.uri_encode())
+	var existing := find_child("LegalView", true, false)
+	if existing != null:
+		existing.queue_free()
+	var legal_view := LegalViewScene.new()
+	add_child(legal_view)
+	if not legal_view.open_document(document_id):
+		legal_view.queue_free()
+		_show_toast(tr("LEGAL_LOAD_ERROR"), "sfx_error_thud")
 
 func _build_tutorial_dormant_hint() -> void:
 	tutorial_hint_button = Button.new()

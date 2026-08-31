@@ -311,6 +311,12 @@ SETTINGS_PRIVACY,Privacy policy,隐私政策
 SETTINGS_TERMS,Terms of service,服务条款
 SETTINGS_SUPPORT,Customer support,客服邮箱
 SETTINGS_VERSION,Version %s,版本 %s
+LEGAL_COMING_SOON,Coming soon,即将公布
+LEGAL_PRIVACY_TITLE,Privacy policy,隐私政策
+LEGAL_TERMS_TITLE,Terms of service,服务条款
+LEGAL_SUPPORT_TITLE,Support,支持说明
+LEGAL_ATTRIBUTIONS_TITLE,Third-party notices,第三方与许可
+LEGAL_LOAD_ERROR,This document is temporarily unavailable.,该文档暂时无法读取。
 LANGUAGE_ENGLISH,English,English
 LANGUAGE_CHINESE,简体中文,简体中文
 BUILDING_T0,Container Data Center,集装箱机房

@@ -442,6 +442,15 @@ func _ready() -> void:
 		if page == "tech":
 			main.call("_set_tech_section", "achievements")
 			valid = (await _capture(main, "achievements")) and valid
+	main.call("_open_public_document", "privacy")
+	await get_tree().process_frame
+	var legal_view := main.find_child("LegalView", true, false)
+	if legal_view != null:
+		legal_view.call("scroll_to_middle_for_tests")
+	valid = (await _capture(main, "legal_view", false)) and valid
+	if legal_view != null:
+		legal_view.queue_free()
+		await get_tree().process_frame
 	main.call("_show_offline_dialog", {"elapsed_seconds": 14400.0, "income": 12840.0, "balance_before": 28000.0, "completed": [{"id": "job"}], "faults": [{"id": "fault"}], "events": [{"type": "event_started", "event_id": "sovereign_ai"}], "inquiries": [{"id": "visual_inquiry"}], "aging": [{"id": "aged"}], "contracts": [], "takeovers": [{"sold_count": 1}]})
 	valid = (await _capture(main, "duty_log_dialog", false)) and valid
 	valid = (await _capture(main, "offline_reward", false)) and valid
