@@ -108,3 +108,47 @@
 3. J3 的 Godot 许可 API 返回结构以 4.7 实测为准，不要照抄旧版本文档；引擎内嵌组件清单必须完整输出，不能只写一句 "Powered by Godot"。
 4. J4 遇到查不清来源的资产，**停下来标「待确认」**，不要为了台账好看而推测。这条比完成度重要。
 5. 全批次收尾重跑 README「开发与验收」全部命令 + 20 种子零漂移证明；验收记录格式沿用 20–25 号，并明确写出 `check_release` 的预期红灯形态（7 个占位 + IAP 插件，本批次不应改变这个清单）。
+
+## 6. 验收记录（2026-08-31）
+
+### 批次与提交边界
+
+- [x] 批次 1：`89c9350 fix: render legal documents in app`（J1 + J2）。
+- [x] 批次 2：`0ad616a feat: add in-app attribution notices`（J3；含设置开关原位刷新修复，避免触控中释放页面）。
+- [x] 批次 3：`88f8e43 docs: add complete asset provenance ledger`（J4）。
+- [x] 批次 4：`ce1edc0 docs: define proprietary rights and counsel brief`（J5 + J6）。
+- [x] 批次 5：全量回归、文档同步与本验收记录为独立最终提交。
+
+### J1 · 应用内法务可达 / J2 · 身份单一来源
+
+- [x] `ui/legal_view.gd` 以内建全屏滚动页读取 `assets/legal/privacy.txt`、`terms.txt`、`support.txt`；设置页不再调用 `OS.shell_open(file://...)`，运行时不依赖网络、托管 URL 或 pck 内部伪文件路径。
+- [x] `fill_release_identity.py` 从三份 HTML template 同步生成托管 HTML 与随包纯文本；`terms.html.tmpl` 的产品名也只读 `product_name`。占位期产品名/邮箱显示“即将公布 / Coming soon”，代码内编造邮箱已删除。
+- [x] 单测逐份执行 `FileAccess.open` 并读取非空正文；`check_release` 临时导出 PCK 后逐份检索正文标记，三份均命中。源代码身份扫描覆盖 `ui/ core/ gameplay/ data/ localization/`，未发现邮箱字面量或非白名单域名。
+
+### J3 · 第三方与许可
+
+- [x] 在 Godot 4.7 实测 `Engine.get_license_text()` 返回完整字符串，`Engine.get_copyright_info()` 返回 102 项 `Array[Dictionary]`；应用内归属页逐项展示组件名、文件范围、版权与许可，不以一句 Powered by Godot 代替。
+- [x] `data/attributions.json` 已纳入 `validate_data`；Godot、两套字体、美术与音频均有结构化来源条目。两份 OFL 全文随 PCK、可在应用内打开，`check_assets --strict` 强制四个字体文件与对应许可证成对。
+- [x] 设置页四个法务入口均使用 44pt 以上释放触发按钮和全屏滚动；`settings_changed` 不再重建并释放触控中的页面，单测验证从开关起手的滑动与原地点击可以区分。
+
+### J4 · 来源台账
+
+- [x] `docs/26_provenance.md` 逐项登记 180 张美术、23 个音频 cue、4 个字体文件与 2 份许可证正文；每张美术均含日期证据、服务/模型、prompt、后期与商用权栏，每个音频均含来源/授权/署名栏，每个字体交付物含版本、上游记录和当前 SHA-256。
+- [x] 证据未覆盖的 imagegen 底层模型/服务主体与适用条款、音频权利主体/署名、Baloo 2 上游版本/母版均明确标为“待确认”并在独立章节汇总，没有推测授权结论。
+- [x] `tools/check_provenance.py` 与 `validate_data.py` 同源比对 manifest：实际输出 `PROVENANCE: exact coverage art=180, audio=23, font=6`；漏登、重复、幽灵 ID 或把不确定项静默写成事实都会使门禁失败。
+
+### J5 · 仓库许可 / J6 · 律师材料
+
+- [x] 根目录 `LICENSE` 声明项目特有材料为专有、All Rights Reserved，并明确第三方组件继续受各自许可证约束；未把仓库改成开源项目，也未给源文件批量加版权头。
+- [x] README 顶部同步仓库级权利声明。`docs/26_counsel_brief.md` 首行标注“不构成法律意见”，只列项目、发行、AI 美术、确定性合成音频、Godot/OFL、IAP/广告等事实和 17 个待咨询问题，没有替所有者选择主体、名称、管辖或给法律结论。
+
+### 全量回归、零漂移与预期红灯
+
+- [x] `test_runner` 249/249，最终连续三轮全绿；欠费 HUD 夹具已改为现金低于债务的真实欠费态，消除后台合法清偿与 UI 断言竞跑且未放宽断言。`flow_audit`、`midgame_audit`、真实触摸 `tutorial_playthrough` 与二周目 `full_campaign` 全绿。长战役首局第 111 月达 20 座，二局第 11 月达 21 座并续跑至第 30 月 59 座。
+- [x] `visual_smoke` 中英标准档各 51 态，新增 `legal_view` / `attributions_view` 均实际渲染；SE 与大画幅中英各 8 态继续全绿。商店截图中英各五屏按 1320×2868 原生离屏复现，`check_app_store_assets` 通过 10 张 iPhone 图。
+- [x] `performance_smoke` 百机房：13 页、当前页 6 对象，average `7.82ms`、p90 `10.51ms`、p95 `10.69ms`；30 粒子、猫爱心与节点增量全部归零。
+- [x] `report_release_economy.py`：T2 六档 × 20 种子、工程部 L4 与钻石三策略 × 三时代 × 20 种子三份只读报告全绿，没有改正式经济值。
+- [x] `simulate_economy.py --seed-count 20 --no-write` 输出 SHA-256 为 `4e8d551354da4bff23232b454abb9253f2ae96e5a3f8c03b60b8fe732a227e04`，与基线逐字一致；活跃 20 座中位仍为 19.3 天，活跃/挂机 30 日净值比仍为 23.67×，第 7 天挂机收入比 45%，挂机 0 接管/0 欠费月。
+- [x] `validate_data` 通过 18 张数据表；`check_assets --strict --audio` 通过 180 美术 / 6 字体交付物 / 23 音频，纹理分类仍为 45 无损 UI + 135 VRAM 场景图；`check_provenance` 精确覆盖 180/23/6。
+- [ ] `check_release` **按设计仍红且只红**：`product_name`、`privacy_email`、`support_email`、`privacy_url`、`support_url`、`effective_date`、`ad_providers` 七个所有者占位值，以及缺少 StoreKit/IAP `.gdip`。PCK 法务/OFL、翻译、图标与 10 张商店截图均已通过；本批次没有伪造任何值来消灯。
+- [ ] 托管隐私/支持 URL、最终身份值、IAP 插件、律师意见、真机/ASC 操作仍是外部交付。本批次不发新 build，不把桌面验证冒充线上或法律审查。

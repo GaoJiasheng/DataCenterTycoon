@@ -29,6 +29,10 @@ Proprietary project · Copyright © 2026 · All rights reserved. Third-party not
 | [docs/20_gameplay_depth_and_economy.md](docs/20_gameplay_depth_and_economy.md) | 中期询价、棋盘成组、稀有行情、期限折算锁价、工程部扩编与经济归因（已落地） | 策划/程序 |
 | [docs/21_warmth_patch.md](docs/21_warmth_patch.md) | 值班日志、客户拟人化与机房猫的纯表现温度补丁（已落地） | 策划/程序/美术 |
 | [docs/22_release_hardening.md](docs/22_release_hardening.md) | 发布前纹理、多画幅、发布脚本、CI、存档健壮性与内容一致性加固 | 程序/发行/QA |
+| [docs/23_asset_refresh_and_ship.md](docs/23_asset_refresh_and_ship.md) | 五张弱资产重做与 build 10 发船记录 | 美术/程序/发行 |
+| [docs/24_submission_last_mile.md](docs/24_submission_last_mile.md) | App Store 截图、发布身份模板、文案与二周目覆盖 | 程序/发行/QA |
+| [docs/25_iphone_only_scope.md](docs/25_iphone_only_scope.md) | iPhone-only 发布范围与兼容模式测试边界 | 程序/发行 |
+| [docs/26_legal_and_provenance.md](docs/26_legal_and_provenance.md) | 应用内法务/许可、资产来源台账、专有许可与律师材料 | 程序/发行/法务 |
 
 ## 当前状态
 
@@ -39,7 +43,7 @@ Proprietary project · Copyright © 2026 · All rights reserved. Third-party not
 - [x] 轻松向经营闭环：合同期内已知行情精确折算锁价、自动续约与永久免费改签、故障 40% 降效/4 小时自愈、残料回收/95% 自动退役、银行接管/重整托底
 - [x] 中期深度闭环：永久询价单、棋盘同类成组、3 条稀有行情与战略约 ×2.5 封顶、2→5 工程部扩编
 - [x] 表现温度层：权威离线账单驱动的值班日志、10 位共享数值的人设角色、教程外一只无重复货币产出的园区猫与 4 张猫片典藏
-- [x] 243 项 Godot 回归测试、双语各 49 状态竖屏视觉与排版审计、SE/标准/大画幅三档探针、断言化 FTUE/中期流程审计、30 天三策略 × 20 种子模拟、iOS 可复现发布脚本与 App Store 自动门禁
+- [x] 249 项 Godot 回归测试、双语各 51 状态竖屏视觉与排版审计、SE/标准/大画幅三档探针、断言化 FTUE/中期流程审计、30 天三策略 × 20 种子模拟、应用内法务/第三方许可、iOS 可复现发布脚本与 App Store 自动门禁
 - [ ] 外部交付：P01 正式名称、P04 广告 SDK、Apple 账号/证书与 App Store Connect 录入
 
 运行时已经使用正式视听资源；资源接口仍保留缺失回退，因此单张素材损坏或暂时移除不会阻止玩法逻辑启动。
@@ -65,19 +69,20 @@ python3 tools/simulate_economy.py
 python3 tools/report_release_economy.py
 ```
 
-`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态，并确认教程期客户人设与机房猫不可见、不可点；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、243 项逻辑、流程/战役/性能门禁，以及双语 49 态与 SE/标准/大画幅三档渲染回归。大画幅档继续使用 `--profile=ipad` 作为兼容模式与布局哨兵，但不代表 iPad 发布目标。性能门禁另以 100 座机房验证 13 页园区切分、单页可见集、统一建筑朝向、单猫状态机及其爱心特效清理。
+`tests/flow_audit.tscn` 从全新存档走完整 FTUE，逐步断言场景上下文、唯一可点目标、聚光灯交集、抽屉实时数据、特效生命周期与休眠/唤醒状态，并确认教程期客户人设与机房猫不可见、不可点；非 headless 运行时同时输出 `/tmp/dct_flow_*.png`。GitHub Actions 会执行数据校验、249 项逻辑、流程/战役/性能门禁，以及双语 51 态与 SE/标准/大画幅三档渲染回归。大画幅档继续使用 `--profile=ipad` 作为兼容模式与布局哨兵，但不代表 iPad 发布目标。性能门禁另以 100 座机房验证 13 页园区切分、单页可见集、统一建筑朝向、单猫状态机及其爱心特效清理。
 
 `tests/tutorial_playthrough.tscn` 只用触摸走完新手教程；`tests/full_campaign.tscn` 接着往下打——从全新存档按"月"推进，边玩边刷新真实 UI，一路走到时代 2、时代 3 和第一次上市重组，再续跑第二家公司 30 个游戏月。门禁断言故障降效/修复、期限折算锁价（同局灵活约 > 标准约）/自动续约/免费改签、退役收割、银行接管兼容、询价/成组/扩编、离线结算、跨局工程部重购/董事会加成/典藏去重/公司纪念册，以及第二局 20 座必须快于第一局；同时检查页面切换与顶部信息带不互相遮挡，输出 `/tmp/dct_camp_*.png`。审计记录见 [docs/17_full_campaign_audit.md](docs/17_full_campaign_audit.md)。
 
 `tests/store_shots.tscn` 用同一份后期存档夹具和真实 `main.tscn` 生成 App Store 截图。它在目标像素尺寸的 `SubViewport` 中原生渲染，不依赖桌面窗口高度，也不会把小图放大。1.0 发布只需运行上方中英两个 `iphone_69` 命令，复现 10 张交付图；`--device=ipad_13` 分支仍保留用于可选的大画幅兼容抽查，不属于发布必需项。
 
-发布所需的产品名、联系邮箱、公开链接、生效日期和广告服务商只在 `data/release_identity.json` 填写一次；所有者给出真实值后运行 `python3 tools/fill_release_identity.py`，即可同步生成隐私政策、支持页和中英商店文案。`check_release.py` 会同时拦截未填占位符和被手工改脏的生成文件。
+发布所需的产品名、联系邮箱、公开链接、生效日期和广告服务商只在 `data/release_identity.json` 填写一次；所有者给出真实值后运行 `python3 tools/fill_release_identity.py`，即可同步生成托管 HTML、应用内法务正文和中英商店文案。设置页不依赖网络或文件 URL，可直接阅读隐私、条款、支持和第三方许可；`check_release.py` 会同时拦截未填占位符、被手工改脏的生成文件和未进入 PCK 的正文。
 
 资源重做或更新后执行：
 
 ```sh
 python3 tools/import_assets.py --visual --audio
 python3 tools/check_assets.py --strict --audio
+python3 tools/check_provenance.py
 python3 tools/check_app_store_assets.py
 python3 tools/check_release.py
 ```

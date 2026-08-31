@@ -1491,6 +1491,10 @@ func _run_wp6_presentation_tests() -> void:
 	var offline := main.find_child("OfflineOverlay", true, false)
 	if offline != null:
 		offline.queue_free()
+	# Keep this fixture economically coherent: arrears can only persist while cash
+	# is below the debt. Leaving the fresh-company $40K balance in place lets the
+	# one-second background accrual clear the synthetic $250 debt mid-assertion.
+	Game.state["player"]["cash"] = 0.0
 	Game.state["bankruptcy"] = {"status": "arrears", "debt": 250.0, "arrears_online_seconds": 120.0, "rescue_uses": 0, "rescue_day": -1}
 	main.call("_on_bankruptcy_state_changed", "arrears")
 	await get_tree().process_frame
