@@ -1,5 +1,7 @@
 # DataCenterTycoon（暂定名）
 
+Proprietary project · Copyright © 2026 · All rights reserved. Third-party notices are listed in `data/attributions.json` and in the app.
+
 一款以「数据中心建设与运营」为题材的竖屏放置经营手游。
 玩家像种菜一样：买地 → 建机房 → 上架机器 → 接客户合约赚钱 → 机房老化退役 → 用赚到的钱建更多更好的机房。
 
