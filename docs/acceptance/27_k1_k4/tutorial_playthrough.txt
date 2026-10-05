@@ -1,0 +1,25 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+PLAYTHROUGH: 01_step0_welcome
+PLAYTHROUGH: 02_step1_power
+PLAYTHROUGH: 03_step1_power
+PLAYTHROUGH: 04_step2_first_rack
+PLAYTHROUGH: 05_step3_contract
+PLAYTHROUGH: 06_step4_cooling
+PLAYTHROUGH: 07_step5_buy_land
+PLAYTHROUGH: 08_step6_retire
+PLAYTHROUGH: 09_step6_retire
+PLAYTHROUGH: 10_step7_standard
+PLAYTHROUGH: 11_done
+PLAYTHROUGH: 12_install_in_progress
+PLAYTHROUGH: 13_drawer_after_power
+PLAYTHROUGH: 14_orphan_recovered
+PLAYTHROUGH: 15_standard_stale_drawer_recovered
+PLAYTHROUGH: wait  power waited 60s
+PLAYTHROUGH: wait  first_rack waited 60s
+PLAYTHROUGH: wait  cooling waited 60s
+PLAYTHROUGH: PASS -> /tmp/dct_play_*.png
+WARNING: 9 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2535)
+ERROR: 4 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

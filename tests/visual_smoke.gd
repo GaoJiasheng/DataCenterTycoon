@@ -518,6 +518,14 @@ func _ready() -> void:
 	if era_overlay != null:
 		era_overlay.queue_free()
 		await get_tree().process_frame
+	main.call("_show_rare_event_overlay", "sovereign_ai")
+	valid = (await _capture(main, "rare_event_overlay", false)) and valid
+	(main.find_child("RareEventConfirm", true, false) as Button).pressed.emit()
+	await get_tree().process_frame
+	main.call("_show_ipo_ceremony", Game.company_legacy_summary())
+	valid = (await _capture(main, "ipo_ceremony", false)) and valid
+	(main.find_child("IPOConfirm", true, false) as Button).pressed.emit()
+	await get_tree().process_frame
 	Game.state["bankruptcy"] = {"status": "normal", "debt": 0.0, "arrears_online_seconds": 0.0, "rescue_uses": 0, "rescue_day": -1, "takeover_notice_pending": true, "last_takeover": {"debt_before": 4250.0, "debt_paid": 3100.0, "debt_forgiven": 1150.0, "relief_grant": 5000.0, "remaining_datacenters": 2, "sold_count": 2, "sold": [{"datacenter_id": "dc_1", "proceeds": 1800.0}, {"datacenter_id": "dc_2", "proceeds": 1300.0}]}}
 	main.call("_on_bankruptcy_state_changed", "takeover")
 	await get_tree().create_timer(0.6).timeout

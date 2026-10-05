@@ -1,0 +1,333 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s0_welcome_map
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for welcome
+FLOW_ASSERT: PASS B1 active step must be welcome
+FLOW_ASSERT: PASS B1 welcome context must be map
+FLOW_ASSERT: PASS B2 welcome target source must be control (actual control)
+FLOW_ASSERT: PASS H1 welcome callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 welcome must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 welcome bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 welcome bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 welcome must expose one actionable target
+FLOW_ASSERT: PASS D2 welcome spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 welcome spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 welcome callout must not cover its tap target
+FLOW_ASSERT: PASS E4 welcome spotlight must track the live PrimaryWorldAction control (resolved=[P: (183.7861, 1619.953), S: (436.4277, 96.09418)] live=[P: (184.0, 1620.0), S: (436.0, 96.0)])
+FLOW_ASSERT: PASS E4 welcome callout must not hide the live PrimaryWorldAction control
+FLOW_ASSERT: PASS A1 ShellStage must exist
+FLOW_ASSERT: PASS A1 desktop HUD top gap must be <= 32u (actual 24.0)
+FLOW_ASSERT: PASS A2 company era corner badge must exist
+FLOW_ASSERT: PASS A2 era number badge must remain inside company chip (company=[P: (32.0, 24.0), S: (96.0, 106.0)] badge=[P: (90.0, 74.0), S: (30.0, 37.0)])
+FLOW_ASSERT: PASS A2 era number must sit at the icon's lower-right corner
+FLOW_ASSERT: PASS A3 TaskButton must own its caption
+FLOW_ASSERT: PASS A3 TaskButton caption must be inside the clickable button
+FLOW_ASSERT: PASS A3 TaskButton caption must pass clicks to its button
+FLOW_ASSERT: PASS A3 OperationsButton must own its caption
+FLOW_ASSERT: PASS A3 OperationsButton caption must be inside the clickable button
+FLOW_ASSERT: PASS A3 OperationsButton caption must pass clicks to its button
+FLOW_ASSERT: PASS A3 no independent world-action caption may remain
+FLOW_ASSERT: PASS E1 sale price tag visibility must follow the buy-land step (false)
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s0_welcome_picker
+FLOW_ASSERT: PASS C3 open sheets must pulse the HUD instead of spawning world coins
+FLOW_ASSERT: PASS FT4 tutorial T0 construction must complete within 30 seconds
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s1_power_step_during_construction
+FLOW_ASSERT: PASS C1 FxLayer must exist
+FLOW_ASSERT: PASS C1 construction start must not create celebration FX
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for power
+FLOW_ASSERT: PASS B1 active step must be power
+FLOW_ASSERT: PASS B1 power context must be drawer
+FLOW_ASSERT: PASS B2 power target source must be construction_wait (actual construction_wait)
+FLOW_ASSERT: PASS H1 power callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 power must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 power has no target, so its directional tail must stay hidden
+FLOW_ASSERT: PASS B1 power must be a non-actionable explained state
+FLOW_ASSERT: PASS FT1 tutorial copy must reserve enough width for clean CJK wrapping
+FLOW_ASSERT: PASS FT1 tutorial bubble last line must contain at least two visible characters
+FLOW_ASSERT: PASS C4 building construction uses an on-site clock ring with its building icon
+FLOW_ASSERT: PASS C4 building progress ring stays within the parcel and does not cover neighbors
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s1_power_step_dc_built_map
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for power
+FLOW_ASSERT: PASS B1 active step must be power
+FLOW_ASSERT: PASS B1 power context must be drawer
+FLOW_ASSERT: PASS B2 power target source must be world_building (actual world_building)
+FLOW_ASSERT: PASS H1 power callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 power must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 power bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 power bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 power must expose one actionable target
+FLOW_ASSERT: PASS D2 power spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 power spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 power callout must not cover its tap target
+FLOW_ASSERT: PASS B2 first-stage target must overlap the visible world building
+FLOW_ASSERT: PASS C2 installation dust must be capped at 120u
+FLOW_ASSERT: PASS FT2 active tutorial steps must suppress world coin trajectories
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s1_power_step_drawer_open
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for power
+FLOW_ASSERT: PASS B1 active step must be power
+FLOW_ASSERT: PASS B1 power context must be drawer
+FLOW_ASSERT: PASS B2 power target source must be control (actual control)
+FLOW_ASSERT: PASS H1 power callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 power must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 power bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 power bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 power must expose one actionable target
+FLOW_ASSERT: PASS D2 power spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 power spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 power callout must not cover its tap target
+FLOW_ASSERT: PASS E4 power spotlight must track the live BoardPowerSection control (resolved=[P: (76.0, 1298.301), S: (652.0, 141.0)] live=[P: (76.0, 1298.301), S: (652.0, 141.0)])
+FLOW_ASSERT: PASS E4 power callout must not hide the live BoardPowerSection control
+FLOW_ASSERT: PASS E5 power lesson must target the complete power section
+FLOW_ASSERT: PASS E5 power section must visibly contain the transformer install button
+FLOW_ASSERT: PASS E5 power spotlight must match the complete visible power section
+FLOW_ASSERT: PASS E5 power copy must name both the visible power section and container data center
+FLOW_ASSERT: PASS B5 an unpowered board must present the install recovery path instead of 0 / 0
+FLOW_ASSERT: PASS B5 first power instruction must say install, not upgrade
+FLOW_ASSERT: PASS E2 tutorial drawer drag-dismiss must be locked
+FLOW_ASSERT: PASS C2 an open sheet must drop world FX
+FLOW_ASSERT: PASS C2 world FX layer must render below sheets
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s1_power_picker_sheet
+FLOW_ASSERT: PASS C3 open sheets must pulse the HUD instead of spawning world coins
+FLOW_ASSERT: PASS F1 power must retarget to a sheet option while a picker is open
+FLOW_ASSERT: PASS G1 power spotlight target must sit inside the open sheet (target=[P: (88.0, 1438.0), S: (628.0, 110.0)] sheet=[P: (32.0, 1178.0), S: (740.0, 546.0)])
+FLOW_ASSERT: PASS G1 power spotlight must land on Choice_power_t1
+FLOW_ASSERT: PASS F3 power must use the single rounded spotlight mask
+FLOW_ASSERT: PASS F3 power dim region must stop above the open sheet (1178.0 <= 1178.0)
+FLOW_ASSERT: PASS F5 power callout must not cover the sheet heading
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s2_rack_step_after_power
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for first_rack
+FLOW_ASSERT: PASS B1 active step must be first_rack
+FLOW_ASSERT: PASS B1 first_rack context must be drawer
+FLOW_ASSERT: PASS B2 first_rack target source must be control (actual control)
+FLOW_ASSERT: PASS H1 first_rack callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 first_rack must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 first_rack bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 first_rack bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 first_rack must expose one actionable target
+FLOW_ASSERT: PASS D2 first_rack spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 first_rack spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 first_rack callout must not cover its tap target
+FLOW_ASSERT: PASS E4 first_rack spotlight must track the live RackSlot0 control (resolved=[P: (210.88, 811.181), S: (123.84, 123.84)] live=[P: (210.88, 811.181), S: (123.84, 123.84)])
+FLOW_ASSERT: PASS E4 first_rack callout must not hide the live RackSlot0 control
+FLOW_ASSERT: PASS D1 live data-center header fields must exist
+FLOW_ASSERT: PASS D1 drawer status must match authoritative data (供电正常)
+FLOW_ASSERT: PASS D1 drawer income must match authoritative data ($0 / 月)
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s2_rack_picker_sheet
+FLOW_ASSERT: PASS F1 first_rack must retarget to a sheet option while a picker is open
+FLOW_ASSERT: PASS G1 first_rack spotlight target must sit inside the open sheet (target=[P: (88.0, 1368.0), S: (628.0, 145.0)] sheet=[P: (32.0, 1108.0), S: (740.0, 616.0)])
+FLOW_ASSERT: PASS G1 first_rack spotlight must land on Choice_rack_compute_t1
+FLOW_ASSERT: PASS F3 first_rack must use the single rounded spotlight mask
+FLOW_ASSERT: PASS F3 first_rack dim region must stop above the open sheet (1108.0 <= 1108.0)
+FLOW_ASSERT: PASS F5 first_rack callout must not cover the sheet heading
+FLOW_ASSERT: PASS G3 first_rack guided tap must act on the sheet instead of opening another one (1 -> 0)
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s3_contract_step
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for contract
+FLOW_ASSERT: PASS B1 active step must be contract
+FLOW_ASSERT: PASS B1 contract context must be drawer
+FLOW_ASSERT: PASS B2 contract target source must be control (actual control)
+FLOW_ASSERT: PASS H1 contract callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 contract must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 contract bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 contract bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 contract must expose one actionable target
+FLOW_ASSERT: PASS D2 contract spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 contract spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 contract callout must not cover its tap target
+FLOW_ASSERT: PASS E4 contract spotlight must track the live ContractCTA control (resolved=[P: (76.0, 1448.301), S: (652.0, 88.0)] live=[P: (76.0, 1448.301), S: (652.0, 88.0)])
+FLOW_ASSERT: PASS E4 contract callout must not hide the live ContractCTA control
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s4_cooling_step
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for cooling
+FLOW_ASSERT: PASS B1 active step must be cooling
+FLOW_ASSERT: PASS B1 cooling context must be drawer
+FLOW_ASSERT: PASS B2 cooling target source must be control (actual control)
+FLOW_ASSERT: PASS H1 cooling callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 cooling must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 cooling bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 cooling bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 cooling must expose one actionable target
+FLOW_ASSERT: PASS D2 cooling spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 cooling spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 cooling callout must not cover its tap target
+FLOW_ASSERT: PASS E4 cooling spotlight must track the live Cooler_north control (resolved=[P: (300.32, 775.901), S: (202.96, 75.68)] live=[P: (300.32, 775.901), S: (202.96, 75.68)])
+FLOW_ASSERT: PASS E4 cooling callout must not hide the live Cooler_north control
+FLOW_ASSERT: PASS D1 live data-center header fields must exist
+FLOW_ASSERT: PASS D1 drawer status must match authoritative data (互联网厂商 · 供电正常)
+FLOW_ASSERT: PASS D1 drawer income must match authoritative data ($54 / 月)
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s5_buy_plot_step
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for buy_land
+FLOW_ASSERT: PASS B1 active step must be buy_land
+FLOW_ASSERT: PASS B1 buy_land context must be map
+FLOW_ASSERT: PASS B2 buy_land target source must be control (actual control)
+FLOW_ASSERT: PASS H1 buy_land callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 buy_land must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 buy_land bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 buy_land bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 buy_land must expose one actionable target
+FLOW_ASSERT: PASS D2 buy_land spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 buy_land spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 buy_land callout must not cover its tap target
+FLOW_ASSERT: PASS E4 buy_land spotlight must track the live @Button@182 control (resolved=[P: (443.6562, 468.8), S: (378.4, 286.0)] live=[P: (443.6562, 468.8), S: (378.4, 286.0)])
+FLOW_ASSERT: PASS E4 buy_land callout must not hide the live @Button@182 control
+FLOW_ASSERT: PASS B1 map context must clear the previous data-center drawer
+FLOW_ASSERT: PASS E1 sale price tag visibility must follow the buy-land step (true)
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_step_too_new
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for retire
+FLOW_ASSERT: PASS B1 active step must be retire
+FLOW_ASSERT: PASS B1 retire context must be dormant
+FLOW_ASSERT: PASS B2 retire target source must be none (actual none)
+FLOW_ASSERT: PASS H1 retire callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 retire must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 retire has no target, so its directional tail must stay hidden
+FLOW_ASSERT: PASS B1 retire must be a non-actionable explained state
+FLOW_ASSERT: PASS B4 dormant retire step must explain why no action is available
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_step_dormant_hint
+FLOW_ASSERT: PASS K3 tutorial flow never opens word-library naming
+FLOW_ASSERT: PASS B4 dormant lesson must collapse to the corner coach hint
+FLOW_ASSERT: PASS B5 player can buy a second empty plot while retirement coaching sleeps
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_step_two_empty_plots
+FLOW_ASSERT: PASS B5 plot_2 remains available during the dormant retirement lesson
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_plot_2_picker
+FLOW_ASSERT: PASS B5 plot_2 plus tap keeps its building picker open
+FLOW_ASSERT: PASS B5 corner coach hint does not cover the building picker
+FLOW_ASSERT: PASS B5 plot_2 exposes a tappable standard IDC choice
+FLOW_ASSERT: PASS B5 cash shortfall updates the existing card without reopening
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_step_cash_shortfall
+FLOW_ASSERT: PASS B5 insufficient cash explains the restriction and keeps the picker open
+FLOW_ASSERT: PASS B5 rejected construction does not consume a plot or a queue slot
+FLOW_ASSERT: PASS B5 cash recovery re-enables the same choice
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_plot_2_started
+FLOW_ASSERT: PASS B5 plot_2 card tap starts its IDC and charges exactly once
+FLOW_ASSERT: PASS B5 successful construction closes the picker and restores the corner coach hint
+FLOW_ASSERT: PASS B5 plot_3 remains available during the dormant retirement lesson
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_plot_3_picker
+FLOW_ASSERT: PASS B5 plot_3 plus tap keeps its building picker open
+FLOW_ASSERT: PASS B5 corner coach hint does not cover the building picker
+FLOW_ASSERT: PASS B5 plot_3 exposes a tappable standard IDC choice
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_plot_3_started
+FLOW_ASSERT: PASS B5 plot_3 card tap starts its IDC and charges exactly once
+FLOW_ASSERT: PASS B5 successful construction closes the picker and restores the corner coach hint
+FLOW_ASSERT: PASS B5 both purchased plots can build concurrently during the retirement wait
+FLOW_ASSERT: PASS B5 a further owned plot can be inspected when construction slots are full
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_two_plot_construction
+FLOW_ASSERT: PASS B5 plot_4 remains available during the dormant retirement lesson
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_plot_4_picker
+FLOW_ASSERT: PASS B5 plot_4 plus tap keeps its building picker open
+FLOW_ASSERT: PASS B5 corner coach hint does not cover the building picker
+FLOW_ASSERT: PASS B5 full construction queue is explained before choosing a building
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_step_queue_full
+FLOW_ASSERT: PASS B5 full queue tap explains capacity and wait time while preserving the picker
+FLOW_ASSERT: PASS B5 full queue rejection does not spend cash or add work
+FLOW_ASSERT: PASS B5 a completed project clears the restriction on the existing picker
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_step_aged
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for retire
+FLOW_ASSERT: PASS B1 active step must be retire
+FLOW_ASSERT: PASS B1 retire context must be drawer
+FLOW_ASSERT: PASS B2 retire target source must be world_building (actual world_building)
+FLOW_ASSERT: PASS H1 retire callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 retire must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 retire bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 retire bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 retire must expose one actionable target
+FLOW_ASSERT: PASS D2 retire spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 retire spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 retire callout must not cover its tap target
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s6_retire_drawer
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for retire
+FLOW_ASSERT: PASS B1 active step must be retire
+FLOW_ASSERT: PASS B1 retire context must be drawer
+FLOW_ASSERT: PASS B2 retire target source must be control (actual control)
+FLOW_ASSERT: PASS H1 retire callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 retire must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 retire bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 retire bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 retire must expose one actionable target
+FLOW_ASSERT: PASS D2 retire spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 retire spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 retire callout must not cover its tap target
+FLOW_ASSERT: PASS E4 retire spotlight must track the live RetireButton control (resolved=[P: (76.0, 735.1185), S: (652.0, 88.0)] live=[P: (76.0, 735.1185), S: (652.0, 88.0)])
+FLOW_ASSERT: PASS E4 retire callout must not hide the live RetireButton control
+FLOW_ASSERT: PASS D51 FTUE keeps all customer-persona presentation hidden
+FLOW_ASSERT: PASS D52 FTUE keeps the campus cat invisible and non-interactive
+FLOW_AUDIT: s7_standard_step
+FLOW_ASSERT: PASS B1 tutorial overlay must be visible for standard
+FLOW_ASSERT: PASS B1 active step must be standard
+FLOW_ASSERT: PASS B1 standard context must be map
+FLOW_ASSERT: PASS B2 standard target source must be control (actual control)
+FLOW_ASSERT: PASS H1 standard callout body must be layered UI, never a stretched bubble bitmap
+FLOW_ASSERT: PASS H3 standard must rely on its precise bubble tail without a redundant hand pointer
+FLOW_ASSERT: PASS H2 standard bubble tail must point at the horizontal center of its live target
+FLOW_ASSERT: PASS H2 standard bubble tail must use per-step dynamic placement
+FLOW_ASSERT: PASS B2 standard must expose one actionable target
+FLOW_ASSERT: PASS D2 standard spotlight must intersect its current resolved target
+FLOW_ASSERT: PASS FT3 standard spotlight must keep a 20u breathing gutter
+FLOW_ASSERT: PASS FT3 spotlight border must use the shared 32u corner radius
+FLOW_ASSERT: PASS E3 standard callout must not cover its tap target
+FLOW_ASSERT: PASS E4 standard spotlight must track the live PrimaryWorldAction control (resolved=[P: (184.0, 1620.0), S: (436.0, 96.0)] live=[P: (184.0, 1620.0), S: (436.0, 96.0)])
+FLOW_ASSERT: PASS E4 standard callout must not hide the live PrimaryWorldAction control
+FLOW_AUDIT: s8_tutorial_done_map
+FLOW_ASSERT: PASS E1 sale price tag visibility must follow the buy-land step (true)
+FLOW_ASSERT: PASS C2 non-celebration global FX must be capped at 100u
+FLOW_ASSERT: PASS C1 every managed FX node must self-destruct within 2.5s
+FLOW_ASSERT: PASS FT4 T0 construction must restore its normal 300-second duration after tutorial completion
+FLOW_AUDIT: PASS -> /tmp/dct_flow_*.png
+WARNING: 6 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2535)
+ERROR: 3 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

@@ -117,8 +117,47 @@ func _ready() -> void:
 	_touch(Vector2(400, 1050), true)
 	map.notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
 	_check(map.touch_points.is_empty() and not map.dragging, "app interruption cancels held gestures")
+	map.queue_free()
+	await get_tree().process_frame
+	await _check_headline_interruptions()
 	print("MAP_GESTURES: %d failures" % failures)
 	get_tree().quit(1 if failures else 0)
+
+func _check_headline_interruptions() -> void:
+	Game.reset_for_tests()
+	Game.set_process(false)
+	Game.state["tutorial"]["completed"] = true
+	Game.state["flags"]["last_presented_era"] = 1
+	var main := preload("res://main.tscn").instantiate()
+	add_child(main)
+	await get_tree().create_timer(0.4).timeout
+	map = main.park_map
+	for overlay_kind: String in ["rare", "ipo"]:
+		for pinch: bool in [false, true]:
+			var start := Vector2(400, 1150)
+			_touch(start, true, 0)
+			_drag(start + Vector2(70, 0), Vector2(70, 0), 0)
+			if pinch: _touch(start + Vector2(160, 0), true, 1)
+			_check(not map.touch_points.is_empty(), "%s fixture really holds %s" % [overlay_kind, "pinch" if pinch else "pan"])
+			if overlay_kind == "rare": main.call("_show_rare_event_overlay", "compute_famine")
+			else: main.call("_show_ipo_ceremony", Game.company_legacy_summary())
+			_check(map.touch_points.is_empty() and not map.dragging and not map._gesture_panning, "%s cancels held pan/pinch on the same frame" % overlay_kind)
+			var before := map.camera_offset
+			_drag(start + Vector2(150, 0), Vector2(80, 0), 0)
+			_check(map.camera_offset.is_equal_approx(before), "%s overlay rejects the stale captured drag" % overlay_kind)
+			var close := main.find_child("RareEventConfirm" if overlay_kind == "rare" else "IPOConfirm", true, false) as Button
+			close.pressed.emit()
+			await get_tree().create_timer(0.4).timeout
+			_touch(start, false, 0)
+			if pinch: _touch(start + Vector2(160, 0), false, 1)
+			before = map.camera_offset
+			_touch(start, true, 0)
+			_drag(start + Vector2(90, 0), Vector2(90, 0), 0)
+			_check(map.camera_offset.is_equal_approx(before + Vector2(90, 0)), "%s close permits a fresh exact-distance pan" % overlay_kind)
+			_touch(start + Vector2(90, 0), false, 0)
+	main.queue_free()
+	await get_tree().process_frame
+	Game.set_process(true)
 
 func _touch(point: Vector2, pressed: bool, index: int = 0) -> void:
 	var event := InputEventScreenTouch.new()

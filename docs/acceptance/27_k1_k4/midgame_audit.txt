@@ -1,0 +1,86 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+MID_AUDIT: m0_daily_map_overview
+MIDGAME_ASSERT: PASS M12 repeated same-tier buildings may retain two subtle color-grade variants
+MIDGAME_ASSERT: PASS M12 every building must keep the authored isometric orientation; color variation stays below four degrees
+MID_AUDIT: k1_low_renewal_log
+MIDGAME_ASSERT: PASS K1 offline log names the real low renewal
+MID_AUDIT: k1_free_switch_task
+MIDGAME_ASSERT: PASS K1 task center shows improved free terms
+MIDGAME_ASSERT: PASS K1 improved-terms task opens the correct drawer with its live forecast
+MIDGAME_ASSERT: PASS D52 a building tap wins when the cat sprite overlaps its plot
+MID_AUDIT: m0_set_bonus_drawer
+MIDGAME_ASSERT: PASS B2 mid-game fixture must form exactly one authoritative same-kind row
+MIDGAME_ASSERT: PASS B2 authoritative set membership must render one matching glow and one +10% badge
+MIDGAME_ASSERT: PASS B2 drawer monthly income must display the same authoritative formula that owns the set bonus
+MID_AUDIT: m1_fault_on_map
+MIDGAME_ASSERT: PASS M1 fault world alert badge must exist
+MIDGAME_ASSERT: PASS M1 fault badge must expose its semantic tone
+MIDGAME_ASSERT: PASS M1 only urgent fault badges should breathe (fault)
+MIDGAME_ASSERT: PASS M1 fault badge must use a semantic fill instead of the generic navy fill
+MIDGAME_ASSERT: PASS M1 a fault must surface on the operations HUD badge
+MIDGAME_ASSERT: PASS M1 fault attention must turn the operations badge red
+MID_AUDIT: m1_fault_drawer
+MID_AUDIT: m1_fault_actions_sheet
+MIDGAME_ASSERT: PASS M3 repair action must disclose cash cost and approximate duration
+MIDGAME_ASSERT: PASS M3 rewarded repair must disclose immediacy and quota
+MIDGAME_ASSERT: PASS M3 instant repair must disclose its gem cost
+MIDGAME_ASSERT: PASS M3 rack removal must disclose its recovery value and avoid data-center retirement wording
+MID_AUDIT: m1_fault_repairing
+MID_AUDIT: m2_renewal_on_map
+MIDGAME_ASSERT: PASS M1 contract world alert badge must exist
+MIDGAME_ASSERT: PASS M1 contract badge must expose its semantic tone
+MIDGAME_ASSERT: PASS M1 only urgent fault badges should breathe (contract)
+MIDGAME_ASSERT: PASS M1 contract badge must use a semantic fill instead of the generic navy fill
+MID_AUDIT: m2_renewal_drawer
+MIDGAME_ASSERT: PASS M4 renewal drawer CTA must be gold and explicitly say free switching
+MIDGAME_ASSERT: PASS M4 renewal CTA must carry non-expiring free-switch eligibility
+MIDGAME_ASSERT: PASS M5 drawer header must identify the current client
+MIDGAME_ASSERT: PASS M4 free-switch eligibility must remain visible without a countdown
+MID_AUDIT: m2_renewal_direct_contracts
+MIDGAME_ASSERT: PASS M4 renewal world badge must deep-link straight to the contract tab
+MID_AUDIT: m2_task_center
+MIDGAME_ASSERT: PASS M2 task center must aggregate every actionable fault, renewal, and inquiry
+MIDGAME_ASSERT: PASS M2 operations badge must equal actionable count and stay red while a fault exists
+MIDGAME_ASSERT: PASS M2 task fault_mid_dc_0_1 must expose a connected one-tap action
+MIDGAME_ASSERT: PASS M2 task renewal_mid_dc_1 must expose a connected one-tap action
+MIDGAME_ASSERT: PASS M2 task inquiry must expose a connected one-tap action
+MIDGAME_ASSERT: PASS M2 fault task must deep-link to its repair action sheet
+MID_AUDIT: m3_event_banner_map
+MIDGAME_ASSERT: PASS M7 coin_boom must not leave a context-free giant coin in the world
+MIDGAME_ASSERT: PASS M1 market world alert badge must exist
+MIDGAME_ASSERT: PASS M1 market badge must expose its semantic tone
+MIDGAME_ASSERT: PASS M1 only urgent fault badges should breathe (market)
+MIDGAME_ASSERT: PASS M1 market badge must use a semantic fill instead of the generic navy fill
+MID_AUDIT: m3_event_benefit_drawer
+MIDGAME_ASSERT: PASS M8 benefited data-center drawer must name the active event
+MIDGAME_ASSERT: PASS M8 drawer must disclose the exact active income multiplier
+MIDGAME_ASSERT: PASS M8 drawer benefit feedback must include a live remaining-time cue
+MIDGAME_ASSERT: PASS M11 unified event notice must explicitly route to the market page
+MIDGAME_ASSERT: PASS M11 unified event notice must expose a connected right-swipe dismiss gesture
+MIDGAME_ASSERT: PASS M11 must not create a second banner over the campus
+MIDGAME_ASSERT: PASS M11 dismissing the transient message must fall back to the permanent safe-band news surface
+MID_AUDIT: m3_event_market_page
+MID_AUDIT: m4_aging_on_map
+MIDGAME_ASSERT: PASS M1 retire world alert badge must exist
+MIDGAME_ASSERT: PASS M1 retire badge must expose its semantic tone
+MIDGAME_ASSERT: PASS M1 only urgent fault badges should breathe (retire)
+MIDGAME_ASSERT: PASS M1 retire badge must use a semantic fill instead of the generic navy fill
+MID_AUDIT: m4_aging_drawer_decision
+MIDGAME_ASSERT: PASS M6 retirement CTA must switch to warning priority at the 87% decision point
+MIDGAME_ASSERT: PASS M6 retirement decision must disclose that retiring beats ruin and show current monthly income
+MID_AUDIT: m5_offline_return
+MIDGAME_ASSERT: PASS M9 offline fault milestone must be a connected one-tap route
+MIDGAME_ASSERT: PASS M9 offline market milestone must be a connected one-tap route
+MIDGAME_ASSERT: PASS M9 offline aging milestone must be a connected one-tap route
+MIDGAME_ASSERT: PASS M9 duty log income must render the authoritative offline settlement value from the same report
+MIDGAME_ASSERT: PASS M10 offline celebration must remain for income above twenty percent of the previous balance
+MIDGAME_ASSERT: PASS M9 fault milestone must close offline summary and deep-link to repair choices
+MID_AUDIT: m5_offline_modest_no_confetti
+MIDGAME_ASSERT: PASS M10 routine offline income must not spray confetti
+MID_AUDIT: m6_tech_progress
+MIDGAME_AUDIT: PASS -> /tmp/dct_mid_*.png
+WARNING: 4 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2535)
+ERROR: 2 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

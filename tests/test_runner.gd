@@ -45,6 +45,7 @@ func _ready() -> void:
 	add_child(decisions)
 	await decisions.run_k1()
 	await decisions.run_k23()
+	await decisions.run_k4()
 	_expect(decisions.failures == 0, "visible renewal decisions and stable live drawer pass")
 	decisions.queue_free()
 	_run_construction_controls_test()

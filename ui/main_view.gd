@@ -2529,7 +2529,7 @@ func _store_bonus_percent(product_id: String) -> int:
 func _show_company_naming() -> void:
 	if find_child("CompanyNaming", true, false) != null:
 		return
-	var parts := _create_world_sheet("CompanyNaming", 900)
+	var parts := _create_world_sheet("CompanyNaming", 980)
 	var overlay := parts["overlay"] as ColorRect
 	var box := parts["box"] as VBoxContainer
 	box.add_child(_label(tr("COMPANY_NAMING"), 34, ThemeMaker.COLORS.cream))
@@ -4527,7 +4527,7 @@ func _confirm_prestige() -> void:
 		if choice == "continue":
 			_present_action_sheet(tr("PRESTIGE_FINAL_TITLE"), tr("PRESTIGE_FINAL_WARNING"), [{"id": "confirm", "text": tr("PRESTIGE_HOLD_CONFIRM"), "color": ThemeMaker.COLORS.red, "hold_seconds": 1.2}], func(final_choice: String) -> void:
 				if final_choice == "confirm":
-					_handle_result(Game.prestige())
+					_perform_prestige()
 			)
 	)
 
@@ -4917,6 +4917,8 @@ func _on_datacenter_entered_aging(datacenter_id: String) -> void:
 	_request_full_refresh()
 
 func _on_market_event_started(event_id: String) -> void:
+	if bool(DataRepository.get_entry("events", event_id).get("rare", false)) and not Game.processing_offline:
+		_show_rare_event_overlay(event_id)
 	_show_market_banner(event_id, true)
 	match event_id:
 		"industry_winter":
@@ -4950,7 +4952,7 @@ func _show_market_banner(event_id: String, started: bool) -> void:
 func _market_banner_would_be_buried() -> bool:
 	if active_page != "map":
 		return true
-	for overlay_name: String in ["OfflineOverlay", "EraOverlay", "BankTakeoverOverlay", "CompanyNaming"]:
+	for overlay_name: String in ["OfflineOverlay", "EraOverlay", "BankTakeoverOverlay", "CompanyNaming", "RareEventOverlay", "IPOCeremony"]:
 		var overlay := find_child(overlay_name, true, false) as CanvasItem
 		if overlay != null and overlay.is_visible_in_tree():
 			return true
@@ -5033,7 +5035,7 @@ func _world_reward_fx_available(source: Vector2) -> bool:
 	return not _blocking_surface_visible()
 
 func _blocking_surface_visible() -> bool:
-	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "ConstructionContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "BankTakeoverOverlay", "CompanyNaming"]:
+	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "ConstructionContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "BankTakeoverOverlay", "CompanyNaming", "RareEventOverlay", "IPOCeremony"]:
 		var overlay := find_child(overlay_name, true, false) as CanvasItem
 		if overlay != null and overlay.is_visible_in_tree():
 			return true
@@ -5514,6 +5516,117 @@ func _play_fx_at_world(asset_id: String, target_id: String, extent: float = -1.0
 func _bounded_fx_extent(asset_id: String, requested: float) -> float:
 	var limit := float(FX_EXTENT_LIMITS.get(asset_id, 100.0))
 	return limit if requested <= 0.0 else minf(requested, limit)
+
+func _perform_prestige() -> Dictionary:
+	var summary := Game.company_legacy_summary()
+	var result := Game.prestige()
+	if bool(result.get("ok", false)):
+		_haptic(HAPTIC_MEDIUM)
+		_show_ipo_ceremony(summary)
+	else:
+		_handle_result(result)
+	return result
+
+func _show_rare_event_overlay(event_id: String) -> void:
+	var event := DataRepository.get_entry("events", event_id)
+	if event.is_empty() or not bool(event.get("rare", false)):
+		return
+	_show_headline_overlay("RareEventOverlay", tr("RARE_HEADLINE"), [tr(str(event.get("name_key", ""))), tr(str(event.get("description_key", ""))), tr("RARE_HEADLINE_ACTION")], "ic_market", "RareEventConfirm", "sfx_unlock_fanfare")
+
+func _show_ipo_ceremony(summary: Dictionary) -> void:
+	var paragraphs: Array[String] = [
+		str(summary.get("company_name", Game.state.get("company_name", tr("COMPANY_DEFAULT_NAME")))),
+		tr("IPO_BRAND") % float(Game.state["player"].get("brand_multiplier", 1.0)),
+		tr("LEGACY_RECAP_BODY") % [Game.format_number(float(summary.get("total_revenue", 0.0))), Game.format_number(float(summary.get("net_worth", 0.0))), int(summary.get("datacenters_built", 0))],
+	]
+	var overlay := _show_headline_overlay("IPOCeremony", tr("IPO_HEADLINE"), paragraphs, "legacy_memorial", "IPOConfirm", "sfx_success_chime", func() -> void:
+		_navigate("map")
+		_request_full_refresh()
+	)
+	var confetti := _icon_view("fx_confetti_set", Vector2(240, 240))
+	confetti.name = "IPOConfetti"
+	confetti.set_meta("fx_asset_id", "fx_confetti_set")
+	confetti.set_meta("fx_extent", 240.0)
+	confetti.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Keep the brief confetti burst on the emblem, clear of the company name.
+	var emblem := overlay.find_child("HeadlineEmblem", true, false) as Control
+	emblem.add_child(confetti)
+	confetti.position = Vector2(-20, -60)
+	var tween := confetti.create_tween()
+	tween.tween_property(confetti, "modulate:a", 0.0, 0.5).set_delay(1.0)
+	tween.finished.connect(confetti.queue_free)
+
+func _show_headline_overlay(overlay_name: String, title: String, paragraphs: Array[String], asset_id: String, button_name: String, cue: String, completed: Callable = Callable()) -> ColorRect:
+	# Same interruption path as application focus loss: cancel both held pan
+	# and pinch before a full-screen Control starts owning viewport input.
+	if park_map != null:
+		park_map.notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	var old := find_child(overlay_name, true, false)
+	if old != null:
+		old.queue_free()
+	var overlay := ColorRect.new()
+	overlay.name = overlay_name
+	overlay.color = Color(0.02, 0.05, 0.11, 0.90)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 100
+	add_child(overlay)
+	AudioService.play_sfx(cue)
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var card := PanelContainer.new()
+	card.name = "HeadlineNewspaper"
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.custom_minimum_size = _safe_modal_size(Vector2(720, 1120))
+	card.set_meta("viewport_bounded_surface", true)
+	card.add_theme_stylebox_override("panel", ThemeMaker.art_panel(false))
+	center.add_child(card)
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for edge: String in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + edge, 48)
+	card.add_child(margin)
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 20)
+	margin.add_child(box)
+	var masthead := _label(tr("ERA_NEWSPAPER_MASTHEAD"), 22, Color("725a36"))
+	masthead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(masthead)
+	var headline := _label(title, 40, ThemeMaker.COLORS.ink)
+	headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(headline)
+	var emblem := _icon_view(asset_id, Vector2(200, 180))
+	emblem.name = "HeadlineEmblem"
+	emblem.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(emblem)
+	for paragraph: String in paragraphs:
+		var line := _label(paragraph, 26, ThemeMaker.COLORS.ink)
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(line)
+	var finish := func() -> void:
+		if not is_instance_valid(overlay) or bool(overlay.get_meta("closing", false)):
+			return
+		overlay.set_meta("closing", true)
+		overlay.hide()
+		overlay.queue_free()
+		if completed.is_valid(): completed.call()
+	var confirm := Widgets.button(tr("HEADLINE_CONTINUE"), finish, "primary")
+	confirm.name = button_name
+	box.add_child(confirm) # Available immediately, including the first frame.
+	overlay.gui_input.connect(func(event: InputEvent) -> void:
+		if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+			finish.call()
+	)
+	card.modulate.a = 0.0
+	var reveal := card.create_tween()
+	reveal.tween_property(card, "modulate:a", 1.0, 0.16)
+	return overlay
 
 func _show_era_overlay(era_id: int, era: Dictionary) -> void:
 	var existing := find_child("EraOverlay", true, false)

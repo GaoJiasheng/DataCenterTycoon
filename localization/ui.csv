@@ -730,3 +730,8 @@ COMPANY_DUTY_FALLBACK,%s: the campus was quiet overnight.,%s：昨夜园区平�
 ACH_FACILITY_16,Facility milestone: 16,第 16 座机房
 ACH_FACILITY_17,Facility milestone: 17,第 17 座机房
 ACH_FACILITY_18,Facility milestone: 18,第 18 座机房
+RARE_HEADLINE,Rare market headline,稀有行情头条
+RARE_HEADLINE_ACTION,A rare opportunity is here. Review your contract choices.,难得的机会来了，看看合约该如何选择。
+IPO_HEADLINE,The opening bell rings,上市敲钟
+IPO_BRAND,Your brand now earns ×%.3f,品牌倍率现为 ×%.3f
+HEADLINE_CONTINUE,Continue,继续

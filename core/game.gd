@@ -18,6 +18,7 @@ var _in_background := false
 var _pending_purchases: Dictionary = {}
 var _pending_rewards: Dictionary = {}
 var persistence_enabled := true
+var processing_offline := false # Signal delivery context only; never persisted.
 
 func _ready() -> void:
 	data = DataRepository.tables
@@ -81,6 +82,8 @@ func advance_time(real_seconds: float, offline: bool) -> Dictionary:
 	}
 	if real_seconds <= 0.0:
 		return report
+	var previous_offline := processing_offline
+	processing_offline = offline
 	var financial_remaining := real_seconds
 	if offline:
 		financial_remaining = minf(real_seconds, offline_income_cap_seconds())
@@ -114,6 +117,7 @@ func advance_time(real_seconds: float, offline: bool) -> Dictionary:
 	_check_era_unlocks(report)
 	_check_achievements()
 	_update_highest_net_worth()
+	processing_offline = previous_offline
 	EventBus.state_changed.emit("offline_advance" if offline else "tick")
 	return report
 

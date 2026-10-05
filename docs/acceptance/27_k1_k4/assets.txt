@@ -1,0 +1,5 @@
+ART: all 180 files present
+TEXTURE IMPORTS: lossless_ui=45, vram_scene=135
+FONTS: 6/6 present; Resource Han Rounded coverage checked against ui.csv + GDScript literals
+AUDIO: 23/23 present; 0 missing
+Asset contract is valid.

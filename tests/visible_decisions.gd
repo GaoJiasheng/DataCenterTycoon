@@ -8,6 +8,7 @@ func _ready() -> void:
 	if get_parent() == get_tree().root:
 		await run_k1()
 		await run_k23()
+		await run_k4()
 		print("VISIBLE_DECISIONS: %d failures" % failures)
 		AudioService.stop_all()
 		get_tree().quit(1 if failures else 0)
@@ -88,6 +89,55 @@ func run_k1() -> void:
 	check(float(forecast.get_meta("forecast_rate")) == Game.contract_renewal_forecast(dc_id), "K1 existing forecast Label tracks the authoritative current-time value")
 	held.pressed = false
 	slot.gui_input.emit(held)
+	main.queue_free()
+	await get_tree().process_frame
+	Game.set_process(true)
+
+func run_k4() -> void:
+	Game.reset_for_tests()
+	Game.set_process(false)
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["era"] = 3
+	Game.state["flags"]["last_presented_era"] = 3
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	Game.state["market"]["previews"] = [{"event_id": "sovereign_ai", "start_at": Game.simulation_time() + 1.0}]
+	Game.advance_time(2.0, true)
+	check(main.find_child("RareEventOverlay", true, false) == null and not Game.processing_offline, "K4 offline rare start does not replay a headline and restores signal context")
+	Game.state["market"]["previews"] = [{"event_id": "compute_famine", "start_at": Game.simulation_time() + 1.0}]
+	Game.advance_time(2.0, false)
+	await get_tree().process_frame
+	var rare: Node = main.find_child("RareEventOverlay", true, false)
+	check(rare != null, "K4 the actual online market signal opens a rare headline")
+	var rare_ref: WeakRef = weakref(rare)
+	var button := main.find_child("RareEventConfirm", true, false) as Button
+	check(button != null and button.visible and not button.disabled, "K4 headline is immediately skippable")
+	button.pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(rare_ref.get_ref() == null, "K4 skipped rare headline releases its entire tree")
+	var cash := float(Game.state["player"]["cash"])
+	var rng: Variant = Game.state["market"]["rng_state"]
+	main.call("_show_ipo_ceremony", Game.company_legacy_summary())
+	var ipo: Node = main.find_child("IPOCeremony", true, false)
+	var ipo_ref: WeakRef = weakref(ipo)
+	var confetti: Node = ipo.find_child("IPOConfetti", true, false)
+	var confetti_ref: WeakRef = weakref(confetti)
+	check(ipo.find_children("IPOConfetti", "", true, false).size() == 1, "K4 ceremony creates exactly one confetti set")
+	await get_tree().create_timer(1.7).timeout
+	check(confetti_ref.get_ref() == null, "K4 confetti self-destructs while the ceremony remains open")
+	(main.find_child("IPOConfirm", true, false) as Button).pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(ipo_ref.get_ref() == null and main.find_child("IPOConfetti", true, false) == null, "K4 closed ceremony leaves no overlay or FX nodes")
+	main.call("_show_ipo_ceremony", Game.company_legacy_summary())
+	var early_fx: WeakRef = weakref(main.find_child("IPOConfetti", true, false))
+	(main.find_child("IPOConfirm", true, false) as Button).pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(early_fx.get_ref() == null, "K4 skipping early also destroys confetti immediately")
+	check(Game.state["player"]["cash"] == cash and Game.state["market"]["rng_state"] == rng, "K4 presentation consumes no cash or random stream")
 	main.queue_free()
 	await get_tree().process_frame
 	Game.set_process(true)

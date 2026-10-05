@@ -1,0 +1,56 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M5 Max
+
+CAMPAIGN: shot 01_a_tutorial_done
+CAMPAIGN: shot 02_b_fault_repaired
+CAMPAIGN: year 1 — era 1, built 3, live 2/4, cash $9.2K, income $1.1K/mo, upkeep $300/mo, revenue $11.2K
+CAMPAIGN: year 2 — era 1, built 4, live 3/4, cash $10.1K, income $1.9K/mo, upkeep $450/mo, revenue $29.8K
+CAMPAIGN: shot 03_c_era2_announcement
+CAMPAIGN: shot 04_c_era2_world
+CAMPAIGN: year 3 — era 2, built 5, live 4/4, cash $8.3K, income $2.3K/mo, upkeep $600/mo, revenue $55.4K
+CAMPAIGN: year 4 — era 2, built 5, live 4/5, cash $13.9K, income $1.9K/mo, upkeep $600/mo, revenue $85.1K
+CAMPAIGN: year 5 — era 2, built 7, live 5/5, cash $9.2K, income $2.5K/mo, upkeep $750/mo, revenue $125.4K
+CAMPAIGN: year 6 — era 2, built 9, live 5/7, cash $25.1K, income $9.6K/mo, upkeep $750/mo, revenue $212.3K
+CAMPAIGN: year 7 — era 2, built 13, live 8/10, cash $32.9K, income $24.8K/mo, upkeep $2.2K/mo, revenue $436.2K
+CAMPAIGN: shot 05_c_era3_announcement
+CAMPAIGN: shot 06_c_era3_world
+CAMPAIGN: year 8 — era 3, built 16, live 11/11, cash $58.0K, income $34.3K/mo, upkeep $3.6K/mo, revenue $832.6K
+CAMPAIGN: year 9 — era 3, built 19, live 13/15, cash $158.9K, income $43.5K/mo, upkeep $6.0K/mo, revenue $1.51M
+CAMPAIGN: shot 07_g_page_map
+CAMPAIGN: shot 08_g_page_market
+CAMPAIGN: shot 09_g_page_tech
+CAMPAIGN: shot 10_g_page_store
+CAMPAIGN: shot 11_g_page_map
+CAMPAIGN: shot 12_g_page_drawer
+CAMPAIGN: shot 13_d_offline_return
+CAMPAIGN: shot 14_e_prestige_card
+CAMPAIGN: shot 15_f_after_prestige
+CAMPAIGN: second company month 6 — built 11, cash $1.13M, income $46.9K/mo
+CAMPAIGN: second company month 12 — built 23, cash $1.15M, income $168.6K/mo
+CAMPAIGN: second company month 18 — built 35, cash $1.57M, income $268.5K/mo
+CAMPAIGN: second company month 24 — built 47, cash $2.32M, income $351.2K/mo
+CAMPAIGN: second company month 30 — built 59, cash $3.24M, income $491.2K/mo
+CAMPAIGN: shot 16_h_second_company_30m
+CAMPAIGN: shot 17_g_page_map
+CAMPAIGN: shot 18_g_page_market
+CAMPAIGN: shot 19_g_page_tech
+CAMPAIGN: shot 20_g_page_store
+CAMPAIGN: shot 21_g_page_map
+CAMPAIGN: shot 22_g_page_drawer
+CAMPAIGN: . month 3: accepted a persistent inquiry at its exact displayed premium
+CAMPAIGN: . month 4: repaired a fault through the rack sheet
+CAMPAIGN: . month 9: used a saved free switch after automatic renewal
+CAMPAIGN: . month 34: era 2 (cumulative revenue $50.7K, net worth $26.7K)
+CAMPAIGN: . month 90: era 3 (cumulative revenue $602.3K, net worth $217.2K)
+CAMPAIGN: . month 113: 20 data centers built, prestige unlocked
+CAMPAIGN: . month 113: live campaign formed a 3-slot set and capped an injected rare strategic quote at x2.5
+CAMPAIGN: . month 113: Engineering expanded to 3 lanes and admitted 3 concurrent projects
+CAMPAIGN: . offline return paid $437.2K over the 8h 00m cap
+CAMPAIGN: . campaign end: month 113, 24 built, era 3, net worth $1.62M
+CAMPAIGN: . prestige: brand x1.181, restart cash $1.62M
+CAMPAIGN: . second company month 11: reached 21 data centers
+CAMPAIGN: . second company: 20 sites in 11 months versus 113 months on the first run; finished 30-month soak with $3.24M
+CAMPAIGN: . density day 12.21: received facility_16 through Game
+CAMPAIGN: . density day 13.71: received facility_17 through Game
+CAMPAIGN: . density day 15.88: received facility_18 through Game
+CAMPAIGN: PASS -> /tmp/dct_camp_*.png

@@ -1,0 +1,65 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+PASS: K1 forecast equals the real same-tick renewal exactly
+PASS: K1 renewal records the era baseline separately
+PASS: K1 low-lock log retains room event and rate after the event ends
+PASS: K1 composing the same report remains deterministic
+PASS: K1 aggregate names every low renewal
+PASS: K1 three low renewals form one row and normal renewal stays separate
+PASS: K1 improvement equal to configured threshold is actionable
+PASS: K1 below-threshold improvement is not actionable
+PASS: K1 an improved rate without a free switch is not actionable
+PASS: K1 fixture holds the actual rack input slot
+PASS: K1 ten live updates retain drawer board touched slot and Label identities
+PASS: K1 ten live updates preserve the held touch state
+PASS: K1 existing forecast Label tracks the authoritative current-time value
+PASS: K2 new statistic starts at zero: strategic_contracts_signed
+PASS: K2 new statistic starts at zero: rare_events_locked
+PASS: K2 new statistic starts at zero: datacenters_built_t2
+PASS: K2 new statistic starts at zero: datacenters_built_t3
+PASS: K2 new statistic starts at zero: max_set_groups_in_one_datacenter
+PASS: K2 new statistic starts at zero: inquiries_declined
+PASS: K2 new statistic starts at zero: liquid_cooling_installed
+PASS: K2 old saves backfill statistic: strategic_contracts_signed
+PASS: K2 old saves backfill statistic: rare_events_locked
+PASS: K2 old saves backfill statistic: datacenters_built_t2
+PASS: K2 old saves backfill statistic: datacenters_built_t3
+PASS: K2 old saves backfill statistic: max_set_groups_in_one_datacenter
+PASS: K2 old saves backfill statistic: inquiries_declined
+PASS: K2 old saves backfill statistic: liquid_cooling_installed
+PASS: K2 starting a shell does not count a completed tier
+PASS: K2 completing T2 counts only T2
+PASS: K2 completing T3 counts T3
+PASS: K2 a standard contract does not count as strategic
+PASS: K2 only a real strategic signing increments; unchanged taps do not
+PASS: K2 a future rare event is not in the lock input
+PASS: K2 signing in an active rare event records one lock and its identity
+PASS: K2 installing is not yet liquid cooling completed
+PASS: K2 liquid cooling counts on completion
+PASS: K2 incomplete racks do not form counted sets
+PASS: K2 three different completed rows count three groups in one facility
+PASS: K2 unavailable inquiry does not count as declined
+PASS: K2 an actual decline counts once
+PASS: K2 at least twenty achievements are authored
+PASS: K3 v4 migration fills localized name and preserves runtime locale
+PASS: K3 v5 migration preserves the chosen name
+PASS: K3 naming rejects words outside the library
+PASS: K3 a word-library rename costs no cash and consumes no market randomness
+PASS: K3 tutorial never opens company naming
+PASS: K3 first naming uses two word selectors, never free text
+PASS: K3 cat waits for the first company name
+PASS: K3 confirmation enters the named company
+PASS: K2 reference days 12–19 receive three new milestones through Game
+density day 12.21: received facility_16 through Game
+density day 13.71: received facility_17 through Game
+density day 15.88: received facility_18 through Game
+PASS: K4 offline rare start does not replay a headline and restores signal context
+PASS: K4 the actual online market signal opens a rare headline
+PASS: K4 headline is immediately skippable
+PASS: K4 skipped rare headline releases its entire tree
+PASS: K4 ceremony creates exactly one confetti set
+PASS: K4 confetti self-destructs while the ceremony remains open
+PASS: K4 closed ceremony leaves no overlay or FX nodes
+PASS: K4 skipping early also destroys confetti immediately
+PASS: K4 presentation consumes no cash or random stream
+VISIBLE_DECISIONS: 0 failures

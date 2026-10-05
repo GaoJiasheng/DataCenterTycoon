@@ -499,8 +499,11 @@ func _verify_prestige() -> void:
 	var retention := _prepare_cross_run_retention()
 	var before_brand := float(Game.state["player"].get("brand_multiplier", 1.0))
 	var before_era := int(Game.state["player"].get("era", 1))
-	var result := Game.prestige()
+	var result: Dictionary = main.call("_perform_prestige")
 	_expect(bool(result.get("ok", false)), "prestige must succeed at the documented threshold (got %s)" % str(result.get("reason", "")))
+	_expect(main.find_child("IPOCeremony", true, false) != null, "successful prestige must show the bell ceremony")
+	await _dismiss_modals()
+	_expect(main.find_child("IPOCeremony", true, false) == null, "the ceremony dispatch must release its overlay")
 	main.call("_navigate", "map")
 	main.call("_refresh")
 	await _settle()
@@ -711,6 +714,14 @@ func _first_datacenter_id() -> String:
 # count them, because an era that never announces itself is a defect too.
 func _dismiss_modals() -> void:
 	for _guard: int in range(8):
+		var headline_closed := false
+		for button_name: String in ["RareEventConfirm", "IPOConfirm"]:
+			var headline := main.find_child(button_name, true, false) as Button
+			if headline != null and headline.is_visible_in_tree():
+				headline.pressed.emit()
+				await _settle()
+				headline_closed = true
+		if headline_closed: continue
 		var overlay := main.find_child("EraOverlay", true, false) as Control
 		var era := main.find_child("EraConfirmButton", true, false) as Button
 		if overlay != null and overlay.is_visible_in_tree() and (era == null or not era.is_visible_in_tree()):
