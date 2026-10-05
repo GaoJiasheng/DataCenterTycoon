@@ -151,6 +151,24 @@ func _locked_rate_for(customer_id: String, duration_id: String, premium: float =
 		return minf(rate, cap)
 	return rate
 
+# Presentation and real renewal share this exact current-time calculation.
+func contract_renewal_forecast(datacenter_id: String) -> float:
+	var dc := find_datacenter(datacenter_id)
+	if dc.is_empty() or str(dc.get("customer_id", "")).is_empty():
+		return 0.0
+	return _locked_rate_for(str(dc["customer_id"]), str(dc.get("contract_duration_id", "standard")))
+
+func free_switch_opportunities() -> Array[String]:
+	var result: Array[String] = []
+	var gain := float(data.get("duty_log", {}).get("settings", {}).get("free_switch_gain_ratio", 1.10))
+	for plot: Dictionary in state.get("plots", []):
+		var dc: Variant = plot.get("datacenter")
+		if dc is Dictionary and bool(dc.get("free_switch_available", false)) and not str(dc.get("customer_id", "")).is_empty():
+			var current := float(dc.get("locked_market_multiplier", contract_market_multiplier(str(dc.get("customer_id", "")))))
+			if current > 0.0 and contract_renewal_forecast(str(dc.get("id", ""))) >= current * gain:
+				result.append(str(dc.get("id", "")))
+	return result
+
 func contract_lock_event_seconds(customer_id: String, duration_id: String) -> float:
 	return _market.locking_event_remaining_seconds(customer_id, state, data, _contract_duration_seconds(duration_id))
 
@@ -1198,6 +1216,20 @@ func _process_contract_renewals(now: float, report: Dictionary) -> void:
 			dc.erase("inquiry_template_id")
 			dc.erase("inquiry_premium")
 			var renewed := {"type": "contract_auto_renewed", "datacenter_id": dc.get("id", ""), "customer_id": dc.get("customer_id", ""), "contract_end_at": dc.get("contract_end_at", 0.0), "free_switch_available": true}
+			renewed["locked_rate"] = float(dc["locked_market_multiplier"])
+			renewed["baseline_rate"] = _market._customer_baseline(str(dc.get("customer_id", "")), state, data)
+			# Keep immutable context: the IDC may retire and the event may end
+			# before an offline report is opened. Never guess from the return state.
+			renewed["building_name_key"] = str(data.get("buildings", {}).get("items", {}).get(str(dc.get("building_id", "")), {}).get("name_key", "DC_DETAIL"))
+			renewed["plot_index"] = int(plot.get("index", 1))
+			var lock_events: Array[String] = []
+			for active: Dictionary in state.get("market", {}).get("active", []):
+				var event_id := str(active.get("event_id", ""))
+				var event: Dictionary = data.get("events", {}).get("items", {}).get(event_id, {})
+				var multiplier := float(event.get("all_customer_multiplier", 1.0)) * float(event.get("customer_multipliers", {}).get(str(dc.get("customer_id", "")), 1.0))
+				if float(active.get("started_at", now)) <= now and float(active.get("end_at", 0.0)) > now and not is_equal_approx(multiplier, 1.0):
+					lock_events.append(event_id)
+			renewed["lock_event_ids"] = lock_events
 			report.get("contracts", []).append(renewed)
 			EventBus.contract_auto_renewed.emit(dc.get("id", ""), dc.get("customer_id", ""), float(dc.get("contract_end_at", 0.0)))
 

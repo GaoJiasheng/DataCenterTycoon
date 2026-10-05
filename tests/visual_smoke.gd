@@ -467,6 +467,27 @@ func _ready() -> void:
 	if offline_overlay != null:
 		offline_overlay.queue_free()
 		await get_tree().process_frame
+	var renewal_dc_id := ""
+	for plot: Dictionary in Game.state.get("plots", []):
+		if plot.get("datacenter") is Dictionary:
+			renewal_dc_id = str(plot["datacenter"].get("id", ""))
+			break
+	if not renewal_dc_id.is_empty():
+		var renewal_dc := Game.find_datacenter(renewal_dc_id)
+		renewal_dc["customer_id"] = "mining"
+		renewal_dc["locked_market_multiplier"] = 0.2
+		renewal_dc["free_switch_available"] = true
+		main.call("_show_datacenter_context", renewal_dc_id)
+		var drawer := main.find_child("DatacenterContext", true, false)
+		var callout: Label = main._label(DutyLog.compose({"income": 0.0, "contracts": [{"type": "contract_auto_renewed", "locked_rate": 0.2, "baseline_rate": 1.0, "plot_index": 1, "building_name_key": DataRepository.get_entry("buildings", str(renewal_dc.get("building_id", ""))).get("name_key", "DC_DETAIL"), "lock_event_ids": ["mining_crash"]}]}, Game.data, Game.state)[0]["text"], 20, Color.WHITE)
+		callout.name = "RenewalCallout"
+		callout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var forecast_label := drawer.find_child("ContractRenewalForecast", true, false)
+		forecast_label.get_parent().add_child(callout)
+		forecast_label.get_parent().move_child(callout, forecast_label.get_index())
+		valid = (await _capture(main, "renewal_callout", false)) and valid
+		drawer.queue_free()
+		await get_tree().process_frame
 	Game.state["bankruptcy"] = {"status": "arrears", "debt": 4250.0, "arrears_online_seconds": 3600.0, "rescue_uses": 0, "rescue_day": -1}
 	Game.state["player"]["cash"] = 0.0
 	main.call("_on_bankruptcy_state_changed", "arrears")
@@ -582,7 +603,11 @@ func _capture(main: Node, name: String, refresh: bool = true) -> bool:
 					live_board.set_placement_preview(3, "rack_gpu_t1")
 		if live_board == null:
 			push_error("VISUAL_SMOKE: %s has no visible board to stage" % name)
-	await RenderingServer.frame_post_draw
+	if "--force-draw" in OS.get_cmdline_user_args():
+		await get_tree().process_frame
+		RenderingServer.force_draw(false)
+	else:
+		await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	# With aspect=keep, Godot returns only the scaled content viewport; pillarbox
 	# gutters belong to the host window. Validate that content size first, then

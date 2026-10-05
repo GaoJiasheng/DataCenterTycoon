@@ -24,6 +24,7 @@ func _ready() -> void:
 	add_child(main)
 	await _shot("m0_daily_map_overview")
 	_assert_building_variants()
+	await _assert_low_renewal_flow()
 	await _assert_cat_overlap_routes_to_building()
 	var set_dc: Dictionary = Game.state["plots"][0]["datacenter"]
 	set_dc["racks"][2] = {"rack_id": "rack_compute_t1", "status": "active", "installed_at": Game.simulation_time(), "fault_at": -1.0, "enabled": true}
@@ -386,3 +387,38 @@ func _shot(shot_name: String) -> bool:
 		image.save_png("%s%s.png" % [OUT, shot_name])
 	print("MID_AUDIT: %s" % shot_name)
 	return true
+
+func _assert_low_renewal_flow() -> void:
+	var saved := Game.state.duplicate(true)
+	var was_processing := Game.is_processing()
+	Game.set_process(false)
+	var dc: Dictionary = Game.state["plots"][1]["datacenter"]
+	var dc_id := str(dc["id"])
+	var now := Game.simulation_time()
+	Game.state["market"]["active"] = [{"event_id": "mining_crash", "started_at": now, "end_at": now + 43200.0}]
+	dc["contract_end_at"] = now
+	var report := {"contracts": [], "income": 10.0, "elapsed_seconds": 3600.0, "balance_before": 100000.0}
+	Game._process_contract_renewals(now, report)
+	Game.state["market"]["active"] = []
+	main.call("_show_offline_dialog", report)
+	await _shot("k1_low_renewal_log")
+	var log_copy := main.find_child("DutyLogText_0", true, false) as Label
+	_expect(log_copy != null and tr("EVENT_MINING_CRASH") in log_copy.text and "0.20" in log_copy.text and "#2" in log_copy.text, "K1 offline log names the real low renewal")
+	_close("OfflineOverlay")
+	await get_tree().process_frame
+	main.call("_show_operations_hub")
+	await _shot("k1_free_switch_task")
+	var task := main.find_child("TaskAction_better_renewal", true, false) as Button
+	_expect(task != null, "K1 task center shows improved free terms")
+	if task != null:
+		task.pressed.emit()
+		await get_tree().create_timer(0.4).timeout
+	var drawer := main.find_child("DatacenterContext", true, false)
+	var preview := drawer.find_child("ContractRenewalForecast", true, false) as Label if drawer != null else null
+	_expect(drawer != null and str(drawer.get_meta("datacenter_id")) == dc_id and preview != null and preview.visible, "K1 improved-terms task opens the correct drawer with its live forecast")
+	_close("DatacenterContext")
+	Game.state = saved
+	Game.set_process(was_processing)
+	main.call("_refresh")
+	main.park_map.reset_camera()
+	await get_tree().create_timer(0.4).timeout

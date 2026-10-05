@@ -20,10 +20,24 @@ static func compose(report: Dictionary, data: Dictionary, game_state: Dictionary
 		_append_candidate(candidates, "inquiry", [_inquiry_persona_name(report, data), inquiry_count], config)
 	_append_count_candidate(candidates, "fault", report.get("faults", []).size(), config)
 	var renewals := 0
+	var low_locks: PackedStringArray = []
+	var threshold := float(data.get("duty_log", {}).get("settings", {}).get("low_lock_ratio", 0.80))
 	for contract: Dictionary in report.get("contracts", []):
-		if str(contract.get("type", "")) == "contract_auto_renewed":
+		if str(contract.get("type", "")) != "contract_auto_renewed":
+			continue
+		var baseline := float(contract.get("baseline_rate", 0.0))
+		if baseline > 0.0 and float(contract.get("locked_rate", baseline)) / baseline < threshold:
+			var names: PackedStringArray = []
+			for event_id: String in contract.get("lock_event_ids", []):
+				var event: Dictionary = data.get("events", {}).get("items", {}).get(event_id, {})
+				names.append(TranslationServer.translate(str(event.get("name_key", "NAV_MARKET"))))
+			var room := "%s #%d" % [TranslationServer.translate(str(contract.get("building_name_key", "DC_DETAIL"))), int(contract.get("plot_index", 1))]
+			low_locks.append(TranslationServer.translate("DUTY_LOG_LOW_LOCK_ITEM") % [room, " / ".join(names) if not names.is_empty() else TranslationServer.translate("NAV_MARKET"), float(contract.get("locked_rate", 0.0))])
+		else:
 			renewals += 1
 	_append_count_candidate(candidates, "contract", renewals, config)
+	if not low_locks.is_empty():
+		_append_candidate(candidates, "contract_low_lock", ["; ".join(low_locks)], config)
 	_append_count_candidate(candidates, "aging", report.get("aging", []).size(), config)
 	# Quiet nights get one warm observation only after the cat has legitimately
 	# moved in. Operational events always take precedence over this fallback.

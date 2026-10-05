@@ -657,3 +657,9 @@ COLLECTION_CAT_FESTIVAL,Market Festival,行情庆典
 DUTY_LOG_CAT_1,The campus cat kept watch between naps.,园区猫睡醒后巡了一圈。
 DUTY_LOG_CAT_2,Soft paws crossed the roof before dawn.,天亮前屋顶留下一串猫脚印。
 DUTY_LOG_CAT_3,The cat slept through a quiet shift.,园区猫在机房顶睡过了夜班。
+CONTRACT_NEXT_RENEWAL,Locked ×%.2f · Next renewal estimate ×%.2f,当前锁价 ×%.2f · 下次续约预计 ×%.2f
+TASK_BETTER_RENEWAL,%d facilities can switch free to a better rate,%d 座机房可免费改签到更好的价
+DUTY_LOG_LOW_LOCK_ITEM,%s during %s at ×%.2f,%s 在 %s 期间以 ×%.2f 续约
+DUTY_LOG_LOW_LOCK_1,Low renewal: %s. A free switch is available.,低价续约：%s。你有一张免费改签。
+DUTY_LOG_LOW_LOCK_2,The night shift locked %s. Review your free switch.,夜班锁价：%s。可使用免费改签。
+DUTY_LOG_LOW_LOCK_3,Renewal watch: %s. You can change terms for free.,续约提醒：%s。你可以免费改签。

@@ -907,6 +907,11 @@ func _operations_tasks(include_market: bool = true) -> Array[Dictionary]:
 				"subtitle": tr("TASK_RETIRE_SUBTITLE") % [Game.format_number(Rules.retirement_value(dc, now, Game.data)), Game.format_number(Game.datacenter_monthly_income(dc))],
 				"action": tr("TASK_GO_DECIDE"),
 			})
+	var better_terms := Game.free_switch_opportunities()
+	if not better_terms.is_empty():
+		tasks.append({"id": "better_renewal", "type": "better_renewal", "priority": 1,
+			"datacenter_id": better_terms[0], "slot": -1, "asset": "ic_contract", "accent": ThemeMaker.COLORS.green,
+			"title": tr("TASK_BETTER_RENEWAL") % better_terms.size(), "subtitle": tr("CONTRACT_FREE_SWITCH"), "action": tr("TASK_GO_RENEW")})
 	var open_inquiries: Array = Game.state.get("inquiries", {}).get("open", [])
 	if not open_inquiries.is_empty():
 		tasks.append({
@@ -1098,6 +1103,7 @@ func _run_operations_task(task: Dictionary) -> void:
 	match str(task.get("type", "")):
 		"fault": _show_rack_actions(datacenter_id, int(task.get("slot", -1)))
 		"renewal": _open_datacenter_detail(datacenter_id, "contracts")
+		"better_renewal": _show_datacenter_context(datacenter_id)
 		"retire": _show_datacenter_context(datacenter_id)
 		"market", "inquiry": _navigate("market")
 		_: _handle_result({"ok": false, "reason": "unknown"})
@@ -1326,6 +1332,24 @@ func _retirement_decision(dc: Dictionary, progress: float) -> VBoxContainer:
 	decision.add_child(tradeoff)
 	return decision
 
+func _renewal_forecast_label(datacenter_id: String) -> Label:
+	var label := _label("", ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
+	label.name = "ContractRenewalForecast"
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.set_meta("live_update", func() -> void:
+		var dc := Game.find_datacenter(datacenter_id)
+		label.visible = not str(dc.get("customer_id", "")).is_empty()
+		if not label.visible:
+			return
+		var current := float(dc.get("locked_market_multiplier", 0.0))
+		var forecast := Game.contract_renewal_forecast(datacenter_id)
+		label.text = tr("CONTRACT_NEXT_RENEWAL") % [current, forecast]
+		label.set_meta("forecast_rate", forecast)
+		label.add_theme_color_override("font_color", ThemeMaker.COLORS.green if forecast >= current else ThemeMaker.COLORS.red)
+	)
+	label.get_meta("live_update").call()
+	return label
+
 func _build_contract_management(dc: Dictionary) -> Control:
 	var section := VBoxContainer.new()
 	section.add_theme_constant_override("separation", ThemeMaker.GROUP_GAP)
@@ -1357,6 +1381,7 @@ func _build_contract_management(dc: Dictionary) -> Control:
 		rates.add_child(Widgets.chip(tr("CONTRACT_LOCKED_RATE") % float(dc.get("locked_market_multiplier", Game.contract_market_multiplier(current_customer))), ThemeMaker.COLORS.green))
 		rates.add_child(Widgets.chip(tr("CONTRACT_MARKET_RATE") % Game.market_multiplier(current_customer), ThemeMaker.COLORS.cyan))
 		summary_box.add_child(rates)
+		summary_box.add_child(_renewal_forecast_label(str(dc.get("id", ""))))
 		var event_seconds := float(dc.get("contract_prorated_event_seconds", 0.0))
 		if event_seconds > 0.0:
 			var month_seconds := float(DataRepository.get_table("economy").get("time", {}).get("real_seconds_per_game_month", 7200.0))
@@ -3734,6 +3759,7 @@ func _show_datacenter_context(datacenter_id: String) -> void:
 		return
 	if progress >= float(DataRepository.get_table("economy").get("aging", {}).get("aging_start", 0.6)):
 		sheet_box.add_child(_retirement_decision(dc, progress))
+	sheet_box.add_child(_renewal_forecast_label(datacenter_id))
 	var board := _create_datacenter_board(datacenter_id)
 	sheet_box.add_child(board)
 	var powered := not str(dc.get("power_unit", "")).is_empty()
@@ -4237,6 +4263,8 @@ func _show_offline_dialog(report: Dictionary) -> void:
 			row.add_child(_icon_view(str(row_data.get("icon_asset", "ic_check")), Vector2(34, 34)))
 			var copy := _label(str(row_data.get("text", "")), 20, ThemeMaker.COLORS.ink)
 			copy.name = "DutyLogText_%d" % index
+			if str(row_data.get("type", "")) == "contract_low_lock":
+				copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			copy.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			copy.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
