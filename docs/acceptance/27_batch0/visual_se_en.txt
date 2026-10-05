@@ -1,0 +1,22 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+OpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M5 Max
+
+VISUAL_SMOKE: rendering map
+VISUAL_SMOKE: captured map
+VISUAL_SMOKE: rendering ftue_spotlight
+VISUAL_SMOKE: captured ftue_spotlight
+VISUAL_SMOKE: operation feedback visible=true rect=[P: (62.5, 735.915), S: (679.0, 113.49)] alpha=1.00 text=Queue full (2/2). Next slot in 5m 00s. Wait or speed up; expand Engineering in Tech.
+VISUAL_SMOKE: rendering dc_context_aging_bottom
+VISUAL_SMOKE: captured dc_context_aging_bottom
+VISUAL_SMOKE: rendering dc_board
+VISUAL_SMOKE: captured dc_board
+VISUAL_SMOKE: rendering inquiry_persona_card
+VISUAL_SMOKE: captured inquiry_persona_card
+VISUAL_SMOKE: rendering tech
+VISUAL_SMOKE: captured tech
+VISUAL_SMOKE: rendering store
+VISUAL_SMOKE: captured store
+VISUAL_SMOKE: store tick preserved node=386681276648 scroll=240 nodes_delta=0
+VISUAL_SMOKE: rendering duty_log_dialog
+VISUAL_SMOKE: captured duty_log_dialog
+VISUAL_SMOKE: PASS 8 portrait states profile=se at 750x1334 locale=en -> /tmp/data_center_tycoon_visual_en_se_*.png

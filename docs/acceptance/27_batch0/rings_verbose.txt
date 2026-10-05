@@ -1,0 +1,39 @@
+PASS: fixture can construct an IDC alongside equipment
+PASS: experienced players have no installation coach popup
+PASS: map distinguishes power, rack, air, and liquid installations
+PASS: concurrent racks retain a visible count without crowding the building
+PASS: IDC progress is attached to its construction site and advances
+PASS: tapping a construction site exposes its own clock progress
+PASS: construction detail countdown refreshes while the sheet remains open
+PASS: building tap opens its real board
+PASS: transformer progress stays at the transformer control
+PASS: north cooling progress stays on that exact edge
+PASS: east cooling progress stays on that exact edge
+PASS: each installing rack has independent live progress
+PASS: countdown updates without rebuilding the board or losing the touched slot
+PASS: completed rack and transformer rings disappear
+PASS: a slower liquid install keeps its own remaining progress
+PASS: accelerated work is included in the same original-duration ring
+PASS: a finished site closes its progress sheet automatically
+PASS: new players retain the construction waiting coach
+CONSTRUCTION_RINGS: 0 failures
+WARNING: 10 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+ERROR: 5 resources still in use at exit.
+Leaked instance: AudioStreamPlaybackWAV:9223372157080307203 - Reference count: 1
+Leaked instance: AudioStreamPlaybackWAV:9223372175971452422 - Reference count: 1
+Leaked instance: AudioStreamWAV:9223372175921120780 - Reference count: 1
+Leaked instance: AudioStreamPlaybackOggVorbis:9223372136930871049 - Reference count: 1
+Leaked instance: OggPacketSequencePlayback:9223372136947648266 - Reference count: 1
+Leaked instance: OggPacketSequence:9223372136846984971 - Reference count: 3
+Leaked instance: AudioStreamOggVorbis:9223372136863762188 - Reference count: 1
+Leaked instance: AudioStreamPlaybackWAV:9223372169830991857 - Reference count: 1
+Leaked instance: AudioStreamWAV:9223372169780660213 - Reference count: 1
+Leaked instance: AudioStreamWAV:9223372157029976342 - Reference count: 1
+Resource still in use: res://assets/audio/music_main.ogg::OggPacketSequence_7g1hx (OggPacketSequence)
+Resource still in use: res://assets/audio/music_main.ogg (AudioStreamOggVorbis)
+Resource still in use: res://assets/audio/sfx_power_on.wav (AudioStreamWAV)
+Resource still in use: res://assets/audio/sfx_build_complete.wav (AudioStreamWAV)
+Resource still in use: res://assets/audio/sfx_build_start.wav (AudioStreamWAV)
+Orphan StringName: SFX (static: 0, total: 6)
+Orphan StringName: Music (static: 0, total: 2)
+StringName: 2 unclaimed string names at exit.

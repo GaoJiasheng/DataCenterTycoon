@@ -1,0 +1,24 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+TRANSLATION_CHECK: PASS CSV and compiled resources are semantically identical
+ERROR: Condition "ret != noErr" is true. Returning: ""
+   at: get_system_ca_certificates (platform/macos/os_macos.mm:1035)
+ERROR: Unable to open temporary save file: 12
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] write_save (res://core/save_manager.gd:47)
+       [1] save_now (res://core/game.gd:66)
+       [2] _settle_wall_gap (res://core/game.gd:968)
+       [3] _ready (res://core/game.gd:34)
+Validated 18 data tables, localization, and 180 art IDs.
+Validated opaque app icon and 10 localized iPhone screenshots.
+Release gate blocked:
+- data/release_identity.json field product_name still needs the owner-provided value
+- data/release_identity.json field copyright_holder still needs the owner-provided value
+- data/release_identity.json field privacy_email still needs the owner-provided value
+- data/release_identity.json field support_email still needs the owner-provided value
+- data/release_identity.json field privacy_url still needs the owner-provided value
+- data/release_identity.json field support_url still needs the owner-provided value
+- data/release_identity.json field effective_date still needs the owner-provided value
+- data/release_identity.json field ad_providers still needs the owner-provided value
+- missing enabled iOS plugin descriptors under ios/plugins (StoreKit/IAP required)

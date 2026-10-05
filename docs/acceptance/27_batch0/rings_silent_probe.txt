@@ -1,0 +1,20 @@
+PASS: fixture can construct an IDC alongside equipment
+PASS: experienced players have no installation coach popup
+PASS: map distinguishes power, rack, air, and liquid installations
+PASS: concurrent racks retain a visible count without crowding the building
+PASS: IDC progress is attached to its construction site and advances
+PASS: tapping a construction site exposes its own clock progress
+PASS: construction detail countdown refreshes while the sheet remains open
+PASS: building tap opens its real board
+PASS: transformer progress stays at the transformer control
+PASS: north cooling progress stays on that exact edge
+PASS: east cooling progress stays on that exact edge
+PASS: each installing rack has independent live progress
+PASS: countdown updates without rebuilding the board or losing the touched slot
+PASS: completed rack and transformer rings disappear
+PASS: a slower liquid install keeps its own remaining progress
+PASS: accelerated work is included in the same original-duration ring
+PASS: a finished site closes its progress sheet automatically
+RING_RELEASE_PROBE: survivors=0
+PASS: new players retain the construction waiting coach
+CONSTRUCTION_RINGS: 0 failures

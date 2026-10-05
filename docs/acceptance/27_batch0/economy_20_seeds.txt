@@ -1,0 +1,30 @@
+idle       day=30 dc= 5 era=3 revenue=$3,998,395 net=$1,236,117 land=$11,137 min_cash=$13,746 arrears=0 takeovers=0 sold=0 inquiries=18 queue=1/2 bays=1
+active     day=30 dc=27 era=3 revenue=$6,602,208 net=$1,479,727 land=$481,936 min_cash=$1,134 arrears=0 takeovers=0 sold=0 inquiries=28 queue=2/2 bays=1
+aggressive day=30 dc= 0 era=2 revenue=$114,368 net=$10,438 land=$2,487 min_cash=$16 arrears=0 takeovers=0 sold=0 inquiries=0 queue=2/2 bays=1
+PASS: campus sequence partitions unlimited plots into a 6-slot starter page followed by 8-slot expansion pages
+PASS: expansion-campus land premium stays at the intended modest 8%
+PASS: mining downturn leaves an existing contract unchanged until automatic renewal
+PASS: flexible, standard, and relationship-gated strategic terms preserve their authored risk/reward order
+PASS: five-times rare quotes remain uncapped for flexible/standard terms and cap strategic locks at 2.5x
+PASS: three same-kind rows receive one 1.10x set bonus while retaining the cloud 1.15x diversity bonus
+PASS: rare-event share is 3.14% versus authored 3.26% (within ±50%)
+PASS: active inquiry accepts range 28–61 in 30 days (target every seed >=3)
+PASS: inquiry-attributable premium and signing bonuses are 2.5% of active revenue (target <=35%)
+PASS: idle cumulative revenue never declines while persistent inquiries are ignored
+PASS: engineering expansion is purchased in 16/20 active seeds that reach simultaneous cash and queue pressure
+PASS: engineering expansion raises five-day build starts from 120 before to 130 after across 4 measured purchase windows
+PASS: every simulated build queue stays within its authored 2–5 lane capacity
+PASS: active/idle day-30 net-worth ratio is 23.67x (target <=25x)
+PASS: normal retirement beats ruin scrap for every loadout at each 0.1% step from 60.0% through 99.9% lifespan
+PASS: passive auto-repair curve loses 0.0% versus the same-seed pre-A4 fault model (target <8%)
+PASS: day 1 active player has 2–3 data centers and positive cash
+PASS: day 7 active player has 6–10 data centers and reaches era 2
+PASS: day 7 idle revenue is 45% of active revenue
+PASS: active prestige readiness median is day 19.3 (target day 14–21)
+PASS: active contract-time share: internet=24%, mining=20%, cloud=26%, gpu_company=30%
+PASS: idle cohort has 0 takeovers and 0 debt-producing months (target 0/0)
+PASS: aggressive bank-takeover incidence is 25% (target 20–50%)
+PASS: every run ends positive and every aggressive save retains at least the $5,000 recovery floor (day 27 $10,242; day 30 $10,242)
+INFO: representative aggressive arrears=0; minimum maintenance coverage=0.11x
+PASS: every post-tutorial reference loadout uses at least two rack kinds
+PASS: every post-tutorial reference loadout preserves diversity while forming at least one same-kind row
