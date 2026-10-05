@@ -223,7 +223,7 @@ func _spawn_heart() -> void:
 	tween.finished.connect(heart.queue_free)
 
 static func is_unlocked(game_state: Dictionary, config: Dictionary) -> bool:
-	if not bool(game_state.get("tutorial", {}).get("completed", false)):
+	if not bool(game_state.get("company_name_confirmed", true)) or not bool(game_state.get("tutorial", {}).get("completed", false)):
 		return false
 	var unlock: Dictionary = config.get("unlock", {})
 	if bool(unlock.get("standard_built", true)) and bool(game_state.get("flags", {}).get("standard_built", false)):

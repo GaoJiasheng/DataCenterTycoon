@@ -355,7 +355,16 @@ func sign_contract(datacenter_id: String, customer_id: String, duration_id: Stri
 	dc["contract_duration_id"] = duration_id
 	dc["contract_income_multiplier"] = float(duration.get("income_multiplier", 1.0))
 	dc["contract_end_at"] = simulation_time() + _contract_duration_seconds(duration_id)
+	if not previous.is_empty() and bool(dc.get("free_switch_available", false)):
+		state["stats"]["free_switches_used"] = int(state["stats"].get("free_switches_used", 0)) + 1
 	dc["free_switch_available"] = false
+	if duration_id == "strategic":
+		state["stats"]["strategic_contracts_signed"] = int(state["stats"].get("strategic_contracts_signed", 0)) + 1
+	var rare_ids := _current_lock_rare_events()
+	if not rare_ids.is_empty():
+		state["stats"]["rare_events_locked"] = int(state["stats"].get("rare_events_locked", 0)) + 1
+		for event_id: String in rare_ids:
+			state["meta"]["rare_event_ids_locked"][event_id] = true
 	var default_persona := PersonaSystemScene.default_persona(customer_id, data)
 	if not default_persona.is_empty():
 		dc["persona_id"] = str(default_persona.get("id", ""))
@@ -445,7 +454,17 @@ func accept_inquiry(inquiry_id: String, datacenter_id: String, quoted_offer: Dic
 func decline_inquiry(inquiry_id: String) -> Dictionary:
 	var result := _inquiry.decline(inquiry_id, state, data)
 	if bool(result.get("ok", false)):
+		state["stats"]["inquiries_declined"] = int(state["stats"].get("inquiries_declined", 0)) + 1
 		_commit_action("inquiry_declined")
+	return result
+
+func _current_lock_rare_events() -> Array[String]:
+	var result: Array[String] = []
+	var now := simulation_time()
+	for active: Dictionary in state.get("market", {}).get("active", []):
+		var event_id := str(active.get("event_id", ""))
+		if float(active.get("started_at", now)) <= now and float(active.get("end_at", 0.0)) > now and bool(data.get("events", {}).get("items", {}).get(event_id, {}).get("rare", false)):
+			result.append(event_id)
 	return result
 
 func _record_contract_decision(dc: Dictionary, previous_customer: String, customer_id: String, duration_id: String, fee: float, previous_monthly: float) -> void:
@@ -589,7 +608,16 @@ func _discover(source: String, item_id: String) -> void:
 		return
 	state["meta"]["discovered"]["%s:%s" % [source, item_id]] = true
 
+const META_METRICS := ["unique_customers_served", "total_datacenters_built", "era", "network_level", "prestige_count", "inquiries_accepted", "contracts_signed", "faults_repaired_manual", "datacenters_retired", "arrears_recovered", "strategic_contracts_signed", "rare_events_locked", "datacenters_built_t2", "datacenters_built_t3", "max_set_groups_in_one_datacenter", "inquiries_declined", "liquid_cooling_installed", "free_switches_used", "max_datacenters_built_in_one_day", "all_customers_familiar", "cat_collection_complete", "distinct_rare_events_locked"]
+
 func _meta_metric(metric: String) -> float:
+	match metric:
+		"distinct_rare_events_locked": return float(state.get("meta", {}).get("rare_event_ids_locked", {}).size())
+		"cat_collection_complete": return 1.0 if bool(collection_group_status("campus_life").get("complete", false)) else 0.0
+		"all_customers_familiar":
+			for customer_id: String in data.get("customers", {}).get("items", {}):
+				if int(Rules.relationship_level(customer_id, state, data).get("index", 0)) < 1: return 0.0
+			return 1.0
 	if metric == "unique_customers_served":
 		return float(state.get("meta", {}).get("seen_customers", {}).size())
 	if state.get("player", {}).has(metric):
@@ -830,6 +858,7 @@ func company_legacy_summary() -> Dictionary:
 			longest_seconds = served
 			longest_customer = customer_id
 	return {
+		"company_name": str(state.get("company_name", tr("COMPANY_DEFAULT_NAME"))),
 		"prestige_number": int(state.get("stats", {}).get("prestige_count", 0)) + 1,
 		"total_revenue": float(state.get("player", {}).get("total_revenue", 0.0)),
 		"net_worth": net_worth(),
@@ -918,11 +947,29 @@ func start_new_company() -> void:
 	_inquiry.ensure_state(state, data)
 	_commit_action("new_company")
 
+func company_name_from_words(prefix_index: int, suffix_index: int) -> String:
+	var words: Dictionary = data.get("company_names", {})
+	var prefixes: Array = words.get("prefixes", [])
+	var suffixes: Array = words.get("suffixes", [])
+	if prefix_index < 0 or prefix_index >= prefixes.size() or suffix_index < 0 or suffix_index >= suffixes.size():
+		return ""
+	return tr("COMPANY_NAME_FORMAT") % [tr(str(prefixes[prefix_index])), tr(str(suffixes[suffix_index]))]
+
+func rename_company(prefix_index: int, suffix_index: int) -> Dictionary:
+	var name := company_name_from_words(prefix_index, suffix_index)
+	if name.is_empty():
+		return _failure("company_name_invalid")
+	state["company_name"] = name
+	state["company_name_confirmed"] = true
+	_commit_action("company_renamed")
+	return _success({"company_name": name})
+
 func reset_for_tests() -> void:
 	persistence_enabled = false
 	_pending_purchases.clear()
 	_pending_rewards.clear()
 	state = _new_state()
+	state["company_name_confirmed"] = true
 	_market.ensure_state(state, data)
 	_inquiry.ensure_state(state, data)
 
@@ -1106,6 +1153,18 @@ func _complete_datacenter(item: Dictionary) -> void:
 	plot["status"] = "operational"
 	plot.erase("construction_id")
 	state["player"]["total_datacenters_built"] = int(state["player"].get("total_datacenters_built", 0)) + 1
+	var tier_metric := "datacenters_built_t2" if str(item.get("building_id", "")) == "dc_t2" else ("datacenters_built_t3" if str(item.get("building_id", "")) == "dc_t3" else "")
+	if not tier_metric.is_empty():
+		state["stats"][tier_metric] = int(state["stats"].get(tier_metric, 0)) + 1
+	var day_seconds := float(data.get("economy", {}).get("time", {}).get("real_seconds_per_game_day", 240.0))
+	var day := str(int(floor(float(item.get("complete_at", simulation_time())) / day_seconds)))
+	var completions: Dictionary = state["meta"]["builds_by_game_day"]
+	completions[day] = int(completions.get(day, 0)) + 1
+	state["stats"]["max_datacenters_built_in_one_day"] = maxi(int(state["stats"].get("max_datacenters_built_in_one_day", 0)), int(completions[day]))
+	# Keep only current/previous days; the maximum is retained in the statistic.
+	for old_day: String in completions.keys():
+		if int(old_day) < int(day) - 1:
+			completions.erase(old_day)
 	_discover("buildings", str(item.get("building_id", "")))
 	if item.get("building_id", "") == "dc_t1":
 		state["flags"]["standard_built"] = true
@@ -1167,6 +1226,8 @@ func _complete_attachment(item: Dictionary, kind: String) -> void:
 		AudioService.play_sfx("sfx_power_on")
 	else:
 		dc["coolers"][item.get("edge", "north")] = item.get("attachment_id", "")
+		if str(item.get("attachment_id", "")).begins_with("cool_liquid_"):
+			state["stats"]["liquid_cooling_installed"] = int(state["stats"].get("liquid_cooling_installed", 0)) + 1
 		_tutorial_event("cooler_installed")
 	_discover("attachments", str(item.get("attachment_id", "")))
 	_reschedule_dc_faults(dc)
@@ -1408,20 +1469,19 @@ func _check_era_unlocks(report: Dictionary = {}) -> void:
 		AudioService.play_sfx("sfx_era")
 
 func _check_achievements() -> void:
+	for plot: Dictionary in state.get("plots", []):
+		if plot.get("datacenter") is Dictionary:
+			state["stats"]["max_set_groups_in_one_datacenter"] = maxi(int(state["stats"].get("max_set_groups_in_one_datacenter", 0)), Rules.set_bonus_lines(plot["datacenter"], data.get("racks", {}), data.get("attachments", {})).size())
 	for achievement_id: String in data.get("achievements", {}).get("items", {}):
 		if bool(state.get("achievements", {}).get(achievement_id, false)):
 			continue
 		var achievement: Dictionary = data["achievements"]["items"][achievement_id]
 		var metric := str(achievement.get("metric", ""))
-		var value: float
-		if metric in state.get("player", {}):
-			value = float(state["player"].get(metric, 0.0))
-		else:
-			value = float(state.get("stats", {}).get(metric, 0.0))
+		var value := _meta_metric(metric)
 		if value >= float(achievement.get("target", INF)):
 			state["achievements"][achievement_id] = true
 			state["player"]["gems"] = int(state["player"].get("gems", 0)) + int(achievement.get("reward_gems", 0))
-			EventBus.toast_requested.emit("TOAST_ACHIEVEMENT", {"name": tr(achievement.get("name_key", ""))})
+			EventBus.toast_requested.emit("TOAST_ACHIEVEMENT", {"name": tr("COMPANY_ACHIEVEMENT") % [str(state.get("company_name", tr("COMPANY_DEFAULT_NAME"))), tr(achievement.get("name_key", ""))]})
 
 func _update_highest_net_worth() -> void:
 	state["stats"]["highest_net_worth"] = maxf(float(state["stats"].get("highest_net_worth", 0.0)), net_worth())
@@ -1939,6 +1999,8 @@ func _new_state() -> Dictionary:
 	var now := GameClock.wall_time()
 	return {
 		"save_version": SaveManager.SAVE_VERSION,
+		"company_name": tr("COMPANY_DEFAULT_NAME"),
+		"company_name_confirmed": false,
 		"profile_id": "%x%x" % [now, randi()],
 		"next_id": 1,
 		"player": {"cash": float(economy.get("starting", {}).get("cash", 10000.0)), "gems": int(economy.get("starting", {}).get("gems", 20)), "total_revenue": 0.0, "brand_multiplier": 1.0, "era": 1, "network_level": 1, "total_datacenters_built": 0},
@@ -1960,7 +2022,7 @@ func _new_state() -> Dictionary:
 			"customer_service_seconds": {"internet": 0.0, "mining": 0.0, "cloud": 0.0, "gpu_company": 0.0},
 			"seen_customers": {},
 			"seen_events": {},
-			"market_decisions": [],
+			"market_decisions": [], "rare_event_ids_locked": {}, "builds_by_game_day": {},
 			"board_allocations": {"construction": 0, "operations": 0, "business": 0},
 			"company_history": [],
 			"legacy_flags": {},
@@ -1971,7 +2033,7 @@ func _new_state() -> Dictionary:
 		"reward_limits": {"repair_window_start": now, "repair_uses": 0, "rescue_day": -1, "rescue_uses": 0},
 		"inventory": {"instant_build_tickets": 0},
 		"settings": {"locale": "", "music_enabled": true, "sfx_enabled": true, "haptics_enabled": true},
-		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "datacenters_auto_retired": 0, "bank_takeovers": 0, "datacenters_bank_sold": 0, "debt_forgiven": 0.0, "prestige_count": 0, "contracts_signed": 0, "inquiries_accepted": 0, "inquiry_bonus_revenue": 0.0, "arrears_recovered": 0, "highest_net_worth": 0.0},
+		"stats": {"total_spent": 0.0, "faults_repaired_manual": 0, "faults_repaired_auto": 0, "datacenters_retired": 0, "datacenters_auto_retired": 0, "bank_takeovers": 0, "datacenters_bank_sold": 0, "debt_forgiven": 0.0, "prestige_count": 0, "contracts_signed": 0, "strategic_contracts_signed": 0, "rare_events_locked": 0, "datacenters_built_t2": 0, "datacenters_built_t3": 0, "max_set_groups_in_one_datacenter": 0, "inquiries_declined": 0, "liquid_cooling_installed": 0, "free_switches_used": 0, "max_datacenters_built_in_one_day": 0, "inquiries_accepted": 0, "inquiry_bonus_revenue": 0.0, "arrears_recovered": 0, "highest_net_worth": 0.0},
 	}
 
 func _success(payload: Dictionary = {}) -> Dictionary:
@@ -1986,6 +2048,8 @@ func _account_state_snapshot() -> Dictionary:
 	if state.is_empty():
 		return {}
 	return {
+		"company_name": str(state.get("company_name", tr("COMPANY_DEFAULT_NAME"))),
+		"company_name_confirmed": bool(state.get("company_name_confirmed", false)),
 		"gems": int(state.get("player", {}).get("gems", 0)),
 		"brand_multiplier": float(state.get("player", {}).get("brand_multiplier", 1.0)),
 		"prestige_count": int(state.get("stats", {}).get("prestige_count", 0)),
@@ -2001,6 +2065,8 @@ func _account_state_snapshot() -> Dictionary:
 func _restore_account_state(snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
 		return
+	state["company_name"] = str(snapshot.get("company_name", state["company_name"]))
+	state["company_name_confirmed"] = bool(snapshot.get("company_name_confirmed", false))
 	state["player"]["gems"] = int(snapshot.get("gems", state["player"].get("gems", 0)))
 	state["player"]["brand_multiplier"] = float(snapshot.get("brand_multiplier", state["player"].get("brand_multiplier", 1.0)))
 	state["stats"]["prestige_count"] = int(snapshot.get("prestige_count", 0))

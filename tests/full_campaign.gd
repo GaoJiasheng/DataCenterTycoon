@@ -36,6 +36,7 @@ func _ready() -> void:
 	await _run_campaign()
 	await _verify_offline_return()
 	await _verify_prestige()
+	await _verify_milestone_density()
 	AudioService.stop_all()
 	for note: String in milestones:
 		print("CAMPAIGN: . %s" % note)
@@ -764,3 +765,46 @@ func _shot(shot_name: String) -> void:
 	_shot_index += 1
 	image.save_png("%s%02d_%s.png" % [OUT, _shot_index, shot_name])
 	print("CAMPAIGN: shot %02d_%s" % [_shot_index, shot_name])
+
+# The continuous UI campaign reaches prestige before real day 12. Replay the
+# unchanged reference active policy for density, then receive its observed
+# milestones through the real claim/achievement APIs. No delayed claims.
+func _verify_milestone_density() -> void:
+	var output: Array = []
+	var result := OS.execute("python3", PackedStringArray([ProjectSettings.globalize_path("res://tools/report_release_economy.py"), "--density-probe"]), output)
+	_expect(result == 0, "K2 reference economic density replay must execute successfully")
+	if result != 0:
+		return
+	var receipts: Variant = JSON.parse_string("".join(output))
+	_expect(receipts is Array, "K2 density replay must return observed dated receipts")
+	if not receipts is Array:
+		return
+	var saved := Game.state.duplicate(true)
+	var was_processing := Game.is_processing()
+	Game.reset_for_tests()
+	Game.set_process(false)
+	var earned: Array[String] = []
+	var old_achievements := ["first_contract", "five_datacenters", "twenty_datacenters", "repair_ten", "retire_five", "era_two", "era_three", "first_prestige", "arrears_survivor"]
+	var new_roadmap := ["ten_facilities", "fifteen_facilities", "first_strategic", "first_t3", "first_rare_lock", "three_sets"]
+	for receipt: Dictionary in receipts:
+		var item_id := str(receipt["id"])
+		var category := str(receipt["category"])
+		if (category == "achievement" and item_id in old_achievements) or (category == "roadmap" and item_id not in new_roadmap):
+			continue
+		for metric: String in receipt["metrics"]:
+			if Game.state["player"].has(metric): Game.state["player"][metric] = receipt["metrics"][metric]
+			else: Game.state["stats"][metric] = receipt["metrics"][metric]
+		var received := false
+		if category == "roadmap":
+			received = bool(Game.claim_roadmap_reward(item_id).get("ok", false))
+		else:
+			Game._check_achievements()
+			received = bool(Game.state["achievements"].get(item_id, false))
+		var day := float(receipt["day"])
+		if received and day >= 12.0 and day <= 19.0:
+			earned.append(item_id)
+			_note("density day %.2f: received %s through Game" % [day, item_id])
+	_expect(earned.size() >= 3, "K2 reference days 12–19 must receive at least three new milestones (got %s)" % str(earned))
+	Game.state = saved
+	Game.set_process(was_processing)
+	main.call("_refresh")

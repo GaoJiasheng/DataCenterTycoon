@@ -41,6 +41,7 @@ static func compose(report: Dictionary, data: Dictionary, game_state: Dictionary
 	_append_count_candidate(candidates, "aging", report.get("aging", []).size(), config)
 	# Quiet nights get one warm observation only after the cat has legitimately
 	# moved in. Operational events always take precedence over this fallback.
+	var quiet_night := candidates.is_empty()
 	if candidates.is_empty() and CampusCatScene.is_unlocked(game_state, data.get("campus_cat", {})):
 		_append_candidate(candidates, "cat", [], config)
 	candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
@@ -65,6 +66,8 @@ static func compose(report: Dictionary, data: Dictionary, game_state: Dictionary
 		var translated: String = TranslationServer.translate(key)
 		var args: Array = candidate.get("args", [])
 		var rendered: String = translated % args if not args.is_empty() else translated
+		if quiet_night and str(candidate.get("type", "")) == "income":
+			rendered = TranslationServer.translate("COMPANY_DUTY_FALLBACK") % str(game_state.get("company_name", TranslationServer.translate("COMPANY_DEFAULT_NAME"))) + " · " + rendered
 		result.append({
 			"type": str(candidate.get("type", "income")),
 			"text": rendered,

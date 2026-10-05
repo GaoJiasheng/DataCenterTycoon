@@ -84,6 +84,7 @@ func _ready() -> void:
 	_expect(retire_message != null and retire_message.text == tr("TUTORIAL_RETIRE_WAIT"), "B4 dormant retire step must explain why no action is available")
 	await get_tree().create_timer(3.1).timeout
 	await _shot("s6_retire_step_dormant_hint")
+	_expect(main.find_child("CompanyNaming", true, false) == null, "K3 tutorial flow never opens word-library naming")
 	var dormant_hint := main.find_child("TutorialDormantHint", true, false) as Button
 	var dormant_overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
 	_expect(dormant_hint != null and dormant_hint.visible and dormant_overlay != null and not dormant_overlay.visible, "B4 dormant lesson must collapse to the corner coach hint")

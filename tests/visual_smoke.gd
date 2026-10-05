@@ -427,6 +427,22 @@ func _ready() -> void:
 		strategy_sheet.queue_free()
 		await get_tree().process_frame
 	Game.state["stats"]["prestige_count"] = original_prestige_count
+	main.call("_show_company_naming")
+	valid = (await _capture(main, "company_naming", false)) and valid
+	var naming := main.find_child("CompanyNaming", true, false)
+	if naming != null:
+		naming.queue_free()
+		await get_tree().process_frame
+	var longest := ""
+	for prefix: int in range(16):
+		for suffix: int in range(16):
+			var name := Game.company_name_from_words(prefix, suffix)
+			if name.length() > longest.length(): longest = name
+	Game.state["company_name"] = longest
+	main.call("_refresh_hud")
+	valid = (await _capture(main, "company_name_longest", false)) and valid
+	var hud_name := main.find_child("HUDCompanyName", true, false) as Label
+	valid = (hud_name != null and hud_name.text == longest and hud_name.max_lines_visible == 1 and hud_name.get_parent().get_global_rect().encloses(hud_name.get_global_rect())) and valid
 	for page: String in ["tech", "store", "settings"]:
 		main.call("_navigate", page)
 		if page == "tech":

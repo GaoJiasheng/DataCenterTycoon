@@ -7,6 +7,7 @@ var failures := 0
 func _ready() -> void:
 	if get_parent() == get_tree().root:
 		await run_k1()
+		await run_k23()
 		print("VISIBLE_DECISIONS: %d failures" % failures)
 		AudioService.stop_all()
 		get_tree().quit(1 if failures else 0)
@@ -97,3 +98,98 @@ func check(ok: bool, message: String) -> void:
 	else:
 		failures += 1
 		push_error(message)
+
+func run_k23() -> void:
+	Game.reset_for_tests()
+	Game.set_process(false)
+	AudioService.apply_settings({"music_enabled": false, "sfx_enabled": false})
+	var counters := ["strategic_contracts_signed", "rare_events_locked", "datacenters_built_t2", "datacenters_built_t3", "max_set_groups_in_one_datacenter", "inquiries_declined", "liquid_cooling_installed"]
+	for key: String in counters:
+		check(int(Game.state["stats"].get(key, -1)) == 0, "K2 new statistic starts at zero: " + key)
+	Game.state["stats"].clear()
+	Game._ensure_state_shape()
+	for key: String in counters:
+		check(int(Game.state["stats"].get(key, -1)) == 0, "K2 old saves backfill statistic: " + key)
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["cash"] = 1000000.0
+	Game.state["player"]["era"] = 3
+	Game.state["player"]["network_level"] = 4
+	Game.start_datacenter_construction("plot_1", "dc_t2")
+	check(Game.state["stats"]["datacenters_built_t2"] == 0, "K2 starting a shell does not count a completed tier")
+	Game.advance_time(15000.0, false)
+	check(Game.state["stats"]["datacenters_built_t2"] == 1 and Game.state["stats"]["datacenters_built_t3"] == 0, "K2 completing T2 counts only T2")
+	Game.buy_next_plot()
+	Game.start_datacenter_construction("plot_2", "dc_t3")
+	Game.advance_time(float(DataRepository.get_entry("buildings", "dc_t3").get("build_seconds")) + 1.0, false)
+	check(Game.state["stats"]["datacenters_built_t3"] == 1, "K2 completing T3 counts T3")
+	var dc: Dictionary = Game.state["plots"][0]["datacenter"]
+	var id := str(dc["id"])
+	dc["power_unit"] = "power_t3"
+	Game.state["meta"]["customer_service_seconds"]["internet"] = 43200.0
+	Game.sign_contract(id, "internet", "standard")
+	check(Game.state["stats"]["strategic_contracts_signed"] == 0, "K2 a standard contract does not count as strategic")
+	Game.sign_contract(id, "internet", "strategic")
+	Game.sign_contract(id, "internet", "strategic")
+	check(Game.state["stats"]["strategic_contracts_signed"] == 1, "K2 only a real strategic signing increments; unchanged taps do not")
+	var now := Game.simulation_time()
+	Game.state["market"]["active"] = [{"event_id": "sovereign_ai", "started_at": now + 1.0, "end_at": now + 7200.0}]
+	Game.sign_contract(id, "internet", "flexible")
+	check(Game.state["stats"]["rare_events_locked"] == 0, "K2 a future rare event is not in the lock input")
+	Game.state["market"]["active"][0]["started_at"] = now
+	Game.sign_contract(id, "internet", "standard")
+	check(Game.state["stats"]["rare_events_locked"] == 1 and Game._meta_metric("distinct_rare_events_locked") == 1.0, "K2 signing in an active rare event records one lock and its identity")
+	Game.state["market"]["active"] = []
+	Game.install_cooler(id, "north", "cool_liquid_t1")
+	check(Game.state["stats"]["liquid_cooling_installed"] == 0, "K2 installing is not yet liquid cooling completed")
+	Game.advance_time(3601.0, false)
+	check(Game.state["stats"]["liquid_cooling_installed"] == 1, "K2 liquid cooling counts on completion")
+	for edge: String in ["north", "south", "east", "west"]: dc["coolers"][edge] = "cool_liquid_t2"
+	for slot: int in range(9):
+		dc["racks"][slot] = {"rack_id": ["rack_compute_t1", "rack_storage_t1", "rack_gpu_t1"][slot / 3], "status": "installing", "enabled": true}
+	Game._check_achievements()
+	check(Game.state["stats"]["max_set_groups_in_one_datacenter"] == 0, "K2 incomplete racks do not form counted sets")
+	for installed: Dictionary in dc["racks"]: installed["status"] = "active"
+	Game._check_achievements()
+	check(Game.state["stats"]["max_set_groups_in_one_datacenter"] == 3, "K2 three different completed rows count three groups in one facility")
+	Game.state["inquiries"]["open"] = [{"id": "decline_probe", "template_id": "hosting_overflow", "slot": 0}]
+	Game.decline_inquiry("missing")
+	check(Game.state["stats"]["inquiries_declined"] == 0, "K2 unavailable inquiry does not count as declined")
+	Game.decline_inquiry("decline_probe")
+	check(Game.state["stats"]["inquiries_declined"] == 1, "K2 an actual decline counts once")
+	check(DataRepository.get_table("achievements").get("items", {}).size() >= 20, "K2 at least twenty achievements are authored")
+	var old_locale := TranslationServer.get_locale()
+	var migrated := SaveManager.migrate({"save_version": 4, "settings": {"locale": "en"}})
+	check(migrated["save_version"] == 5 and migrated["company_name"] == "Northstar Networks" and TranslationServer.get_locale() == old_locale, "K3 v4 migration fills localized name and preserves runtime locale")
+	var kept := SaveManager.migrate({"save_version": 5, "company_name": "Atlas Data"})
+	check(kept["company_name"] == "Atlas Data", "K3 v5 migration preserves the chosen name")
+	var cash := float(Game.state["player"]["cash"])
+	var market_rng: Variant = Game.state["market"]["rng_state"]
+	check(not Game.rename_company(-1, 0).get("ok", true), "K3 naming rejects words outside the library")
+	check(Game.rename_company(15, 15).get("ok", false) and float(Game.state["player"]["cash"]) == cash and Game.state["market"]["rng_state"] == market_rng, "K3 a word-library rename costs no cash and consumes no market randomness")
+	Game.state["company_name_confirmed"] = false
+	Game.state["tutorial"]["completed"] = false
+	Game.state["flags"]["last_presented_era"] = 3
+	var main := MAIN_SCENE.instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.call("_show_first_encounter_if_needed")
+	check(main.find_child("CompanyNaming", true, false) == null, "K3 tutorial never opens company naming")
+	Game.state["tutorial"]["completed"] = true
+	main.call("_show_first_encounter_if_needed")
+	await get_tree().process_frame
+	var naming := main.find_child("CompanyNaming", true, false)
+	check(naming != null and naming.find_children("CompanyWord_*", "OptionButton", true, false).size() == 2 and not (naming.find_child("CompanyWord_prefixes", true, false) as OptionButton).get_popup().allow_search and not (naming.find_child("CompanyWord_suffixes", true, false) as OptionButton).get_popup().allow_search, "K3 first naming uses two word selectors, never free text")
+	check(main.park_map.campus_cat == null or not main.park_map.campus_cat.visible, "K3 cat waits for the first company name")
+	var confirm := naming.find_child("CompanyNameConfirm", true, false) as Button
+	confirm.pressed.emit()
+	await get_tree().create_timer(0.4).timeout
+	check(bool(Game.state["company_name_confirmed"]) and main.find_child("CompanyNaming", true, false) == null, "K3 confirmation enters the named company")
+	var campaign := preload("res://tests/full_campaign.gd").new()
+	campaign.main = main
+	await campaign._verify_milestone_density()
+	check(campaign.failures.is_empty(), "K2 reference days 12–19 receive three new milestones through Game")
+	for note: String in campaign.milestones: print(note)
+	campaign.free()
+	main.queue_free()
+	await get_tree().process_frame
+	Game.set_process(true)

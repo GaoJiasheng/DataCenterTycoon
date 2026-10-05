@@ -2,6 +2,8 @@
 """Generate release-hardening balance reports without changing production data."""
 
 import csv
+import json
+import sys
 from collections import defaultdict
 
 import simulate_economy as balance
@@ -10,12 +12,21 @@ import simulate_economy as balance
 SEED = 20260802
 SEED_COUNT = 20
 STRATEGIES = ("idle", "active", "aggressive")
+ACHIEVEMENTS = balance.load("achievements")["items"]
 
 
 class AuditSimulator(balance.Simulator):
     """Read-only instrumentation for source/sink reporting."""
 
     def __init__(self, strategy, seed):
+        self.metric_eras = {}
+        self.metric_counts = defaultdict(int)
+        self.rare_locks = set()
+        self.completed_centers = []
+        self.completions_by_day = defaultdict(int)
+        self.earned_roadmap_days = {}
+        self.earned_achievement_days = {}
+        self.progress_receipts = []
         self.discovered = {"buildings": {}, "racks": {}, "attachments": {}, "customers": {}, "events": {}}
         self.first_inquiry_era = 0
         self.manual_repairs_by_era = defaultdict(int)
@@ -32,8 +43,18 @@ class AuditSimulator(balance.Simulator):
             self._discover("events", event_id)
 
     def sign_customer(self, dc, customer, duration_id="standard", premium=1.0, force=False):
+        changed = dc.customer != customer or force
+        free_switch = dc.free_switch_available and bool(dc.customer)
         super().sign_customer(dc, customer, duration_id, premium, force)
         self._discover("customers", customer)
+        if changed:
+            self.metric_counts["contracts_signed"] += 1
+            self.metric_counts["strategic_contracts_signed"] += dc.contract_duration_id == "strategic"
+            self.metric_counts["free_switches_used"] += free_switch
+            rare = [event_id for event_id, end in self.events if end > balance.Simulator.now and balance.EVENTS[event_id].get("rare")]
+            self.metric_counts["rare_events_locked"] += bool(rare)
+            self.rare_locks.update(rare)
+            self.observe_progress()
 
     def sign_inquiry(self, dc, template):
         super().sign_inquiry(dc, template)
@@ -60,6 +81,7 @@ class AuditSimulator(balance.Simulator):
         super().player_session()
         repaired = sum(len(before.get(id(dc), set()) - set(dc.faulted)) for dc in self.dcs)
         self.manual_repairs_by_era[self.era] += repaired
+        self.observe_progress()
 
     def process_auto_retirements(self):
         before = len(self.dcs)
@@ -70,6 +92,38 @@ class AuditSimulator(balance.Simulator):
         before = len(self.dcs)
         super().retire_old()
         self.retirements_by_era[self.era] += max(0, before - len(self.dcs))
+
+
+    def observe_progress(self):
+        for dc in self.dcs:
+            if not dc.ready:
+                continue
+            if not any(previous is dc for previous in self.completed_centers):
+                self.completed_centers.append(dc)
+                if dc.building_id in ("dc_t2", "dc_t3"):
+                    self.metric_counts["datacenters_built_t" + dc.building_id[-1]] += 1
+                day = int(dc.built_at // balance.STEP)
+                self.completions_by_day[day] += 1
+                self.metric_counts["max_datacenters_built_in_one_day"] = max(self.metric_counts["max_datacenters_built_in_one_day"], self.completions_by_day[day])
+                self.metric_counts["liquid_cooling_installed"] += sum(cooler.startswith("cool_liquid_") for cooler in balance.LOADOUTS[dc.building_id][2])
+            lines = ((0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8))
+            groups = sum(all(slot < len(dc.racks) and dc.racks[slot] for slot in line) and len({balance.RACKS[dc.racks[slot]]["kind"] for slot in line}) == 1 for line in lines)
+            self.metric_counts["max_set_groups_in_one_datacenter"] = max(self.metric_counts["max_set_groups_in_one_datacenter"], groups)
+        self.metric_counts["distinct_rare_events_locked"] = len(self.rare_locks)
+        self.metric_counts["all_customers_familiar"] = int(all(self.relationship_level(customer) >= 1 for customer in balance.CUSTOMERS))
+        self.metric_counts["total_datacenters_built"] = len(self.completed_centers)
+        self.metric_counts["era"] = self.era
+        self.metric_counts["network_level"] = self.network
+        self.metric_counts["inquiries_accepted"] = self.inquiries_accepted
+        self.metric_counts["unique_customers_served"] = len(self.discovered["customers"])
+        self.metric_counts["faults_repaired_manual"] = sum(self.manual_repairs_by_era.values())
+        self.metric_counts["datacenters_retired"] = sum(self.retirements_by_era.values())
+        for source, table in ((self.earned_roadmap_days, balance.META["roadmap"]["items"]), (self.earned_achievement_days, ACHIEVEMENTS)):
+            for item_id, item in table.items():
+                if item_id not in source and self.metric_counts[item["metric"]] >= item["target"]:
+                    source[item_id] = balance.Simulator.now / balance.DAY
+                    self.metric_eras[item_id] = self.era
+                    self.progress_receipts.append({"category": "roadmap" if source is self.earned_roadmap_days else "achievement", "id": item_id, "day": balance.Simulator.now / balance.DAY, "metrics": dict(self.metric_counts)})
 
 
 def milestone_era(sim, field_index, target):
@@ -128,6 +182,9 @@ def diamond_rows(sim):
         retired += sim.retirements_by_era[era]
         if retired >= 5 and not achievement_eras.get("retire_five"):
             achievement_eras["retire_five"] = era
+    for item_id in achievements:
+        if item_id not in achievement_eras:
+            achievement_eras[item_id] = sim.metric_eras.get(item_id, 0)
     for item_id, era in achievement_eras.items():
         add_reward(rows, era, "achievement_auto", achievements[item_id]["reward_gems"])
 
@@ -141,6 +198,9 @@ def diamond_rows(sim):
         "global_network": 3 if sim.network >= 4 else 0,
         "first_inquiry": sim.first_inquiry_era,
     }
+    for item_id in roadmap:
+        if item_id not in roadmap_eras:
+            roadmap_eras[item_id] = sim.metric_eras.get(item_id, 0)
     for item_id, era in roadmap_eras.items():
         add_reward(rows, era, "roadmap_claimable", roadmap[item_id]["reward_gems"])
     for group_id in ("facilities", "clients", "market_history", "campus_life", "legacy"):
@@ -222,4 +282,8 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    if "--density-probe" in sys.argv:
+        replay = AuditSimulator("active", SEED + 1).run(30)
+        print(json.dumps(replay.progress_receipts))
+    else:
+        raise SystemExit(main())

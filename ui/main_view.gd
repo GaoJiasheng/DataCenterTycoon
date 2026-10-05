@@ -49,6 +49,7 @@ var campus_tab_row: HBoxContainer
 var _campus_tab_signature := ""
 var era_icon: TextureRect
 var company_label: Label
+var company_name_label: Label
 var primary_action_button: Button
 var primary_action_icon: TextureRect
 var primary_action_text: Label
@@ -277,6 +278,20 @@ func _build_shell() -> void:
 	cash_chip.mouse_filter = Control.MOUSE_FILTER_STOP
 	cash_chip.gui_input.connect(_on_cash_chip_input)
 	cash_label = cash_chip.find_child("Value", true, false) as Label
+	var cash_row := cash_label.get_parent()
+	var cash_copy := VBoxContainer.new()
+	cash_copy.add_theme_constant_override("separation", 0)
+	cash_copy.alignment = BoxContainer.ALIGNMENT_CENTER
+	cash_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cash_row.remove_child(cash_label)
+	cash_row.add_child(cash_copy)
+	cash_row.move_child(cash_copy, 1)
+	cash_copy.add_child(cash_label)
+	company_name_label = _label("", 16, ThemeMaker.COLORS.cyan)
+	company_name_label.name = "HUDCompanyName"
+	company_name_label.max_lines_visible = 1
+	company_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	cash_copy.add_child(company_name_label)
 	topbar.add_child(cash_chip)
 	var gem_chip := _resource_chip("ic_diamond", ThemeMaker.COLORS.purple.lightened(0.2))
 	gem_chip.name = "GemResource"
@@ -596,6 +611,8 @@ func _refresh_hud() -> void:
 	_animate_hud_number(gems_label, gems, false)
 	var era: Dictionary = DataRepository.get_entry("eras", str(int(player.get("era", 1))))
 	company_label.text = str(int(player.get("era", 1)))
+	company_name_label.text = str(Game.state.get("company_name", tr("COMPANY_DEFAULT_NAME")))
+	company_name_label.tooltip_text = company_name_label.text
 	var company_button := find_child("CompanyButton", true, false) as Button
 	if company_button != null:
 		company_button.tooltip_text = "%s · %s" % [tr(era.get("name_key", "ERA_1")), GameClock.format_game_date(Game.simulation_time())]
@@ -645,6 +662,10 @@ func _queue_first_encounter_check() -> void:
 
 func _show_first_encounter_if_needed() -> void:
 	_first_encounter_check_queued = false
+	if bool(Game.state.get("tutorial", {}).get("completed", false)) and not bool(Game.state.get("company_name_confirmed", false)):
+		if not _blocking_surface_visible():
+			_show_company_naming()
+		return
 	var message_id := _first_encounter_message_id()
 	if message_id.is_empty() or not Game.consume_first_encounter_message(message_id):
 		return
@@ -2157,13 +2178,13 @@ func _reset_board_points() -> void:
 func _build_company_history() -> Control:
 	var section := VBoxContainer.new()
 	section.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
-	section.add_child(_section_title(tr("COMPANY_HISTORY"), ""))
+	section.add_child(_section_title(tr("COMPANY_HISTORY"), str(Game.state.get("company_name", tr("COMPANY_DEFAULT_NAME")))))
 	var history: Array = Game.state.get("meta", {}).get("company_history", [])
 	if history.is_empty():
 		section.add_child(_status_card("legacy_memorial", tr("COMPANY_HISTORY_EMPTY"), ThemeMaker.COLORS.cyan, true))
 		return section
 	for summary: Dictionary in history:
-		section.add_child(_status_card("legacy_memorial", tr("COMPANY_HISTORY_ROW") % [int(summary.get("prestige_number", 1)), Game.format_number(float(summary.get("total_revenue", 0.0))), int(summary.get("datacenters_built", 0))], ThemeMaker.COLORS.yellow, true))
+		section.add_child(_status_card("legacy_memorial", str(summary.get("company_name", tr("COMPANY_DEFAULT_NAME"))) + " · " + tr("COMPANY_HISTORY_ROW") % [int(summary.get("prestige_number", 1)), Game.format_number(float(summary.get("total_revenue", 0.0))), int(summary.get("datacenters_built", 0))], ThemeMaker.COLORS.yellow, true))
 	return section
 
 func _build_era_route_card(era_id: int, era: Dictionary, next_era: Dictionary, player: Dictionary) -> Control:
@@ -2505,6 +2526,50 @@ func _store_product_card(product_id: String, product: Dictionary) -> Control:
 func _store_bonus_percent(product_id: String) -> int:
 	return {"gems_s": 0, "gems_m": 10, "gems_l": 20}.get(product_id, 0)
 
+func _show_company_naming() -> void:
+	if find_child("CompanyNaming", true, false) != null:
+		return
+	var parts := _create_world_sheet("CompanyNaming", 900)
+	var overlay := parts["overlay"] as ColorRect
+	var box := parts["box"] as VBoxContainer
+	box.add_child(_label(tr("COMPANY_NAMING"), 34, ThemeMaker.COLORS.cream))
+	var body := _label(tr("COMPANY_NAMING_BODY"), 22, ThemeMaker.COLORS.cyan)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(body)
+	var preview := _label("", 34, ThemeMaker.COLORS.yellow)
+	preview.name = "CompanyNamePreview"
+	preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(preview)
+	var selectors: Array[OptionButton] = []
+	for kind: String in ["prefixes", "suffixes"]:
+		box.add_child(_label(tr("COMPANY_PREFIX" if kind == "prefixes" else "COMPANY_SUFFIX"), 22, ThemeMaker.COLORS.cyan))
+		var selector := OptionButton.new()
+		selector.name = "CompanyWord_%s" % kind
+		selector.custom_minimum_size.y = ThemeMaker.TOUCH_MIN
+		ThemeMaker.apply_button_role(selector, "secondary")
+		selector.add_theme_font_size_override("font_size", 26)
+		selector.add_theme_constant_override("outline_size", 4)
+		selector.get_popup().allow_search = false
+		for word: String in DataRepository.get_table("company_names").get(kind, []):
+			selector.add_item(tr(word))
+		box.add_child(selector)
+		selectors.append(selector)
+	var update_preview := func(_index: int = 0) -> void:
+		preview.text = Game.company_name_from_words(selectors[0].selected, selectors[1].selected)
+	for selector: OptionButton in selectors:
+		selector.item_selected.connect(update_preview)
+	update_preview.call()
+	var confirm := _button(tr("CONFIRM"), func() -> void:
+		var result := Game.rename_company(selectors[0].selected, selectors[1].selected)
+		if bool(result.get("ok", false)):
+			_dismiss_world_sheet(overlay)
+			_request_full_refresh()
+	, ThemeMaker.COLORS.green)
+	confirm.name = "CompanyNameConfirm"
+	box.add_child(confirm)
+	if bool(Game.state.get("company_name_confirmed", false)):
+		box.add_child(_button(tr("CANCEL"), _dismiss_world_sheet.bind(overlay), ThemeMaker.COLORS.sky))
+
 func _build_settings_page() -> Control:
 	var box := _page_box()
 	box.add_child(_system_page_header(tr("NAV_SETTINGS"), tr("APP_TITLE"), "ic_settings"))
@@ -2546,6 +2611,10 @@ func _build_settings_page() -> Control:
 			legal_rows.add_child(_settings_divider())
 		legal_rows.add_child(_settings_row_button(str(legal_actions[index][0]), _open_public_document.bind(str(legal_actions[index][1]))))
 	box.add_child(legal_panel)
+	var rename_row := _settings_row_button(tr("COMPANY_RENAME"), _show_company_naming)
+	rename_row.name = "SettingsCompanyRename"
+	rename_row.get_node("SettingsChevron").name = "CompanyRenameChevron"
+	box.add_child(rename_row)
 	var version_card := Widgets.flat_card()
 	version_card.name = "SettingsVersion"
 	var version_label := _label(tr("SETTINGS_VERSION") % str(ProjectSettings.get_setting("application/config/version", "1.0.0")), ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.cyan)
@@ -4447,7 +4516,8 @@ func _offline_events_summary(report: Dictionary) -> String:
 func _confirm_prestige() -> void:
 	var projection := _prestige_projection()
 	var summary := Game.company_legacy_summary()
-	var body := "%s\n%s\n%s\n%s" % [
+	var body := "%s\n%s\n%s\n%s\n%s" % [
+		str(Game.state.get("company_name", tr("COMPANY_DEFAULT_NAME"))),
 		tr("LEGACY_RECAP_BODY") % [Game.format_number(float(summary.get("total_revenue", 0.0))), Game.format_number(float(summary.get("net_worth", 0.0))), int(summary.get("datacenters_built", 0))],
 		tr("PRESTIGE_GAIN_DETAIL") % [float(projection.get("current", 1.0)), float(projection.get("projected", 1.0))],
 		tr("PRESTIGE_KEEP_LIST"),
@@ -4880,7 +4950,7 @@ func _show_market_banner(event_id: String, started: bool) -> void:
 func _market_banner_would_be_buried() -> bool:
 	if active_page != "map":
 		return true
-	for overlay_name: String in ["OfflineOverlay", "EraOverlay", "BankTakeoverOverlay"]:
+	for overlay_name: String in ["OfflineOverlay", "EraOverlay", "BankTakeoverOverlay", "CompanyNaming"]:
 		var overlay := find_child(overlay_name, true, false) as CanvasItem
 		if overlay != null and overlay.is_visible_in_tree():
 			return true
@@ -4963,7 +5033,7 @@ func _world_reward_fx_available(source: Vector2) -> bool:
 	return not _blocking_surface_visible()
 
 func _blocking_surface_visible() -> bool:
-	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "ConstructionContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "BankTakeoverOverlay"]:
+	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "ConstructionContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "BankTakeoverOverlay", "CompanyNaming"]:
 		var overlay := find_child(overlay_name, true, false) as CanvasItem
 		if overlay != null and overlay.is_visible_in_tree():
 			return true

@@ -44,6 +44,7 @@ func _ready() -> void:
 	var decisions := preload("res://tests/visible_decisions.gd").new()
 	add_child(decisions)
 	await decisions.run_k1()
+	await decisions.run_k23()
 	_expect(decisions.failures == 0, "visible renewal decisions and stable live drawer pass")
 	decisions.queue_free()
 	_run_construction_controls_test()
@@ -223,6 +224,8 @@ func _run_warmth_presentation_tests() -> void:
 	cat.interact_for_tests()
 	_expect(Game.state["meta"]["discovered"] == discovered_before_repeat, "repeated cat interactions never rediscover or duplicate a campus-life card")
 	var cat_status := Game.collection_group_status("campus_life")
+	Game._check_achievements()
+	_expect(bool(Game.state["achievements"].get("all_cat_photos", false)), "K2 cat collection completion earns its separate one-time achievement")
 	var cat_gems_before := int(Game.state["player"].get("gems", 0))
 	var cat_reward := Game.claim_collection_reward("campus_life")
 	var cat_reward_repeat := Game.claim_collection_reward("campus_life")
@@ -1818,6 +1821,7 @@ func _run_account_reset_test() -> void:
 	Game.state["purchases"]["pack_builder"] = 1
 	Game.state["processed_transactions"]["account-transaction"] = true
 	Game.state["achievements"]["first_prestige"] = true
+	Game.state["achievements"]["second_prestige"] = true
 	Game.start_new_company()
 	_expect(Game.state["player"]["gems"] == 321 and is_equal_approx(Game.state["player"]["brand_multiplier"], 1.25), "new company preserves paid currency and permanent brand")
 	_expect(Game.state["inventory"]["instant_build_tickets"] == 4 and bool(Game.state["entitlements"]["noads"]), "new company preserves inventory and entitlements")

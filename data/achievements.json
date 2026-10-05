@@ -1,14 +1,143 @@
 {
   "schema_version": 1,
   "items": {
-    "first_contract": {"name_key": "ACH_FIRST_CONTRACT", "metric": "contracts_signed", "target": 1, "reward_gems": 5},
-    "five_datacenters": {"name_key": "ACH_FIVE_DC", "metric": "total_datacenters_built", "target": 5, "reward_gems": 5},
-    "twenty_datacenters": {"name_key": "ACH_TWENTY_DC", "metric": "total_datacenters_built", "target": 20, "reward_gems": 10},
-    "repair_ten": {"name_key": "ACH_REPAIR_TEN", "metric": "faults_repaired_manual", "target": 10, "reward_gems": 5},
-    "retire_five": {"name_key": "ACH_RETIRE_FIVE", "metric": "datacenters_retired", "target": 5, "reward_gems": 10},
-    "era_two": {"name_key": "ACH_ERA_TWO", "metric": "era", "target": 2, "reward_gems": 5},
-    "era_three": {"name_key": "ACH_ERA_THREE", "metric": "era", "target": 3, "reward_gems": 10},
-    "first_prestige": {"name_key": "ACH_PRESTIGE", "metric": "prestige_count", "target": 1, "reward_gems": 20},
-    "arrears_survivor": {"name_key": "ACH_ARREARS", "metric": "arrears_recovered", "target": 1, "reward_gems": 10}
+    "first_contract": {
+      "name_key": "ACH_FIRST_CONTRACT",
+      "metric": "contracts_signed",
+      "target": 1,
+      "reward_gems": 5
+    },
+    "five_datacenters": {
+      "name_key": "ACH_FIVE_DC",
+      "metric": "total_datacenters_built",
+      "target": 5,
+      "reward_gems": 5
+    },
+    "twenty_datacenters": {
+      "name_key": "ACH_TWENTY_DC",
+      "metric": "total_datacenters_built",
+      "target": 20,
+      "reward_gems": 10
+    },
+    "repair_ten": {
+      "name_key": "ACH_REPAIR_TEN",
+      "metric": "faults_repaired_manual",
+      "target": 10,
+      "reward_gems": 5
+    },
+    "retire_five": {
+      "name_key": "ACH_RETIRE_FIVE",
+      "metric": "datacenters_retired",
+      "target": 5,
+      "reward_gems": 10
+    },
+    "era_two": {
+      "name_key": "ACH_ERA_TWO",
+      "metric": "era",
+      "target": 2,
+      "reward_gems": 5
+    },
+    "era_three": {
+      "name_key": "ACH_ERA_THREE",
+      "metric": "era",
+      "target": 3,
+      "reward_gems": 10
+    },
+    "first_prestige": {
+      "name_key": "ACH_PRESTIGE",
+      "metric": "prestige_count",
+      "target": 1,
+      "reward_gems": 20
+    },
+    "arrears_survivor": {
+      "name_key": "ACH_ARREARS",
+      "metric": "arrears_recovered",
+      "target": 1,
+      "reward_gems": 10
+    },
+    "decline_five": {
+      "name_key": "ACH_DECLINE_FIVE",
+      "metric": "inquiries_declined",
+      "target": 5,
+      "reward_gems": 5
+    },
+    "strategic_five": {
+      "name_key": "ACH_STRATEGIC_FIVE",
+      "metric": "strategic_contracts_signed",
+      "target": 5,
+      "reward_gems": 8
+    },
+    "first_liquid": {
+      "name_key": "ACH_FIRST_LIQUID",
+      "metric": "liquid_cooling_installed",
+      "target": 1,
+      "reward_gems": 5
+    },
+    "three_in_a_day": {
+      "name_key": "ACH_THREE_IN_A_DAY",
+      "metric": "max_datacenters_built_in_one_day",
+      "target": 3,
+      "reward_gems": 8
+    },
+    "thirty_facilities": {
+      "name_key": "ACH_THIRTY_FACILITIES",
+      "metric": "total_datacenters_built",
+      "target": 30,
+      "reward_gems": 12
+    },
+    "fifty_facilities": {
+      "name_key": "ACH_FIFTY_FACILITIES",
+      "metric": "total_datacenters_built",
+      "target": 50,
+      "reward_gems": 20
+    },
+    "all_familiar": {
+      "name_key": "ACH_ALL_FAMILIAR",
+      "metric": "all_customers_familiar",
+      "target": 1,
+      "reward_gems": 10
+    },
+    "first_free_switch": {
+      "name_key": "ACH_FIRST_FREE_SWITCH",
+      "metric": "free_switches_used",
+      "target": 1,
+      "reward_gems": 5
+    },
+    "all_cat_photos": {
+      "name_key": "ACH_ALL_CAT_PHOTOS",
+      "metric": "cat_collection_complete",
+      "target": 1,
+      "reward_gems": 8
+    },
+    "three_rare_locks": {
+      "name_key": "ACH_THREE_RARE_LOCKS",
+      "metric": "distinct_rare_events_locked",
+      "target": 3,
+      "reward_gems": 15
+    },
+    "second_prestige": {
+      "name_key": "ACH_SECOND_PRESTIGE",
+      "metric": "prestige_count",
+      "target": 2,
+      "reward_gems": 20
+    },
+    "facility_16": {
+      "name_key": "ACH_FACILITY_16",
+      "metric": "total_datacenters_built",
+      "target": 16,
+      "reward_gems": 10
+    },
+    "facility_17": {
+      "name_key": "ACH_FACILITY_17",
+      "metric": "total_datacenters_built",
+      "target": 17,
+      "reward_gems": 11
+    },
+    "facility_18": {
+      "name_key": "ACH_FACILITY_18",
+      "metric": "total_datacenters_built",
+      "target": 18,
+      "reward_gems": 12
+    }
   }
 }

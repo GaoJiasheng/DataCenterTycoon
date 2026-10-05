@@ -663,3 +663,70 @@ DUTY_LOG_LOW_LOCK_ITEM,%s during %s at ×%.2f,%s 在 %s 期间以 ×%.2f 续约
 DUTY_LOG_LOW_LOCK_1,Low renewal: %s. A free switch is available.,低价续约：%s。你有一张免费改签。
 DUTY_LOG_LOW_LOCK_2,The night shift locked %s. Review your free switch.,夜班锁价：%s。可使用免费改签。
 DUTY_LOG_LOW_LOCK_3,Renewal watch: %s. You can change terms for free.,续约提醒：%s。你可以免费改签。
+ROADMAP_TEN_FACILITIES,Ten facilities,第十座机房
+ROADMAP_TEN_FACILITIES_DESC,Reach this company milestone (10).,完成这项公司里程碑（10）。
+ROADMAP_FIFTEEN_FACILITIES,Fifteen facilities,第十五座机房
+ROADMAP_FIFTEEN_FACILITIES_DESC,Reach this company milestone (15).,完成这项公司里程碑（15）。
+ROADMAP_FIRST_STRATEGIC,Long-term partner,首次战略约
+ROADMAP_FIRST_STRATEGIC_DESC,Reach this company milestone (1).,完成这项公司里程碑（1）。
+ROADMAP_FIRST_T3,A flagship facility,首个 T3 机房
+ROADMAP_FIRST_T3_DESC,Reach this company milestone (1).,完成这项公司里程碑（1）。
+ROADMAP_FIRST_RARE_LOCK,Lock a rare market,首次锁住稀有行情
+ROADMAP_FIRST_RARE_LOCK_DESC,Reach this company milestone (1).,完成这项公司里程碑（1）。
+ROADMAP_THREE_SETS,Three sets in one facility,单机房三组成组
+ROADMAP_THREE_SETS_DESC,Reach this company milestone (3).,完成这项公司里程碑（3）。
+ACH_DECLINE_FIVE,Selective partner,累计婉拒五次询价
+ACH_STRATEGIC_FIVE,Committed partner,累计五份战略约
+ACH_FIRST_LIQUID,Liquid cooling online,液冷首装
+ACH_THREE_IN_A_DAY,Three builds in one day,单日建成三座
+ACH_THIRTY_FACILITIES,Thirty facilities,第三十座机房
+ACH_FIFTY_FACILITIES,Fifty facilities,第五十座机房
+ACH_ALL_FAMILIAR,Everyone knows us,四客户全部熟悉
+ACH_FIRST_FREE_SWITCH,A better free deal,首次免费改签
+ACH_ALL_CAT_PHOTOS,Campus photo album,猫片集齐
+ACH_THREE_RARE_LOCKS,Three rare markets,锁住三种稀有行情
+ACH_SECOND_PRESTIGE,Ring the bell again,二次上市
+COMPANY_NAME_PREFIXES_1,Northstar,星河
+COMPANY_NAME_PREFIXES_2,Silverline,银海
+COMPANY_NAME_PREFIXES_3,Evergreen,长青
+COMPANY_NAME_PREFIXES_4,Atlas,天行
+COMPANY_NAME_PREFIXES_5,Aurora,晨光
+COMPANY_NAME_PREFIXES_6,Bluehaven,蓝港
+COMPANY_NAME_PREFIXES_7,Redwood,红杉
+COMPANY_NAME_PREFIXES_8,Brightstone,光石
+COMPANY_NAME_PREFIXES_9,Summit,云峰
+COMPANY_NAME_PREFIXES_10,Cedar,青林
+COMPANY_NAME_PREFIXES_11,Meridian,远航
+COMPANY_NAME_PREFIXES_12,Daybreak,启明
+COMPANY_NAME_PREFIXES_13,Ironwood,金林
+COMPANY_NAME_PREFIXES_14,Lighthouse,灯塔
+COMPANY_NAME_PREFIXES_15,Harbor,海港
+COMPANY_NAME_PREFIXES_16,Horizon,新天
+COMPANY_NAME_SUFFIXES_1,Networks,网络
+COMPANY_NAME_SUFFIXES_2,Compute,算力
+COMPANY_NAME_SUFFIXES_3,Cloud,云端
+COMPANY_NAME_SUFFIXES_4,Systems,系统
+COMPANY_NAME_SUFFIXES_5,Data,数据
+COMPANY_NAME_SUFFIXES_6,Infrastructure,基建
+COMPANY_NAME_SUFFIXES_7,Technologies,科技
+COMPANY_NAME_SUFFIXES_8,Digital,数码
+COMPANY_NAME_SUFFIXES_9,Hosting,托管
+COMPANY_NAME_SUFFIXES_10,Labs,实验室
+COMPANY_NAME_SUFFIXES_11,Platforms,平台
+COMPANY_NAME_SUFFIXES_12,Solutions,方案
+COMPANY_NAME_SUFFIXES_13,Works,工坊
+COMPANY_NAME_SUFFIXES_14,Services,服务
+COMPANY_NAME_SUFFIXES_15,Group,集团
+COMPANY_NAME_SUFFIXES_16,Ventures,创投
+COMPANY_DEFAULT_NAME,Northstar Networks,星河网络
+COMPANY_NAMING,Name your company,为公司命名
+COMPANY_NAMING_BODY,Choose two words to make your company name. You can change it free in Settings.,选择两个词组成公司名。之后可在设置中免费改名。
+COMPANY_NAME_FORMAT,%s %s,%s%s
+COMPANY_PREFIX,First word,前缀
+COMPANY_SUFFIX,Second word,后缀
+COMPANY_RENAME,Change company name,更改公司名
+COMPANY_ACHIEVEMENT,%s · %s,%s · %s
+COMPANY_DUTY_FALLBACK,%s: the campus was quiet overnight.,%s：昨夜园区平稳。
+ACH_FACILITY_16,Facility milestone: 16,第 16 座机房
+ACH_FACILITY_17,Facility milestone: 17,第 17 座机房
+ACH_FACILITY_18,Facility milestone: 18,第 18 座机房

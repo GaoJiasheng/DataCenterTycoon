@@ -26,6 +26,18 @@ def load_data():
 
 
 def validate_references():
+    names = DATA.get("company_names", {})
+    for kind in ("prefixes", "suffixes"):
+        if len(set(names.get(kind, []))) < 16:
+            ERRORS.append(f"company_names/{kind}: expected at least sixteen unique word keys")
+    game_source = (ROOT / "core/game.gd").read_text()
+    registry = re.search(r"const META_METRICS := (\[[^\n]+\])", game_source)
+    metrics = set(json.loads(registry.group(1))) if registry else set()
+    for section in (DATA["achievements"]["items"], DATA["meta_progression"]["roadmap"]["items"]):
+        for item_id, item in section.items():
+            if item.get("metric") not in metrics:
+                ERRORS.append(f"progression/{item_id}: metric is absent from Game._meta_metric registry")
+
     eras = DATA["eras"]["items"]
     for table in ("buildings", "racks", "attachments"):
         for item_id, item in DATA[table]["items"].items():
@@ -305,6 +317,11 @@ def validate_localization():
     for group_id, group in meta.get("collection", {}).get("groups", {}).items():
         if group.get("name_key") not in keys:
             ERRORS.append(f"meta_progression/collection/{group_id}: localization key {group.get('name_key')} missing")
+    for kind in ("prefixes", "suffixes"):
+        for key in DATA.get("company_names", {}).get(kind, []):
+            row = next((candidate for candidate in rows if candidate["keys"] == key), {})
+            if not row.get("en", "").strip() or not row.get("zh_CN", "").strip():
+                ERRORS.append(f"company_names/{kind}: bilingual word {key} missing")
     duty_entries = DATA.get("duty_log", {}).get("entries", {})
     for event_type, entry in duty_entries.items():
         templates = entry.get("templates", [])
