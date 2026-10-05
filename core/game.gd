@@ -183,7 +183,7 @@ func buy_next_plot() -> Dictionary:
 	_commit_action("plot_bought")
 	return _success({"plot_id": "plot_%d" % index, "price": price})
 
-func start_datacenter_construction(plot_id: String, building_id: String) -> Dictionary:
+func can_construct_datacenter(plot_id: String, building_id: String) -> Dictionary:
 	var plot := find_plot(plot_id)
 	var building: Dictionary = data.get("buildings", {}).get("items", {}).get(building_id, {})
 	if plot.is_empty() or plot.get("status", "") != "empty":
@@ -194,6 +194,17 @@ func start_datacenter_construction(plot_id: String, building_id: String) -> Dict
 		return _failure("tutorial_building_retired")
 	if not _queue_has_capacity():
 		return _failure("queue_full")
+	var cost := float(building.get("cost", 0.0))
+	if float(state.get("player", {}).get("cash", 0.0)) + 0.0001 < cost:
+		return _failure("not_enough_cash")
+	return _success()
+
+func start_datacenter_construction(plot_id: String, building_id: String) -> Dictionary:
+	var availability := can_construct_datacenter(plot_id, building_id)
+	if not bool(availability.get("ok", false)):
+		return availability
+	var plot := find_plot(plot_id)
+	var building: Dictionary = data.get("buildings", {}).get("items", {}).get(building_id, {})
 	var cost := float(building.get("cost", 0.0))
 	if not _spend_cash(cost):
 		return _failure("not_enough_cash")

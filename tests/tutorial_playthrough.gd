@@ -214,10 +214,11 @@ func _shot(shot_name: String) -> void:
 		var cat := main.park_map.campus_cat as CampusCat
 		var cat_hit := cat.find_child("CampusCatHitArea", true, false) as Area2D if cat != null else null
 		_expect(cat == null or (not cat.visible and (cat_hit == null or not cat_hit.input_pickable)), "FTUE keeps the campus cat invisible and non-interactive")
-	await RenderingServer.frame_post_draw
-	var image := get_viewport().get_texture().get_image()
 	_shot_index += 1
-	image.save_png("%s%02d_%s.png" % [OUT, _shot_index, shot_name])
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		var image := get_viewport().get_texture().get_image()
+		image.save_png("%s%02d_%s.png" % [OUT, _shot_index, shot_name])
 	print("PLAYTHROUGH: %02d_%s" % [_shot_index, shot_name])
 
 # Reproduces the owner's broken save: the tutorial sat on the power step while

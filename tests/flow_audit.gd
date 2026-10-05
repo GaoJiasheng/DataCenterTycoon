@@ -87,6 +87,7 @@ func _ready() -> void:
 	var dormant_hint := main.find_child("TutorialDormantHint", true, false) as Button
 	var dormant_overlay := main.find_child("TutorialSpotlight", true, false) as TutorialOverlay
 	_expect(dormant_hint != null and dormant_hint.visible and dormant_overlay != null and not dormant_overlay.visible, "B4 dormant lesson must collapse to the corner coach hint")
+	await _assert_purchased_plot_construction()
 	Game.advance_time(0.7 * 86400.0, false)
 	await _shot("s6_retire_step_aged")
 	_assert_tutorial_target("retire", "drawer", "world_building")
@@ -116,6 +117,84 @@ func _close(node_name: String) -> void:
 	var overlay := main.find_child(node_name, true, false)
 	if overlay != null:
 		overlay.queue_free()
+
+func _assert_purchased_plot_construction() -> void:
+	# Reproduce the reported layout: one operational IDC and two bought plots.
+	# Freeze simulation so every cash/queue assertion measures only the tap.
+	var original_state := Game.state.duplicate(true)
+	var was_processing := Game.is_processing()
+	Game.set_process(false)
+	_expect(bool(Game.buy_next_plot().get("ok", false)), "B5 player can buy a second empty plot while retirement coaching sleeps")
+	await _shot("s6_retire_step_two_empty_plots")
+	for plot_id: String in ["plot_2", "plot_3"]:
+		var picker := await _tap_owned_plot(plot_id)
+		if picker == null:
+			continue
+		var card := picker.find_child("Building_dc_t1", true, false) as Button
+		_expect(card != null and not card.disabled, "B5 %s exposes a tappable standard IDC choice" % plot_id)
+		if card == null:
+			_close("BuildingPicker")
+			await get_tree().process_frame
+			continue
+		if plot_id == "plot_2":
+			var cash := float(Game.state["player"]["cash"])
+			Game.state["player"]["cash"] = 0.0
+			main.call("_refresh")
+			_expect(str(card.get_meta("unavailable_reason", "")) == "not_enough_cash", "B5 cash shortfall updates the existing card without reopening")
+			await _tap(card.get_global_rect().get_center())
+			await _shot("s6_retire_step_cash_shortfall")
+			_expect(main.find_child("BuildingPicker", true, false) == picker and main.toast_label.text == tr("REASON_NOT_ENOUGH_CASH"), "B5 insufficient cash explains the restriction and keeps the picker open")
+			_expect(str(Game.find_plot(plot_id).get("status", "")) == "empty" and Game.state.get("construction_queue", []).is_empty(), "B5 rejected construction does not consume a plot or a queue slot")
+			Game.state["player"]["cash"] = cash
+			main.call("_refresh")
+			_expect(str(card.get_meta("unavailable_reason", "")) == "", "B5 cash recovery re-enables the same choice")
+		var cash_before := float(Game.state["player"]["cash"])
+		await _tap(card.get_global_rect().get_center())
+		await _shot("s6_retire_%s_started" % plot_id)
+		_expect(str(Game.find_plot(plot_id).get("status", "")) == "building" and is_equal_approx(cash_before - float(Game.state["player"]["cash"]), 5000.0), "B5 %s card tap starts its IDC and charges exactly once" % plot_id)
+		_expect(main.find_child("BuildingPicker", true, false) == null and main.tutorial_hint_button.visible, "B5 successful construction closes the picker and restores the corner coach hint")
+	_expect(Game.state.get("construction_queue", []).size() == 2, "B5 both purchased plots can build concurrently during the retirement wait")
+	_expect(bool(Game.buy_next_plot().get("ok", false)), "B5 a further owned plot can be inspected when construction slots are full")
+	await _shot("s6_retire_two_plot_construction")
+	var full_picker := await _tap_owned_plot("plot_4")
+	if full_picker != null:
+		var card := full_picker.find_child("Building_dc_t1", true, false) as Button
+		var status := full_picker.find_child("BuildingPickerQueueStatus", true, false) as Label
+		_expect(status != null and tr("REASON_QUEUE_FULL") in status.text, "B5 full construction queue is explained before choosing a building")
+		if card != null:
+			var cash_before := float(Game.state["player"]["cash"])
+			await _tap(card.get_global_rect().get_center())
+			await _shot("s6_retire_step_queue_full")
+			var wait_copy := tr("REASON_QUEUE_FULL_WAIT_DETAIL") % [2, 2, Game.format_duration(3600.0)]
+			_expect(main.find_child("BuildingPicker", true, false) == full_picker and main.toast_label.text == wait_copy, "B5 full queue tap explains capacity and wait time while preserving the picker")
+			_expect(is_equal_approx(cash_before, float(Game.state["player"]["cash"])) and Game.state.get("construction_queue", []).size() == 2, "B5 full queue rejection does not spend cash or add work")
+			Game.advance_time(3601.0, false)
+			main.call("_refresh")
+			await get_tree().process_frame
+			_expect(str(card.get_meta("unavailable_reason", "")) == "" and status != null and not tr("REASON_QUEUE_FULL") in status.text, "B5 a completed project clears the restriction on the existing picker")
+		_close("BuildingPicker")
+		await get_tree().process_frame
+	Game.state = original_state
+	Game.set_process(was_processing)
+	main.call("_refresh")
+	main.park_map.reset_camera()
+	await get_tree().process_frame
+
+func _tap_owned_plot(plot_id: String) -> Control:
+	main.park_map.focus_target(plot_id)
+	await get_tree().create_timer(0.35).timeout
+	var plot := main.park_map.target_control_of(plot_id) as Control
+	_expect(plot != null and plot.is_visible_in_tree(), "B5 %s remains available during the dormant retirement lesson" % plot_id)
+	if plot == null:
+		return null
+	# Hit the displayed +, rather than invoking the selection method directly.
+	var badge := plot.find_child("StatusBadge", true, false) as Control
+	await _tap(badge.get_global_rect().get_center() if badge != null else plot.get_global_rect().get_center())
+	await _shot("s6_retire_%s_picker" % plot_id)
+	var picker := main.find_child("BuildingPicker", true, false) as Control
+	_expect(picker != null and picker.is_visible_in_tree(), "B5 %s plus tap keeps its building picker open" % plot_id)
+	_expect(not main.tutorial_hint_button.visible, "B5 corner coach hint does not cover the building picker")
+	return picker
 
 func _assert_standard_t0_duration() -> void:
 	Game.reset_for_tests()
@@ -365,6 +444,15 @@ func _expect(condition: bool, message: String) -> void:
 	else:
 		failures.append(message)
 		print("FLOW_ASSERT: FAIL %s" % message)
+
+func _tap(point: Vector2) -> void:
+	for pressed: bool in [true, false]:
+		var touch := InputEventScreenTouch.new()
+		touch.position = point
+		touch.index = 0
+		touch.pressed = pressed
+		get_viewport().push_input(touch, true)
+		await get_tree().process_frame
 
 func _shot(shot_name: String) -> bool:
 	main.call("_refresh")

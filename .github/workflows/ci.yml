@@ -31,6 +31,12 @@ jobs:
       - name: Run logic suite
         run: godot --headless --path . tests/test_runner.tscn
 
+      - name: Check map touch gestures
+        run: godot --headless --path . tests/map_gestures.tscn
+
+      - name: Check construction progress at equipment locations
+        run: godot --headless --path . tests/construction_rings.tscn
+
       - name: Run assertion-based FTUE flow audit
         run: godot --headless --path . tests/flow_audit.tscn
 

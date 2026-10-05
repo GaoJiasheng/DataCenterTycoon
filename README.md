@@ -55,6 +55,8 @@ Proprietary project · Copyright © 2026 · All rights reserved. Third-party not
 ```sh
 godot --path .
 godot --headless --path . tests/test_runner.tscn
+godot --headless --path . tests/map_gestures.tscn
+godot --headless --path . tests/construction_rings.tscn
 godot --headless --path . tests/flow_audit.tscn
 godot --headless --path . tests/midgame_audit.tscn
 godot --disable-vsync --max-fps 200 --path . tests/tutorial_playthrough.tscn

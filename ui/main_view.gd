@@ -2659,7 +2659,10 @@ func _refresh_tutorial() -> void:
 		tutorial_overlay.set_meta("target_source", "none")
 		tutorial_overlay.set_meta("resolved_target_rect", Rect2())
 		tutorial_overlay.dismiss()
-		tutorial_hint_button.visible = true
+		# The corner coach button overlaps the rightmost build card. Keep it out
+		# of the way while a freely opened picker is on screen.
+		var active_picker := find_child("BuildingPicker", true, false) as CanvasItem
+		tutorial_hint_button.visible = active_picker == null or not active_picker.is_visible_in_tree()
 		_set_tutorial_chrome_visibility(false, focus)
 		return
 	var target := _resolve_tutorial_target(focus) if context != "dormant" else {"rect": Rect2(), "action": Callable(), "source": "none", "mode": "dormant"}
@@ -2778,6 +2781,11 @@ func _close_incompatible_tutorial_surfaces(context: String, focus: String) -> vo
 			allowed = ["BuildingPicker"]
 		elif focus == "buy_plot":
 			allowed = ["ActionSheetOverlay"]
+	elif context == "dormant" and focus == "retire_dc":
+		# Retirement is waiting on age, but other owned plots may be developed.
+		# Closing their picker on the next tutorial refresh makes the visible +
+		# appear broken even though construction is allowed by the game rules.
+		allowed = ["BuildingPicker"]
 	for surface_name: String in ["ActionSheetOverlay", "BuildingPicker", "OperationsHub", "DatacenterContext"]:
 		for surface: Node in find_children(surface_name, "", true, false):
 			var allowed_surface := surface_name in allowed
@@ -3285,7 +3293,8 @@ func _rack_trait_label(sensitivity: float) -> String:
 
 func _show_building_picker(plot_id: String) -> void:
 	park_map.focus_target(plot_id)
-	# The picker owns an 88u drag target, an 88u heading, a 418u card and the
+	# The picker owns an 88u drag target, a heading with live queue status,
+	# a 418u card and the
 	# painted frame's 112u content inset. A 620u sheet let the cards paint through
 	# the bottom frame on iPhone. Reserve about 46% of the portrait viewport so
 	# the complete card remains visible while more than half the world stays in
@@ -3313,6 +3322,18 @@ func _show_building_picker(plot_id: String) -> void:
 			plot_index = int(plot.get("index", 1))
 			break
 	heading_copy.add_child(_label(tr("PLOT_EMPTY") % plot_index, 22, ThemeMaker.COLORS.cyan))
+	var queue_status := _label("", 20, ThemeMaker.COLORS.cyan)
+	queue_status.name = "BuildingPickerQueueStatus"
+	queue_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	queue_status.set_meta("live_update", func() -> void:
+		var queue_size: int = Game.state.get("construction_queue", []).size()
+		var queue_full := queue_size >= Game.queue_capacity()
+		queue_status.text = tr("QUEUE_CAPACITY") % [queue_size, Game.queue_capacity()]
+		if queue_full:
+			queue_status.text += " · " + tr("REASON_QUEUE_FULL")
+		queue_status.add_theme_color_override("font_color", ThemeMaker.COLORS.orange if queue_full else ThemeMaker.COLORS.cyan)
+	)
+	heading_copy.add_child(queue_status)
 	var close_button := Widgets.close_button(_dismiss_world_sheet.bind(overlay))
 	heading.add_child(close_button)
 
@@ -3345,6 +3366,13 @@ func _show_building_picker(plot_id: String) -> void:
 		ThemeMaker.apply_button_color(card, Color("1c3850"))
 		_wire_button_motion(card)
 		card.pressed.connect(func() -> void:
+			# A restricted choice explains itself without discarding the picker.
+			# Recheck here because cash and construction slots change while open.
+			var availability := Game.can_construct_datacenter(plot_id, building_id)
+			if not bool(availability.get("ok", false)):
+				_handle_result(availability)
+				_refresh_live_region(overlay)
+				return
 			_dismiss_world_sheet(overlay, func() -> void: _handle_result(Game.start_datacenter_construction(plot_id, building_id)))
 		)
 		cards.add_child(card)
@@ -3364,17 +3392,32 @@ func _show_building_picker(plot_id: String) -> void:
 		building_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card_content.add_child(building_name)
 		var building_cost := float(building.get("cost", 0.0))
-		var building_cash := float(Game.state.get("player", {}).get("cash", 0.0))
-		var cost_copy := "$%s" % Game.format_number(building_cost)
-		if building_cash < building_cost:
-			cost_copy += " · " + (tr("AFFORD_SHORTFALL") % Game.format_number(building_cost - building_cash))
-		var cost := _label(cost_copy, 23 if building_cash < building_cost else 27, ThemeMaker.COLORS.green if building_cash >= building_cost else Color("b8c2cc"))
+		var cost := _label("", 27, ThemeMaker.COLORS.green)
 		cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card_content.add_child(cost)
 		var duration := _label(tr("COMPLETE_IN") % Game.format_duration(float(building.get("build_seconds", 0.0))), 20, ThemeMaker.COLORS.cyan)
 		duration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card_content.add_child(duration)
-		Widgets.affordable_style(card, building_cost)
+		card.set_meta("live_update", func() -> void:
+			var building_cash := float(Game.state.get("player", {}).get("cash", 0.0))
+			var availability := Game.can_construct_datacenter(plot_id, building_id)
+			var reason := str(availability.get("reason", ""))
+			var signature := "%s:%f" % [reason, building_cash]
+			if str(card.get_meta("availability_signature", "")) == signature:
+				return
+			card.set_meta("availability_signature", signature)
+			card.set_meta("availability_locked", not reason.is_empty() and reason != "not_enough_cash")
+			card.set_meta("unavailable_reason", reason)
+			cost.text = "$%s" % Game.format_number(building_cost)
+			if building_cash < building_cost:
+				cost.text += " · " + (tr("AFFORD_SHORTFALL") % Game.format_number(building_cost - building_cash))
+			cost.add_theme_font_size_override("font_size", 23 if building_cash < building_cost else 27)
+			cost.add_theme_color_override("font_color", ThemeMaker.COLORS.green if reason.is_empty() else Color("b8c2cc"))
+			duration.text = _reason_text(reason) if not reason.is_empty() and reason != "not_enough_cash" else tr("COMPLETE_IN") % Game.format_duration(float(building.get("build_seconds", 0.0)))
+			duration.add_theme_color_override("font_color", ThemeMaker.COLORS.orange if not reason.is_empty() else ThemeMaker.COLORS.cyan)
+			Widgets.affordable_style(card, building_cost)
+		)
+	_refresh_live_region(overlay)
 
 func _create_world_sheet(node_name: String, sheet_height: float, scroll_content: bool = false) -> Dictionary:
 	var overlay := ColorRect.new()
@@ -4669,7 +4712,8 @@ func _failure_message(reason: String, context: Dictionary = {}) -> String:
 		for item: Dictionary in queue:
 			earliest = minf(earliest, float(item.get("complete_at", INF)))
 		var remaining := maxf(0.0, earliest - Game.simulation_time()) if earliest < INF else 0.0
-		return tr("REASON_QUEUE_FULL_DETAIL") % [queue.size(), capacity, Game.format_duration(remaining)]
+		var copy_key := "REASON_QUEUE_FULL_DETAIL" if bool(Game.state.get("tutorial", {}).get("completed", false)) else "REASON_QUEUE_FULL_WAIT_DETAIL"
+		return tr(copy_key) % [queue.size(), capacity, Game.format_duration(remaining)]
 	if reason == "rack_install_limit":
 		var dc := Game.find_datacenter(str(context.get("datacenter_id", "")))
 		var earliest := INF
