@@ -777,45 +777,82 @@ func _shot(shot_name: String) -> void:
 	image.save_png("%s%02d_%s.png" % [OUT, _shot_index, shot_name])
 	print("CAMPAIGN: shot %02d_%s" % [_shot_index, shot_name])
 
-# The continuous UI campaign reaches prestige before real day 12. Replay the
-# unchanged reference active policy for density, then receive its observed
-# milestones through the real claim/achievement APIs. No delayed claims.
+# The continuous UI campaign reaches prestige before real day 12. The density
+# fixture takes completion times from the unchanged reference active strategy,
+# then constructs real shells through Game. Cash/unlocks are fixture setup;
+# completion counts, clocks and rewards must come from actual gameplay APIs.
 func _verify_milestone_density() -> void:
 	var output: Array = []
-	var result := OS.execute("python3", PackedStringArray([ProjectSettings.globalize_path("res://tools/report_release_economy.py"), "--density-probe"]), output)
-	_expect(result == 0, "K2 reference economic density replay must execute successfully")
-	if result != 0:
-		return
-	var receipts: Variant = JSON.parse_string("".join(output))
-	_expect(receipts is Array, "K2 density replay must return observed dated receipts")
-	if not receipts is Array:
-		return
+	var result := OS.execute("python3", PackedStringArray([ProjectSettings.globalize_path("res://tools/report_release_economy.py"), "--density-builds"]), output)
+	_expect(result == 0, "K2 reference construction timeline must execute successfully")
+	if result != 0: return
+	var completions: Variant = JSON.parse_string("".join(output))
+	_expect(completions is Array, "K2 construction replay must return dated shells")
+	if not completions is Array: return
 	var saved := Game.state.duplicate(true)
 	var was_processing := Game.is_processing()
 	Game.reset_for_tests()
 	Game.set_process(false)
+	# This fixture verifies density, not affordability; the separate economic
+	# gate remains responsible for the unchanged cash policy and zero-drift SHA.
+	Game.state["tutorial"]["completed"] = true
+	Game.state["player"]["cash"] = 100000000.0
+	Game.state["player"]["era"] = 3
+	Game.state["player"]["network_level"] = 4
+	Game.state["flags"]["last_presented_era"] = 3
+	Game.state["technology"]["construction_bays"] = 4
+	var timeline: Array[Dictionary] = []
+	for completion: Dictionary in completions:
+		var end := float(completion["at"])
+		if end > 19.0 * 86400.0: continue
+		var building := str(completion["building_id"])
+		var duration := float(DataRepository.get_entry("buildings", building).get("build_seconds", 0.0))
+		timeline.append({"at": maxf(0.0, end - duration), "building_id": building, "start": true})
+		timeline.append({"at": end, "start": false})
+	timeline.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a["at"]) < float(b["at"]) if a["at"] != b["at"] else not bool(a["start"]) and bool(b["start"])
+	)
+	var claimed: Dictionary = {}
 	var earned: Array[String] = []
 	var old_achievements := ["first_contract", "five_datacenters", "twenty_datacenters", "repair_ten", "retire_five", "era_two", "era_three", "first_prestige", "arrears_survivor"]
 	var new_roadmap := ["ten_facilities", "fifteen_facilities", "first_strategic", "first_t3", "first_rare_lock", "three_sets"]
-	for receipt: Dictionary in receipts:
-		var item_id := str(receipt["id"])
-		var category := str(receipt["category"])
-		if (category == "achievement" and item_id in old_achievements) or (category == "roadmap" and item_id not in new_roadmap):
-			continue
-		for metric: String in receipt["metrics"]:
-			if Game.state["player"].has(metric): Game.state["player"][metric] = receipt["metrics"][metric]
-			else: Game.state["stats"][metric] = receipt["metrics"][metric]
-		var received := false
-		if category == "roadmap":
-			received = bool(Game.claim_roadmap_reward(item_id).get("ok", false))
-		else:
-			Game._check_achievements()
-			received = bool(Game.state["achievements"].get(item_id, false))
-		var day := float(receipt["day"])
-		if received and day >= 12.0 and day <= 19.0:
-			earned.append(item_id)
-			_note("density day %.2f: received %s through Game" % [day, item_id])
-	_expect(earned.size() >= 3, "K2 reference days 12–19 must receive at least three new milestones (got %s)" % str(earned))
+	for step: Dictionary in timeline:
+		var gems_before := int(Game.state["player"]["gems"])
+		var achievements_before: Dictionary = Game.state["achievements"].duplicate()
+		var reward_total := 0
+		Game.advance_time(maxf(0.0, float(step["at"]) - Game.simulation_time()), true)
+		if bool(step["start"]):
+			var plot_id := ""
+			for plot: Dictionary in Game.state["plots"]:
+				if str(plot.get("status", "")) == "owned" and not plot.get("datacenter") is Dictionary:
+					plot_id = str(plot["id"])
+					break
+			if plot_id.is_empty():
+				var purchased := Game.buy_next_plot()
+				_expect(bool(purchased.get("ok", false)), "K2 density fixture must purchase its next plot")
+				plot_id = str(purchased.get("plot_id", ""))
+			var started := Game.start_datacenter_construction(plot_id, str(step["building_id"]))
+			_expect(bool(started.get("ok", false)), "K2 density shell must start through Game: " + str(started))
+		var day := Game.simulation_time() / 86400.0
+		for item_id: String in new_roadmap:
+			if claimed.has(item_id): continue
+			var reward := Game.claim_roadmap_reward(item_id)
+			if bool(reward.get("ok", false)):
+				claimed[item_id] = true
+				reward_total += int(DataRepository.get_table("meta_progression")["roadmap"]["items"][item_id]["reward_gems"])
+				if day >= 12.0 and day <= 19.0:
+					earned.append(item_id)
+					_note("density day %.2f: claimed %s through Game" % [day, item_id])
+		for item_id: String in Game.state["achievements"]:
+			if not achievements_before.has(item_id):
+				reward_total += int(DataRepository.get_entry("achievements", item_id).get("reward_gems", 0))
+			if item_id in old_achievements or claimed.has(item_id): continue
+			claimed[item_id] = true
+			if day >= 12.0 and day <= 19.0:
+				earned.append(item_id)
+				_note("density day %.2f: built and received %s through Game" % [day, item_id])
+		_expect(int(Game.state["player"]["gems"]) == gems_before + reward_total, "K2 newly completed milestones must pay the exact authored diamond rewards")
+	_expect(earned.size() >= 3, "K2 real construction days 12–19 must receive at least three new milestones (got %s)" % str(earned))
 	Game.state = saved
 	Game.set_process(was_processing)
 	main.call("_refresh")

@@ -1,0 +1,316 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+PASS: all JSON data files load
+PASS: cross-table references are valid
+PASS: market includes major contracts and three rare events
+PASS: mock StoreKit catalog exposes localized product prices
+PASS: duty log composition is deterministic for identical report content
+PASS: duty log keeps priority order and reserves one row for authoritative income
+PASS: duty log displays the report income without recomputing the bill
+PASS: duty log temporary RNG leaves market inquiry and fault scheduling state byte-for-byte unchanged
+PASS: an empty offline report returns only the income fallback line
+PASS: a real offline advance that crosses an era threshold records the unlock in the report
+PASS: the duty log surfaces an era unlocked while offline
+PASS: persona binding is stable for the same inquiry and template
+PASS: persona binding consumes no persistent random stream
+PASS: all persona names and dialogue keys resolve through localization
+PASS: one relationship signal emits only the highest level when one tick crosses multiple levels
+PASS: campus cat stays hidden and inert throughout the tutorial
+PASS: building a standard facility unlocks the campus cat after FTUE
+PASS: two completed facilities independently unlock the campus cat
+PASS: cat sleep stroll watch and rare-event contexts discover the four authored campus-life cards
+PASS: repeated cat interactions never rediscover or duplicate a campus-life card
+PASS: K2 cat collection completion earns its separate one-time achievement
+PASS: campus-life group grants its existing collection reward exactly once
+PASS: cat state selection and interaction consume no persistent gameplay random stream
+PASS: a quiet unlocked night adds one cat observation before the authoritative income row
+PASS: all 180 production textures import and load
+PASS: all 23 production audio cues import and load
+PASS: packaged UI fonts contain risk glyphs 稳障购罄
+PASS: production map art renders in the direct-touch world layout
+PASS: campus grid and presentation-only world transitions stay deterministic and self-cleaning
+PASS: privacy terms and support documents are real loadable packaged resources
+PASS: unresolved support identity renders a localized coming-soon label instead of an invented address
+PASS: legal document opens in a full-screen scrollable in-app reader
+PASS: Godot 4.7 exposes its full engine license and structured embedded-component notices
+PASS: both SIL OFL notices are loadable packaged resources
+PASS: attribution reader includes Godot embedded components and both bundled font licenses
+PASS: a truncated primary save restores the newest valid rotating backup
+PASS: backup recovery gives the player a visible localized toast
+PASS: all-invalid rotating saves fall back to a fresh company without crashing
+PASS: a 24-hour wall-clock rollback cannot create negative income report rows or lower the monotonic guard
+PASS: save_v1 fixture upgrades to the current schema without losing gems entitlements collection or brand
+PASS: save_v2 fixture upgrades to the current schema without losing gems entitlements collection or brand
+PASS: the first persistent inquiry exposes its one-time Operations explanation
+PASS: the inquiry explanation is visible and records the existing dismissed-message token once
+PASS: the inquiry explanation cannot repeat after dismissal
+PASS: a full queue only points to Engineering when the next lane is unlocked and affordable
+PASS: the Engineering first encounter does not advertise an unaffordable upgrade
+PASS: the first complete powered rack line exposes its one-time board explanation
+PASS: a first-encounter token is consumed exactly once
+PASS: starting a new company resets first-encounter explanations through the existing tutorial state
+PASS: FTUE spotlight resolves and gates input to the primary build action
+PASS: FTUE routes back to rebuilding when its data center is absent
+PASS: tick refresh preserves the live page node and nonzero scroll position
+PASS: action sheet exposes one explicit close, backdrop tap, and 44pt drag-dismiss routes
+PASS: action sheet removes the redundant full-width cancel action
+PASS: action sheet backdrop tap closes after its exit animation
+PASS: coin feedback caps a reward burst at eight particles
+PASS: coin feedback releases all particles after wallet arrival
+PASS: cash HUD animates toward the authoritative balance
+PASS: rejected operations stay visible above sheets and rapid retries restart friendly feedback
+PASS: every core operation rejection has readable English and Chinese copy
+PASS: locked technology actions stay tappable and explain their exact unlock era
+PASS: exhausted reward actions remain tappable so the limit is explained
+PASS: owned store actions explain their terminal state instead of silently disabling
+PASS: stale data-center rack attachment and contract entry points always return visible guidance
+PASS: an unpowered room presents a price-disclosed one-tap T1 recovery action
+PASS: a full queue explains why transformer installation cannot start and offers the queue action
+PASS: a blocked transformer tap never spends cash or creates a hidden project
+PASS: the blocker action takes the player directly to the construction queue
+PASS: the normal first-transformer tap starts T1 immediately and charges exactly its disclosed price
+PASS: a pending transformer replaces the dead dark-room state with visible installation progress
+PASS: a 30-minute reward advances a one-hour project while preserving its original duration
+PASS: legacy rewarded projects reconstruct their authored duration instead of treating the shortened end time as total work
+PASS: the park construction bar counts rewarded minutes as completed progress
+PASS: the construction queue shows roughly fifty-four percent after 2m40s elapsed plus a 30-minute reward
+PASS: second plot price follows the bounded power curve
+PASS: fifth plot price keeps the original early-game scale
+PASS: first expansion-campus plot applies only the configured eight-percent premium
+PASS: hundredth plot remains below a top-tier building cost
+PASS: starter campus owns exactly six ordered slots
+PASS: second campus is the eight-slot expansion type
+PASS: expansion campus type repeats without imposing a global building cap
+PASS: aging efficiency interpolates
+PASS: decline efficiency interpolates
+PASS: ambient cooling keeps a center storage rack healthy
+PASS: wall-clock rollback is rejected
+PASS: legacy save migrates to current schema
+PASS: float-shaped saves restore positive market quotes and discard impossible zero history
+PASS: saved float era and network levels preserve the same positive rack income as a fresh session
+PASS: major market contracts never appear below their network requirement
+PASS: high-level networks unlock major market contracts
+PASS: storage racks absorb downturns with thirty-percent market sensitivity
+PASS: GPU racks amplify market movements with one-hundred-twenty-percent sensitivity
+PASS: two rack installs run inside a data center without occupying the global queue
+PASS: a data center enforces its two-rack installation capacity
+PASS: parallel rack installations finish independently
+PASS: pausing a rack removes it from power allocation and fault scheduling
+PASS: paused racks stop generating contract income
+PASS: resuming a rack restores fault scheduling
+PASS: rack-local installation keeps its diamond accelerator
+PASS: v1 rack queue jobs migrate into v2 rack-local installation state
+PASS: contract starts a fixed initial term and locks the no-noise market rate
+PASS: a new three-times market event does not change income on an existing locked contract
+PASS: term expiry renews without a gap, relocks at the no-noise rate, and grants one non-expiring free switch
+PASS: automatic renewal keeps contract income continuous across the term boundary
+PASS: the saved free switch changes client and locked income exactly once without a fee
+PASS: the next early switch restores the twenty-five-percent breach fee
+PASS: unused free-switch eligibility survives multiple offline renewals and a save reload without stacking
+PASS: legacy renewal-window saves migrate to a locked rate and non-expiring free switch
+PASS: legacy contract migration uses the exact duration-prorated lock path instead of the instantaneous event quote
+PASS: roadmap rewards a permanent milestone exactly once
+PASS: strategic contracts require familiarity and then lock twelve months at the authored premium
+PASS: customer relationships grow through service and never decay
+PASS: a campus specialization activates only from its real layout conditions
+PASS: one permanent board point is available per completed company legacy
+PASS: company collection counts only assets actually encountered
+PASS: meta progression survives state-shape migration without losing claims
+PASS: the GPU-gated mining inquiry cannot arrive before Era 2
+PASS: three authored low-weight rare market events stay in the replayable event pool
+PASS: a one-month five-times event is integrated exactly across flexible and standard terms
+PASS: the same one-month event is diluted across the full strategic term before the cap
+PASS: overlapping active events use every exact end-time cut point in the lock integral
+PASS: no active event locks the era baseline and previews are never integrated
+PASS: inquiry premium is applied after proration and the strategic cap is applied last
+PASS: strategic automatic renewal uses the same exact prorated lock-rate path
+PASS: loading a legacy strategic contract never retroactively clamps its saved lock rate
+PASS: prorated lock quotes consume no market RNG and preserve the same-seed event sequence exactly
+PASS: a complete powered same-kind row grants every member exactly the authored ten-percent bonus
+PASS: a complete powered same-kind column grants every member exactly the authored ten-percent bonus
+PASS: an intersecting row and column mark their union but never stack the center rack bonus
+PASS: removing one row member immediately removes only that row bonus while preserving an independent column
+PASS: an installing rack breaks its line without disturbing another complete line
+PASS: a paused rack breaks its line without disturbing another complete line
+PASS: unpowered racks cannot form a set
+PASS: a faulted rack keeps set membership and applies degradation before the single set multiplier
+PASS: inquiry arrivals use an independent random stream and preserve the baseline market sequence element for element
+PASS: inquiry rack-kind and rack-count requirements have positive and negative evaluations
+PASS: inquiry unique-rack-kind requirements have positive and negative evaluations
+PASS: inquiry network requirements have positive and negative evaluations
+PASS: inquiry relationship requirements have positive and negative evaluations
+PASS: inquiry specialization requirements reuse the live campus condition with positive and negative evaluations
+PASS: accepting an inquiry credits the displayed bonus, exact locked rate, forecast, and authored relationship service
+PASS: an accepted inquiry records all three attribution fields on its contract
+PASS: a later manual contract switch clears every inquiry attribution field symmetrically
+PASS: strategic inquiry premium still obeys the disclosed 2.5-times lock cap
+PASS: an inquiry arrives after the gate and remains open after four hundred game months with no expiration field or countdown
+PASS: declining has no penalty, cannot refill that slot inside two game months, and refills after the cooldown
+PASS: offline advancement segments at next_arrival_at and records the crossed inquiry arrival as a milestone
+PASS: a new fault schedules its free repair exactly four hours later
+PASS: a faulted rack keeps forty percent of its normal income
+PASS: a fault remains softly degraded until its four-hour repair point
+PASS: an unattended fault repairs for free and records a separate automatic statistic
+PASS: player-accelerated repair clears the automatic timer and records a manual statistic
+PASS: offline settlement splits income at auto-repair: forty percent before and full income after
+PASS: legacy repair totals migrate into the manual statistic without counting future automatic repairs
+PASS: new company starts with tuned cash
+PASS: new company starts with documented gems
+PASS: new company starts with one free plot and the bounded second-plot price
+PASS: container construction starts
+PASS: container construction completes
+PASS: build count increments
+PASS: power install starts
+PASS: cooler install starts
+PASS: first rack install starts
+PASS: second rack install starts
+PASS: internet contract signs
+PASS: two cooled compute racks earn documented locked-price income
+PASS: contract switch exposes the breach fee before confirmation
+PASS: north cooler covers north rack
+PASS: one month accrues contract revenue
+PASS: maintenance is deducted at month boundary
+PASS: board preview makes double-cooled corner placement visibly safer than center placement
+PASS: board renders three coverage tiles per cooler and a power meter
+PASS: board placement preview classifies all nine slots
+PASS: board stays within its sixty-one-node mobile budget
+PASS: contract card projection matches the authoritative post-signing income rule
+PASS: era route exposes at least four concrete next-era unlocks
+PASS: prestige card projects a positive permanent brand gain
+PASS: market transitions merge into one actionable safe-band notice visible=true destination=market transient=true connections=1 legacy=<Object#null> notice=[P: (182.0, 122.0), S: (590.0, 70.0)] switcher=[P: (138.0, 202.0), S: (528.0, 120.0)]
+PASS: an empty data center explains that racks are the sellable capacity and exposes a direct configuration action
+PASS: the empty contract page keeps a valid market quote and replaces misleading zero revenue with the rack prerequisite
+PASS: contract customer cards pass iOS drags to their touch-scroll page while remaining release-to-select actions
+PASS: tapping a contract without online racks returns a friendly earning-path explanation instead of a zero-income confirmation
+PASS: the contract capacity action routes directly to rack configuration
+PASS: store presents deals gems perks and compliance as distinct merchandising regions
+PASS: settings exposes legal support and build information
+PASS: settings distinguishes release taps from full-content iOS drags
+PASS: dragging from a settings toggle scrolls without toggling, while a stationary tap still toggles
+PASS: offline settlement has a dedicated animated reward card and ad-styled ×2 action
+PASS: arrears opens as a timed HUD crisis with an explicit phone-sized close route
+PASS: dismissed arrears HUD stays collapsed for the current debt episode instead of rebuilding over management
+PASS: a maxed emergency-fund claim gives a clear limit message and automatically collapses the blocking crisis card
+PASS: era unlock is staged as a newspaper milestone with three concrete unlocks
+PASS: K1 forecast equals the real same-tick renewal exactly
+PASS: K1 renewal records the era baseline separately
+PASS: K1 low-lock log retains room event and rate after the event ends
+PASS: K1 composing the same report remains deterministic
+PASS: K1 aggregate names every low renewal
+PASS: K1 three low renewals form one row and normal renewal stays separate
+PASS: K1 improvement equal to configured threshold is actionable
+PASS: K1 below-threshold improvement is not actionable
+PASS: K1 an improved rate without a free switch is not actionable
+PASS: K1 fixture holds the actual rack input slot
+PASS: K1 ten live updates retain drawer board touched slot and Label identities
+PASS: K1 ten live updates preserve the held touch state
+PASS: K1 existing forecast Label tracks the authoritative current-time value
+PASS: K2 new statistic starts at zero: strategic_contracts_signed
+PASS: K2 new statistic starts at zero: rare_events_locked
+PASS: K2 new statistic starts at zero: datacenters_built_t2
+PASS: K2 new statistic starts at zero: datacenters_built_t3
+PASS: K2 new statistic starts at zero: max_set_groups_in_one_datacenter
+PASS: K2 new statistic starts at zero: inquiries_declined
+PASS: K2 new statistic starts at zero: liquid_cooling_installed
+PASS: K2 old saves backfill statistic: strategic_contracts_signed
+PASS: K2 old saves backfill statistic: rare_events_locked
+PASS: K2 old saves backfill statistic: datacenters_built_t2
+PASS: K2 old saves backfill statistic: datacenters_built_t3
+PASS: K2 old saves backfill statistic: max_set_groups_in_one_datacenter
+PASS: K2 old saves backfill statistic: inquiries_declined
+PASS: K2 old saves backfill statistic: liquid_cooling_installed
+PASS: K2 starting a shell does not count a completed tier
+PASS: K2 completing T2 counts only T2
+PASS: K2 completing T3 counts T3
+PASS: K2 a standard contract does not count as strategic
+PASS: K2 only a real strategic signing increments; unchanged taps do not
+PASS: K2 a future rare event is not in the lock input
+PASS: K2 signing in an active rare event records one lock and its identity
+PASS: K2 installing is not yet liquid cooling completed
+PASS: K2 liquid cooling counts on completion
+PASS: K2 incomplete racks do not form counted sets
+PASS: K2 three different completed rows count three groups in one facility
+PASS: K2 unavailable inquiry does not count as declined
+PASS: K2 an actual decline counts once
+PASS: K2 at least twenty achievements are authored
+PASS: K3 v4 migration fills localized name and preserves runtime locale
+PASS: K3 v5 migration preserves the chosen name
+PASS: K3 naming rejects words outside the library
+PASS: K3 a word-library rename costs no cash and consumes no market randomness
+PASS: K3 tutorial never opens company naming
+PASS: K3 first naming uses two word selectors, never free text
+PASS: K3 cat waits for the first company name
+PASS: K3 confirmation enters the named company
+PASS: K2 reference days 12–19 receive three new milestones through Game
+density day 12.21: built and received facility_16 through Game
+density day 13.71: built and received facility_17 through Game
+density day 15.88: built and received facility_18 through Game
+PASS: K4 offline rare start does not replay a headline and restores signal context
+PASS: K4 the actual online market signal opens a rare headline
+PASS: K4 headline is immediately skippable
+PASS: K4 skipped rare headline releases its entire tree
+PASS: K4 ceremony creates exactly one confetti set
+PASS: K4 confetti self-destructs while the ceremony remains open
+PASS: K4 closed ceremony leaves no overlay or FX nodes
+PASS: K4 skipping early also destroys confetti immediately
+PASS: K4 presentation consumes no cash or random stream
+PASS: visible renewal decisions and stable live drawer pass
+PASS: instant build ticket completes a project
+PASS: instant build ticket is consumed exactly once
+PASS: higher-tier power unit install starts
+PASS: installed attachments cannot be downgraded
+PASS: first power project starts
+PASS: same attachment slot rejects concurrent projects
+PASS: network project starts
+PASS: network upgrade rejects duplicate queue entries
+PASS: construction reward frequency limit is enforced
+PASS: engineering expansion level 2 stays locked before Era 2
+PASS: engineering expansion level 2 raises the global build queue from two to three
+PASS: a level-2 engineering department admits three simultaneous projects
+PASS: the fourth project is explicitly rejected while capacity is three
+PASS: engineering expansion level 3 stays locked before Era 3
+PASS: Era 3 unlocks the four-lane engineering department
+PASS: the five-lane engineering department requires a completed company rebuild
+PASS: minimum_prestige checks do not change unlock behavior for existing items without that field
+PASS: one completed rebuild unlocks the five-lane engineering department
+PASS: company rebuild resets engineering capacity to the authored two-lane base
+PASS: a rebuilt company can buy engineering expansion again with its carried cash
+PASS: duplicate StoreKit transaction grants a consumable once
+PASS: limited pack cannot be purchased twice
+PASS: No Ads entitlement activates rewarded action without video
+PASS: offline reward is granted exactly once
+PASS: base offline income is capped at eight hours
+PASS: offline state advances beyond income cap
+PASS: offline progression never starts bankruptcy without costs
+PASS: ninety-day absence still respects eight-hour income cap
+PASS: ninety-day state fast-forward completes without truncation
+PASS: long-run market history fills and stays within two-year ring buffer
+PASS: offline expiry freezes before forced ruin
+PASS: expired data center becomes ruin online
+PASS: ruin cannot be retired for salvage value
+PASS: rack cannot be salvaged from a ruin
+PASS: clearing a ruin is free and deposits building attachment and rack scrap
+PASS: normal retirement at ninety-four percent always pays strictly more than waiting for scrap
+PASS: Era 2 can purchase the single auto-retirement technology for fifteen thousand
+PASS: offline auto-retirement at ninety-five percent harvests recovery and fully refunds pending jobs
+PASS: offline auto-retirement is recorded as a recovery event in the return report
+PASS: arrears timeout resolves through bank takeover instead of game over
+PASS: bank takeover sells the oldest operational data center first
+PASS: bank takeover stops selling as soon as the debt is cleared
+PASS: bank takeover preserves era and network progression
+PASS: bank takeover preserves technology and premium currency
+PASS: bank takeover preserves every purchased plot
+PASS: bank takeover forgives any debt left after all operational data centers are sold
+PASS: bank takeover grants enough restructuring cash to guarantee the five-thousand floor
+PASS: legacy game-over saves migrate once into a playable takeover settlement
+PASS: prestige unlocks after twenty builds
+PASS: prestige increases permanent brand multiplier
+PASS: prestige resets park to one plot
+PASS: prestige preserves paid inventory and purchase limits
+PASS: prestige preserves StoreKit transaction idempotency
+PASS: prestige does not replay the tutorial
+PASS: new company preserves paid currency and permanent brand
+PASS: new company preserves inventory and entitlements
+PASS: new company preserves purchase limits and transaction history
+PASS: new company preserves account achievements and prestige count
+TESTS: 251 passed, 0 failed

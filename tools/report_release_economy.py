@@ -23,6 +23,7 @@ class AuditSimulator(balance.Simulator):
         self.metric_counts = defaultdict(int)
         self.rare_locks = set()
         self.completed_centers = []
+        self.completed_center_timeline = []
         self.completions_by_day = defaultdict(int)
         self.earned_roadmap_days = {}
         self.earned_achievement_days = {}
@@ -100,6 +101,7 @@ class AuditSimulator(balance.Simulator):
                 continue
             if not any(previous is dc for previous in self.completed_centers):
                 self.completed_centers.append(dc)
+                self.completed_center_timeline.append({"at": balance.Simulator.now, "building_id": dc.building_id})
                 if dc.building_id in ("dc_t2", "dc_t3"):
                     self.metric_counts["datacenters_built_t" + dc.building_id[-1]] += 1
                 day = int(dc.built_at // balance.STEP)
@@ -282,8 +284,8 @@ def main():
 
 
 if __name__ == "__main__":
-    if "--density-probe" in sys.argv:
+    if "--density-probe" in sys.argv or "--density-builds" in sys.argv:
         replay = AuditSimulator("active", SEED + 1).run(30)
-        print(json.dumps(replay.progress_receipts))
+        print(json.dumps(replay.completed_center_timeline if "--density-builds" in sys.argv else replay.progress_receipts))
     else:
         raise SystemExit(main())
