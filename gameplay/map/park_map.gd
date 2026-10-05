@@ -3,8 +3,10 @@ extends Control
 
 const Rules := preload("res://gameplay/game_rules.gd")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
+const ConstructionRing := preload("res://ui/construction_ring.gd")
 const CampusCatScene := preload("res://gameplay/map/campus_cat.gd")
 
+signal construction_selected(construction_id: String)
 signal datacenter_selected(datacenter_id: String)
 signal empty_plot_selected(plot_id: String)
 signal buy_plot_requested
@@ -34,6 +36,7 @@ const ISO_ANGLE := 0.463648 # atan(0.5), the shared world-art perspective.
 const DAY_TINT := Color(1.0, 0.97, 0.90)
 const EVENING_TINT := Color(1.0, 0.88, 0.78)
 const NIGHT_TINT := Color(0.72, 0.78, 0.95)
+const PAN_THRESHOLD := 8.0
 const CAMERA_BREATH_DELAY := 8.0
 const CAMERA_BREATH_ZOOM := 0.02
 const CAMPUS_PROP_IDS := [
@@ -63,8 +66,6 @@ var target_buttons: Dictionary = {}
 var _ambient_time := 0.0
 var _active_art: Array[TextureRect] = []
 var _sway_art: Array[TextureRect] = []
-var _construction_labels: Array[Dictionary] = []
-var _countdown_accumulator := 0.0
 var _campus_bounds := Rect2()
 var _campus_bounds_by_index: Dictionary = {}
 var _campus_summaries: Array[Dictionary] = []
@@ -84,6 +85,11 @@ var _camera_breathing := false
 var campus_cat: CampusCat
 var _plots_snapshot: Array = []
 var _cat_suppressed := false
+var _camera_tween: Tween
+var _camera_initialized := false
+var _gesture_start := Vector2.ZERO
+var _gesture_panning := false
+var _ground_view: TextureRect
 
 func _ready() -> void:
 	clip_contents = true
@@ -99,13 +105,13 @@ func _ready() -> void:
 		ground_texture = AssetCatalog.texture("ground_tile")
 	if ground_texture != null:
 		var ground_view := TextureRect.new()
+		_ground_view = ground_view
 		ground_view.name = "CampusGroundTexture"
 		ground_view.texture = ground_texture
 		ground_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		ground_view.stretch_mode = TextureRect.STRETCH_TILE
 		ground_view.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 		ground_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ground_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		add_child(ground_view)
 	var top_shade := TextureRect.new()
 	var shade_gradient := Gradient.new()
@@ -161,11 +167,8 @@ func _process(delta: float) -> void:
 		var art := _sway_art[index]
 		if is_instance_valid(art) and art.is_visible_in_tree():
 			art.rotation = sin(_ambient_time * 0.72 + index * 1.31) * 0.012
-	_countdown_accumulator += delta
-	if _countdown_accumulator >= 1.0:
-		_countdown_accumulator = 0.0
-		_refresh_construction_labels()
 	_update_camera_breath(delta)
+	_sync_ground()
 
 func color_grade_for_hour(hour: float) -> Dictionary:
 	var wrapped := fposmod(hour, 24.0)
@@ -224,7 +227,6 @@ func setup(plots: Array) -> void:
 	target_buttons.clear()
 	_active_art.clear()
 	_sway_art.clear()
-	_construction_labels.clear()
 	notify_user_input()
 	var owned_count := plots.size()
 	var slot_count := owned_count + 1 # Include the next purchasable parcel.
@@ -265,7 +267,11 @@ func setup(plots: Array) -> void:
 	world_size = Vector2(804, maxf(1748.0, _campus_bounds.end.y + 560.0))
 	_apply_campus_visibility()
 	_mount_campus_cat()
-	_frame_campus(false)
+	if not _camera_initialized:
+		_frame_campus(false)
+		_camera_initialized = true
+	else:
+		_apply_camera()
 	campus_changed.emit(_active_campus_index, _campus_count)
 	queue_redraw()
 
@@ -287,7 +293,11 @@ func focus_target(target_id: String) -> void:
 		campus_changed.emit(_active_campus_index, _campus_count)
 	zoom = 1.10
 	var world_center := target.position + target.size * 0.5
-	camera_offset = Vector2(size.x * 0.5, size.y * 0.35) - world_center * zoom
+	# Bring the target into view without pushing its neighboring plot offscreen
+	# just to center an already-visible building horizontally.
+	var min_x := 32.0 - target.position.x * zoom
+	var max_x := size.x - 32.0 - (target.position.x + target.size.x) * zoom
+	camera_offset = Vector2(clampf(camera_offset.x, min_x, max_x), size.y * 0.35 - world_center.y * zoom)
 	_clamp_camera_offset()
 	_animate_camera()
 
@@ -567,19 +577,14 @@ func _add_campus_boundaries() -> void:
 		var campus_index := int(summary.get("index", 0))
 		var capacity := maxi(1, int(summary.get("capacity", PLOTS_PER_CAMPUS)))
 		var row_count := int(ceili(float(capacity) / 2.0))
-		var accent := Color(str(summary.get("accent", "3aa7f0")))
 		var boundary := PanelContainer.new()
 		boundary.name = "CampusBoundary_%d" % campus_index
 		boundary.position = Vector2(18, _campus_origin_y(campus_index) - 86.0)
 		boundary.size = Vector2(768, float(row_count - 1) * ROW_STEP + PLOT_SIZE.y + 114.0)
 		boundary.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# The border sits above ambient props but below every interactive parcel.
-		# A negative Z would fall behind the sibling grass canvas and disappear.
-		boundary.z_index = 1
-		var style := ThemeMaker.panel(Color(0.035, 0.11, 0.16, 0.12), Color(accent, 0.68), 3, 38)
-		style.shadow_color = Color(0.02, 0.06, 0.09, 0.20)
-		style.shadow_size = 12
-		boundary.add_theme_stylebox_override("panel", style)
+		# Capacity is a layout bound, not a screen-shaped selection box. The
+		# existing trees and planted edges mark the campus on continuous grass.
+		boundary.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 		boundary.set_meta("campus_index", campus_index)
 		boundary.set_meta("campus_boundary", true)
 		boundary.set_meta("campus_capacity", capacity)
@@ -869,7 +874,7 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 	var badge_mode := "hidden"
 	match status:
 		"empty": badge_mode = "add"
-		"building": badge_mode = "timer"
+		"building": badge_mode = "hidden"
 		"ruined": badge_mode = "icon"
 		_:
 			if not caption.is_empty():
@@ -881,17 +886,13 @@ func _plot_button(plot: Dictionary, at: Vector2) -> Button:
 		world_art.set_meta("ambient_phase", float(int(plot.get("index", 0))) * 1.73)
 		if asset_id.begins_with("dc_") and status not in ["building", "ruined"]:
 			_apply_building_variant(world_art, int(plot.get("index", 0)))
-	if status == "building":
-		var countdown := button.find_child("StatusText", true, false) as Label
-		if countdown != null:
-			var construction := Game.find_construction(str(plot.get("construction_id", "")))
-			_configure_construction_timer(button, countdown, construction)
+	_add_construction_indicators(button, plot)
 	match status:
 		"empty": button.pressed.connect(func() -> void: empty_plot_selected.emit(str(plot.get("id", ""))))
 		"ruined":
 			var ruined_dc: Dictionary = plot.get("datacenter", {})
 			button.pressed.connect(func() -> void: datacenter_selected.emit(str(ruined_dc.get("id", ""))))
-		"building": pass
+		"building": button.pressed.connect(func() -> void: construction_selected.emit(str(plot.get("construction_id", ""))))
 		_:
 			var active_dc: Dictionary = plot.get("datacenter", {})
 			button.pressed.connect(func() -> void: datacenter_selected.emit(str(active_dc.get("id", ""))))
@@ -946,6 +947,9 @@ func _datacenter_alert(dc: Dictionary) -> Dictionary:
 		if installed is Dictionary and str(installed.get("status", "")) == "faulted":
 			return {"type": "fault", "slot": slot, "caption": tr("FAULTED"), "asset": "ic_wrench"}
 	if str(dc.get("power_unit", "")).is_empty():
+		for job: Dictionary in Game.state.get("construction_queue", []):
+			if str(job.get("type", "")) == "power" and str(job.get("datacenter_id", "")) == str(dc.get("id", "")):
+				return {} # The live electricity ring owns this state while installing.
 		return {"type": "unpowered", "slot": -1, "caption": tr("UNPOWERED"), "asset": "ic_power"}
 	for slot: int in range(racks.size()):
 		var runtime := Rules.rack_runtime_status(dc, slot, DataRepository.get_table("racks"), DataRepository.get_table("attachments"), DataRepository.get_table("economy"))
@@ -994,10 +998,21 @@ func _wire_alert_badge(button: Button, datacenter_id: String, alert_type: String
 	badge.set_meta("alert_tone", alert_type)
 	badge.set_meta("breathing", alert_type == "fault")
 	badge.add_theme_stylebox_override("panel", ThemeMaker.alert_badge(alert_type))
+	var badge_gesture := {"active": false}
 	badge.gui_input.connect(func(event: InputEvent) -> void:
-		if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
-			badge.accept_event()
-			alert_selected.emit(datacenter_id, alert_type, slot)
+		if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+			return
+		var pointer_event: bool = event is InputEventScreenTouch or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT)
+		if not pointer_event:
+			return
+		_gui_input(event.xformed_by(get_global_transform().affine_inverse() * badge.get_global_transform()))
+		badge.accept_event()
+		if event.pressed:
+			badge_gesture["active"] = true
+		elif bool(badge_gesture["active"]):
+			badge_gesture["active"] = false
+			if not (event is InputEventScreenTouch and event.canceled) and Rect2(Vector2.ZERO, badge.size).has_point(event.position):
+				alert_selected.emit(datacenter_id, alert_type, slot)
 	)
 	badge.scale = Vector2.ZERO
 	badge.pivot_offset = badge.size * 0.5
@@ -1013,31 +1028,42 @@ func _wire_alert_badge(button: Button, datacenter_id: String, alert_type: String
 		breath.tween_property(badge, "scale", Vector2.ONE, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	)
 
-func _configure_construction_timer(button: Button, label: Label, construction: Dictionary) -> void:
-	var badge := button.find_child("StatusBadge", true, false) as PanelContainer
-	var row := button.find_child("StatusRow", true, false) as HBoxContainer
-	if badge == null or row == null:
-		return
-	badge.add_theme_stylebox_override("panel", ThemeMaker.construction_timer_badge())
-	badge.set_meta("construction_timer_flat", true)
-	badge.clip_contents = true
-	badge.size.y = 68
-	badge.position.y = PLOT_SIZE.y - 72
-	# "59m 59s" needs the full width; 70 clipped the trailing unit and left the
-	# countdown reading "59m 59".
-	label.custom_minimum_size.x = 118
-	var progress := ProgressBar.new()
-	progress.name = "ConstructionProgress"
-	progress.show_percentage = false
-	progress.custom_minimum_size = Vector2(54, 16)
-	row.add_child(progress)
-	var duration := Game.construction_duration(construction)
-	var completed := float(construction.get("complete_at", Game.simulation_time()))
-	var remaining := maxf(0.0, completed - Game.simulation_time())
-	progress.max_value = duration
-	progress.value = clampf(duration - remaining, 0.0, duration)
-	progress.set_meta("duration_seconds", duration)
-	_construction_labels.append({"label": label, "progress": progress, "construction_id": str(construction.get("id", "")), "duration_seconds": duration, "complete_at": completed})
+func _add_construction_indicators(button: Button, plot: Dictionary) -> void:
+	var jobs: Array[Dictionary] = []
+	if str(plot.get("status", "")) == "building":
+		var job := Game.find_construction(str(plot.get("construction_id", "")))
+		if not job.is_empty():
+			jobs.append(job)
+	var dc: Dictionary = plot.get("datacenter", {}) if plot.get("datacenter") is Dictionary else {}
+	if not dc.is_empty():
+		for job: Dictionary in Game.state.get("construction_queue", []):
+			if str(job.get("datacenter_id", "")) == str(dc.get("id", "")) and str(job.get("type", "")) in ["power", "cooler"]:
+				jobs.append(job)
+		for installed: Variant in dc.get("racks", []):
+			if installed is Dictionary and str(installed.get("status", "")) == "installing":
+				jobs.append(installed)
+	# One icon per equipment type keeps a busy campus legible. Multiple racks
+	# show their count and the soonest completion; inside, every slot has a ring.
+	var groups: Dictionary = {}
+	for job: Dictionary in jobs:
+		var icon_id := ConstructionRing.icon_for_job(job)
+		if not groups.has(icon_id):
+			groups[icon_id] = []
+		groups[icon_id].append(job)
+	var index := 0
+	var width := float(groups.size()) * 68.0 - 4.0
+	for icon_id: String in groups:
+		var group: Array = groups[icon_id]
+		group.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return float(a.get("install_complete_at", a.get("complete_at", INF))) < float(b.get("install_complete_at", b.get("complete_at", INF)))
+		)
+		var ring := ConstructionRing.new()
+		ring.name = "ConstructionProgress" if str(plot.get("status", "")) == "building" else "InstallProgress_%d" % index
+		ring.size = Vector2(64, 64)
+		ring.position = Vector2((PLOT_SIZE.x - width) * 0.5 + float(index) * 68.0, PLOT_SIZE.y - 70.0)
+		ring.configure(group[0], icon_id, ConstructionRing.color_for_job(group[0]), group.size())
+		button.add_child(ring)
+		index += 1
 
 func _campus_count_for_slots(slot_count: int) -> int:
 	return Rules.campus_count_for_slots(slot_count, DataRepository.get_table("economy"))
@@ -1118,6 +1144,12 @@ func _world_button(asset_id: String, caption: String, accent: Color, caption_ass
 	# dense 10x10 campus there may be no grass between buildings, so STOP here
 	# effectively disabled the camera exactly when navigation mattered most.
 	button.mouse_filter = Control.MOUSE_FILTER_PASS
+	button.gui_input.connect(func(event: InputEvent) -> void:
+		# BaseButton consumes mouse presses before they can bubble to the map.
+		# Convert its local coordinates back to the fixed map coordinate space.
+		if event is InputEventMouseButton or event is InputEventScreenTouch:
+			_gui_input(event.xformed_by(get_global_transform().affine_inverse() * button.get_global_transform()))
+	)
 	button.tooltip_text = caption
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(1, 1, 1, 0.0)
@@ -1311,25 +1343,27 @@ func _apply_campus_visibility() -> void:
 		if child is CanvasItem and child.has_meta("campus_index"):
 			(child as CanvasItem).visible = int(child.get_meta("campus_index", -1)) == _active_campus_index
 
-func _refresh_construction_labels() -> void:
-	for entry: Dictionary in _construction_labels:
-		var label := entry.get("label") as Label
-		if label == null or not is_instance_valid(label):
-			continue
-		var construction := Game.find_construction(str(entry.get("construction_id", "")))
-		var completed := float(construction.get("complete_at", entry.get("complete_at", Game.simulation_time())))
-		var duration := maxf(1.0, float(entry.get("duration_seconds", Game.construction_duration(construction))))
-		var remaining := maxf(0.0, completed - Game.simulation_time())
-		label.text = Game.format_duration(remaining)
-		var progress := entry.get("progress") as ProgressBar
-		if progress != null and is_instance_valid(progress):
-			progress.value = clampf(duration - remaining, 0.0, duration)
-
 func _animate_button(button: Button, target_scale: float) -> void:
 	var tween := button.create_tween()
 	tween.tween_property(button, "scale", Vector2.ONE * target_scale, 0.10).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
+# Begin only through GUI hit-testing, so HUDs and modal sheets retain priority.
+# Once a map gesture starts, capture its continuation before moving children
+# can steal it. All deltas are measured in map space, never scaled plot space.
+func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		_cancel_gesture()
+		return
+	if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
+	var tracked: bool = (event is InputEventScreenDrag and touch_points.has(event.index)) or (event is InputEventScreenTouch and not event.pressed and touch_points.has(event.index))
+	tracked = tracked or (dragging and (event is InputEventMouseMotion or (event is InputEventMouseButton and not event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE])))
+	if tracked:
+		_gui_input(make_input_local(event))
+
 func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	if not (event is InputEventMouseMotion) or dragging:
 		notify_user_input()
 	if event is InputEventMouseButton:
@@ -1340,33 +1374,90 @@ func _gui_input(event: InputEvent) -> void:
 			_zoom_at(event.position, zoom - 0.1)
 			accept_event()
 		elif event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE]:
-			dragging = event.pressed
-			last_pointer = event.position
+			if event.pressed and not dragging:
+				dragging = true
+				last_pointer = event.position
+				_gesture_start = event.position
+				_gesture_panning = false
+			elif not event.pressed and dragging:
+				if _gesture_panning:
+					accept_event()
+				dragging = false
+				_gesture_panning = false
 	elif event is InputEventMouseMotion and dragging:
-		camera_offset += event.position - last_pointer
-		last_pointer = event.position
-		_apply_camera()
-		accept_event()
+		_pan_pointer(event.position)
 	elif event is InputEventScreenTouch:
 		if event.pressed:
+			if touch_points.has(event.index):
+				return
+			if touch_points.is_empty():
+				_gesture_start = event.position
+				last_pointer = event.position
+				_gesture_panning = false
 			touch_points[event.index] = event.position
+			if touch_points.size() > 1:
+				_claim_pan()
 		else:
+			if not touch_points.has(event.index):
+				return
+			if _gesture_panning or event.canceled:
+				content.propagate_notification(Control.NOTIFICATION_SCROLL_BEGIN)
+				accept_event()
 			touch_points.erase(event.index)
+			if touch_points.size() == 1:
+				last_pointer = touch_points.values()[0]
+				_gesture_start = last_pointer
+			if touch_points.is_empty():
+				_gesture_panning = false
 		last_pinch_distance = _pinch_distance()
 	elif event is InputEventScreenDrag:
+		if not touch_points.has(event.index):
+			return
+		var old_center := _touch_center()
 		touch_points[event.index] = event.position
 		if touch_points.size() == 1:
-			camera_offset += event.relative
-			_apply_camera()
+			_pan_pointer(event.position)
 		else:
 			var distance := _pinch_distance()
+			var center := _touch_center()
 			if last_pinch_distance > 0.0:
-				_zoom_at(_touch_center(), zoom * distance / last_pinch_distance)
+				var world_point := (old_center - camera_offset) / zoom
+				zoom = clampf(zoom * distance / last_pinch_distance, MIN_ZOOM, MAX_ZOOM)
+				camera_offset = center - world_point * zoom
+				_apply_camera()
 			last_pinch_distance = distance
-		accept_event()
+			accept_event()
 	elif event is InputEventMagnifyGesture:
 		_zoom_at(event.position, zoom * event.factor)
 		accept_event()
+
+func _pan_pointer(point: Vector2) -> void:
+	if not _gesture_panning and point.distance_to(_gesture_start) < PAN_THRESHOLD:
+		return
+	_claim_pan()
+	camera_offset += point - last_pointer
+	last_pointer = point
+	_apply_camera()
+	accept_event()
+
+func _claim_pan() -> void:
+	if not _gesture_panning:
+		_gesture_panning = true
+		# Cancel the pending building tap even if the finger ends on that same
+		# moving button. This is the same cancellation used by ScrollContainer.
+		content.propagate_notification(Control.NOTIFICATION_SCROLL_BEGIN)
+
+func _cancel_gesture() -> void:
+	if content != null and (dragging or not touch_points.is_empty()):
+		content.propagate_notification(Control.NOTIFICATION_SCROLL_BEGIN)
+	dragging = false
+	touch_points.clear()
+	last_pinch_distance = 0.0
+	_gesture_panning = false
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_cancel_gesture()
 
 func _zoom_at(local_point: Vector2, target_zoom: float) -> void:
 	var old_zoom := zoom
@@ -1383,20 +1474,24 @@ func _apply_camera() -> void:
 	_clamp_camera_offset()
 	content.position = camera_offset
 	content.scale = Vector2.ONE * zoom
+	_sync_ground()
 
 func notify_user_input() -> void:
 	_idle_seconds = 0.0
 	_camera_breath_phase = 0.0
-	if not _camera_breathing or content == null:
+	if content == null:
 		return
+	if (_camera_tween != null and _camera_tween.is_running()) or _camera_breathing:
+		# Adopt the visible pose before stopping motion, avoiding a jump to the
+		# animation's destination or to the pre-breathing camera position.
+		if _camera_tween != null:
+			_camera_tween.kill()
+		zoom = content.scale.x
+		camera_offset = content.position
 	_camera_breathing = false
-	# Input must feel immediate; do not leave a slow cinematic tween fighting
-	# the user's drag, pinch or button press.
-	content.position = camera_offset
-	content.scale = Vector2.ONE * zoom
 
 func _update_camera_breath(delta: float) -> void:
-	if content == null or dragging or not touch_points.is_empty():
+	if content == null or dragging or not touch_points.is_empty() or (_camera_tween != null and _camera_tween.is_running()):
 		return
 	_idle_seconds += delta
 	if _idle_seconds < CAMERA_BREATH_DELAY:
@@ -1412,21 +1507,34 @@ func _update_camera_breath(delta: float) -> void:
 	content.position = camera_offset + (viewport_center - camera_offset) * (1.0 - factor) + drift
 
 func _clamp_camera_offset() -> void:
-	var scaled := world_size * zoom
-	var min_x := minf(30.0, size.x - scaled.x - 30.0)
-	var min_y := minf(180.0, size.y - scaled.y - 180.0)
-	camera_offset.x = clampf(camera_offset.x, min_x, 60.0)
-	# A compact early campus needs room to sit between the HUD and the bottom
-	# actions. The former 300px ceiling pinned every layout to the top edge and
-	# left most of the useful phone canvas as empty grass.
-	camera_offset.y = clampf(camera_offset.y, min_y, 620.0)
+	var viewport_size := size if size.x > 0.0 and size.y > 0.0 else Vector2(804, 1748)
+	var bounds: Rect2 = _campus_bounds_by_index.get(_active_campus_index, Rect2(Vector2.ZERO, world_size))
+	# Keep a useful part of the campus reachable, while allowing a meaningful
+	# swipe in both directions even when the whole campus fits on the phone.
+	var visible_margin := minf(160.0, viewport_size.x * 0.2)
+	camera_offset.x = clampf(camera_offset.x, visible_margin - bounds.end.x * zoom, viewport_size.x - visible_margin - bounds.position.x * zoom)
+	var safe_bottom := maxf(CAMPUS_SAFE_TOP + 160.0, viewport_size.y - CAMPUS_SAFE_BOTTOM)
+	camera_offset.y = clampf(camera_offset.y, CAMPUS_SAFE_TOP + 160.0 - bounds.end.y * zoom, safe_bottom - 160.0 - bounds.position.y * zoom)
 
 func _animate_camera() -> void:
 	if content == null:
 		return
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(content, "position", camera_offset, 0.30).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
-	tween.tween_property(content, "scale", Vector2.ONE * zoom, 0.30).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	if _camera_tween != null:
+		_camera_tween.kill()
+	_camera_tween = create_tween().set_parallel(true)
+	_camera_tween.tween_property(content, "position", camera_offset, 0.30).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	_camera_tween.tween_property(content, "scale", Vector2.ONE * zoom, 0.30).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+
+func _sync_ground() -> void:
+	if _ground_view == null or content == null:
+		return
+	# Wrap whole tiles offscreen; texture features remain anchored to the world
+	# through pans, pinches and camera animations without exposing blank edges.
+	var ground_zoom := content.scale.x
+	var tile := _ground_view.texture.get_size() * ground_zoom
+	_ground_view.scale = Vector2.ONE * ground_zoom
+	_ground_view.position = Vector2(fposmod(content.position.x, tile.x), fposmod(content.position.y, tile.y)) - tile
+	_ground_view.size = size / ground_zoom + _ground_view.texture.get_size() * 2.0
 
 func _pinch_distance() -> float:
 	if touch_points.size() < 2:

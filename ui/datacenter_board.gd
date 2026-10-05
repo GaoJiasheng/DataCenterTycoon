@@ -2,6 +2,7 @@ class_name DatacenterBoard
 extends VBoxContainer
 
 const Rules := preload("res://gameplay/game_rules.gd")
+const ConstructionRing := preload("res://ui/construction_ring.gd")
 const ThemeMaker := preload("res://ui/theme_factory.gd")
 
 signal rack_slot_selected(datacenter_id: String, slot: int)
@@ -143,13 +144,9 @@ func _state_fingerprint() -> String:
 	if dc.is_empty():
 		return ""
 	var parts := PackedStringArray([str(dc.get("power_unit", "")), JSON.stringify(dc.get("coolers", {}))])
-	var pending_power := _pending_power_job()
-	if not pending_power.is_empty():
-		# Refresh a visible transformer countdown in ten-second buckets.  This
-		# keeps the recovery state alive without returning to per-tick board
-		# reconstruction, which is noticeable on dense mobile pages.
-		var remaining_bucket := ceili(maxf(0.0, float(pending_power.get("complete_at", Game.simulation_time())) - Game.simulation_time()) / 10.0)
-		parts.append("power_pending:%d" % remaining_bucket)
+	for job: Dictionary in Game.state.get("construction_queue", []):
+		if str(job.get("datacenter_id", "")) == datacenter_id:
+			parts.append(JSON.stringify(job))
 	for installed: Variant in dc.get("racks", []):
 		if installed is Dictionary:
 			var entry: Dictionary = installed
@@ -350,58 +347,14 @@ func _add_slot_art(button: Button, open: bool, installed: Variant, runtime: Dict
 	view.offset_bottom = -8
 	button.add_child(view)
 	if installed is Dictionary and not installed.is_empty() and str(installed.get("status", "")) == "installing":
-		var complete_at := float(installed.get("install_complete_at", Game.simulation_time()))
-		var rack_data := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
-		var duration := maxf(1.0, float(rack_data.get("install_seconds", complete_at - float(installed.get("started_at", Game.simulation_time())))))
-		# S2/F7: keep the countdown wholly inside the clipped slot. A small, opaque
-		# readout sits above the progress line so the rack illustration never changes
-		# the timer's contrast.
-		var timer := Control.new()
+		var timer := ConstructionRing.new()
 		timer.name = "RackInstallTimer"
-		timer.position = Vector2(8, 6)
-		timer.size = Vector2(CELL_SIZE.x - 16, 50)
+		timer.position = Vector2(CELL_SIZE.x - 70, 6)
+		timer.size = Vector2(64, 64)
 		timer.z_index = 4
-		timer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var progress := ProgressBar.new()
-		progress.name = "TimerProgress"
-		progress.show_percentage = false
-		progress.max_value = duration
-		progress.position = Vector2(0, 34)
-		progress.size = Vector2(timer.size.x, 10)
-		progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		timer.add_child(progress)
-		var readout := PanelContainer.new()
-		readout.name = "TimerReadout"
-		readout.position = Vector2(timer.size.x - 82, 0)
-		readout.size = Vector2(82, 30)
-		var readout_style := ThemeMaker.panel(Color("142438"), Color(1, 1, 1, 0.22), 1, 8)
-		readout_style.content_margin_left = 6
-		readout_style.content_margin_right = 6
-		readout_style.content_margin_top = 0
-		readout_style.content_margin_bottom = 0
-		readout.add_theme_stylebox_override("panel", readout_style)
-		readout.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		timer.add_child(readout)
-		var remaining := Label.new()
-		remaining.name = "TimerRemaining"
-		remaining.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		remaining.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		remaining.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		ThemeMaker.apply_text_role(remaining, "world")
-		remaining.add_theme_font_size_override("font_size", 18)
-		remaining.add_theme_color_override("font_color", Color.WHITE)
-		remaining.add_theme_color_override("font_outline_color", ThemeMaker.COLORS.ink)
-		remaining.add_theme_constant_override("outline_size", 3)
-		remaining.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		readout.add_child(remaining)
-		var update_timer := func() -> void:
-			var left := maxf(0.0, complete_at - Game.simulation_time())
-			progress.value = clampf(duration - left, 0.0, duration)
-			remaining.text = Game.format_duration(left)
-		update_timer.call()
-		timer.set_meta("live_update", update_timer)
+		timer.configure(installed, ConstructionRing.icon_for_job(installed), ConstructionRing.color_for_job(installed))
 		button.add_child(timer)
-	if installed is Dictionary and not installed.is_empty() and (bool(runtime.get("overheated", false)) or bool(runtime.get("faulted", false)) or not bool(runtime.get("powered", true))):
+	if installed is Dictionary and not installed.is_empty() and str(installed.get("status", "")) != "installing" and (bool(runtime.get("overheated", false)) or bool(runtime.get("faulted", false)) or not bool(runtime.get("powered", true))):
 		var icon := TextureRect.new()
 		icon.name = "RackStatus"
 		icon.texture = AssetCatalog.texture("ic_wrench" if bool(runtime.get("faulted", false)) else ("ic_heat" if bool(runtime.get("overheated", false)) else "ic_power"))
@@ -468,8 +421,9 @@ func _add_coolers(stage: Control, dc: Dictionary) -> void:
 		button.focus_mode = Control.FOCUS_NONE
 		var slot_available := edge_index < cooler_slots
 		var cooler_id := str(dc.get("coolers", {}).get(edge, ""))
+		var pending := _pending_job("cooler", edge)
 		var installed := slot_available and not cooler_id.is_empty()
-		button.set_meta("cooler_state", "installed" if installed else ("available" if slot_available else "locked"))
+		button.set_meta("cooler_state", "installing" if not pending.is_empty() else ("installed" if installed else ("available" if slot_available else "locked")))
 		button.tooltip_text = tr("LOCKED") if not slot_available else (tr("INSTALL") if not installed else tr(DataRepository.get_entry("attachments", cooler_id).get("name_key", "INSTALL")))
 		ThemeMaker.apply_icon_button(button)
 		var accent := ThemeMaker.COLORS.cyan if installed else Color.TRANSPARENT
@@ -491,7 +445,15 @@ func _add_coolers(stage: Control, dc: Dictionary) -> void:
 		cooler_art.offset_right = -12
 		cooler_art.offset_bottom = -12
 		button.add_child(cooler_art)
-		button.modulate = Color(1, 1, 1, 0.38) if not slot_available else (Color.WHITE if installed else Color(1, 1, 1, 0.78))
+		if not pending.is_empty():
+			cooler_art.visible = false
+			var ring := ConstructionRing.new()
+			ring.name = "CoolerInstallTimer"
+			ring.size = Vector2(72, 72)
+			ring.position = (rect.size - ring.size) * 0.5
+			ring.configure(pending, ConstructionRing.icon_for_job(pending), ConstructionRing.color_for_job(pending))
+			button.add_child(ring)
+		button.modulate = Color(1, 1, 1, 0.38) if not slot_available else (Color.WHITE if installed or not pending.is_empty() else Color(1, 1, 1, 0.78))
 		button.pressed.connect(func() -> void:
 			if slot_available:
 				cooler_slot_selected.emit(datacenter_id, edge)
@@ -516,12 +478,24 @@ func _add_power_meter(dc: Dictionary) -> void:
 	ThemeMaker.apply_compact_button(power, ThemeMaker.COLORS.yellow)
 	var power_id := str(dc.get("power_unit", ""))
 	var pending_power := _pending_power_job()
-	var power_pending := power_id.is_empty() and not pending_power.is_empty()
-	power.icon = AssetCatalog.texture("ic_clock" if power_pending else ("ic_power" if power_id.is_empty() else power_id + "_active"))
+	var power_pending := not pending_power.is_empty()
+	power.icon = AssetCatalog.texture("ic_power" if power_id.is_empty() else power_id + "_active")
 	power.expand_icon = true
 	power.add_theme_constant_override("icon_max_width", 48)
 	if power_pending:
+		power.icon = null
+		power.custom_minimum_size.x = 238
+		power.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		power.text = tr("INSTALLING")
+		var ring := ConstructionRing.new()
+		ring.name = "PowerInstallTimer"
+		ring.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
+		ring.offset_left = 8
+		ring.offset_right = 80
+		ring.offset_top = -36
+		ring.offset_bottom = 36
+		ring.configure(pending_power, "ic_power", ThemeMaker.COLORS.yellow)
+		power.add_child(ring)
 	elif power_id.is_empty():
 		var starter_cost := float(DataRepository.get_entry("attachments", "power_t1").get("cost", 0.0))
 		power.text = tr("POWER_QUICK_INSTALL") % Game.format_number(starter_cost)
@@ -551,8 +525,7 @@ func _add_power_meter(dc: Dictionary) -> void:
 	if power_id.is_empty():
 		display_copy = tr("POWER_UNPOWERED_HINT")
 		if power_pending:
-			var remaining := maxf(0.0, float(pending_power.get("complete_at", Game.simulation_time())) - Game.simulation_time())
-			display_copy = tr("POWER_INSTALL_PENDING") % Game.format_duration(remaining)
+			display_copy = tr("INSTALLING")
 		usage.add_text(display_copy)
 	else:
 		usage.push_font(ThemeMaker.font_numeric(), ThemeMaker.TYPE_SCALE.caption)
@@ -584,12 +557,7 @@ func _add_power_meter(dc: Dictionary) -> void:
 	progress.add_theme_stylebox_override("fill", meter_fill)
 	progress.max_value = maxf(1.0, maxf(capacity, used))
 	progress.value = used
-	if power_pending:
-		var duration := Game.construction_duration(pending_power)
-		var remaining := maxf(0.0, float(pending_power.get("complete_at", Game.simulation_time())) - Game.simulation_time())
-		progress.max_value = duration
-		progress.value = clampf(duration - remaining, 0.0, duration)
-		progress.set_meta("duration_seconds", duration)
+	progress.visible = not power_pending
 	if used > capacity:
 		progress.modulate = ThemeMaker.COLORS.red
 		var warning_tween := progress.create_tween().set_loops()
@@ -598,8 +566,11 @@ func _add_power_meter(dc: Dictionary) -> void:
 	meter_box.add_child(progress)
 
 func _pending_power_job() -> Dictionary:
+	return _pending_job("power")
+
+func _pending_job(kind: String, edge: String = "") -> Dictionary:
 	for queued: Dictionary in Game.state.get("construction_queue", []):
-		if str(queued.get("type", "")) == "power" and str(queued.get("datacenter_id", "")) == datacenter_id:
+		if str(queued.get("type", "")) == kind and str(queued.get("datacenter_id", "")) == datacenter_id and (edge.is_empty() or str(queued.get("edge", "")) == edge):
 			return queued
 	return {}
 

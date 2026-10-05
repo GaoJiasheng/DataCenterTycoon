@@ -248,12 +248,14 @@ func install_rack(datacenter_id: String, slot: int, rack_id: String) -> Dictiona
 	if not _spend_cash(cost):
 		return _failure("not_enough_cash")
 	var started := simulation_time()
+	var install_duration := _tutorial_duration(rack, "tutorial_install_seconds", float(rack.get("install_seconds", 0.0))) * _board_construction_time_multiplier()
 	var installed := {
 		"rack_id": rack_id,
 		"status": "installing",
 		"enabled": true,
 		"started_at": started,
-		"install_complete_at": started + _tutorial_duration(rack, "tutorial_install_seconds", float(rack.get("install_seconds", 0.0))) * _board_construction_time_multiplier(),
+		"install_complete_at": started + install_duration,
+		"install_duration_seconds": install_duration,
 		"ad_uses": 0,
 		"cost": cost,
 	}
@@ -1118,7 +1120,7 @@ func _complete_rack_installation(dc: Dictionary, slot: int, now: float, report: 
 	installed["installed_at"] = float(installed.get("install_complete_at", now))
 	installed["fault_at"] = -1.0
 	_discover("racks", str(installed.get("rack_id", "")))
-	for key: String in ["started_at", "install_complete_at", "ad_uses", "cost", "construction_id"]:
+	for key: String in ["started_at", "install_complete_at", "install_duration_seconds", "ad_uses", "cost", "construction_id"]:
 		installed.erase(key)
 	_reschedule_dc_faults(dc)
 	report.get("completed", []).append(completed)
@@ -1534,6 +1536,21 @@ func _ensure_construction_durations() -> void:
 	for item: Dictionary in state.get("construction_queue", []):
 		if float(item.get("duration_seconds", 0.0)) <= 0.0:
 			item["duration_seconds"] = construction_duration(item)
+
+	for plot: Dictionary in state.get("plots", []):
+		var raw_dc: Variant = plot.get("datacenter")
+		if raw_dc is Dictionary:
+			for installed: Variant in raw_dc.get("racks", []):
+				if installed is Dictionary and str(installed.get("status", "")) == "installing" and float(installed.get("install_duration_seconds", 0.0)) <= 0.0:
+					installed["install_duration_seconds"] = rack_install_duration(installed)
+
+func rack_install_duration(installed: Dictionary) -> float:
+	var stored := float(installed.get("install_duration_seconds", 0.0))
+	if stored > 0.0:
+		return stored
+	var interval := maxf(1.0, float(installed.get("install_complete_at", simulation_time())) - float(installed.get("started_at", simulation_time())))
+	var rack := DataRepository.get_entry("racks", str(installed.get("rack_id", "")))
+	return _legacy_project_duration(rack, "install_seconds", "tutorial_install_seconds", interval)
 
 func _next_id(prefix: String) -> String:
 	state["next_id"] = int(state.get("next_id", 1)) + 1

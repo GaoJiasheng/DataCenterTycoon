@@ -1146,15 +1146,11 @@ func _layout_is_safe(main: Node, state_name: String) -> bool:
 				if float(_asset_palette_metrics(compute_asset).get("bright_neutral_ratio", 0.0)) < float(compute_neutral_floor[compute_asset]):
 					push_error("VISUAL_SMOKE: F8 compute rack chassis is too dark for the navy board: %s" % compute_asset)
 					valid = false
-			var install_timer := main.find_child("RackInstallTimer", true, false) as Control
-			var install_progress := main.find_child("TimerProgress", true, false) as ProgressBar
-			var install_remaining := main.find_child("TimerRemaining", true, false) as Label
+			var install_timer := main.find_child("RackInstallTimer", true, false) as ProgressBar
 			var timer_parent := install_timer.get_parent() as Control if install_timer != null else null
 			var timer_inside := install_timer != null and timer_parent != null and timer_parent.get_global_rect().grow(-4.0).encloses(install_timer.get_global_rect())
-			var timer_readout := main.find_child("TimerReadout", true, false) as PanelContainer
-			var readout_style := timer_readout.get_theme_stylebox("panel") as StyleBoxFlat if timer_readout != null else null
-			if not timer_inside or install_progress == null or install_progress.position.y < 30.0 or install_progress.size.y > 12.0 or install_remaining == null or timer_readout == null or install_remaining.get_parent() != timer_readout or install_remaining.horizontal_alignment != HORIZONTAL_ALIGNMENT_RIGHT or not install_remaining.get_theme_color("font_color").is_equal_approx(Color.WHITE) or install_remaining.get_theme_constant("outline_size") < 3 or readout_style == null or readout_style.bg_color.get_luminance() > 0.18:
-				push_error("VISUAL_SMOKE: S2 installing rack timer is not a contained white readout above its progress line")
+			if not timer_inside or not bool(install_timer.get_meta("construction_ring", false)) or not install_timer.size.is_equal_approx(Vector2(64, 64)):
+				push_error("VISUAL_SMOKE: installing rack clock ring must stay within its own slot")
 				valid = false
 			var power_usage := main.find_child("BoardPowerUsage", true, false) as RichTextLabel
 			var power_copy_valid := false

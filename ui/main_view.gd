@@ -9,6 +9,7 @@ const ChartScene := preload("res://ui/market_chart.gd")
 const ParkMapScene := preload("res://gameplay/map/park_map.gd")
 const Rules := preload("res://gameplay/game_rules.gd")
 const FxLayerScene := preload("res://ui/fx_layer.gd")
+const ConstructionRing := preload("res://ui/construction_ring.gd")
 const DatacenterBoardScene := preload("res://ui/datacenter_board.gd")
 const TutorialOverlayScene := preload("res://ui/tutorial_overlay.gd")
 const SparklineScene := preload("res://ui/sparkline.gd")
@@ -192,6 +193,7 @@ func _build_shell() -> void:
 	park_map.name = "ParkWorld"
 	park_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	park_map.datacenter_selected.connect(_open_datacenter)
+	park_map.construction_selected.connect(_show_site_construction)
 	park_map.empty_plot_selected.connect(_show_building_picker)
 	park_map.buy_plot_requested.connect(_show_plot_purchase)
 	world_host.add_child(park_map)
@@ -722,9 +724,10 @@ func _request_full_refresh() -> void:
 func _refresh_live_page() -> void:
 	if page_host != null and page_host.get_child_count() > 0:
 		_refresh_live_region(page_host.get_child(0))
-	var context := find_child("DatacenterContext", true, false)
-	if context != null and context is CanvasItem and (context as CanvasItem).is_visible_in_tree():
-		_refresh_live_region(context)
+	for context_name: String in ["DatacenterContext", "ConstructionContext", "BuildingPicker"]:
+		var context := find_child(context_name, true, false)
+		if context != null and context is CanvasItem and (context as CanvasItem).is_visible_in_tree():
+			_refresh_live_region(context)
 
 func _refresh_live_region(root: Node) -> void:
 	var live_nodes: Array[Node] = [root]
@@ -1146,7 +1149,7 @@ func _operation_module_card(module: Dictionary, action: Callable, compact: bool 
 	return card
 
 func _refresh_park_world() -> void:
-	var signature := JSON.stringify(Game.state.get("plots", [])) + JSON.stringify(Game.state.get("market", {}).get("active", []))
+	var signature := JSON.stringify(Game.state.get("plots", [])) + JSON.stringify(Game.state.get("market", {}).get("active", [])) + JSON.stringify(Game.state.get("construction_queue", []))
 	if signature == _last_map_signature:
 		return
 	_last_map_signature = signature
@@ -3566,6 +3569,49 @@ func _end_sheet_drag(drag: Dictionary, overlay: CanvasItem, sheet: Control, rese
 	tween.tween_property(sheet, "position:y", float(drag["base_y"]), 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(sheet, "modulate:a", 1.0, 0.16)
 
+func _show_site_construction(construction_id: String) -> void:
+	if not bool(Game.state.get("tutorial", {}).get("completed", false)):
+		return
+	var job := Game.find_construction(construction_id)
+	if job.is_empty():
+		return
+	var parts := _create_world_sheet("ConstructionContext", 560)
+	var overlay := parts["overlay"] as ColorRect
+	var box := parts["box"] as VBoxContainer
+	var header := HBoxContainer.new()
+	var title := _label(_construction_name(job), 30, ThemeMaker.COLORS.cream)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	header.add_child(Widgets.close_button(_dismiss_world_sheet.bind(overlay)))
+	box.add_child(header)
+	var site := Control.new()
+	site.custom_minimum_size.y = 240
+	box.add_child(site)
+	var art := _icon_view(_construction_asset_id(job), Vector2(300, 220))
+	art.position = Vector2(130, 0)
+	site.add_child(art)
+	var ring := ConstructionRing.new()
+	ring.name = "SiteConstructionRing"
+	ring.size = Vector2(80, 80)
+	ring.position = Vector2(374, 136)
+	ring.configure(job, "ic_build", ThemeMaker.COLORS.orange)
+	site.add_child(ring)
+	var remaining := _label("", 22, ThemeMaker.COLORS.cyan)
+	remaining.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(remaining)
+	var queue_action := func() -> void:
+		_dismiss_world_sheet(overlay, _navigate.bind("build"))
+	box.add_child(_button(tr("CONSTRUCTION_QUEUE"), queue_action, ThemeMaker.COLORS.sky))
+	var update := func() -> void:
+		if Game.find_construction(construction_id).is_empty():
+			if not bool(overlay.get_meta("completion_dismissed", false)):
+				overlay.set_meta("completion_dismissed", true)
+				_dismiss_world_sheet(overlay)
+			return
+		remaining.text = tr("COMPLETE_IN") % Game.format_duration(maxf(0.0, float(job.get("complete_at", Game.simulation_time())) - Game.simulation_time()))
+	overlay.set_meta("live_update", update)
+	update.call()
+
 func _show_datacenter_context(datacenter_id: String) -> void:
 	var dc := Game.find_datacenter(datacenter_id)
 	if dc.is_empty():
@@ -4845,7 +4891,7 @@ func _world_reward_fx_available(source: Vector2) -> bool:
 	return not _blocking_surface_visible()
 
 func _blocking_surface_visible() -> bool:
-	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "BankTakeoverOverlay"]:
+	for overlay_name: String in ["ActionSheetOverlay", "BuildingPicker", "DatacenterContext", "ConstructionContext", "OperationsHub", "OfflineOverlay", "EraOverlay", "BankTakeoverOverlay"]:
 		var overlay := find_child(overlay_name, true, false) as CanvasItem
 		if overlay != null and overlay.is_visible_in_tree():
 			return true

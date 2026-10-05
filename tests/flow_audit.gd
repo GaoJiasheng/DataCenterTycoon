@@ -315,14 +315,11 @@ func _assert_sale_focus(expected: bool) -> void:
 	_expect(sale_price != null and sale_tether != null and sale_price.visible == expected and sale_tether.visible == expected, "E1 sale price tag visibility must follow the buy-land step (%s)" % expected)
 
 func _assert_construction_timer_capsule() -> void:
-	var progress := main.find_child("ConstructionProgress", true, false) as ProgressBar
-	var row := progress.get_parent() as Control if progress != null else null
-	var badge := row.get_parent() as PanelContainer if row != null else null
-	var button := badge.get_parent() as Button if badge != null else null
-	var style := badge.get_theme_stylebox("panel") as StyleBoxFlat if badge != null else null
-	_expect(badge != null and button != null and style != null and bool(badge.get_meta("construction_timer_flat", false)), "C4 construction countdown must use the flat capsule style")
-	if badge != null and button != null and style != null:
-		_expect(button.get_global_rect().encloses(badge.get_global_rect()) and style.get_border_width(SIDE_TOP) >= 2 and style.get_border_width(SIDE_RIGHT) >= 2, "C4 construction capsule must be closed and contained on every edge")
+	var ring := main.find_child("ConstructionProgress", true, false) as ProgressBar
+	var button := ring.get_parent() as Control if ring != null else null
+	_expect(ring != null and bool(ring.get_meta("construction_ring", false)) and str(ring.get_meta("icon_id", "")) == "ic_build", "C4 building construction uses an on-site clock ring with its building icon")
+	if ring != null and button != null:
+		_expect(button.get_global_rect().encloses(ring.get_global_rect()) and ring.size.is_equal_approx(Vector2(64, 64)), "C4 building progress ring stays within the parcel and does not cover neighbors")
 
 func _assert_world_fx_extent(datacenter_id: String) -> void:
 	var layer := main.find_child("FxLayer", true, false) as FxLayer
