@@ -1,0 +1,4 @@
+Product sources, data, translations, economic simulator, validator and export_presets match 4ebae34 byte for byte (git diff --exit-code: 0).
+Density test and read-only report timeline subsequently strengthened; no product or economic behavior change.
+Restored 20-seed stdout SHA-256: 4e8d551354da4bff23232b454abb9253f2ae96e5a3f8c03b60b8fe732a227e04
+Restored logic: 251 passed, 0 failed.

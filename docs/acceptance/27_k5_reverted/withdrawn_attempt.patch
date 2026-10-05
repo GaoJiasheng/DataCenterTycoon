@@ -1,0 +1,350 @@
+diff --git a/core/game.gd b/core/game.gd
+index ce6d78c..0919726 100644
+--- a/core/game.gd
++++ b/core/game.gd
+@@ -427,7 +427,8 @@ func inquiry_offer(inquiry_id: String, datacenter_id: String) -> Dictionary:
+ 		return _failure("inquiry_unavailable")
+ 	var template := _inquiry.template_for(inquiry, data)
+ 	var evaluation := _inquiry.evaluate(inquiry, dc, state, data)
+-	var forecast := contract_forecast(datacenter_id, str(template.get("customer_id", "")), str(template.get("duration_id", "standard")), float(template.get("premium", 1.0)))
++	var premium := _inquiry.offer_premium(inquiry, data)
++	var forecast := contract_forecast(datacenter_id, str(template.get("customer_id", "")), str(template.get("duration_id", "standard")), premium)
+ 	if not bool(forecast.get("ok", false)):
+ 		return forecast
+ 	var bonus: float = round(float(forecast.get("projected", 0.0)) * float(template.get("bonus_months", 0.0)))
+@@ -437,7 +438,7 @@ func inquiry_offer(inquiry_id: String, datacenter_id: String) -> Dictionary:
+ 		"datacenter_id": datacenter_id,
+ 		"eligible": bool(evaluation.get("eligible", false)),
+ 		"evaluation": evaluation,
+-		"premium": float(template.get("premium", 1.0)),
++		"premium": premium,
+ 		"bonus_months": float(template.get("bonus_months", 0.0)),
+ 		"bonus": bonus,
+ 	}, true)
+@@ -462,6 +463,17 @@ func decline_inquiry(inquiry_id: String) -> Dictionary:
+ 		_commit_action("inquiry_declined")
+ 	return result
+ 
++func inquiry_premium(inquiry_id: String) -> float:
++	return _inquiry.offer_premium(_inquiry.find_open(inquiry_id, state), data)
++
++func counter_inquiry(inquiry_id: String) -> Dictionary:
++	var result := _inquiry.counter_offer(inquiry_id, state, data)
++	if bool(result.get("ok", false)) and not bool(result.get("unchanged", false)):
++		if not bool(result.get("countered", false)):
++			state["stats"]["inquiries_declined"] = int(state["stats"].get("inquiries_declined", 0)) + 1
++		_commit_action("inquiry_countered")
++	return result
++
+ func _current_lock_rare_events() -> Array[String]:
+ 	var result: Array[String] = []
+ 	var now := simulation_time()
+diff --git a/data/customers.json b/data/customers.json
+index 37c11a7..744420d 100644
+--- a/data/customers.json
++++ b/data/customers.json
+@@ -2,6 +2,8 @@
+   "schema_version": 1,
+   "items": {
+     "internet": {
++      "counter_offer_level": "familiar",
++      "counter_offer_premium_bonus": 0.05,
+       "name_key": "CUSTOMER_INTERNET",
+       "unlock_era": 1,
+       "minimum_network_level": 1,
+@@ -10,6 +12,8 @@
+       "era_baseline": {"1": 1.0, "2": 1.1, "3": 1.1}
+     },
+     "mining": {
++      "counter_offer_level": "familiar",
++      "counter_offer_premium_bonus": 0.05,
+       "name_key": "CUSTOMER_MINING",
+       "unlock_era": 1,
+       "minimum_network_level": 1,
+@@ -18,6 +22,8 @@
+       "era_baseline": {"1": 1.0, "2": 0.9, "3": 0.9}
+     },
+     "cloud": {
++      "counter_offer_level": "trusted",
++      "counter_offer_premium_bonus": 0.05,
+       "name_key": "CUSTOMER_CLOUD",
+       "unlock_era": 2,
+       "minimum_network_level": 1,
+@@ -28,6 +34,8 @@
+       "era_baseline": {"2": 1.0, "3": 1.2}
+     },
+     "gpu_company": {
++      "counter_offer_level": "trusted",
++      "counter_offer_premium_bonus": 0.05,
+       "name_key": "CUSTOMER_GPU",
+       "unlock_era": 2,
+       "minimum_network_level": 2,
+diff --git a/data/personas.json b/data/personas.json
+index c6d5170..214ecbf 100644
+--- a/data/personas.json
++++ b/data/personas.json
+@@ -6,6 +6,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_INTERNET_INQUIRY_1", "PERSONA_INTERNET_INQUIRY_2"],
+         "accept": ["PERSONA_INTERNET_ACCEPT_1", "PERSONA_INTERNET_ACCEPT_2"],
++        "counter_ok": ["PERSONA_INTERNET_COUNTER_OK_1", "PERSONA_INTERNET_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_INTERNET_COUNTER_NO_1", "PERSONA_INTERNET_COUNTER_NO_2"],
+         "decline": ["PERSONA_INTERNET_DECLINE_1", "PERSONA_INTERNET_DECLINE_2"],
+         "level_up": ["PERSONA_INTERNET_LEVEL_1", "PERSONA_INTERNET_LEVEL_2"],
+         "chat": ["PERSONA_LIN_CHAT_1", "PERSONA_LIN_CHAT_2"]
+@@ -16,6 +18,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_INTERNET_INQUIRY_1", "PERSONA_INTERNET_INQUIRY_2"],
+         "accept": ["PERSONA_INTERNET_ACCEPT_1", "PERSONA_INTERNET_ACCEPT_2"],
++        "counter_ok": ["PERSONA_INTERNET_COUNTER_OK_1", "PERSONA_INTERNET_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_INTERNET_COUNTER_NO_1", "PERSONA_INTERNET_COUNTER_NO_2"],
+         "decline": ["PERSONA_INTERNET_DECLINE_1", "PERSONA_INTERNET_DECLINE_2"],
+         "level_up": ["PERSONA_INTERNET_LEVEL_1", "PERSONA_INTERNET_LEVEL_2"],
+         "chat": ["PERSONA_TANG_CHAT_1", "PERSONA_TANG_CHAT_2"]
+@@ -26,6 +30,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_INTERNET_INQUIRY_1", "PERSONA_INTERNET_INQUIRY_2"],
+         "accept": ["PERSONA_INTERNET_ACCEPT_1", "PERSONA_INTERNET_ACCEPT_2"],
++        "counter_ok": ["PERSONA_INTERNET_COUNTER_OK_1", "PERSONA_INTERNET_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_INTERNET_COUNTER_NO_1", "PERSONA_INTERNET_COUNTER_NO_2"],
+         "decline": ["PERSONA_INTERNET_DECLINE_1", "PERSONA_INTERNET_DECLINE_2"],
+         "level_up": ["PERSONA_INTERNET_LEVEL_1", "PERSONA_INTERNET_LEVEL_2"],
+         "chat": ["PERSONA_CHEN_CHAT_1", "PERSONA_CHEN_CHAT_2"]
+@@ -36,6 +42,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_CLOUD_INQUIRY_1", "PERSONA_CLOUD_INQUIRY_2"],
+         "accept": ["PERSONA_CLOUD_ACCEPT_1", "PERSONA_CLOUD_ACCEPT_2"],
++        "counter_ok": ["PERSONA_CLOUD_COUNTER_OK_1", "PERSONA_CLOUD_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_CLOUD_COUNTER_NO_1", "PERSONA_CLOUD_COUNTER_NO_2"],
+         "decline": ["PERSONA_CLOUD_DECLINE_1", "PERSONA_CLOUD_DECLINE_2"],
+         "level_up": ["PERSONA_CLOUD_LEVEL_1", "PERSONA_CLOUD_LEVEL_2"],
+         "chat": ["PERSONA_SU_CHAT_1", "PERSONA_SU_CHAT_2"]
+@@ -46,6 +54,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_CLOUD_INQUIRY_1", "PERSONA_CLOUD_INQUIRY_2"],
+         "accept": ["PERSONA_CLOUD_ACCEPT_1", "PERSONA_CLOUD_ACCEPT_2"],
++        "counter_ok": ["PERSONA_CLOUD_COUNTER_OK_1", "PERSONA_CLOUD_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_CLOUD_COUNTER_NO_1", "PERSONA_CLOUD_COUNTER_NO_2"],
+         "decline": ["PERSONA_CLOUD_DECLINE_1", "PERSONA_CLOUD_DECLINE_2"],
+         "level_up": ["PERSONA_CLOUD_LEVEL_1", "PERSONA_CLOUD_LEVEL_2"],
+         "chat": ["PERSONA_ZHOU_CHAT_1", "PERSONA_ZHOU_CHAT_2"]
+@@ -56,6 +66,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_CLOUD_INQUIRY_1", "PERSONA_CLOUD_INQUIRY_2"],
+         "accept": ["PERSONA_CLOUD_ACCEPT_1", "PERSONA_CLOUD_ACCEPT_2"],
++        "counter_ok": ["PERSONA_CLOUD_COUNTER_OK_1", "PERSONA_CLOUD_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_CLOUD_COUNTER_NO_1", "PERSONA_CLOUD_COUNTER_NO_2"],
+         "decline": ["PERSONA_CLOUD_DECLINE_1", "PERSONA_CLOUD_DECLINE_2"],
+         "level_up": ["PERSONA_CLOUD_LEVEL_1", "PERSONA_CLOUD_LEVEL_2"],
+         "chat": ["PERSONA_XU_CHAT_1", "PERSONA_XU_CHAT_2"]
+@@ -66,6 +78,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_GPU_INQUIRY_1", "PERSONA_GPU_INQUIRY_2"],
+         "accept": ["PERSONA_GPU_ACCEPT_1", "PERSONA_GPU_ACCEPT_2"],
++        "counter_ok": ["PERSONA_GPU_COUNTER_OK_1", "PERSONA_GPU_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_GPU_COUNTER_NO_1", "PERSONA_GPU_COUNTER_NO_2"],
+         "decline": ["PERSONA_GPU_DECLINE_1", "PERSONA_GPU_DECLINE_2"],
+         "level_up": ["PERSONA_GPU_LEVEL_1", "PERSONA_GPU_LEVEL_2"],
+         "chat": ["PERSONA_GU_CHAT_1", "PERSONA_GU_CHAT_2"]
+@@ -76,6 +90,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_GPU_INQUIRY_1", "PERSONA_GPU_INQUIRY_2"],
+         "accept": ["PERSONA_GPU_ACCEPT_1", "PERSONA_GPU_ACCEPT_2"],
++        "counter_ok": ["PERSONA_GPU_COUNTER_OK_1", "PERSONA_GPU_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_GPU_COUNTER_NO_1", "PERSONA_GPU_COUNTER_NO_2"],
+         "decline": ["PERSONA_GPU_DECLINE_1", "PERSONA_GPU_DECLINE_2"],
+         "level_up": ["PERSONA_GPU_LEVEL_1", "PERSONA_GPU_LEVEL_2"],
+         "chat": ["PERSONA_YE_CHAT_1", "PERSONA_YE_CHAT_2"]
+@@ -86,6 +102,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_MINING_INQUIRY_1", "PERSONA_MINING_INQUIRY_2"],
+         "accept": ["PERSONA_MINING_ACCEPT_1", "PERSONA_MINING_ACCEPT_2"],
++        "counter_ok": ["PERSONA_MINING_COUNTER_OK_1", "PERSONA_MINING_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_MINING_COUNTER_NO_1", "PERSONA_MINING_COUNTER_NO_2"],
+         "decline": ["PERSONA_MINING_DECLINE_1", "PERSONA_MINING_DECLINE_2"],
+         "level_up": ["PERSONA_MINING_LEVEL_1", "PERSONA_MINING_LEVEL_2"],
+         "chat": ["PERSONA_ZHOU_LAN_CHAT_1", "PERSONA_ZHOU_LAN_CHAT_2"]
+@@ -96,6 +114,8 @@
+       "lines": {
+         "inquiry": ["PERSONA_MINING_INQUIRY_1", "PERSONA_MINING_INQUIRY_2"],
+         "accept": ["PERSONA_MINING_ACCEPT_1", "PERSONA_MINING_ACCEPT_2"],
++        "counter_ok": ["PERSONA_MINING_COUNTER_OK_1", "PERSONA_MINING_COUNTER_OK_2"],
++        "counter_no": ["PERSONA_MINING_COUNTER_NO_1", "PERSONA_MINING_COUNTER_NO_2"],
+         "decline": ["PERSONA_MINING_DECLINE_1", "PERSONA_MINING_DECLINE_2"],
+         "level_up": ["PERSONA_MINING_LEVEL_1", "PERSONA_MINING_LEVEL_2"],
+         "chat": ["PERSONA_LU_CHAT_1", "PERSONA_LU_CHAT_2"]
+diff --git a/gameplay/inquiry_system.gd b/gameplay/inquiry_system.gd
+index ca95665..2f1630d 100644
+--- a/gameplay/inquiry_system.gd
++++ b/gameplay/inquiry_system.gd
+@@ -85,6 +85,31 @@ func find_open(inquiry_id: String, game_state: Dictionary) -> Dictionary:
+ func template_for(inquiry: Dictionary, data: Dictionary) -> Dictionary:
+ 	return data.get("inquiries", {}).get("items", {}).get(str(inquiry.get("template_id", "")), {})
+ 
++func offer_premium(inquiry: Dictionary, data: Dictionary) -> float:
++	var template := template_for(inquiry, data)
++	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(str(template.get("customer_id", "")), {})
++	return float(template.get("premium", 1.0)) + (float(customer.get("counter_offer_premium_bonus", 0.0)) if bool(inquiry.get("countered", false)) else 0.0)
++
++func counter_offer(inquiry_id: String, game_state: Dictionary, data: Dictionary) -> Dictionary:
++	var inquiry := find_open(inquiry_id, game_state)
++	if inquiry.is_empty():
++		return {"ok": false, "reason": "inquiry_unavailable"}
++	if bool(inquiry.get("countered", false)):
++		return {"ok": true, "countered": true, "unchanged": true, "premium": offer_premium(inquiry, data)}
++	var customer_id := str(template_for(inquiry, data).get("customer_id", ""))
++	var customer: Dictionary = data.get("customers", {}).get("items", {}).get(customer_id, {})
++	var required_level := -1
++	var levels: Array = data.get("meta_progression", {}).get("relationships", {}).get("levels", [])
++	for index: int in range(levels.size()):
++		if str(levels[index].get("id", "")) == str(customer.get("counter_offer_level", "")):
++			required_level = index
++	if required_level >= 0 and int(Rules.relationship_level(customer_id, game_state, data).get("index", 0)) >= required_level:
++		inquiry["countered"] = true
++		return {"ok": true, "countered": true, "premium": offer_premium(inquiry, data)}
++	var declined := decline(inquiry_id, game_state, data)
++	declined["countered"] = false
++	return declined
++
+ func evaluate(inquiry: Dictionary, datacenter: Dictionary, game_state: Dictionary, data: Dictionary) -> Dictionary:
+ 	var template := template_for(inquiry, data)
+ 	if template.is_empty() or datacenter.is_empty():
+@@ -147,7 +172,9 @@ func accept(inquiry_id: String, datacenter: Dictionary, game_state: Dictionary,
+ 		return {"ok": false, "reason": "inquiry_requirements", "evaluation": evaluation}
+ 	if str(quote.get("inquiry_id", "")) != inquiry_id or str(quote.get("datacenter_id", "")) != str(datacenter.get("id", "")) or str(quote.get("template_id", "")) != str(inquiry.get("template_id", "")):
+ 		return {"ok": false, "reason": "inquiry_quote_stale"}
+-	var premium := float(template.get("premium", 1.0))
++	var premium := offer_premium(inquiry, data)
++	if not is_equal_approx(float(quote.get("premium", -1.0)), premium):
++		return {"ok": false, "reason": "inquiry_quote_stale"}
+ 	var locked_rate := float(quote.get("locked_market_multiplier", 0.0))
+ 	var signed: Dictionary = sign_contract.call(str(datacenter.get("id", "")), str(template.get("customer_id", "")), str(template.get("duration_id", "standard")), premium, locked_rate, false)
+ 	if not bool(signed.get("ok", false)):
+diff --git a/localization/ui.csv b/localization/ui.csv
+index cdf76e9..c63b744 100644
+--- a/localization/ui.csv
++++ b/localization/ui.csv
+@@ -735,3 +735,23 @@ RARE_HEADLINE_ACTION,A rare opportunity is here. Review your contract choices.,
+ IPO_HEADLINE,The opening bell rings,上市敲钟
+ IPO_BRAND,Your brand now earns ×%.3f,品牌倍率现为 ×%.3f
+ HEADLINE_CONTINUE,Continue,继续
++INQUIRY_COUNTER,Counter,还价
++INQUIRY_CHOOSE_SHORT,Choose site,选择机房
++INQUIRY_PASS_SHORT,Pass,婉拒
++PERSONA_INTERNET_COUNTER_OK_1,Deal. Your track record earns a better rate.,成交，合作记录值得更好的报价。
++PERSONA_INTERNET_COUNTER_OK_2,We know your work. I can raise the offer.,你的交付我们放心，报价可以再高一点。
++PERSONA_INTERNET_COUNTER_NO_1,Let us work together longer first. This request is on hold.,先多合作一段时间吧，这单先暂缓。
++PERSONA_INTERNET_COUNTER_NO_2,"Build our relationship a little more, then ask again.",合作再熟悉一些，下次再聊报价。
++PERSONA_MINING_COUNTER_OK_1,Deal. Reliable capacity deserves the higher rate.,成交，稳定的算力值得这个价格。
++PERSONA_MINING_COUNTER_OK_2,You have earned it. I will raise this offer.,老搭档靠得住，这单给你加价。
++PERSONA_MINING_COUNTER_NO_1,We need more time working together before raising the rate.,再合作久一点，我才能给你加价。
++PERSONA_MINING_COUNTER_NO_2,Let us get to know your operation better. This one can wait.,先把合作做熟，这单先放一放。
++PERSONA_CLOUD_COUNTER_OK_1,Agreed. We trust your delivery at this rate.,成交，我们信任你的交付能力。
++PERSONA_CLOUD_COUNTER_OK_2,Your reliability is proven. We can pay more.,稳定性已经证明，这单可以加价。
++PERSONA_CLOUD_COUNTER_NO_1,We need a longer record of reliable service first.,还需要更长的稳定合作记录，这单先暂缓。
++PERSONA_CLOUD_COUNTER_NO_2,Keep building our trust and we can revisit the price.,再多积累一些信任，下次再谈加价。
++PERSONA_GPU_COUNTER_OK_1,Agreed. Your trusted capacity is worth the higher rate.,成交，值得信赖的算力配得上加价。
++PERSONA_GPU_COUNTER_OK_2,We trust your team. This offer can go higher.,你的团队我们信得过，这单报价再高一点。
++PERSONA_GPU_COUNTER_NO_1,Let us build more trust before changing the price.,先合作久一点建立信任，这单先暂缓。
++PERSONA_GPU_COUNTER_NO_2,Prove the partnership over time and we will talk again.,再积累一段合作记录，下次再谈报价。
++INQUIRY_COUNTERED,Agreed,已加价
+diff --git a/tools/simulate_economy.py b/tools/simulate_economy.py
+index 2b238b2..030b6bb 100644
+--- a/tools/simulate_economy.py
++++ b/tools/simulate_economy.py
+@@ -432,7 +432,11 @@ class Simulator:
+     def sign_inquiry(self, dc, template):
+         customer = template["customer_id"]
+         duration_id = template["duration_id"]
+-        self.sign_customer(dc, customer, duration_id, template["premium"], force=True)
++        premium = template["premium"]
++        threshold = next(index for index, level in enumerate(META["relationships"]["levels"]) if level["id"] == CUSTOMERS[customer]["counter_offer_level"])
++        if self.strategy == "active" and self.relationship_level(customer) >= threshold:
++            premium += CUSTOMERS[customer]["counter_offer_premium_bonus"]
++        self.sign_customer(dc, customer, duration_id, premium, force=True)
+         projected = self.dc_monthly_income(dc)
+         locked = dc.locked_market_multiplier
+         dc.locked_market_multiplier = self.locked_rate(customer, duration_id, 1.0)
+diff --git a/tools/validate_data.py b/tools/validate_data.py
+index f967d08..138c23a 100644
+--- a/tools/validate_data.py
++++ b/tools/validate_data.py
+@@ -44,6 +44,13 @@ def validate_references():
+             if str(item.get("unlock_era", 1)) not in eras:
+                 ERRORS.append(f"{table}/{item_id}: missing unlock era")
+     customers = DATA["customers"]["items"]
++    relationship_ids = {level["id"] for level in DATA["meta_progression"]["relationships"]["levels"]}
++    for customer_id, customer in customers.items():
++        if customer.get("counter_offer_level") not in relationship_ids:
++            ERRORS.append(f"customers/{customer_id}: invalid counter_offer_level")
++        bonus = float(customer.get("counter_offer_premium_bonus", -1))
++        if not math.isfinite(bonus) or not 0 <= bonus <= 0.5:
++            ERRORS.append(f"customers/{customer_id}: invalid counter_offer_premium_bonus")
+     for event_id, event in DATA["events"]["items"].items():
+         for customer_id in event.get("customer_multipliers", {}):
+             if customer_id not in customers:
+@@ -206,7 +213,7 @@ def validate_references():
+ 
+     personas = DATA.get("personas", {}).get("items", {})
+     persona_counts = {customer_id: 0 for customer_id in customers}
+-    required_line_sets = {"inquiry", "accept", "decline", "level_up", "chat"}
++    required_line_sets = {"inquiry", "accept", "decline", "level_up", "chat", "counter_ok", "counter_no"}
+     for persona_id, persona in personas.items():
+         customer_id = persona.get("customer_id")
+         if customer_id not in customers:
+diff --git a/ui/main_view.gd b/ui/main_view.gd
+index f2f9b6f..4b698e7 100644
+--- a/ui/main_view.gd
++++ b/ui/main_view.gd
+@@ -1758,7 +1758,7 @@ func _inquiry_card(inquiry: Dictionary) -> Control:
+ 	box.add_child(requirement)
+ 	var duration := DataRepository.get_table("meta_progression").get("contract_durations", {}).get(str(template.get("duration_id", "standard")), {}) as Dictionary
+ 	var bonus_text := "$%s" % Game.format_number(float(best_quote.get("bonus", 0.0))) if bool(best_quote.get("eligible", false)) else "—"
+-	var terms := _label(tr("INQUIRY_TERMS") % [tr(str(duration.get("name_key", "CONTRACT_DURATION_STANDARD"))), int(round((float(template.get("premium", 1.0)) - 1.0) * 100.0)), bonus_text], ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.yellow)
++	var terms := _label(tr("INQUIRY_TERMS") % [tr(str(duration.get("name_key", "CONTRACT_DURATION_STANDARD"))), int(round((Game.inquiry_premium(str(inquiry.get("id", ""))) - 1.0) * 100.0)), bonus_text], ThemeMaker.TYPE_SCALE.caption, ThemeMaker.COLORS.yellow)
+ 	terms.name = "InquiryTerms"
+ 	terms.max_lines_visible = 1
+ 	terms.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+@@ -1773,15 +1773,22 @@ func _inquiry_card(inquiry: Dictionary) -> Control:
+ 	var actions := HBoxContainer.new()
+ 	actions.add_theme_constant_override("separation", ThemeMaker.ITEM_GAP)
+ 	box.add_child(actions)
+-	var review := Widgets.button(tr("INQUIRY_VIEW_DATACENTERS"), _show_inquiry_datacenter_picker.bind(str(inquiry.get("id", ""))), "secondary")
++	var review := Widgets.button(tr("INQUIRY_CHOOSE_SHORT"), _show_inquiry_datacenter_picker.bind(str(inquiry.get("id", ""))), "secondary")
+ 	review.name = "InquiryReview_%s" % str(inquiry.get("id", ""))
+ 	review.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+ 	review.mouse_filter = Control.MOUSE_FILTER_PASS
+ 	review.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+ 	actions.add_child(review)
+-	var decline := Widgets.button(tr("INQUIRY_DECLINE"), _decline_inquiry.bind(str(inquiry.get("id", ""))), "ghost")
++	var counter := Widgets.button(tr("INQUIRY_COUNTERED") if bool(inquiry.get("countered", false)) else tr("INQUIRY_COUNTER"), _counter_inquiry.bind(str(inquiry.get("id", ""))), "secondary")
++	counter.name = "InquiryCounter_%s" % str(inquiry.get("id", ""))
++	counter.custom_minimum_size.x = 148
++	counter.disabled = bool(inquiry.get("countered", false))
++	counter.mouse_filter = Control.MOUSE_FILTER_PASS
++	counter.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
++	actions.add_child(counter)
++	var decline := Widgets.button(tr("INQUIRY_PASS_SHORT"), _decline_inquiry.bind(str(inquiry.get("id", ""))), "ghost")
+ 	decline.name = "InquiryDecline_%s" % str(inquiry.get("id", ""))
+-	decline.custom_minimum_size.x = 184
++	decline.custom_minimum_size.x = 148
+ 	decline.mouse_filter = Control.MOUSE_FILTER_PASS
+ 	decline.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
+ 	actions.add_child(decline)
+@@ -1861,6 +1868,16 @@ func _show_inquiry_datacenter_picker(inquiry_id: String) -> void:
+ 			_handle_result(result)
+ 	)
+ 
++func _counter_inquiry(inquiry_id: String) -> void:
++	var inquiry := Game._inquiry.find_open(inquiry_id, Game.state)
++	var persona := PersonaSystemScene.persona_for_inquiry(inquiry, DataRepository.tables)
++	var result := Game.counter_inquiry(inquiry_id)
++	if bool(result.get("ok", false)):
++		var line_key := PersonaSystemScene.line_key(persona, "counter_ok" if bool(result.get("countered", false)) else "counter_no", inquiry_id)
++		_show_persona_toast(persona, tr(line_key), "sfx_success_chime" if bool(result.get("countered", false)) else "sfx_error_thud")
++	else:
++		_handle_result(result)
++
+ func _decline_inquiry(inquiry_id: String) -> void:
+ 	var inquiry: Dictionary = {}
+ 	for item: Dictionary in Game.state.get("inquiries", {}).get("open", []):

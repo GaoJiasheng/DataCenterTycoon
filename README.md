@@ -33,6 +33,9 @@ Proprietary project · Copyright © 2026 · All rights reserved. Third-party not
 | [docs/24_submission_last_mile.md](docs/24_submission_last_mile.md) | App Store 截图、发布身份模板、文案与二周目覆盖 | 程序/发行/QA |
 | [docs/25_iphone_only_scope.md](docs/25_iphone_only_scope.md) | iPhone-only 发布范围与兼容模式测试边界 | 程序/发行 |
 | [docs/26_legal_and_provenance.md](docs/26_legal_and_provenance.md) | 应用内法务/许可、资产来源台账、专有许可与律师材料 | 程序/发行/法务 |
+| [docs/27_visible_decisions.md](docs/27_visible_decisions.md) | build 13 收口、续约可见化、里程碑、词库命名和演出；2026-10-05 修订 | 程序/策划/验收 |
+
+27 号验收分开记录：[批次 0](docs/27_batch0_acceptance.md)、[K1–K4](docs/27_k1_k4_acceptance.md)、[K5 回退](docs/27_k5_acceptance.md)。K5 还价探针因净值比超过总闸已撤回；当前功能与经济数值保留 K1–K4 的已验收状态。本批未发新包。
 
 ## 当前状态
 

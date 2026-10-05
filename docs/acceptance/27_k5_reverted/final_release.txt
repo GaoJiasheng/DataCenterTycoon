@@ -1,0 +1,15 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+TRANSLATION_CHECK: PASS CSV and compiled resources are semantically identical
+Validated 19 data tables, localization, and 180 art IDs.
+Validated opaque app icon and 10 localized iPhone screenshots.
+Release gate blocked:
+- data/release_identity.json field product_name still needs the owner-provided value
+- data/release_identity.json field copyright_holder still needs the owner-provided value
+- data/release_identity.json field privacy_email still needs the owner-provided value
+- data/release_identity.json field support_email still needs the owner-provided value
+- data/release_identity.json field privacy_url still needs the owner-provided value
+- data/release_identity.json field support_url still needs the owner-provided value
+- data/release_identity.json field effective_date still needs the owner-provided value
+- data/release_identity.json field ad_providers still needs the owner-provided value
+- missing enabled iOS plugin descriptors under ios/plugins (StoreKit/IAP required)
